@@ -1,0 +1,24 @@
+{
+  "name": "@freenary/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@freenary/db": "workspace:*",
+    "@freenary/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@freenary/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
