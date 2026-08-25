@@ -1,6 +1,12 @@
-# freenary
+# Freenary
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Elysia, ORPC, and more.
+**Freenary** is an open-source personal finance and wealth-management platform. It aggregates banking, investments, assets, liabilities and transactions from multiple providers into a single financial model, and uses that model to provide budgeting, portfolio analytics, planning, simulations and AI-assisted financial insights.
+
+The goal is a user-controlled **financial operating system**: connect your financial data, understand the present, analyze what can be improved, define where you want to go, simulate possible futures and make better-informed decisions — all from one open platform that you can host, extend and customize.
+
+## Built with
+
+This project uses [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Elysia, ORPC, and more.
 
 ## Features
 
@@ -44,8 +50,7 @@ Then, run the development server:
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application. The API is running at [http://localhost:3000](http://localhost:3000).
 
 ## UI Customization
 
