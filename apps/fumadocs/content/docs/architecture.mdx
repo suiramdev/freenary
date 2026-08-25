@@ -1,0 +1,29 @@
+---
+title: Architecture
+description: Open-source modularity, provider abstraction and privacy.
+icon: Blocks
+---
+
+Freenary's open-source nature is one of its most important differences from proprietary financial platforms. Users should be able to inspect how financial calculations work, understand how their data is processed and self-host the platform. Developers should be able to add connectors, asset classes, analytics, AI providers and specialized modules without rewriting the application.
+
+## Modularity
+
+- **Financial providers are adapters** behind a provider abstraction layer. Enable Banking becomes one implementation of a banking interface — coexisting with other Open Banking providers, institution-specific APIs, brokerage integrations and cryptocurrency APIs — not a dependency of the project.
+- **Market-data providers are replaceable**, including pricing, cryptocurrency data and foreign-exchange rates.
+- **AI providers are configurable**: local models, external APIs or a combination, chosen by the user.
+- **Core calculations are separated from the UI.**
+- **Assets, transactions, holdings, liabilities and goals use stable internal representations.**
+
+All imported data — whether from Enable Banking, another Open Banking provider, a broker API, a crypto wallet or manual entry — is normalized into the same internal financial model, so users experience every connection as one unified system.
+
+Financial-data availability varies significantly by country, institution and account type; treating providers as interchangeable connectors is what makes multi-country, multi-institution coverage possible.
+
+## Privacy
+
+Freenary deals with highly sensitive financial information. A self-hosted deployment keeps users in control of their data, and AI integrations stay configurable so each user decides whether to rely on local models, external APIs or both.
+
+## One model, many perspectives
+
+Application sections are not independent mini-applications. A bank account connected through Enable Banking contributes its balance to Portfolio, its transactions to Budget, its available cash to the emergency-fund calculation and its history to AI analysis. A brokerage account contributes its value to net worth, its holdings to diversification, its dividends to income analytics and its growth toward Goals.
+
+This interconnected model — _understand your entire financial life, model what could happen next, and make better-informed decisions from one open platform_ — is what sets Freenary apart from a collection of isolated financial tools.

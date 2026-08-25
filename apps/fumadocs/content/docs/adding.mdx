@@ -1,0 +1,19 @@
+---
+title: Adding Accounts & Assets
+description: Synchronization through providers and manual entry for everything else.
+---
+
+Freenary supports both synchronization and manual entry. Automatic synchronization provides convenience; manual entry ensures the application can represent an entire financial life, even where no API exists.
+
+## Connecting a provider
+
+When synchronizing, the user chooses a bank or financial institution and establishes a connection through [Enable Banking](https://enablebanking.com) or another configured provider. After authorization, available accounts, balances and transactions are imported. The internal provider layer hides technical differences between providers so the workflow stays consistent regardless of the underlying connector.
+
+## Creating assets manually
+
+For unsupported assets, everything can be created manually:
+
+- **Securities** found by ticker, ISIN or name.
+- **Real estate** with acquisition value, estimated current value and associated mortgage.
+- **Crypto wallets** imported from supported chains or entered manually.
+- **Private investments** with ownership percentage and estimated company valuation.

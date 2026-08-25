@@ -1,0 +1,17 @@
+{
+  "title": "Freenary",
+  "defaultOpen": true,
+  "pages": [
+    "index",
+    "home",
+    "portfolio",
+    "adding",
+    "budget",
+    "analysis",
+    "goals",
+    "ai",
+    "invest",
+    "profiles",
+    "architecture"
+  ]
+}

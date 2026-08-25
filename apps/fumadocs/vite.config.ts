@@ -29,4 +29,12 @@ export default defineConfig({
       tslib: "tslib/tslib.es6.js",
     },
   },
+  optimizeDeps: {
+    exclude: ["shiki"],
+  },
+  build: {
+    rolldownOptions: {
+      external: [/\.wasm$/],
+    },
+  },
 });
