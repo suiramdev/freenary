@@ -1,11 +1,11 @@
-import { FlutedGlass, MeshGradient } from "@paper-design/shaders-react";
+import { Dithering, MeshGradient } from "@paper-design/shaders-react";
 
 /** Vibrant primary-derived palette: lime green, deep greens, dark base. */
 const SHADER_COLORS = ["#4d7c0f", "#84cc16", "#1a2e0a", "#65a30d", "#0a0a0a"];
 
 /**
- * Layered WebGL background: MeshGradient for flowing color, FlutedGlass on top
- * for ribbed glass texture. Used on login and onboarding pages.
+ * Layered WebGL background: MeshGradient for flowing color, Dithering on top
+ * for a retro dot-matrix texture. Used on login and onboarding pages.
  */
 export const ShaderBackground = () => (
   <>
@@ -16,21 +16,22 @@ export const ShaderBackground = () => (
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
       swirl={0.15}
     />
-    <FlutedGlass
-      angle={90}
-      blur={0.15}
+    <Dithering
       colorBack="#00000000"
-      colorHighlight="#ffffff"
-      colorShadow="#000000"
-      distortion={0.3}
-      distortionShape="prism"
-      edges={0.2}
-      highlights={0.08}
-      margin={0}
-      shadows={0.15}
-      shape="lines"
-      size={0.35}
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      colorFront="#84cc16"
+      scale={0.7}
+      shape="warp"
+      size={2}
+      speed={0.4}
+      style={{
+        mixBlendMode: "overlay",
+        opacity: 0.5,
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+      }}
+      type="4x4"
     />
   </>
 );
