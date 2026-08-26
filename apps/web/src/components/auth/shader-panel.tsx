@@ -2,8 +2,8 @@ import { DotGrid } from "@paper-design/shaders-react";
 
 import { Bar } from "@/components/dither-kit/bar";
 import { BarChart } from "@/components/dither-kit/bar-chart";
-import { Sparkline } from "@/components/dither-kit/sparkline";
 import { DitherProgress } from "@/components/dither-kit/progress";
+import { Sparkline } from "@/components/dither-kit/sparkline";
 
 const monthlySpending = [
   2100, 2800, 2400, 3100, 2900, 3400, 2700, 3200, 2600, 3000, 2850, 3247,
@@ -22,8 +22,8 @@ const weeklyData = [
 const weeklyConfig = { amount: { color: "green" as const } };
 
 const netWorthTrend = [
-  32000, 33500, 34200, 35800, 37100, 38500, 36900, 39200, 41000, 43500, 45200,
-  47850,
+  32_000, 33_500, 34_200, 35_800, 37_100, 38_500, 36_900, 39_200, 41_000, 43_500, 45_200,
+  47_850,
 ];
 
 export const ShaderPanel = () => (
@@ -39,7 +39,7 @@ export const ShaderPanel = () => (
       size={1}
       sizeRange={0}
       strokeWidth={0}
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      style={{ height: "100%", inset: 0, position: "absolute", width: "100%" }}
     />
 
     <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 p-8">
@@ -83,7 +83,7 @@ export const ShaderPanel = () => (
             data={weeklyData}
             config={weeklyConfig}
             interactive={false}
-            margins={{ top: 2, right: 0, bottom: 0, left: 0 }}
+            margins={{ bottom: 0, left: 0, right: 0, top: 2 }}
             className="h-[64px] w-full"
           >
             <Bar dataKey="amount" />

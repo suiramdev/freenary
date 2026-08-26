@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useCommonChart } from "./common-context"
-import { cn } from "./lib"
-import { rgb } from "./palette"
+import { useCommonChart } from "./common-context";
+import { cn } from "./lib";
+import { rgb } from "./palette";
 
 /** Series/slice legend. With `isClickable`, each entry toggles its selection.
  * Works in every chart family via the shared common context.
@@ -15,10 +15,10 @@ export function Legend({
   isClickable = false,
   align = "right",
 }: {
-  isClickable?: boolean
-  align?: "left" | "center" | "right"
+  isClickable?: boolean;
+  align?: "left" | "center" | "right";
 }) {
-  const chart = useCommonChart()
+  const chart = useCommonChart();
 
   return (
     <div
@@ -30,9 +30,9 @@ export function Legend({
       )}
     >
       {chart.names.map((name) => {
-        const seed = chart.seedOf(name)
-        const emphasis = chart.selectedDataKey ?? chart.focusDataKey
-        const dimmed = emphasis !== null && emphasis !== name
+        const seed = chart.seedOf(name);
+        const emphasis = chart.selectedDataKey ?? chart.focusDataKey;
+        const dimmed = emphasis !== null && emphasis !== name;
         return (
           <button
             key={name}
@@ -48,9 +48,9 @@ export function Legend({
             onFocus={() => chart.setFocusDataKey(name)}
             onBlur={() => chart.setFocusDataKey(null)}
             className={cn(
-              "flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground transition-opacity",
+              "text-muted-foreground flex items-center gap-1.5 font-mono text-[11px] transition-opacity",
               isClickable &&
-                "pointer-events-auto cursor-pointer hover:text-foreground",
+                "hover:text-foreground pointer-events-auto cursor-pointer",
               dimmed && "opacity-40"
             )}
           >
@@ -60,10 +60,10 @@ export function Legend({
             />
             {chart.labelOf(name)}
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
-Legend.chartLayer = "dom" as const
+Legend.chartLayer = "dom" as const;

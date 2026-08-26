@@ -22,7 +22,9 @@ export const BankCard = ({
   <div
     className={cn(
       "flex items-center gap-3 border px-4 py-3 transition-colors",
-      connected ? "border-primary bg-secondary text-foreground" : "border-border bg-card"
+      connected
+        ? "border-primary bg-secondary text-foreground"
+        : "border-border bg-card"
     )}
   >
     <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden">

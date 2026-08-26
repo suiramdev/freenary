@@ -1,17 +1,17 @@
-import { useChartPart } from "./chart-context"
+import { useChartPart } from "./chart-context";
 
 export function Grid({
   horizontal = true,
   vertical = false,
   strokeDasharray = "3 3",
 }: {
-  horizontal?: boolean
-  vertical?: boolean
-  strokeDasharray?: string
+  horizontal?: boolean;
+  vertical?: boolean;
+  strokeDasharray?: string;
 }) {
-  const ctx = useChartPart("Grid")
-  if (!ctx.ready) return null
-  const { width } = ctx.plot
+  const ctx = useChartPart("Grid");
+  if (!ctx.ready) {return null;}
+  const { width } = ctx.plot;
 
   return (
     <g className="stroke-border" strokeDasharray={strokeDasharray}>
@@ -39,8 +39,8 @@ export function Grid({
           />
         ))}
     </g>
-  )
+  );
 }
 
 // Render beneath the dither canvas so grid lines sit behind the fill.
-Grid.chartLayer = "back" as const
+Grid.chartLayer = "back" as const;

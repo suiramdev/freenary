@@ -1,4 +1,4 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react"
+import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -30,7 +30,9 @@ export const Route = createFileRoute("/callback/enable-banking")({
       const result = await client.bankConnection.exchangeCode({
         code: search.code,
       });
-      return { exchangeResult: { accounts: result.accounts, ok: true as const } };
+      return {
+        exchangeResult: { accounts: result.accounts, ok: true as const },
+      };
     } catch {
       return { exchangeResult: { ok: false as const } };
     }
@@ -50,7 +52,7 @@ function EnableBankingCallback() {
       toast.success(
         count > 0
           ? `Connected ${count} account${count > 1 ? "s" : ""}`
-          : "Bank connected",
+          : "Bank connected"
       );
     } else {
       toast.error("Bank connection failed. You can try again or skip.");
@@ -60,8 +62,8 @@ function EnableBankingCallback() {
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-3">
-      <SpinnerGapIcon className="size-6 animate-spin text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
+      <SpinnerGapIcon className="text-muted-foreground size-6 animate-spin" />
+      <p className="text-muted-foreground text-sm">
         Connecting your bank account...
       </p>
     </div>

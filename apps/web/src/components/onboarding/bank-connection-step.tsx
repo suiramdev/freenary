@@ -1,6 +1,10 @@
 import { Button } from "@freenary/ui/components/button";
 import { Input } from "@freenary/ui/components/input";
-import { ArrowLeft, SpinnerGapIcon, MagnifyingGlass } from "@phosphor-icons/react"
+import {
+  ArrowLeft,
+  SpinnerGapIcon,
+  MagnifyingGlass,
+} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -56,8 +60,8 @@ export const BankConnectionStep = ({
     if (result?.url) {
       onConnected(bankName);
       persistOnboardingState({
-        country,
         connectedBanks: [...connected, bankName],
+        country,
       });
       window.location.assign(result.url);
     } else {

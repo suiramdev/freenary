@@ -1,10 +1,11 @@
-import { useEffect } from "react"
-import type { AreaVariant } from "./chart-context"
-import { usePolarPart } from "./polar-context"
+import { useEffect } from "react";
 
-export type PieProps = {
+import type { AreaVariant } from "./chart-context";
+import { usePolarPart } from "./polar-context";
+
+export interface PieProps {
   /** Fill texture applied to every slice. */
-  variant?: AreaVariant
+  variant?: AreaVariant;
 }
 
 /**
@@ -12,13 +13,13 @@ export type PieProps = {
  * sets the shared fill variant. The dithered wedges are painted on the canvas.
  */
 export function Pie({ variant = "gradient" }: PieProps) {
-  const ctx = usePolarPart("Pie", "pie")
-  const { registerVariant, unregisterVariant } = ctx
+  const ctx = usePolarPart("Pie", "pie");
+  const { registerVariant, unregisterVariant } = ctx;
 
   useEffect(() => {
-    registerVariant("*", variant)
-    return () => unregisterVariant("*")
-  }, [variant, registerVariant, unregisterVariant])
+    registerVariant("*", variant);
+    return () => unregisterVariant("*");
+  }, [variant, registerVariant, unregisterVariant]);
 
-  return null
+  return null;
 }

@@ -70,9 +70,7 @@ const link = new RPCLink({
   url: `${getServerUrl(env.VITE_SERVER_URL)}/rpc`,
 });
 
-const getORPCClient = () => 
-  createORPCClient(link) as RouterClient<AppRouter>
-;
+const getORPCClient = () => createORPCClient(link) as RouterClient<AppRouter>;
 
 export const client: RouterClient<AppRouter> = getORPCClient();
 

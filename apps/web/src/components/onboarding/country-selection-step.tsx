@@ -5,9 +5,10 @@ import { ArrowRight, MagnifyingGlass } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { GITHUB_REPO_URL } from "@/lib/constants";
+
 import { OnboardingStepHeader } from "./onboarding-step-header";
 
-type Country = { code: string; flag: string; name: string };
+interface Country { code: string; flag: string; name: string }
 
 const SUPPORTED_CODES = new Set(["FR"]);
 
@@ -53,7 +54,7 @@ const COUNTRIES: Country[] = [
   { code: "CG", flag: "\u{1F1E8}\u{1F1EC}", name: "Congo" },
   { code: "CD", flag: "\u{1F1E8}\u{1F1E9}", name: "Congo (DRC)" },
   { code: "CR", flag: "\u{1F1E8}\u{1F1F7}", name: "Costa Rica" },
-  { code: "CI", flag: "\u{1F1E8}\u{1F1EE}", name: "C\u00f4te d\u2019Ivoire" },
+  { code: "CI", flag: "\u{1F1E8}\u{1F1EE}", name: "C\u00F4te d\u2019Ivoire" },
   { code: "HR", flag: "\u{1F1ED}\u{1F1F7}", name: "Croatia" },
   { code: "CU", flag: "\u{1F1E8}\u{1F1FA}", name: "Cuba" },
   { code: "CY", flag: "\u{1F1E8}\u{1F1FE}", name: "Cyprus" },
@@ -159,10 +160,18 @@ const COUNTRIES: Country[] = [
   { code: "RW", flag: "\u{1F1F7}\u{1F1FC}", name: "Rwanda" },
   { code: "KN", flag: "\u{1F1F0}\u{1F1F3}", name: "Saint Kitts and Nevis" },
   { code: "LC", flag: "\u{1F1F1}\u{1F1E8}", name: "Saint Lucia" },
-  { code: "VC", flag: "\u{1F1FB}\u{1F1E8}", name: "Saint Vincent and the Grenadines" },
+  {
+    code: "VC",
+    flag: "\u{1F1FB}\u{1F1E8}",
+    name: "Saint Vincent and the Grenadines",
+  },
   { code: "WS", flag: "\u{1F1FC}\u{1F1F8}", name: "Samoa" },
   { code: "SM", flag: "\u{1F1F8}\u{1F1F2}", name: "San Marino" },
-  { code: "ST", flag: "\u{1F1F8}\u{1F1F9}", name: "S\u00e3o Tom\u00e9 and Pr\u00edncipe" },
+  {
+    code: "ST",
+    flag: "\u{1F1F8}\u{1F1F9}",
+    name: "S\u00E3o Tom\u00E9 and Pr\u00EDncipe",
+  },
   { code: "SA", flag: "\u{1F1F8}\u{1F1E6}", name: "Saudi Arabia" },
   { code: "SN", flag: "\u{1F1F8}\u{1F1F3}", name: "Senegal" },
   { code: "RS", flag: "\u{1F1F7}\u{1F1F8}", name: "Serbia" },
@@ -228,8 +237,7 @@ export const CountrySelectionStep = ({
       ? COUNTRIES.filter((c) => {
           const q = search.toLowerCase();
           return (
-            c.name.toLowerCase().includes(q) ||
-            c.code.toLowerCase().includes(q)
+            c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
           );
         })
       : [...COUNTRIES];
@@ -274,9 +282,9 @@ export const CountrySelectionStep = ({
               className={cn(
                 "flex w-full items-center gap-3 border px-4 py-3 text-left text-sm transition-colors",
                 supported
-                  ? isSelected
+                  ? (isSelected
                     ? "border-primary bg-secondary text-foreground"
-                    : "border-border bg-card hover:border-primary hover:bg-muted text-foreground"
+                    : "border-border bg-card hover:border-primary hover:bg-muted text-foreground")
                   : "border-border bg-muted text-muted-foreground cursor-not-allowed"
               )}
             >
@@ -303,7 +311,12 @@ export const CountrySelectionStep = ({
         </a>
       </p>
       <div className="flex justify-end">
-        <Button disabled={!selected} onClick={onContinue} size="lg" type="button">
+        <Button
+          disabled={!selected}
+          onClick={onContinue}
+          size="lg"
+          type="button"
+        >
           Continue
           <ArrowRight className="size-4" />
         </Button>

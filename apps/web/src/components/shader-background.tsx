@@ -12,6 +12,6 @@ export const ShaderBackground = () => (
     size={1}
     sizeRange={0}
     strokeWidth={0}
-    style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    style={{ height: "100%", inset: 0, position: "absolute", width: "100%" }}
   />
 );

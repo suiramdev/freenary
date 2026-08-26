@@ -1,6 +1,6 @@
-import type { ChartConfig } from "./chart-context"
-import { cn } from "./lib"
-import { rgb, seedOfColor } from "./palette"
+import type { ChartConfig } from "./chart-context";
+import { cn } from "./lib";
+import { rgb, seedOfColor } from "./palette";
 
 /**
  * An in-flow legend rendered as a sibling of the chart rather than an overlay.
@@ -22,11 +22,11 @@ export function BlockLegend({
   align = "start",
   className,
 }: {
-  config: ChartConfig
-  values?: Record<string, number>
-  valueFormatter?: (value: number) => string
-  align?: "start" | "center" | "end"
-  className?: string
+  config: ChartConfig;
+  values?: Record<string, number>;
+  valueFormatter?: (value: number) => string;
+  align?: "start" | "center" | "end";
+  className?: string;
 }) {
   return (
     <ul
@@ -38,24 +38,24 @@ export function BlockLegend({
       )}
     >
       {Object.entries(config).map(([name, entry]) => {
-        const seed = seedOfColor(entry.color)
-        const value = values?.[name]
+        const seed = seedOfColor(entry.color);
+        const value = values?.[name];
         return (
           <li
             key={name}
-            className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
+            className="text-muted-foreground flex items-center gap-1.5 font-mono text-[11px]"
           >
             <span
               className="size-2 rounded-[1px]"
               style={{ backgroundColor: rgb(seed.fill) }}
             />
             <span>{entry.label ?? name}</span>
-            {value !== undefined ? (
+            {value === undefined ? null : (
               <span className="text-foreground">{valueFormatter(value)}</span>
-            ) : null}
+            )}
           </li>
-        )
+        );
       })}
     </ul>
-  )
+  );
 }

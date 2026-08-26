@@ -1,25 +1,29 @@
-import { useChart } from "./chart-context"
-import { rgb, type Seed } from "./palette"
-import { useSeries } from "./series-context"
+import { useChart } from "./chart-context";
+import { rgb } from './palette';
+import type { Seed } from './palette';
+import { useSeries } from "./series-context";
 
-export type DotVariant = "border" | "colored-border" | "filled"
+export type DotVariant = "border" | "colored-border" | "filled";
 
 function dotPaint(variant: DotVariant, seed: Seed) {
   switch (variant) {
-    case "colored-border":
+    case "colored-border": {
       return {
         fill: "var(--card, #0b0b0c)",
         stroke: rgb(seed.line),
         strokeWidth: 1.5,
-      }
-    case "filled":
-      return { fill: rgb(seed.star), stroke: rgb(seed.line), strokeWidth: 1 }
-    default:
+      };
+    }
+    case "filled": {
+      return { fill: rgb(seed.star), stroke: rgb(seed.line), strokeWidth: 1 };
+    }
+    default: {
       return {
         fill: "var(--card, #0b0b0c)",
         stroke: rgb(seed.star, 0.8),
         strokeWidth: 1,
-      }
+      };
+    }
   }
 }
 
@@ -28,14 +32,14 @@ export function Dot({
   variant = "border",
   r = 2,
 }: {
-  variant?: DotVariant
-  r?: number
+  variant?: DotVariant;
+  r?: number;
 }) {
-  const ctx = useChart()
-  const { dataKey, seed } = useSeries("Dot")
-  const band = ctx.bands[dataKey]
-  if (!ctx.ready || !band) return null
-  const paint = dotPaint(variant, seed)
+  const ctx = useChart();
+  const { dataKey, seed } = useSeries("Dot");
+  const band = ctx.bands[dataKey];
+  if (!ctx.ready || !band) {return null;}
+  const paint = dotPaint(variant, seed);
 
   return (
     // Fade in once the fill has drawn so dots don't float over the entrance.
@@ -56,7 +60,7 @@ export function Dot({
         />
       ))}
     </g>
-  )
+  );
 }
 
 /** A single marker at the hovered point — keys off the shared hover index. */
@@ -64,19 +68,19 @@ export function ActiveDot({
   variant = "colored-border",
   r = 3,
 }: {
-  variant?: DotVariant
-  r?: number
+  variant?: DotVariant;
+  r?: number;
 }) {
-  const ctx = useChart()
-  const { dataKey, seed } = useSeries("ActiveDot")
-  const band = ctx.bands[dataKey]
+  const ctx = useChart();
+  const { dataKey, seed } = useSeries("ActiveDot");
+  const band = ctx.bands[dataKey];
   if (!ctx.ready || !band || ctx.hoverIndex == null || !ctx.entranceDone)
-    return null
-  const b = band[ctx.hoverIndex]
-  if (!b) return null
-  const paint = dotPaint(variant, seed)
-  const cx = ctx.xCenter(ctx.hoverIndex)
-  const cy = ctx.y(b[1])
+    {return null;}
+  const b = band[ctx.hoverIndex];
+  if (!b) {return null;}
+  const paint = dotPaint(variant, seed);
+  const cx = ctx.xCenter(ctx.hoverIndex);
+  const cy = ctx.y(b[1]);
 
   return (
     <g>
@@ -84,5 +88,5 @@ export function ActiveDot({
       <circle cx={cx} cy={cy} r={r + 3} fill={rgb(seed.line, 1, 0.18)} />
       <circle cx={cx} cy={cy} r={r} {...paint} strokeWidth={2} />
     </g>
-  )
+  );
 }
