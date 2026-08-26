@@ -1,3 +1,72 @@
+# Working in this repository
+
+**Read [`CONTEXT.md`](CONTEXT.md) first.** Freenary is an open-source, AI-powered
+personal finance and wealth-management platform. It aggregates banking, investments,
+assets, liabilities and transactions from multiple providers into a single financial
+model and uses that model to provide budgeting, portfolio analytics, planning,
+simulations and AI-assisted financial insights. `CONTEXT.md` is the glossary: the
+settled definition of each term. Architecture decisions live in `docs/adr/`.
+
+The rest of this file covers how to get a working stack, what every change owes the
+docs, how to write the pull request, and the code-quality standard.
+
+## Getting a Working Stack
+
+Two paths — Docker Compose or bare Bun.
+
+### Bare Bun (development)
+
+```bash
+bun install
+bun run db:start          # starts the Postgres container
+bun run db:push           # applies the Prisma schema
+bun run dev               # starts web (port 3001) + server (port 3000)
+```
+
+The server needs `apps/server/.env` with at least `DATABASE_URL`,
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `CORS_ORIGIN`. The web app needs
+`VITE_SERVER_URL` (defaults to `http://localhost:3000` in dev).
+
+### Docker Compose (production-like)
+
+```bash
+bun run docker:up         # builds and starts web + server + postgres
+bun run docker:logs       # tail logs
+bun run docker:down       # tear down
+```
+
+Environment variables are read from each app's `.env` file and overridden in
+`docker-compose.yml` for container networking.
+
+## Documentation: Ship It With the Change
+
+[`apps/fumadocs`](apps/fumadocs) is the public documentation site (Fumadocs on
+TanStack Start). It is **part of the change, never a follow-up** — a PR that alters
+documented behavior and leaves the docs stale is incomplete.
+
+**Update the docs when your change touches any of these:**
+
+- A user-visible flow or screen in `apps/web`.
+- A public API route, its input schema, or its auth/permission rules.
+- A domain concept or any vocabulary in `packages/db` — the docs quote these verbatim.
+- An environment variable, Docker Compose service, or root `package.json` script.
+- Architecture a new contributor would have to reverse-engineer from the diff.
+
+Pure refactors, internal helpers, and dependency bumps that change no documented
+behavior need no docs change. Say so in the PR rather than leaving it ambiguous.
+
+## Pull Request Descriptions: Complete, Then Brief
+
+- **Reviewers skim.** Keep the whole body under ~400 words. Fill every section; pad none.
+- **Summary:** at most four sentences — what changed, and what to look at first.
+- **Motivation, Drawbacks, Prior art:** at most four short bullets each.
+- Don't restate the issue, list changed files, narrate the implementation, or paste
+  command output — reviewers open the diff and the linked issue for that.
+- Evidence a reviewer may want but need not read (verification logs, benchmark runs)
+  belongs in a PR comment, not the description.
+
+---
+
 # Ultracite Code Standards
 
 This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
@@ -70,6 +139,14 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Prefer simple conditionals over nested ternary operators
 - Group related code together and separate concerns
 
+### Code Comments: Document the "Why", Briefly
+
+- **Prefer self-explanatory code first.** Clear naming, simple structure, and readable control flow should carry the meaning — reach for a comment only when the code genuinely can't.
+- When writing or modifying code driven by a design doc or non-obvious constraint, add a comment explaining **why** the code behaves the way it does (safety constraint, compatibility shim, design-doc rule).
+- Keep comments short — one or two lines. Capture only the non-obvious reason.
+- Don't restate what the code does, narrate the mechanism, cite design-doc sections verbatim, or explain adjacent API choices unless they're the point.
+- A comment longer than three lines is a smell: the code may need simplifying, or the explanation belongs in `docs/` rather than inline.
+
 ### Security
 
 - Add `rel="noopener"` when using `target="_blank"` on links
@@ -87,19 +164,9 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 ### Framework-Specific Guidance
 
-**Next.js:**
-
-- Use Next.js `<Image>` component for images
-- Use `next/head` or App Router metadata API for head elements
-- Use Server Components for async data fetching instead of async Client Components
-
 **React 19+:**
 
 - Use ref as a prop instead of `React.forwardRef`
-
-**Solid/Svelte/Vue/Qwik:**
-
-- Use `class` and `for` attributes (not `className` or `htmlFor`)
 
 ---
 
