@@ -22,19 +22,21 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { authClient } from "@/lib/auth-client";
 import { client } from "@/utils/orpc";
 
-const routeTitles: Record<string, string> = {
+const routeTitles = {
   "/_auth/": "Home",
   "/_auth/portfolio": "Portfolio",
   "/_auth/budget": "Budget",
   "/_auth/analysis": "Analysis",
   "/_auth/goals": "Goals",
   "/_auth/ai": "AI",
-};
+} satisfies Record<string, string>;
 
 const AuthLayout = () => {
   const matches = useMatches();
   const leafMatch = matches.at(-1);
-  const pageTitle = routeTitles[leafMatch?.routeId ?? ""] ?? "Home";
+  // SAFETY: routeId may not match a known key; the fallback ?? "Home" handles unknown routes
+  const pageTitle =
+    routeTitles[leafMatch?.routeId as keyof typeof routeTitles] ?? "Home";
 
   return (
     <TooltipProvider>
@@ -52,7 +54,9 @@ const AuthLayout = () => {
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <Outlet />
+          <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
+            <Outlet />
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
