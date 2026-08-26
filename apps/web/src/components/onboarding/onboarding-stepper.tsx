@@ -27,9 +27,9 @@ export const OnboardingStepper = ({
               className={cn(
                 "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors",
                 isComplete && "bg-primary text-primary-foreground ring-primary",
-                isCurrent && "bg-primary/10 text-primary ring-primary",
+                isCurrent && "bg-secondary text-primary ring-primary",
                 !(isComplete || isCurrent) &&
-                  "text-muted-foreground ring-border"
+                  "bg-background text-muted-foreground ring-border"
               )}
             >
               {isComplete ? <Check className="size-3.5" /> : index + 1}

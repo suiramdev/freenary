@@ -22,7 +22,7 @@ export const BankCard = ({
   <div
     className={cn(
       "flex items-center gap-3 border px-4 py-3 transition-colors",
-      connected ? "border-primary/30 bg-primary/5" : "border-border"
+      connected ? "border-primary bg-secondary text-foreground" : "border-border bg-card"
     )}
   >
     <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden">
@@ -47,7 +47,7 @@ export const BankCard = ({
         onClick={onConnect}
         size="sm"
         type="button"
-        variant="outline"
+        variant="secondary"
       >
         {connecting ? (
           <SpinnerGapIcon className="size-3.5 animate-spin" />

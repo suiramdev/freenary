@@ -3,6 +3,7 @@ import { DotGrid } from "@paper-design/shaders-react";
 import { Bar } from "@/components/dither-kit/bar";
 import { BarChart } from "@/components/dither-kit/bar-chart";
 import { Sparkline } from "@/components/dither-kit/sparkline";
+import { DitherProgress } from "@/components/dither-kit/progress";
 
 const monthlySpending = [
   2100, 2800, 2400, 3100, 2900, 3400, 2700, 3200, 2600, 3000, 2850, 3247,
@@ -71,9 +72,7 @@ export const ShaderPanel = () => (
             <p className="text-lg font-bold tabular-nums">$8,400</p>
             <span className="text-muted-foreground text-xs">/ $12,000</span>
           </div>
-          <div className="bg-muted h-1.5 w-full overflow-hidden">
-            <div className="bg-primary h-full" style={{ width: "70%" }} />
-          </div>
+          <DitherProgress value={0.7} color="blue" className="h-1.5" />
         </div>
 
         {/* This Week */}

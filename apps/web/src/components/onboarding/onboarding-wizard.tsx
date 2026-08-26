@@ -15,15 +15,49 @@ import { OnboardingStepper } from "./onboarding-stepper";
 
 const STEPS = ["Country", "Bank connection"] as const;
 const STEPS_WITHOUT_BANKING = ["Country"] as const;
+const STORAGE_KEY = "freenary:onboarding";
+
+type PersistedState = {
+  country: string;
+  connectedBanks: string[];
+};
+
+function loadPersistedState(): PersistedState | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedState;
+  } catch {
+    return null;
+  }
+}
+
+export function persistOnboardingState(state: PersistedState) {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+
+function clearPersistedState() {
+  sessionStorage.removeItem(STORAGE_KEY);
+}
 
 export const OnboardingWizard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState(0);
-  const [country, setCountry] = useState<string | null>(null);
+  const [step, setStep] = useState(() => {
+    const saved = loadPersistedState();
+    return saved ? 1 : 0;
+  });
+  const [country, setCountry] = useState<string | null>(() => {
+    const saved = loadPersistedState();
+    return saved?.country ?? null;
+  });
   const [isCompleting, setIsCompleting] = useState(false);
   const [connectedBanks, setConnectedBanks] = useState<ReadonlySet<string>>(
-    () => new Set()
+    () => {
+      const saved = loadPersistedState();
+      return new Set(saved?.connectedBanks);
+    }
   );
 
   const ebAvailability = useQuery(
@@ -35,7 +69,13 @@ export const OnboardingWizard = () => {
   const hasBankStep = enableBankingAvailable;
 
   const markBankConnected = (name: string) => {
-    setConnectedBanks((prev) => new Set(prev).add(name));
+    setConnectedBanks((prev) => {
+      const next = new Set(prev).add(name);
+      if (country) {
+        persistOnboardingState({ country, connectedBanks: [...next] });
+      }
+      return next;
+    });
   };
 
   const completeOnboarding = async () => {
@@ -62,17 +102,23 @@ export const OnboardingWizard = () => {
 
   const handleCountryContinue = () => {
     if (hasBankStep) {
+      if (country) {
+        persistOnboardingState({ country, connectedBanks: [...connectedBanks] });
+      }
       setStep(1);
     } else {
+      clearPersistedState();
       void completeOnboarding();
     }
   };
 
   const handleFinish = () => {
+    clearPersistedState();
     void completeOnboarding();
   };
 
   const handleSignOut = () => {
+    clearPersistedState();
     authClient.signOut({
       fetchOptions: {
         onSuccess: () => navigate({ to: "/login" }),

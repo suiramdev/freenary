@@ -9,6 +9,7 @@ import { client, orpc } from "@/utils/orpc";
 
 import { BankCard } from "./bank-card";
 import { OnboardingStepHeader } from "./onboarding-step-header";
+import { persistOnboardingState } from "./onboarding-wizard";
 
 interface BankConnectionStepProps {
   connected: ReadonlySet<string>;
@@ -54,6 +55,10 @@ export const BankConnectionStep = ({
 
     if (result?.url) {
       onConnected(bankName);
+      persistOnboardingState({
+        country,
+        connectedBanks: [...connected, bankName],
+      });
       window.location.assign(result.url);
     } else {
       toast.error(`Could not connect to ${bankName}. Try again later.`);
@@ -70,7 +75,7 @@ export const BankConnectionStep = ({
       <div className="relative">
         <MagnifyingGlass className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
         <Input
-          className="pl-8"
+          className="bg-background pl-8"
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search banks..."
           type="search"
@@ -115,7 +120,7 @@ export const BankConnectionStep = ({
           Back
         </Button>
         <div className="flex items-center gap-2">
-          <Button onClick={onFinish} type="button" variant="outline">
+          <Button onClick={onFinish} type="button" variant="secondary">
             Skip for now
           </Button>
           <Button onClick={onFinish} type="button">
