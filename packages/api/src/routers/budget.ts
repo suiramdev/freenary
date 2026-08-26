@@ -1,8 +1,11 @@
+import type { Prisma } from "@freenary/db";
 import prisma from "@freenary/db";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
 import { getTransactions as ebGetTransactions } from "../lib/enable-banking";
+import { CATEGORY_LABELS, deriveCategory } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/mcc-categories";
 
 const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   `SELECT
@@ -17,6 +20,95 @@ const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
     AND t."date" <= $3
   GROUP BY ${truncExpr}, ${labelExpr}
   ORDER BY ${truncExpr} ASC`;
+
+
+type ConnectionWithAccounts = Awaited<
+  ReturnType<typeof prisma.bankConnection.findMany<{ include: { accounts: true } }>>
+>[number];
+
+const upsertTransaction = async (
+  accountId: string,
+  tx: Awaited<ReturnType<typeof ebGetTransactions>>["transactions"][number]
+) => {
+  const amountMinor = Math.round(tx.amount * 100);
+  const shared = {
+    amount: amountMinor,
+    balanceAfterTransaction: tx.balanceAfterTransaction ?? null,
+    bankTransactionCode: tx.bankTransactionCode ?? null,
+    bankTransactionSubCode: tx.bankTransactionSubCode ?? null,
+    counterpartyName: tx.counterpartyName ?? null,
+    creditorAccountIban: tx.creditorAccountIban ?? null,
+    currency: tx.currency,
+    date: new Date(tx.date),
+    debtorAccountIban: tx.debtorAccountIban ?? null,
+    description: tx.description,
+    exchangeRate: tx.exchangeRate ?? null,
+    merchantCategoryCode: tx.merchantCategoryCode ?? null,
+    referenceNumber: tx.referenceNumber ?? null,
+    status: tx.status,
+    transactionDate: tx.transactionDate ? new Date(tx.transactionDate) : null,
+    valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
+  };
+
+  await prisma.transaction.upsert({
+    create: {
+      ...shared,
+      accountId,
+      providerTransactionId: tx.transactionId,
+    },
+    update: shared,
+    where: {
+      accountId_providerTransactionId: {
+        accountId,
+        providerTransactionId: tx.transactionId,
+      },
+    },
+  });
+};
+
+const syncConnection = async (
+  connection: ConnectionWithAccounts,
+  errors: string[]
+) => {
+  try {
+    const now = new Date();
+    const syncFrom =
+      connection.lastSyncedAt ??
+      new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const dateFrom = syncFrom.toISOString().split("T")[0] ?? "";
+    const dateTo = now.toISOString().split("T")[0] ?? "";
+
+    for (const account of connection.accounts) {
+      try {
+        // eslint-disable-next-line no-await-in-loop -- accounts within a connection are synced sequentially to respect API rate limits
+        const { transactions } = await ebGetTransactions(
+          connection.providerSessionId,
+          account.providerAccountId,
+          dateFrom,
+          dateTo
+        );
+
+        for (const tx of transactions) {
+          // eslint-disable-next-line no-await-in-loop -- transaction upserts must be sequential to avoid unique constraint race conditions
+          await upsertTransaction(account.id, tx);
+        }
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "Unknown account error";
+        errors.push(`Account ${account.providerAccountId}: ${msg}`);
+      }
+    }
+
+    await prisma.bankConnection.update({
+      data: { lastSyncedAt: now },
+      where: { id: connection.id },
+    });
+  } catch (error) {
+    const msg =
+      error instanceof Error ? error.message : "Unknown connection error";
+    errors.push(`Connection ${connection.institutionName}: ${msg}`);
+  }
+};
 
 export const budgetRouter = {
   getAccounts: protectedProcedure.handler(async ({ context }) => {
@@ -92,6 +184,150 @@ export const budgetRouter = {
       };
     }),
 
+  getSankeyData: protectedProcedure
+    .input(
+      z.object({
+        from: z.coerce.date(),
+        to: z.coerce.date(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const { from, to } = input;
+
+      const transactions = await prisma.transaction.findMany({
+        select: {
+          amount: true,
+          bankTransactionCode: true,
+          counterpartyName: true,
+          merchantCategoryCode: true,
+        },
+        where: {
+          account: { connection: { userId } },
+          date: { gte: from, lte: to },
+        },
+      });
+
+      // Income side: group positive transactions by derived source label
+      const incomeSources = new Map<string, number>();
+      // Expense side: group negative transactions by spending category
+      const expenseCategories = new Map<SpendingCategory, number>();
+
+      for (const tx of transactions) {
+        if (tx.amount > 0) {
+          const source = tx.counterpartyName ?? "Other Income";
+          incomeSources.set(
+            source,
+            (incomeSources.get(source) ?? 0) + tx.amount
+          );
+        } else {
+          const category = deriveCategory(tx);
+          const abs = Math.abs(tx.amount);
+          expenseCategories.set(
+            category,
+            (expenseCategories.get(category) ?? 0) + abs
+          );
+        }
+      }
+
+      // Build nodes: income sources → "Budget" hub → expense categories
+      const incomeNodes = [...incomeSources.entries()]
+        .toSorted((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([name, value]) => ({ name, value }));
+
+      // Collapse remaining income sources into "Other Income"
+      const remainingIncome = [...incomeSources.entries()]
+        .toSorted((a, b) => b[1] - a[1])
+        .slice(10)
+        .reduce((sum, [, v]) => sum + v, 0);
+      if (remainingIncome > 0) {
+        const existing = incomeNodes.find((n) => n.name === "Other Income");
+        if (existing) {
+          existing.value += remainingIncome;
+        } else {
+          incomeNodes.push({ name: "Other Income", value: remainingIncome });
+        }
+      }
+
+      const expenseNodes = [...expenseCategories.entries()]
+        .map(([category, value]) => ({
+          category,
+          label: CATEGORY_LABELS[category],
+          value,
+        }))
+        .toSorted((a, b) => b.value - a.value);
+
+      const totalIncome = incomeNodes.reduce((s, n) => s + n.value, 0);
+      const totalExpenses = expenseNodes.reduce((s, n) => s + n.value, 0);
+
+      // Links: income → budget, budget → expenses
+      const incomeLinks = incomeNodes.map((n) => ({
+        source: n.name,
+        target: "Budget",
+        value: n.value,
+      }));
+
+      const expenseLinks = expenseNodes.map((n) => ({
+        source: "Budget",
+        target: n.label,
+        value: n.value,
+      }));
+
+      return {
+        expenseLinks,
+        expenseNodes,
+        incomeLinks,
+        incomeNodes,
+        totalExpenses,
+        totalIncome,
+      };
+    }),
+
+  getSpendingBreakdown: protectedProcedure
+    .input(
+      z.object({
+        from: z.coerce.date(),
+        to: z.coerce.date(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const { from, to } = input;
+
+      const transactions = await prisma.transaction.findMany({
+        select: {
+          amount: true,
+          bankTransactionCode: true,
+          counterpartyName: true,
+          merchantCategoryCode: true,
+        },
+        where: {
+          account: { connection: { userId } },
+          amount: { lt: 0 },
+          date: { gte: from, lte: to },
+        },
+      });
+
+      const totals = new Map<SpendingCategory, number>();
+
+      for (const tx of transactions) {
+        const category = deriveCategory(tx);
+        const abs = Math.abs(tx.amount);
+        totals.set(category, (totals.get(category) ?? 0) + abs);
+      }
+
+      const categories = [...totals.entries()]
+        .map(([category, amount]) => ({
+          amount,
+          category,
+          label: CATEGORY_LABELS[category],
+        }))
+        .toSorted((a, b) => b.amount - a.amount);
+
+      return { categories };
+    }),
+
   getTransactions: protectedProcedure
     .input(
       z.object({
@@ -108,12 +344,12 @@ export const budgetRouter = {
       const { cursor, direction, from, limit, search, to } = input;
 
       const dateFilter = { gte: from, lte: to };
-      const directionFilter =
-        direction === "incoming"
-          ? { gt: 0 }
-          : (direction === "outgoing"
-            ? { lt: 0 }
-            : undefined);
+      let directionFilter: { gt: number } | { lt: number } | undefined;
+      if (direction === "incoming") {
+        directionFilter = { gt: 0 };
+      } else if (direction === "outgoing") {
+        directionFilter = { lt: 0 };
+      }
 
       const searchFilter = search
         ? {
@@ -134,14 +370,14 @@ export const budgetRouter = {
           }
         : {};
 
-      const baseWhere = {
+      const baseWhere: Prisma.TransactionWhereInput = {
         account: { connection: { userId } },
+        amount: directionFilter,
         date: dateFilter,
-        ...(directionFilter ? { amount: directionFilter } : {}),
         ...searchFilter,
       };
 
-      const transactions = await prisma.transaction.findMany({
+      const findManyOpts: Prisma.TransactionFindManyArgs = {
         orderBy: [{ date: "desc" }, { id: "desc" }],
         select: {
           amount: true,
@@ -153,13 +389,13 @@ export const budgetRouter = {
         },
         take: limit + 1,
         where: baseWhere,
-        ...(cursor
-          ? {
-              cursor: { id: cursor },
-              skip: 1,
-            }
-          : {}),
-      });
+      };
+      if (cursor) {
+        findManyOpts.cursor = { id: cursor };
+        findManyOpts.skip = 1;
+      }
+
+      const transactions = await prisma.transaction.findMany(findManyOpts);
 
       let nextCursor: string | null = null;
       if (transactions.length > limit) {
@@ -205,68 +441,8 @@ export const budgetRouter = {
     });
 
     for (const connection of connections) {
-      try {
-        const now = new Date();
-        const syncFrom =
-          connection.lastSyncedAt ??
-          new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        const dateFrom = syncFrom.toISOString().split("T")[0]!;
-        const dateTo = now.toISOString().split("T")[0]!;
-
-        for (const account of connection.accounts) {
-          try {
-            const { transactions } = await ebGetTransactions(
-              connection.providerSessionId,
-              account.providerAccountId,
-              dateFrom,
-              dateTo
-            );
-
-            for (const tx of transactions) {
-              // Amount from EB is a float in major units — convert to minor units (cents)
-              const amountMinor = Math.round(tx.amount * 100);
-
-              await prisma.transaction.upsert({
-                create: {
-                  accountId: account.id,
-                  amount: amountMinor,
-                  counterpartyName: tx.counterpartyName ?? null,
-                  currency: tx.currency,
-                  date: new Date(tx.date),
-                  description: tx.description,
-                  providerTransactionId: tx.transactionId,
-                },
-                update: {
-                  amount: amountMinor,
-                  counterpartyName: tx.counterpartyName ?? null,
-                  currency: tx.currency,
-                  date: new Date(tx.date),
-                  description: tx.description,
-                },
-                where: {
-                  accountId_providerTransactionId: {
-                    accountId: account.id,
-                    providerTransactionId: tx.transactionId,
-                  },
-                },
-              });
-            }
-          } catch (error) {
-            const msg =
-              error instanceof Error ? error.message : "Unknown account error";
-            errors.push(`Account ${account.providerAccountId}: ${msg}`);
-          }
-        }
-
-        await prisma.bankConnection.update({
-          data: { lastSyncedAt: now },
-          where: { id: connection.id },
-        });
-      } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : "Unknown connection error";
-        errors.push(`Connection ${connection.institutionName}: ${msg}`);
-      }
+      // eslint-disable-next-line no-await-in-loop -- connections must be synced sequentially to avoid overwhelming the external API
+      await syncConnection(connection, errors);
     }
 
     return {

@@ -170,6 +170,8 @@ interface EBTransaction {
   entry_reference?: string;
   transaction_id?: string;
   booking_date?: string;
+  value_date?: string;
+  transaction_date?: string;
   transaction_amount?: {
     amount?: string;
     currency?: string;
@@ -178,7 +180,69 @@ interface EBTransaction {
   creditor?: { name?: string };
   debtor?: { name?: string };
   credit_debit_indicator?: string;
+  merchant_category_code?: string;
+  bank_transaction_code?: {
+    description?: string;
+    code?: string;
+    sub_code?: string;
+  };
+  status?: string;
+  balance_after_transaction?: {
+    amount?: string;
+    currency?: string;
+  };
+  creditor_account?: { iban?: string };
+  debtor_account?: { iban?: string };
+  reference_number?: string;
+  exchange_rate?: {
+    exchange_rate?: string;
+  };
 }
+
+const mapTransactionAmount = (tx: EBTransaction) => {
+  const abs = Number(tx.transaction_amount?.amount ?? "0");
+  // DBIT = money leaving the account (outgoing), CRDT = money entering (incoming)
+  const sign = tx.credit_debit_indicator === "DBIT" ? -1 : 1;
+  return {
+    amount: abs * sign,
+    currency: tx.transaction_amount?.currency ?? "EUR",
+  };
+};
+
+const mapTransactionAccounts = (tx: EBTransaction) => ({
+  counterpartyName: tx.creditor?.name ?? tx.debtor?.name ?? undefined,
+  creditorAccountIban: tx.creditor_account?.iban ?? undefined,
+  debtorAccountIban: tx.debtor_account?.iban ?? undefined,
+});
+
+const mapTransactionDates = (tx: EBTransaction, fallbackDate: string) => ({
+  date: tx.booking_date ?? fallbackDate,
+  transactionDate: tx.transaction_date ?? undefined,
+  valueDate: tx.value_date ?? undefined,
+});
+
+const mapTransactionMetadata = (tx: EBTransaction) => ({
+  bankTransactionCode: tx.bank_transaction_code?.description ?? undefined,
+  bankTransactionSubCode: tx.bank_transaction_code?.sub_code ?? undefined,
+  description: tx.remittance_information?.join(" ") ?? "",
+  exchangeRate: tx.exchange_rate?.exchange_rate ?? undefined,
+  merchantCategoryCode: tx.merchant_category_code ?? undefined,
+  referenceNumber: tx.reference_number ?? undefined,
+  status: tx.status ?? "BOOK",
+  transactionId:
+    tx.transaction_id ?? tx.entry_reference ?? crypto.randomUUID(),
+});
+
+/** Maps an Enable Banking transaction to the normalized application format. */
+const mapEBTransaction = (tx: EBTransaction, fallbackDate: string) => ({
+  ...mapTransactionAmount(tx),
+  ...mapTransactionAccounts(tx),
+  ...mapTransactionDates(tx, fallbackDate),
+  ...mapTransactionMetadata(tx),
+  balanceAfterTransaction: tx.balance_after_transaction?.amount
+    ? Math.round(Number(tx.balance_after_transaction.amount) * 100)
+    : undefined,
+});
 
 /**
  * Fetch transactions for a specific account from Enable Banking.
@@ -203,11 +267,23 @@ export const getTransactions = async (
     currency: string;
     description: string;
     counterpartyName?: string;
+    merchantCategoryCode?: string;
+    bankTransactionCode?: string;
+    bankTransactionSubCode?: string;
+    status: string;
+    valueDate?: string;
+    transactionDate?: string;
+    balanceAfterTransaction?: number;
+    creditorAccountIban?: string;
+    debtorAccountIban?: string;
+    referenceNumber?: string;
+    exchangeRate?: string;
   }[];
 }> => {
   const allTransactions: EBTransaction[] = [];
   let continuationKey: string | undefined;
 
+  // eslint-disable-next-line no-await-in-loop -- pagination must be sequential; each page depends on the previous continuation_key
   do {
     const params = new URLSearchParams({
       date_from: dateFrom,
@@ -217,20 +293,22 @@ export const getTransactions = async (
       params.set("continuation_key", continuationKey);
     }
 
+    // eslint-disable-next-line no-await-in-loop -- sequential pagination
     const response = await ebFetch(
       `/accounts/${encodeURIComponent(accountId)}/transactions?${params.toString()}`
     );
 
     if (!response.ok) {
+      // eslint-disable-next-line no-await-in-loop -- sequential pagination
       const text = await response.text();
       throw new Error(
         `Enable Banking transactions failed: ${response.status} ${text}`
       );
     }
 
-
     // SAFETY: Enable Banking GET /accounts/{id}/transactions returns
     // { transactions: EBTransaction[], continuation_key?: string }
+    // eslint-disable-next-line no-await-in-loop -- sequential pagination
     const data = (await response.json()) as {
       transactions?: EBTransaction[];
       continuation_key?: string;
@@ -244,19 +322,6 @@ export const getTransactions = async (
   } while (continuationKey);
 
   return {
-    transactions: allTransactions.map((tx) => {
-      const abs = Number.parseFloat(tx.transaction_amount?.amount ?? "0");
-      // DBIT = money leaving the account (outgoing), CRDT = money entering (incoming)
-      const sign = tx.credit_debit_indicator === "DBIT" ? -1 : 1;
-      return {
-        amount: abs * sign,
-        counterpartyName: tx.creditor?.name ?? tx.debtor?.name ?? undefined,
-        currency: tx.transaction_amount?.currency ?? "EUR",
-        date: tx.booking_date ?? dateFrom,
-        description: tx.remittance_information?.join(" ") ?? "",
-        transactionId:
-          tx.transaction_id ?? tx.entry_reference ?? crypto.randomUUID(),
-      };
-    }),
+    transactions: allTransactions.map((tx) => mapEBTransaction(tx, dateFrom)),
   };
 };

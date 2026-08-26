@@ -65,10 +65,33 @@ model Transaction {
   description       String      @default("")
   /// Counterparty name when available.
   counterpartyName  String?
+  /// ISO 18245 merchant category code (e.g. "5411" for grocery stores).
+  merchantCategoryCode  String?
+  /// Bank's own transaction classification description.
+  bankTransactionCode   String?
+  /// Bank's transaction sub-code.
+  bankTransactionSubCode String?
+  /// Transaction status: BOOK (default), PDNG, HOLD, SCHD, RJCT, OTHR.
+  status                String      @default("BOOK")
+  /// Value date — when funds become available.
+  valueDate             DateTime?
+  /// Transaction date — card swipe or transfer acquisition date.
+  transactionDate       DateTime?
+  /// Balance in minor units after this transaction.
+  balanceAfterTransaction Int?
+  /// Creditor (receiver) IBAN when available.
+  creditorAccountIban   String?
+  /// Debtor (sender) IBAN when available.
+  debtorAccountIban     String?
+  /// Structured creditor reference number.
+  referenceNumber       String?
+  /// Foreign exchange rate as a string.
+  exchangeRate          String?
   createdAt         DateTime    @default(now())
 
   @@unique([accountId, providerTransactionId])
   @@index([accountId, date])
   @@index([accountId, amount])
+  @@index([accountId, merchantCategoryCode])
   @@map("transaction")
 }
