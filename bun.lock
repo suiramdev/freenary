@@ -104,6 +104,9 @@
         "@tanstack/react-router-ssr-query": "^1.167.1",
         "@tanstack/react-start": "^1.168.32",
         "better-auth": "catalog:",
+        "clsx": "^2.1.1",
+        "d3-scale": "^4.0.2",
+        "d3-shape": "^3.2.0",
         "dotenv": "catalog:",
         "evlog": "catalog:",
         "next-themes": "catalog:",
@@ -111,6 +114,7 @@
         "react": "catalog:",
         "react-dom": "catalog:",
         "sonner": "catalog:",
+        "tailwind-merge": "^3.6.0",
         "tailwindcss": "catalog:",
         "zod": "catalog:",
       },
@@ -120,6 +124,8 @@
         "@tanstack/react-router-devtools": "^1.167.0",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
+        "@types/d3-scale": "^4.0.9",
+        "@types/d3-shape": "^3.2.0",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@vitejs/plugin-react": "^6.0.4",
@@ -207,6 +213,9 @@
         "@shadcn/react": "^0.2.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "d3-scale": "^4.0.2",
+        "d3-shape": "^3.2.0",
+        "motion": "^13.1.1",
         "next-themes": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
@@ -218,6 +227,8 @@
       "devDependencies": {
         "@freenary/config": "workspace:*",
         "@tailwindcss/postcss": "^4.3.3",
+        "@types/d3-scale": "^4.0.9",
+        "@types/d3-shape": "^3.2.0",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "tailwindcss": "catalog:",
@@ -851,9 +862,9 @@
 
     "@types/d3-path": ["@types/d3-path@3.1.1", "", {}, "sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg=="],
 
-    "@types/d3-scale": ["@types/d3-scale@4.0.2", "", { "dependencies": { "@types/d3-time": "*" } }, "sha512-Yk4htunhPAwN0XGlIwArRomOjdoBFXC3+kCxK2Ubg7I9shQlVSJy/pG/Ht5ASN+gdMIalpk8TJ5xV74jFsetLA=="],
+    "@types/d3-scale": ["@types/d3-scale@4.0.9", "", { "dependencies": { "@types/d3-time": "*" } }, "sha512-dLmtwB8zkAeO/juAMfnV+sItKjlsw2lKdZVVy6LRr0cBmegxSABiLEpGVmSJJ8O08i4+sGR6qQtb6WtuwJdvVw=="],
 
-    "@types/d3-shape": ["@types/d3-shape@3.1.7", "", { "dependencies": { "@types/d3-path": "*" } }, "sha512-VLvUQ33C+3J+8p+Daf+nYSOsjB4GXp19/S/aGo60m9h1v6XaxjiT82lKVWJCfzhtuZ3yD7i/TPeC/fuKLLOSmg=="],
+    "@types/d3-shape": ["@types/d3-shape@3.2.0", "", { "dependencies": { "@types/d3-path": "*" } }, "sha512-kVd74ta9eof3eJOvbNd1vGKS/XERRyQbT26Og63hIsvDO84cjD5gEOhsXf26w3FSoNlPVz84DOFcKv/oou+fMw=="],
 
     "@types/d3-time": ["@types/d3-time@3.0.0", "", {}, "sha512-sZLCdHvBUcNby1cB6Fd3ZBrABbjz3v1Vm90nysCQ6Vt7vd6e/h9Lt7SiJUoEX0l4Dzc7P5llKyhqSi1ycSf1Hg=="],
 
@@ -2326,6 +2337,10 @@
     "@tanstack/start-plugin-core/@babel/code-frame": ["@babel/code-frame@7.27.1", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.27.1", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-cjQ7ZlQ0Mv3b47hABuTevyTuYN4i+loJKGeV9flcCgIK37cCXRh+L1bd3iBHlynerhQ7BhCkn2BPbQUL+rGqFg=="],
 
     "@tanstack/start-plugin-core/source-map": ["source-map@0.7.6", "", {}, "sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ=="],
+
+    "@visx/vendor/@types/d3-scale": ["@types/d3-scale@4.0.2", "", { "dependencies": { "@types/d3-time": "*" } }, "sha512-Yk4htunhPAwN0XGlIwArRomOjdoBFXC3+kCxK2Ubg7I9shQlVSJy/pG/Ht5ASN+gdMIalpk8TJ5xV74jFsetLA=="],
+
+    "@visx/vendor/@types/d3-shape": ["@types/d3-shape@3.1.7", "", { "dependencies": { "@types/d3-path": "*" } }, "sha512-VLvUQ33C+3J+8p+Daf+nYSOsjB4GXp19/S/aGo60m9h1v6XaxjiT82lKVWJCfzhtuZ3yD7i/TPeC/fuKLLOSmg=="],
 
     "@visx/vendor/d3-array": ["d3-array@3.2.1", "", { "dependencies": { "internmap": "1 - 2" } }, "sha512-gUY/qeHq/yNqqoCKNq4vtpFLdoCdvyNpWoC/KNjhGbhDuQpAM9sIQQKkXSNpXa9h5KySs/gzm7R88WkUutgwWQ=="],
 

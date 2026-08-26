@@ -5,8 +5,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { authClient } from "@/lib/auth-client";
 import { ShaderBackground } from "@/components/shader-background";
+import { authClient } from "@/lib/auth-client";
 import { client, orpc } from "@/utils/orpc";
 
 import { BankConnectionStep } from "./bank-connection-step";
@@ -84,13 +84,6 @@ export const OnboardingWizard = () => {
     <main className="bg-background relative flex min-h-svh flex-col">
       <div className="pointer-events-none fixed inset-0" aria-hidden="true">
         <ShaderBackground />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 50% 60% at 50% 50%, oklch(0.147 0.004 49.25 / 0.92) 0%, oklch(0.147 0.004 49.25 / 0.75) 40%, transparent 75%)",
-          }}
-        />
       </div>
       <div className="relative z-10 flex items-center justify-end px-4 py-3">
         <Button onClick={handleSignOut} size="sm" type="button" variant="ghost">
