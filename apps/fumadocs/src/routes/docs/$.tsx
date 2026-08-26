@@ -14,7 +14,11 @@ import {
 import { MessageCircleIcon } from "lucide-react";
 import { Suspense, use } from "react";
 
-import { AISearch, AISearchPanel, AISearchTrigger } from "@/components/ai/search";
+import {
+  AISearch,
+  AISearchPanel,
+  AISearchTrigger,
+} from "@/components/ai/search";
 import { useMDXComponents } from "@/components/mdx";
 import { cn } from "@/lib/cn";
 import { baseOptions } from "@/lib/layout.shared";
@@ -57,7 +61,7 @@ function Content({ path, markdownUrl }: { path: string; markdownUrl: string }) {
     <DocsPage toc={toc}>
       <DocsTitle>{page.title}</DocsTitle>
       <DocsDescription>{page.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b -mt-4 pb-6">
+      <div className="-mt-4 flex flex-row items-center gap-2 border-b pb-6">
         <MarkdownCopyButton markdownUrl={markdownUrl} />
         <ViewOptionsPopover
           markdownUrl={markdownUrl}
@@ -72,7 +76,9 @@ function Content({ path, markdownUrl }: { path: string; markdownUrl: string }) {
 }
 
 function Page() {
-  const { path, pageTree, markdownUrl } = useFumadocsLoader(Route.useLoaderData());
+  const { path, pageTree, markdownUrl } = useFumadocsLoader(
+    Route.useLoaderData()
+  );
 
   return (
     <DocsLayout {...baseOptions()} tree={pageTree}>
@@ -84,7 +90,7 @@ function Page() {
             buttonVariants({
               variant: "secondary",
               className: "text-fd-muted-foreground rounded-2xl",
-            }),
+            })
           )}
         >
           <MessageCircleIcon className="size-4.5" />

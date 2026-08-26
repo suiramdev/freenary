@@ -39,6 +39,7 @@ src/
 Route files in `src/routes/` own `useQuery` calls. Section-level components receive data as props — they are presentation-focused and must **not** fetch their own data.
 
 Exceptions:
+
 - Interactive, lazily-triggered queries (search-as-you-type, dialog-scoped polling).
 - Mutations (`useMutation`/`useQueryClient` invalidation) stay in the component or hook that triggers them.
 

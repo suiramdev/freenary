@@ -7,24 +7,42 @@ export function createAuth() {
   const prisma = createPrismaClient();
 
   return betterAuth({
+    advanced: {
+      defaultCookieAttributes: {
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+      },
+    },
+
+    baseURL: env.BETTER_AUTH_URL,
+
     database: prismaAdapter(prisma, {
       provider: "postgresql",
     }),
 
-    trustedOrigins: [env.CORS_ORIGIN],
     emailAndPassword: {
       enabled: true,
     },
+
+    plugins: [],
+
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
-    advanced: {
-      defaultCookieAttributes: {
-        sameSite: "none",
-        secure: true,
-        httpOnly: true,
+
+    trustedOrigins: [env.CORS_ORIGIN],
+
+    user: {
+      additionalFields: {
+        country: {
+          required: false,
+          type: "string",
+        },
+        onboardingCompletedAt: {
+          required: false,
+          type: "date",
+        },
       },
     },
-    plugins: [],
   });
 }
 

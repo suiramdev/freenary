@@ -10,7 +10,7 @@ const variants = {
 } as const;
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-md p-2 text-sm font-medium transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring",
+  "focus-visible:ring-fd-ring inline-flex items-center justify-center rounded-md p-2 text-sm font-medium transition-colors duration-100 focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: variants,
@@ -23,7 +23,7 @@ export const buttonVariants = cva(
         "icon-xs": "p-1 [&_svg]:size-4",
       },
     },
-  },
+  }
 );
 
 export type ButtonProps = VariantProps<typeof buttonVariants>;

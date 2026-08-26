@@ -42,7 +42,7 @@ async function createSearchServer() {
         url: page.url,
         content: await page.data.getText("processed"),
       } as CustomDocument;
-    }),
+    })
   );
 
   for (const doc of docs) {
@@ -81,22 +81,27 @@ export const Route = createFileRoute("/api/chat")({
         const reqJson = await req.json();
 
         const result = streamText({
-          model: openrouter.chat(process.env.OPENROUTER_MODEL ?? "anthropic/claude-3.5-sonnet"),
+          model: openrouter.chat(
+            process.env.OPENROUTER_MODEL ?? "anthropic/claude-3.5-sonnet"
+          ),
           stopWhen: stepCountIs(5),
           tools: {
             search: searchTool,
           },
           messages: [
             { role: "system", content: systemPrompt },
-            ...(await convertToModelMessages<ChatUIMessage>(reqJson.messages ?? [], {
-              convertDataPart(part) {
-                if (part.type === "data-client")
-                  return {
-                    type: "text",
-                    text: `[Client Context: ${JSON.stringify(part.data)}]`,
-                  };
-              },
-            })),
+            ...(await convertToModelMessages<ChatUIMessage>(
+              reqJson.messages ?? [],
+              {
+                convertDataPart(part) {
+                  if (part.type === "data-client")
+                    return {
+                      type: "text",
+                      text: `[Client Context: ${JSON.stringify(part.data)}]`,
+                    };
+                },
+              }
+            )),
           ],
           toolChoice: "auto",
         });
@@ -117,6 +122,10 @@ const searchTool = tool({
   }),
   async execute({ query, limit }) {
     const search = await searchServer;
-    return await search.searchAsync(query, { limit, merge: true, enrich: true });
+    return await search.searchAsync(query, {
+      limit,
+      merge: true,
+      enrich: true,
+    });
   },
 }) satisfies SearchTool;

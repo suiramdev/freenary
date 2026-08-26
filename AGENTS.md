@@ -1,14 +1,8 @@
 # Working in this repository
 
-**Read [`CONTEXT.md`](CONTEXT.md) first.** Freenary is an open-source, AI-powered
-personal finance and wealth-management platform. It aggregates banking, investments,
-assets, liabilities and transactions from multiple providers into a single financial
-model and uses that model to provide budgeting, portfolio analytics, planning,
-simulations and AI-assisted financial insights. `CONTEXT.md` is the glossary: the
-settled definition of each term. Architecture decisions live in `docs/adr/`.
+**Read [`CONTEXT.md`](CONTEXT.md) first.** Freenary is an open-source, AI-powered personal finance and wealth-management platform. It aggregates banking, investments, assets, liabilities and transactions from multiple providers into a single financial model and uses that model to provide budgeting, portfolio analytics, planning, simulations and AI-assisted financial insights. `CONTEXT.md` is the glossary: the settled definition of each term. Architecture decisions live in `docs/adr/`.
 
-The rest of this file covers how to get a working stack, what every change owes the
-docs, how to write the pull request, and the code-quality standard.
+The rest of this file covers how to get a working stack, what every change owes the docs, how to write the pull request, and the code-quality standard.
 
 ## Getting a Working Stack
 
@@ -23,9 +17,7 @@ bun run db:push           # applies the Prisma schema
 bun run dev               # starts web (port 3001) + server (port 3000)
 ```
 
-The server needs `apps/server/.env` with at least `DATABASE_URL`,
-`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `CORS_ORIGIN`. The web app needs
-`VITE_SERVER_URL` (defaults to `http://localhost:3000` in dev).
+The server needs `apps/server/.env` with at least `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `CORS_ORIGIN`. The web app needs `VITE_SERVER_URL` (defaults to `http://localhost:3000` in dev).
 
 ### Docker Compose (production-like)
 
@@ -35,14 +27,11 @@ bun run docker:logs       # tail logs
 bun run docker:down       # tear down
 ```
 
-Environment variables are read from each app's `.env` file and overridden in
-`docker-compose.yml` for container networking.
+Environment variables are read from each app's `.env` file and overridden in `docker-compose.yml` for container networking.
 
 ## Documentation: Ship It With the Change
 
-[`apps/fumadocs`](apps/fumadocs) is the public documentation site (Fumadocs on
-TanStack Start). It is **part of the change, never a follow-up** — a PR that alters
-documented behavior and leaves the docs stale is incomplete.
+[`apps/fumadocs`](apps/fumadocs) is the public documentation site (Fumadocs on TanStack Start). It is **part of the change, never a follow-up** — a PR that alters documented behavior and leaves the docs stale is incomplete.
 
 **Update the docs when your change touches any of these:**
 
@@ -52,18 +41,15 @@ documented behavior and leaves the docs stale is incomplete.
 - An environment variable, Docker Compose service, or root `package.json` script.
 - Architecture a new contributor would have to reverse-engineer from the diff.
 
-Pure refactors, internal helpers, and dependency bumps that change no documented
-behavior need no docs change. Say so in the PR rather than leaving it ambiguous.
+Pure refactors, internal helpers, and dependency bumps that change no documented behavior need no docs change. Say so in the PR rather than leaving it ambiguous.
 
 ## Pull Request Descriptions: Complete, Then Brief
 
 - **Reviewers skim.** Keep the whole body under ~400 words. Fill every section; pad none.
 - **Summary:** at most four sentences — what changed, and what to look at first.
 - **Motivation, Drawbacks, Prior art:** at most four short bullets each.
-- Don't restate the issue, list changed files, narrate the implementation, or paste
-  command output — reviewers open the diff and the linked issue for that.
-- Evidence a reviewer may want but need not read (verification logs, benchmark runs)
-  belongs in a PR comment, not the description.
+- Don't restate the issue, list changed files, narrate the implementation, or paste command output — reviewers open the diff and the linked issue for that.
+- Evidence a reviewer may want but need not read (verification logs, benchmark runs) belongs in a PR comment, not the description.
 
 ---
 

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 export function createQueryClient() {
   return new QueryClient({
+    defaultOptions: { queries: { staleTime: 60 * 1000 } },
     queryCache: new QueryCache({
       onError: (error, query) => {
         toast.error(`Error: ${error.message}`, {
@@ -21,7 +22,6 @@ export function createQueryClient() {
         });
       },
     }),
-    defaultOptions: { queries: { staleTime: 60 * 1000 } },
   });
 }
 
@@ -52,25 +52,27 @@ function getServerUrl(url: string) {
       ? (processEnv?.VERCEL_PROJECT_PRODUCTION_URL ?? processEnv?.VERCEL_URL)
       : (processEnv?.VERCEL_URL ?? processEnv?.VERCEL_PROJECT_PRODUCTION_URL);
   if (vercelUrl) {
-    const origin = vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
+    const origin = vercelUrl.startsWith("http")
+      ? vercelUrl
+      : `https://${vercelUrl}`;
     return `${origin}${normalized}`;
   }
 
   return `http://localhost:3000${normalized}`;
 }
 const link = new RPCLink({
-  url: `${getServerUrl(env.VITE_SERVER_URL)}/rpc`,
   fetch(url, options) {
     return fetch(url, {
       ...options,
       credentials: "include",
     });
   },
+  url: `${getServerUrl(env.VITE_SERVER_URL)}/rpc`,
 });
 
-const getORPCClient = () => {
-  return createORPCClient(link) as RouterClient<AppRouter>;
-};
+const getORPCClient = () => 
+  createORPCClient(link) as RouterClient<AppRouter>
+;
 
 export const client: RouterClient<AppRouter> = getORPCClient();
 

@@ -2,6 +2,7 @@ import { defineConfig } from "oxlint";
 import core from "ultracite/oxlint/core";
 import react from "ultracite/oxlint/react";
 import tanstack from "ultracite/oxlint/tanstack";
+
 export default defineConfig({
   extends: [core, react, tanstack],
   ignorePatterns: [
@@ -19,7 +20,9 @@ export default defineConfig({
     ".windsurf/**",
     "tools/oxlint/anti-slop/**",
   ],
-  jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
+  jsPlugins: [
+    { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
+  ],
   rules: {
     "anti-slop/no-chained-type-assertions": "error",
     "anti-slop/no-conditional-empty-object-spread": "error",

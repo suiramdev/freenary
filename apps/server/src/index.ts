@@ -10,7 +10,8 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Elysia } from "elysia";
 import { initLogger } from "evlog";
-import { createAuthMiddleware, type BetterAuthInstance } from "evlog/better-auth";
+import { createAuthMiddleware } from 'evlog/better-auth';
+import type { BetterAuthInstance } from 'evlog/better-auth';
 import { evlog } from "evlog/elysia";
 import { createFsDrain } from "evlog/fs";
 
@@ -22,14 +23,14 @@ const rpcHandler = new RPCHandler(appRouter, {
   ],
 });
 const apiHandler = new OpenAPIHandler(appRouter, {
-  plugins: [
-    new OpenAPIReferencePlugin({
-      schemaConverters: [new ZodToJsonSchemaConverter()],
-    }),
-  ],
   interceptors: [
     onError((error) => {
       console.error(error);
+    }),
+  ],
+  plugins: [
+    new OpenAPIReferencePlugin({
+      schemaConverters: [new ZodToJsonSchemaConverter()],
     }),
   ],
 });
@@ -44,18 +45,23 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 });
 
 new Elysia()
-  .use(evlog({ drain: process.env.NODE_ENV === "production" ? undefined : createFsDrain() }))
+  .use(
+    evlog({
+      drain:
+        process.env.NODE_ENV === "production" ? undefined : createFsDrain(),
+    })
+  )
   .derive(async ({ request, log }) => {
     await identifyUser(log, request.headers, new URL(request.url).pathname);
     return {};
   })
   .use(
     cors({
-      origin: env.CORS_ORIGIN,
-      methods: ["GET", "POST", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
-    }),
+      methods: ["GET", "POST", "OPTIONS"],
+      origin: env.CORS_ORIGIN,
+    })
   )
   .all("/api/auth/*", async (context) => {
     const { request, status } = context;
@@ -68,27 +74,27 @@ new Elysia()
     "/rpc*",
     async (context) => {
       const { response } = await rpcHandler.handle(context.request, {
-        prefix: "/rpc",
         context: await createContext({ context }),
+        prefix: "/rpc",
       });
       return response ?? new Response("Not Found", { status: 404 });
     },
     {
       parse: "none",
-    },
+    }
   )
   .all(
     "/api-reference*",
     async (context) => {
       const { response } = await apiHandler.handle(context.request, {
-        prefix: "/api-reference",
         context: await createContext({ context }),
+        prefix: "/api-reference",
       });
       return response ?? new Response("Not Found", { status: 404 });
     },
     {
       parse: "none",
-    },
+    }
   )
   .get("/", () => "OK")
   .listen(3000, () => {

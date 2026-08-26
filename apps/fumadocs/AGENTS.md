@@ -4,11 +4,9 @@ The public documentation site.
 
 ## Stack
 
-- **Fumadocs** (`fumadocs-core`, `fumadocs-mdx`, `fumadocs-ui`) — page tree, MDX
-  pipeline, local search, and theme components.
+- **Fumadocs** (`fumadocs-core`, `fumadocs-mdx`, `fumadocs-ui`) — page tree, MDX pipeline, local search, and theme components.
 - **TanStack Start** on **Vite** — with SSR plus build-time prerendering.
-- **Tailwind v4** via `@tailwindcss/vite`. `src/styles/app.css` imports Fumadocs'
-  `shadcn` preset.
+- **Tailwind v4** via `@tailwindcss/vite`. `src/styles/app.css` imports Fumadocs' `shadcn` preset.
 - **AI chat** — `/api/chat` endpoint using the AI SDK with OpenRouter.
 - `bun run dev` serves on port 4000.
 
@@ -28,14 +26,11 @@ src/
 
 ## Content structure
 
-Pages are MDX files dropped into `content/docs/`. The sidebar and search index pick them
-up automatically. Order and grouping come from `meta.json` files — a new page must be
-added to its folder's `pages` array.
+Pages are MDX files dropped into `content/docs/`. The sidebar and search index pick them up automatically. Order and grouping come from `meta.json` files — a new page must be added to its folder's `pages` array.
 
 ## Conventions
 
-- Every page needs `title`, `description`, and `icon` frontmatter. `icon` is a
-  **lucide-react** export name.
+- Every page needs `title`, `description`, and `icon` frontmatter. `icon` is a **lucide-react** export name.
 - MDX may use only what `src/components/mdx.tsx` registers.
 - Code fences always name a **Shiki** language. `env` is not one — use `dotenv`.
 - Internal links are absolute site paths with no extension (`/docs/guides/budgeting`).

@@ -15,18 +15,13 @@ src/
   index.ts        # Elysia app: CORS, auth, RPC, OpenAPI, health check
 ```
 
-The server is thin glue — business logic lives in `packages/api`, auth in
-`packages/auth`, database in `packages/db`. This app wires them together and
-exposes HTTP endpoints.
+The server is thin glue — business logic lives in `packages/api`, auth in `packages/auth`, database in `packages/db`. This app wires them together and exposes HTTP endpoints.
 
 ## Conventions
 
-- All API procedures belong in `packages/api/src/routers/`, not here. This app mounts
-  the router — it does not define procedures.
-- Environment variables are validated in `@freenary/env/server` via `createEnv`. Add
-  new server-side vars there, not in this app.
-- The `.env` file in this directory provides development defaults. Docker Compose
-  overrides them for container networking.
+- All API procedures belong in `packages/api/src/routers/`, not here. This app mounts the router — it does not define procedures.
+- Environment variables are validated in `@freenary/env/server` via `createEnv`. Add new server-side vars there, not in this app.
+- The `.env` file in this directory provides development defaults. Docker Compose overrides them for container networking.
 - CORS is restricted to `env.CORS_ORIGIN`; credentials are enabled.
 
 ## Adding a new HTTP surface

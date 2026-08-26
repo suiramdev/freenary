@@ -26,6 +26,8 @@ x-app-env: &app-env
   BETTER_AUTH_URL: https://${SERVER_HOST:-server.freenary.orb.local}
   CORS_ORIGIN: https://${WEB_HOST:-web.freenary.orb.local}
   NODE_ENV: development
+  ENABLE_BANKING_APP_ID: ${ENABLE_BANKING_APP_ID:-}
+  ENABLE_BANKING_PRIVATE_KEY: ${ENABLE_BANKING_PRIVATE_KEY:-}
 
 services:
   postgres:
@@ -49,12 +51,12 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # One-shot: applies the Prisma schema to the dev database before the server starts.
+  # One-shot: applies pending migrations before the server starts.
   # Re-runs on every `up` (idempotent); exits 0 when the schema is current.
   bootstrap:
     build: *app-build
     working_dir: /app/packages/db
-    command: bun x prisma db push --skip-generate
+    command: bun x prisma db push
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-freenary}
     depends_on:

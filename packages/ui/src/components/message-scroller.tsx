@@ -2,13 +2,13 @@
 
 import { Button } from "@freenary/ui/components/button";
 import { cn } from "@freenary/ui/lib/utils";
+import { ArrowDown } from "@phosphor-icons/react";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,
   useMessageScrollerScrollable,
   useMessageScrollerVisibility,
 } from "@shadcn/react/message-scroller";
-import { ArrowDown } from "@phosphor-icons/react";
 import * as React from "react";
 
 function MessageScrollerProvider(

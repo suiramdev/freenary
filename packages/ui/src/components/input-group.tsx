@@ -2,8 +2,8 @@ import { Button } from "@freenary/ui/components/button";
 import { Input } from "@freenary/ui/components/input";
 import { Textarea } from "@freenary/ui/components/textarea";
 import { cn } from "@freenary/ui/lib/utils";
-import { cva } from 'class-variance-authority';
-import type { VariantProps } from 'class-variance-authority';
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 import * as React from "react";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {

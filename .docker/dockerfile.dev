@@ -20,3 +20,8 @@ RUN bun install --frozen-lockfile --ignore-scripts
 
 # Source baked in (watch syncs changes on top); node_modules excluded via .dockerignore
 COPY . .
+
+# Generate Prisma client — skipped by --ignore-scripts above.
+# Prisma config reads DATABASE_URL; the generate step needs only the schema, not a
+# live database, so a dummy value satisfies the config loader.
+RUN cd packages/db && DATABASE_URL=postgresql://x@x/x bun x prisma generate
