@@ -1,10 +1,10 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { BudgetPageSkeleton } from "@/components/budget/budget-page-skeleton";
 import { formatCurrency } from "@/components/budget/format-currency";
 import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
@@ -14,11 +14,7 @@ import { TransactionList } from "@/components/budget/transaction-list";
 import type { TimeRange } from "@/components/budget/transaction-list";
 import { client, orpc } from "@/utils/orpc";
 
-const computeDateRange = (
-  year: number,
-  month: number,
-  range: TimeRange
-) => {
+const computeDateRange = (year: number, month: number, range: TimeRange) => {
   const anchor = new Date(year, month, 1);
   let from: Date;
 
@@ -113,10 +109,13 @@ const BudgetPage = () => {
     }
   }, [accountsQuery.data?.hasAccounts, syncMutation]);
 
-  const handleMonthChange = useCallback((year: number, month: number) => {
-    setAnchorYear(year);
-    setAnchorMonth(month);
-  }, [setAnchorYear, setAnchorMonth]);
+  const handleMonthChange = useCallback(
+    (year: number, month: number) => {
+      setAnchorYear(year);
+      setAnchorMonth(month);
+    },
+    [setAnchorYear, setAnchorMonth]
+  );
 
   const handleLoadMore = useCallback(() => {
     if (
@@ -128,11 +127,7 @@ const BudgetPage = () => {
   }, [transactionsQuery]);
 
   if (accountsQuery.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <SpinnerGapIcon className="text-muted-foreground size-5 animate-spin" />
-      </div>
-    );
+    return <BudgetPageSkeleton />;
   }
 
   if (!accountsQuery.data?.hasAccounts) {

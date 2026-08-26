@@ -1,5 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
-import { SpinnerGapIcon } from "@phosphor-icons/react";
+import { Skeleton } from "@freenary/ui/components/skeleton";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -9,9 +9,10 @@ import { ShaderBackground } from "@/components/shader-background";
 import { authClient } from "@/lib/auth-client";
 import { client, orpc } from "@/utils/orpc";
 
-import { persistOnboardingState } from "./onboarding-state";
 import { BankConnectionStep } from "./bank-connection-step";
 import { CountrySelectionStep } from "./country-selection-step";
+import { OnboardingSkeleton } from "./onboarding-skeleton";
+import { persistOnboardingState } from "./onboarding-state";
 import { OnboardingStepper } from "./onboarding-stepper";
 
 const STEPS = ["Country", "Bank connection"] as const;
@@ -142,9 +143,7 @@ export const OnboardingWizard = () => {
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md space-y-8">
           {ebAvailability.isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <SpinnerGapIcon className="text-muted-foreground size-5 animate-spin" />
-            </div>
+            <OnboardingSkeleton />
           ) : (
             <>
               <OnboardingStepper current={step} steps={steps} />
@@ -165,7 +164,7 @@ export const OnboardingWizard = () => {
               )}
               {isCompleting && (
                 <div className="flex items-center justify-center">
-                  <SpinnerGapIcon className="text-muted-foreground size-4 animate-spin" />
+                  <Skeleton className="h-4 w-32" />
                 </div>
               )}
             </>

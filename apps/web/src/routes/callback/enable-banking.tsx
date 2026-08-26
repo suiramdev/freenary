@@ -1,4 +1,4 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react";
+import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
   createFileRoute,
   redirect,
@@ -41,11 +41,12 @@ const EnableBankingCallback = () => {
   }, [exchangeResult, navigate]);
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-3">
-      <SpinnerGapIcon className="text-muted-foreground size-6 animate-spin" />
-      <p className="text-muted-foreground text-sm">
-        Connecting your bank account...
-      </p>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
+      <Skeleton className="size-10 rounded-full" />
+      <div className="space-y-2 text-center">
+        <Skeleton className="mx-auto h-4 w-52" />
+        <Skeleton className="mx-auto h-3 w-36" />
+      </div>
     </div>
   );
 };

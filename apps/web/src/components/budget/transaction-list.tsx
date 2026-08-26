@@ -16,15 +16,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@freenary/ui/components/tabs";
-import {
-  MagnifyingGlass,
-  Receipt,
-  SpinnerGapIcon,
-} from "@phosphor-icons/react";
+import { MagnifyingGlass, Receipt } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { cn } from "@/lib/utils";
+
+import { TransactionRowsSkeleton } from "./transaction-rows-skeleton";
 
 interface Transaction {
   id: string;
@@ -52,7 +50,13 @@ interface TransactionListProps {
 }
 
 type VirtualItem =
-  | { type: "header"; key: string; label: string; total: number; currency: string }
+  | {
+      type: "header";
+      key: string;
+      label: string;
+      total: number;
+      currency: string;
+    }
   | { type: "tx"; key: string; tx: Transaction };
 
 const HEADER_HEIGHT = 40;
@@ -120,15 +124,15 @@ const formatGroupLabel = (key: string, range: TimeRange): string => {
     return "Yesterday";
   }
   return d.toLocaleDateString(undefined, {
-    weekday: "long",
     day: "numeric",
     month: "long",
+    weekday: "long",
   });
 };
 
 const buildVirtualItems = (
   transactions: Transaction[],
-  range: TimeRange,
+  range: TimeRange
 ): VirtualItem[] => {
   if (transactions.length === 0) {
     return [];
@@ -145,7 +149,10 @@ const buildVirtualItems = (
     if (key !== currentKey) {
       // Patch the previous header's total
       if (headerIdx >= 0) {
-        const header = items[headerIdx] as Extract<VirtualItem, { type: "header" }>;
+        const header = items[headerIdx] as Extract<
+          VirtualItem,
+          { type: "header" }
+        >;
         header.total = groupTotal;
       }
       currentKey = key;
@@ -153,15 +160,15 @@ const buildVirtualItems = (
       groupCurrency = tx.currency;
       headerIdx = items.length;
       items.push({
-        type: "header",
+        currency: groupCurrency,
         key: `header-${key}`,
         label: formatGroupLabel(key, range),
         total: 0,
-        currency: groupCurrency,
+        type: "header",
       });
     }
     groupTotal += tx.amount;
-    items.push({ type: "tx", key: tx.id, tx });
+    items.push({ key: tx.id, tx, type: "tx" });
   }
 
   // Patch last header
@@ -195,7 +202,7 @@ const TransactionRows = ({
 
   const virtualItems = useMemo(
     () => buildVirtualItems(transactions, range),
-    [transactions, range],
+    [transactions, range]
   );
 
   // eslint-disable-next-line react/incompatible-library -- useVirtualizer is inherently incompatible with React Compiler; component opts out via "use no memo"
@@ -291,7 +298,7 @@ const TransactionRows = ({
               <span
                 className={cn(
                   "shrink-0 text-xs font-medium tabular-nums",
-                  isIncoming ? "text-success" : "text-destructive",
+                  isIncoming ? "text-success" : "text-destructive"
                 )}
               >
                 {isIncoming ? "+" : "−"}
@@ -301,11 +308,7 @@ const TransactionRows = ({
           );
         })}
       </div>
-      {isLoading && (
-        <div className="flex items-center justify-center py-4">
-          <SpinnerGapIcon className="text-muted-foreground size-4 animate-spin" />
-        </div>
-      )}
+      {isLoading && <TransactionRowsSkeleton rows={3} />}
     </div>
   );
 };

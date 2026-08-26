@@ -1,10 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
 import { Input } from "@freenary/ui/components/input";
-import {
-  ArrowLeft,
-  SpinnerGapIcon,
-  MagnifyingGlass,
-} from "@phosphor-icons/react";
+import { ArrowLeft, MagnifyingGlass } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -12,8 +8,9 @@ import { toast } from "sonner";
 import { client, orpc } from "@/utils/orpc";
 
 import { BankCard } from "./bank-card";
-import { OnboardingStepHeader } from "./onboarding-step-header";
+import { BankListSkeleton } from "./bank-list-skeleton";
 import { persistOnboardingState } from "./onboarding-state";
+import { OnboardingStepHeader } from "./onboarding-step-header";
 
 interface BankConnectionStepProps {
   connected: ReadonlySet<string>;
@@ -87,11 +84,7 @@ export const BankConnectionStep = ({
         />
       </div>
       <div className="max-h-64 space-y-1.5 overflow-y-auto">
-        {banksQuery.isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <SpinnerGapIcon className="text-muted-foreground size-5 animate-spin" />
-          </div>
-        )}
+        {banksQuery.isLoading && <BankListSkeleton />}
         {banksQuery.isError && (
           <p className="text-muted-foreground py-4 text-center text-sm">
             Could not load banks. You can skip this step and connect later.
