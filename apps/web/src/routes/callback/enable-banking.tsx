@@ -1,5 +1,10 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouteContext,
+} from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -10,45 +15,14 @@ import { client } from "@/utils/orpc";
 const callbackSearchSchema = z.object({
   code: z.string().optional(),
   error: z.string().optional(),
-  state: z.unknown().optional(),
+  state: z.string().optional(),
 });
 
-export const Route = createFileRoute("/callback/enable-banking")({
-  ssr: false,
-  validateSearch: callbackSearchSchema,
-  beforeLoad: async ({ search }) => {
-    const session = await authClient.getSession();
-    if (!session.data) {
-      throw redirect({ to: "/login" });
-    }
-
-    if (!search.code) {
-      return { exchangeResult: null as null };
-    }
-
-    try {
-      const result = await client.bankConnection.exchangeCode({
-        code: search.code,
-        state:
-          typeof search.state === "string"
-            ? search.state
-            : search.state != null
-              ? JSON.stringify(search.state)
-              : undefined,
-      });
-      return {
-        exchangeResult: { accounts: result.accounts, ok: true as const },
-      };
-    } catch {
-      return { exchangeResult: { ok: false as const } };
-    }
-  },
-  component: EnableBankingCallback,
-});
-
-function EnableBankingCallback() {
+const EnableBankingCallback = () => {
   const navigate = useNavigate();
-  const { exchangeResult } = Route.useRouteContext();
+  const { exchangeResult } = useRouteContext({
+    from: "/callback/enable-banking",
+  });
 
   useEffect(() => {
     if (!exchangeResult) {
@@ -74,4 +48,33 @@ function EnableBankingCallback() {
       </p>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/callback/enable-banking")({
+  ssr: false,
+  validateSearch: callbackSearchSchema,
+  beforeLoad: async ({ search }) => {
+    const session = await authClient.getSession();
+    if (!session.data) {
+      throw redirect({ to: "/login" });
+    }
+
+    if (!search.code) {
+      // SAFETY: null literal cast narrows the union for TanStack Router's context typing
+      return { exchangeResult: null as null };
+    }
+
+    try {
+      const result = await client.bankConnection.exchangeCode({
+        code: search.code,
+        state: search.state,
+      });
+      return {
+        exchangeResult: { accounts: result.accounts, ok: true as const },
+      };
+    } catch {
+      return { exchangeResult: { ok: false as const } };
+    }
+  },
+  component: EnableBankingCallback,
+});

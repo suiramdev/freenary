@@ -1,12 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_auth/")({
-  component: DashboardPage,
-});
-
-// eslint-disable-next-line no-use-before-define -- TanStack Router pattern: Route references component defined below
-function DashboardPage() {
-  const { session } = Route.useRouteContext();
+const DashboardPage = () => {
+  const { session } = useRouteContext({ from: "/_auth/" });
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -15,4 +10,8 @@ function DashboardPage() {
       </h1>
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/_auth/")({
+  component: DashboardPage,
+});

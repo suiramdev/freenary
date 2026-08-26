@@ -3,7 +3,7 @@ import { env } from "@freenary/env/server";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 
-export function createAuth() {
+export const createAuth = () => {
   const prisma = createPrismaClient();
 
   return betterAuth({
@@ -44,6 +44,6 @@ export function createAuth() {
       },
     },
   });
-}
+};
 
 export const auth = createAuth();

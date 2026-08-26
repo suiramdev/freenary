@@ -1,13 +1,15 @@
+import { isServer } from "@/utils/is-server";
 import { env } from "@freenary/env/web";
 import { createAuthClient } from "better-auth/react";
 
-function getServerUrl(url: string) {
+const getServerUrl = (url: string) => {
+  // SAFETY: globalThis may carry a Node-style process.env; cast needed to access it without TS error
   const processEnv = (
     globalThis as {
       process?: { env?: Record<string, string | undefined> };
     }
   ).process?.env;
-  if (typeof window === "undefined" && processEnv?.SERVER_URL) {
+  if (isServer && processEnv?.SERVER_URL) {
     return processEnv.SERVER_URL.endsWith("/")
       ? processEnv.SERVER_URL.slice(0, -1)
       : processEnv.SERVER_URL;
@@ -19,7 +21,7 @@ function getServerUrl(url: string) {
     return normalized;
   }
 
-  if (typeof window !== "undefined") {
+  if (!isServer) {
     return `${window.location.origin}${normalized}`;
   }
 
@@ -35,7 +37,7 @@ function getServerUrl(url: string) {
   }
 
   return `http://localhost:3000${normalized}`;
-}
+};
 export const authClient = createAuthClient({
   // better-auth derives its route-matching base from this URL's path, so the
   // public auth path must equal the server-side mount (/api/auth everywhere)

@@ -1,4 +1,5 @@
 import type { AppRouter } from "@freenary/api/routers/index";
+import { isServer } from "@/utils/is-server";
 import { env } from "@freenary/env/web";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -7,8 +8,8 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-export function createQueryClient() {
-  return new QueryClient({
+export const createQueryClient = () =>
+  new QueryClient({
     defaultOptions: { queries: { staleTime: 60 * 1000 } },
     queryCache: new QueryCache({
       onError: (error, query) => {
@@ -23,15 +24,15 @@ export function createQueryClient() {
       },
     }),
   });
-}
 
-function getServerUrl(url: string) {
+const getServerUrl = (url: string) => {
+  // SAFETY: globalThis may carry a Node-style process.env; cast needed to access it without TS error
   const processEnv = (
     globalThis as {
       process?: { env?: Record<string, string | undefined> };
     }
   ).process?.env;
-  if (typeof window === "undefined" && processEnv?.SERVER_URL) {
+  if (isServer && processEnv?.SERVER_URL) {
     return processEnv.SERVER_URL.endsWith("/")
       ? processEnv.SERVER_URL.slice(0, -1)
       : processEnv.SERVER_URL;
@@ -43,7 +44,7 @@ function getServerUrl(url: string) {
     return normalized;
   }
 
-  if (typeof window !== "undefined") {
+  if (!isServer) {
     return `${window.location.origin}${normalized}`;
   }
 
@@ -59,7 +60,7 @@ function getServerUrl(url: string) {
   }
 
   return `http://localhost:3000${normalized}`;
-}
+};
 const link = new RPCLink({
   fetch(url, options) {
     return fetch(url, {
@@ -70,6 +71,7 @@ const link = new RPCLink({
   url: `${getServerUrl(env.VITE_SERVER_URL)}/rpc`,
 });
 
+// SAFETY: createORPCClient returns a generic client; cast aligns it with the known AppRouter type
 const getORPCClient = () => createORPCClient(link) as RouterClient<AppRouter>;
 
 export const client: RouterClient<AppRouter> = getORPCClient();

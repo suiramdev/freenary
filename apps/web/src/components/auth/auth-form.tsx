@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
+import { z } from "zod";
 
 import { authClient } from "@/lib/auth-client";
 import { client } from "@/utils/orpc";
@@ -37,41 +37,38 @@ export const AuthForm = () => {
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
-      try {
-        if (mode === "signin") {
-          await authClient.signIn.email(
-            { email: value.email, password: value.password },
-            {
-              onError: (error) => {
-                toast.error(error.error.message || error.error.statusText);
-              },
-              onSuccess: () => {
-                navigate({ to: "/" });
-                toast.success("Signed in successfully");
-              },
-            }
-          );
-        } else if (mode === "signup") {
-          await authClient.signUp.email(
-            {
-              email: value.email,
-              name: value.name,
-              password: value.password,
+      if (mode === "signin") {
+        await authClient.signIn.email(
+          { email: value.email, password: value.password },
+          {
+            onError: (error) => {
+              toast.error(error.error.message || error.error.statusText);
             },
-            {
-              onError: (error) => {
-                toast.error(error.error.message || error.error.statusText);
-              },
-              onSuccess: () => {
-                navigate({ to: "/" });
-                toast.success("Account created successfully");
-              },
-            }
-          );
-        }
-      } finally {
-        setIsSubmitting(false);
+            onSuccess: () => {
+              navigate({ to: "/" });
+              toast.success("Signed in successfully");
+            },
+          }
+        );
+      } else if (mode === "signup") {
+        await authClient.signUp.email(
+          {
+            email: value.email,
+            name: value.name,
+            password: value.password,
+          },
+          {
+            onError: (error) => {
+              toast.error(error.error.message || error.error.statusText);
+            },
+            onSuccess: () => {
+              navigate({ to: "/" });
+              toast.success("Account created successfully");
+            },
+          }
+        );
       }
+      setIsSubmitting(false);
     },
     validators: {
       onSubmit:

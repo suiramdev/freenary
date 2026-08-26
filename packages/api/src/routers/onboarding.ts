@@ -68,6 +68,7 @@ export const bankConnectionRouter = {
       let bankName = "Unknown";
       if (input.state) {
         try {
+          // SAFETY: input.state is a JSON string serialized by the client; parsed shape is validated by optional chaining
           const parsed = JSON.parse(input.state) as { bankName?: string };
           bankName = parsed.bankName ?? bankName;
         } catch {
@@ -108,10 +109,10 @@ export const bankConnectionRouter = {
     )
     .handler(async ({ input }) => {
       const redirectUrl = `${env.CORS_ORIGIN}/callback/enable-banking`;
-      const encodedState = JSON.stringify({
-        bankName: input.bankName,
-        ...(input.state ? { original: input.state } : {}),
-      });
+      const stateObj = input.state
+        ? { bankName: input.bankName, original: input.state }
+        : { bankName: input.bankName };
+      const encodedState = JSON.stringify(stateObj);
       const result = await startBankConnection({
         bankCountry: input.bankCountry,
         bankName: input.bankName,

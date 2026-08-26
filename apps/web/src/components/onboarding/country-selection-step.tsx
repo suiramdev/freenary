@@ -245,7 +245,7 @@ export const CountrySelectionStep = ({
           );
         })
       : [...COUNTRIES];
-    return base.sort((a, b) => {
+    return base.toSorted((a: Country, b: Country) => {
       const sa = SUPPORTED_CODES.has(a.code) ? 0 : 1;
       const sb = SUPPORTED_CODES.has(b.code) ? 0 : 1;
       return sa - sb;
@@ -277,6 +277,14 @@ export const CountrySelectionStep = ({
         {filtered.map((country) => {
           const supported = SUPPORTED_CODES.has(country.code);
           const isSelected = selected === country.code;
+          let stateClass: string;
+          if (!supported) {
+            stateClass = "border-border bg-muted text-muted-foreground cursor-not-allowed";
+          } else if (isSelected) {
+            stateClass = "border-primary bg-secondary text-foreground";
+          } else {
+            stateClass = "border-border bg-card hover:border-primary hover:bg-muted text-foreground";
+          }
           return (
             <button
               key={country.code}
@@ -285,11 +293,7 @@ export const CountrySelectionStep = ({
               onClick={() => onSelect(country.code)}
               className={cn(
                 "flex w-full items-center gap-3 border px-4 py-3 text-left text-sm transition-colors",
-                supported
-                  ? (isSelected
-                    ? "border-primary bg-secondary text-foreground"
-                    : "border-border bg-card hover:border-primary hover:bg-muted text-foreground")
-                  : "border-border bg-muted text-muted-foreground cursor-not-allowed"
+                stateClass
               )}
             >
               <span className="text-xl">{country.flag}</span>

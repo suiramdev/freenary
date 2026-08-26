@@ -4,17 +4,17 @@ import { Label } from "@freenary/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import z from "zod";
+import { z } from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
 import Loader from "./loader";
 
-export default function SignInForm({
+const SignInForm = ({
   onSwitchToSignUp,
 }: {
   onSwitchToSignUp: () => void;
-}) {
+}) => {
   const navigate = useNavigate({
     from: "/",
   });
@@ -141,4 +141,6 @@ export default function SignInForm({
       </div>
     </div>
   );
-}
+};
+
+export default SignInForm;

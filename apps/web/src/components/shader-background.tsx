@@ -8,6 +8,7 @@ export const ShaderBackground = () => (
     gapX={24}
     gapY={24}
     opacityRange={0.3}
+    // eslint-disable-next-line anti-slop/no-shape-in-symbol-names -- "shape" is a library prop name from @paper-design/shaders-react
     shape="circle"
     size={1}
     sizeRange={0}

@@ -13,7 +13,7 @@ import { client, orpc } from "@/utils/orpc";
 
 import { BankCard } from "./bank-card";
 import { OnboardingStepHeader } from "./onboarding-step-header";
-import { persistOnboardingState } from "./onboarding-wizard";
+import { persistOnboardingState } from "./onboarding-state";
 
 interface BankConnectionStepProps {
   connected: ReadonlySet<string>;

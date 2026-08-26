@@ -9,6 +9,7 @@ import { ShaderBackground } from "@/components/shader-background";
 import { authClient } from "@/lib/auth-client";
 import { client, orpc } from "@/utils/orpc";
 
+import { persistOnboardingState } from "./onboarding-state";
 import { BankConnectionStep } from "./bank-connection-step";
 import { CountrySelectionStep } from "./country-selection-step";
 import { OnboardingStepper } from "./onboarding-stepper";
@@ -22,25 +23,22 @@ interface PersistedState {
   connectedBanks: string[];
 }
 
-function loadPersistedState(): PersistedState | null {
+const loadPersistedState = (): PersistedState | null => {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;
     }
+    // SAFETY: sessionStorage JSON is written by persistOnboardingState with the PersistedState shape
     return JSON.parse(raw) as PersistedState;
   } catch {
     return null;
   }
-}
+};
 
-export function persistOnboardingState(state: PersistedState) {
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function clearPersistedState() {
+const clearPersistedState = () => {
   sessionStorage.removeItem(STORAGE_KEY);
-}
+};
 
 export const OnboardingWizard = () => {
   const navigate = useNavigate();

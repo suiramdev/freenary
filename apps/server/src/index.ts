@@ -17,6 +17,7 @@ import { createFsDrain } from "evlog/fs";
 
 const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [
+    // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
       console.error(error);
     }),
@@ -24,6 +25,7 @@ const rpcHandler = new RPCHandler(appRouter, {
 });
 const apiHandler = new OpenAPIHandler(appRouter, {
   interceptors: [
+    // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
       console.error(error);
     }),
@@ -39,6 +41,7 @@ initLogger({
   env: { service: "freenary-server" },
 });
 
+// SAFETY: auth is created by better-auth which satisfies BetterAuthInstance; cast needed for evlog middleware typing
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
   exclude: ["/api/auth/**"],
   maskEmail: true,
@@ -63,7 +66,7 @@ new Elysia()
       origin: env.CORS_ORIGIN,
     })
   )
-  .all("/api/auth/*", async (context) => {
+  .all("/api/auth/*", (context) => {
     const { request, status } = context;
     if (["POST", "GET"].includes(request.method)) {
       return auth.handler(request);

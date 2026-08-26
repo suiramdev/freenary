@@ -73,8 +73,10 @@ const TransactionRows = ({
   formatAmount: (amount: number, currency: string) => string;
   isIncoming: boolean;
 }) => {
+  "use no memo";
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react/incompatible-library -- useVirtualizer is inherently incompatible with React Compiler; component opts out via "use no memo"
   const virtualizer = useVirtualizer({
     count: transactions.length,
     estimateSize: () => ROW_HEIGHT,
@@ -85,7 +87,9 @@ const TransactionRows = ({
   const items = virtualizer.getVirtualItems();
 
   const loadMoreCheck = useCallback(() => {
-    if (!hasMore || isLoading) {return;}
+    if (!hasMore || isLoading) {
+      return;
+    }
     const lastItem = items.at(-1);
     if (lastItem && lastItem.index >= transactions.length - 5) {
       onLoadMore();
@@ -121,7 +125,9 @@ const TransactionRows = ({
       >
         {items.map((virtualRow) => {
           const tx = transactions[virtualRow.index];
-          if (!tx) {return null;}
+          if (!tx) {
+            return null;
+          }
           return (
             <div
               key={tx.id}
