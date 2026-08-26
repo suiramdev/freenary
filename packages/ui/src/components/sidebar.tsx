@@ -19,8 +19,8 @@ import {
 import { useIsMobile } from "@freenary/ui/hooks/use-mobile";
 import { cn } from "@freenary/ui/lib/utils";
 import { SidebarIcon } from "@phosphor-icons/react";
-import { cva } from 'class-variance-authority';
-import type { VariantProps } from 'class-variance-authority';
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 import * as React from "react";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
@@ -87,9 +87,11 @@ function SidebarProvider({
   );
 
   // Helper to toggle the sidebar.
-  const toggleSidebar = React.useCallback(() => 
-    isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
-  , [isMobile, setOpen, setOpenMobile]);
+  const toggleSidebar = React.useCallback(
+    () =>
+      isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open),
+    [isMobile, setOpen, setOpenMobile]
+  );
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -609,8 +611,8 @@ function SidebarMenuSkeleton({
   showIcon?: boolean;
 }) {
   // Random width between 50 to 90%.
-  const [width] = React.useState(() => 
-    `${Math.floor(Math.random() * 40) + 50}%`
+  const [width] = React.useState(
+    () => `${Math.floor(Math.random() * 40) + 50}%`
   );
 
   return (

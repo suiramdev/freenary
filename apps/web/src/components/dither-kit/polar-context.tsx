@@ -245,7 +245,9 @@ export function usePolarController({
         hoverIndex,
         itemsAt: (i) => {
           const s = pie[i];
-          if (!s) {return [];}
+          if (!s) {
+            return [];
+          }
           return [
             {
               dimmed: emphasis !== null && emphasis !== s.name,

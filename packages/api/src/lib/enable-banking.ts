@@ -229,8 +229,7 @@ const mapTransactionMetadata = (tx: EBTransaction) => ({
   merchantCategoryCode: tx.merchant_category_code ?? undefined,
   referenceNumber: tx.reference_number ?? undefined,
   status: tx.status ?? "BOOK",
-  transactionId:
-    tx.transaction_id ?? tx.entry_reference ?? crypto.randomUUID(),
+  transactionId: tx.transaction_id ?? tx.entry_reference ?? crypto.randomUUID(),
 });
 
 /** Maps an Enable Banking transaction to the normalized application format. */

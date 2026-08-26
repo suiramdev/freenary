@@ -279,11 +279,13 @@ export const CountrySelectionStep = ({
           const isSelected = selected === country.code;
           let stateClass: string;
           if (!supported) {
-            stateClass = "border-border bg-muted text-muted-foreground cursor-not-allowed";
+            stateClass =
+              "border-border bg-muted text-muted-foreground cursor-not-allowed";
           } else if (isSelected) {
             stateClass = "border-primary bg-secondary text-foreground";
           } else {
-            stateClass = "border-border bg-card hover:border-primary hover:bg-muted text-foreground";
+            stateClass =
+              "border-border bg-card hover:border-primary hover:bg-muted text-foreground";
           }
           return (
             <button

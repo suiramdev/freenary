@@ -1,6 +1,7 @@
-import { isServer } from "@/utils/is-server";
 import { env } from "@freenary/env/web";
 import { createAuthClient } from "better-auth/react";
+
+import { isServer } from "@/utils/is-server";
 
 const getServerUrl = (url: string) => {
   // SAFETY: globalThis may carry a Node-style process.env; cast needed to access it without TS error
