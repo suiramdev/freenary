@@ -11,9 +11,8 @@ import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { SankeyChart } from "@/components/budget/sankey-chart";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
 import { TransactionList } from "@/components/budget/transaction-list";
+import type { TimeRange } from "@/components/budget/transaction-list";
 import { client, orpc } from "@/utils/orpc";
-
-type TimeRange = "1M" | "3M" | "1Y";
 
 const computeDateRange = (
   year: number,
@@ -203,6 +202,7 @@ const BudgetPage = () => {
           transactionsQuery.isLoading || transactionsQuery.isFetchingNextPage
         }
         formatAmount={formatCurrency}
+        range={range}
       />
     </div>
   );

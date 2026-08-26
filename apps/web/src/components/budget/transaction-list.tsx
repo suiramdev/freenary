@@ -22,7 +22,7 @@ import {
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -35,6 +35,8 @@ interface Transaction {
   counterpartyName: string | null;
 }
 
+type TimeRange = "1M" | "3M" | "1Y";
+
 interface TransactionListProps {
   transactions: Transaction[];
   totals: { incoming: number; outgoing: number };
@@ -46,16 +48,129 @@ interface TransactionListProps {
   onLoadMore: () => void;
   isLoading: boolean;
   formatAmount: (amount: number, currency: string) => string;
+  range: TimeRange;
 }
 
+type VirtualItem =
+  | { type: "header"; key: string; label: string; total: number; currency: string }
+  | { type: "tx"; key: string; tx: Transaction };
+
+const HEADER_HEIGHT = 40;
 const ROW_HEIGHT = 56;
 
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
+/**
+ * Build a grouping key from a date string.
+ * 1M → day, 3M → week (ISO week starting Monday), 1Y → month.
+ */
+const groupKey = (dateStr: string, range: TimeRange): string => {
+  const d = new Date(dateStr);
+
+  if (range === "1Y") {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  if (range === "3M") {
+    // ISO week: find Monday of that week
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    return `${monday.getFullYear()}-W${String(Math.ceil((monday.getDate() + new Date(monday.getFullYear(), monday.getMonth(), 1).getDay()) / 7)).padStart(2, "0")}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  }
+
+  // 1M → day
+  return d.toISOString().slice(0, 10);
+};
+
+const formatGroupLabel = (key: string, range: TimeRange): string => {
+  if (range === "1Y") {
+    const [year, month] = key.split("-");
+    const d = new Date(Number(year), Number(month) - 1);
+    return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+
+  if (range === "3M") {
+    // key is like "2025-W03-08-12" — extract the monday date from the last parts
+    const parts = key.split("-");
+    const year = Number(parts[0]);
+    const month = Number(parts[2]) - 1;
+    const day = Number(parts[3]);
+    const monday = new Date(year, month, day);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+
+    const fmtShort = (d: Date) =>
+      d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+    return `${fmtShort(monday)} – ${fmtShort(sunday)}`;
+  }
+
+  // 1M → day
+  const d = new Date(`${key}T00:00:00`);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  if (key === today) {
+    return "Today";
+  }
+  if (key === yesterdayStr) {
+    return "Yesterday";
+  }
+  return d.toLocaleDateString(undefined, {
+    weekday: "long",
     day: "numeric",
-    month: "short",
+    month: "long",
   });
+};
+
+const buildVirtualItems = (
+  transactions: Transaction[],
+  range: TimeRange,
+): VirtualItem[] => {
+  if (transactions.length === 0) {
+    return [];
+  }
+
+  const items: VirtualItem[] = [];
+  let currentKey = "";
+  let groupTotal = 0;
+  let groupCurrency = "EUR";
+  let headerIdx = -1;
+
+  for (const tx of transactions) {
+    const key = groupKey(tx.date, range);
+    if (key !== currentKey) {
+      // Patch the previous header's total
+      if (headerIdx >= 0) {
+        const header = items[headerIdx] as Extract<VirtualItem, { type: "header" }>;
+        header.total = groupTotal;
+      }
+      currentKey = key;
+      groupTotal = 0;
+      groupCurrency = tx.currency;
+      headerIdx = items.length;
+      items.push({
+        type: "header",
+        key: `header-${key}`,
+        label: formatGroupLabel(key, range),
+        total: 0,
+        currency: groupCurrency,
+      });
+    }
+    groupTotal += tx.amount;
+    items.push({ type: "tx", key: tx.id, tx });
+  }
+
+  // Patch last header
+  if (headerIdx >= 0) {
+    const header = items[headerIdx] as Extract<VirtualItem, { type: "header" }>;
+    header.total = groupTotal;
+  }
+
+  return items;
 };
 
 const TransactionRows = ({
@@ -65,6 +180,7 @@ const TransactionRows = ({
   isLoading,
   formatAmount,
   isIncoming,
+  range,
 }: {
   transactions: Transaction[];
   hasMore: boolean;
@@ -72,29 +188,36 @@ const TransactionRows = ({
   isLoading: boolean;
   formatAmount: (amount: number, currency: string) => string;
   isIncoming: boolean;
+  range: TimeRange;
 }) => {
   "use no memo";
   const parentRef = useRef<HTMLDivElement>(null);
 
+  const virtualItems = useMemo(
+    () => buildVirtualItems(transactions, range),
+    [transactions, range],
+  );
+
   // eslint-disable-next-line react/incompatible-library -- useVirtualizer is inherently incompatible with React Compiler; component opts out via "use no memo"
   const virtualizer = useVirtualizer({
-    count: transactions.length,
-    estimateSize: () => ROW_HEIGHT,
+    count: virtualItems.length,
+    estimateSize: (index) =>
+      virtualItems[index]?.type === "header" ? HEADER_HEIGHT : ROW_HEIGHT,
     getScrollElement: () => parentRef.current,
     overscan: 10,
   });
 
-  const items = virtualizer.getVirtualItems();
+  const visibleItems = virtualizer.getVirtualItems();
 
   const loadMoreCheck = useCallback(() => {
     if (!hasMore || isLoading) {
       return;
     }
-    const lastItem = items.at(-1);
-    if (lastItem && lastItem.index >= transactions.length - 5) {
+    const lastItem = visibleItems.at(-1);
+    if (lastItem && lastItem.index >= virtualItems.length - 5) {
       onLoadMore();
     }
-  }, [hasMore, isLoading, items, transactions.length, onLoadMore]);
+  }, [hasMore, isLoading, visibleItems, virtualItems.length, onLoadMore]);
 
   useEffect(() => {
     loadMoreCheck();
@@ -123,14 +246,33 @@ const TransactionRows = ({
         className="relative w-full"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
       >
-        {items.map((virtualRow) => {
-          const tx = transactions[virtualRow.index];
-          if (!tx) {
+        {visibleItems.map((virtualRow) => {
+          const item = virtualItems[virtualRow.index];
+          if (!item) {
             return null;
           }
+
+          if (item.type === "header") {
+            return (
+              <div
+                key={item.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="text-muted-foreground absolute inset-x-0 flex items-center justify-between px-1 pt-4 pb-1.5 text-[11px] font-medium"
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                <span>{item.label}</span>
+                <span className="tabular-nums">
+                  {formatAmount(item.total, item.currency)}
+                </span>
+              </div>
+            );
+          }
+
+          const { tx } = item;
           return (
             <div
-              key={tx.id}
+              key={item.key}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
               className="border-border hover:bg-muted/50 absolute inset-x-0 flex items-center justify-between gap-4 border-b px-1 py-3 transition-colors duration-150"
@@ -140,18 +282,20 @@ const TransactionRows = ({
                 <span className="truncate text-xs font-medium">
                   {tx.counterpartyName ?? tx.description}
                 </span>
-                <span className="text-muted-foreground truncate text-[10px]">
-                  {tx.counterpartyName ? tx.description : ""} ·{" "}
-                  {formatDate(tx.date)}
-                </span>
+                {tx.counterpartyName && tx.description ? (
+                  <span className="text-muted-foreground truncate text-[10px]">
+                    {tx.description}
+                  </span>
+                ) : null}
               </div>
               <span
                 className={cn(
                   "shrink-0 text-xs font-medium tabular-nums",
-                  isIncoming ? "text-primary" : "text-foreground"
+                  isIncoming ? "text-success" : "text-destructive",
                 )}
               >
-                {formatAmount(tx.amount, tx.currency)}
+                {isIncoming ? "+" : "−"}
+                {formatAmount(Math.abs(tx.amount), tx.currency)}
               </span>
             </div>
           );
@@ -177,6 +321,7 @@ export const TransactionList = ({
   onLoadMore,
   isLoading,
   formatAmount,
+  range,
 }: TransactionListProps) => {
   const outgoingLabel = `Outgoing · ${formatAmount(Math.abs(totals.outgoing), "EUR")}`;
   const incomingLabel = `Incoming · ${formatAmount(totals.incoming, "EUR")}`;
@@ -212,6 +357,7 @@ export const TransactionList = ({
             isLoading={isLoading}
             formatAmount={formatAmount}
             isIncoming={false}
+            range={range}
           />
         </TabsContent>
         <TabsContent value="incoming" className="flex flex-1 flex-col">
@@ -222,6 +368,7 @@ export const TransactionList = ({
             isLoading={isLoading}
             formatAmount={formatAmount}
             isIncoming={true}
+            range={range}
           />
         </TabsContent>
       </Tabs>
@@ -229,4 +376,4 @@ export const TransactionList = ({
   );
 };
 
-export type { Transaction, TransactionListProps };
+export type { Transaction, TransactionListProps, TimeRange };
