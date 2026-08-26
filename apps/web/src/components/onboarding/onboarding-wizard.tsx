@@ -1,5 +1,4 @@
 import { Button } from "@freenary/ui/components/button";
-import { MeshGradient } from "@paper-design/shaders-react";
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -7,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { ShaderBackground } from "@/components/shader-background";
 import { client, orpc } from "@/utils/orpc";
 
 import { BankConnectionStep } from "./bank-connection-step";
@@ -83,18 +83,12 @@ export const OnboardingWizard = () => {
   return (
     <main className="bg-background relative flex min-h-svh flex-col">
       <div className="pointer-events-none fixed inset-0" aria-hidden="true">
-        <MeshGradient
-          colors={["#0a0a0a", "#1a2e1a", "#2d4a2d", "#0d1f0d"]}
-          distortion={0.4}
-          speed={0.3}
-          style={{ width: "100%", height: "100%" }}
-          swirl={0.1}
-        />
+        <ShaderBackground />
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 50% 60% at 50% 50%, oklch(0.147 0.004 49.25 / 0.95) 0%, oklch(0.147 0.004 49.25 / 0.80) 40%, transparent 75%)",
+              "radial-gradient(ellipse 50% 60% at 50% 50%, oklch(0.147 0.004 49.25 / 0.92) 0%, oklch(0.147 0.004 49.25 / 0.75) 40%, transparent 75%)",
           }}
         />
       </div>
