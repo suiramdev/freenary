@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 
-import { useChartPart } from './chart-context';
-import type { AreaVariant, SeriesKind, StrokeVariant } from './chart-context';
+import { useChartPart } from "./chart-context";
+import type { AreaVariant, SeriesKind, StrokeVariant } from "./chart-context";
 import { SeriesContext } from "./series-context";
 
 export interface SeriesProps {
@@ -43,7 +43,9 @@ function CartesianSeries({
   }, [dataKey, kind, variant, strokeVariant, registerSeries, unregisterSeries]);
 
   const band = ctx.bands[dataKey];
-  if (!ctx.ready || !band) {return null;}
+  if (!ctx.ready || !band) {
+    return null;
+  }
 
   const seed = ctx.seedOf(dataKey);
   const emphasis = ctx.selectedDataKey ?? ctx.focusDataKey;

@@ -1,6 +1,6 @@
 import type { AreaVariant } from "./chart-context";
-import { rgb } from './palette';
-import type { Seed } from './palette';
+import { rgb } from "./palette";
+import type { Seed } from "./palette";
 
 // 4×4 ordered (Bayer) matrix, normalized to 0–1 thresholds — the exact matrix
 // the legacy chart dithers with.
@@ -69,15 +69,21 @@ export function paintColumn(
     // Inverted falloff: 0 at the top line, 1 at the floor — dense at the
     // bottom, thinning as it rises toward the outline.
     let density = (y - t) / depth;
-    if (stacked) {density = 0.5 + 0.5 * density;}
-    if (variant === "hatched" && ((x + y) & 3) >= 2) {continue;}
+    if (stacked) {
+      density = 0.5 + 0.5 * density;
+    }
+    if (variant === "hatched" && ((x + y) & 3) >= 2) {
+      continue;
+    }
     const lit =
       variant === "solid" ||
       density > BAYER[y & 3][x & 3] - 0.1 * intensity - bias;
     // "dotted" keeps real gaps for its open look; every other variant covers
     // the cell and lets the dither ride the alpha (on = full tier, off = a
     // faint tint) so nothing shows the background through as white.
-    if (variant === "dotted" && !lit) {continue;}
+    if (variant === "dotted" && !lit) {
+      continue;
+    }
     // Density → alpha (see the colour-vs-opacity note above).
     const k = (0.3 + density * 0.7) * (1 + 0.22 * intensity);
     const alpha = clamp01((lit ? k : k * OFF_TIER) * dim);
@@ -154,7 +160,9 @@ export function bloomLayerStyle(
   input: BloomInput,
   active: boolean
 ): BloomStyle | null {
-  if (!active || input === "off") {return null;}
+  if (!active || input === "off") {
+    return null;
+  }
   const cfg = typeof input === "string" ? PRESET[input] : input;
   return {
     filter: `blur(${cfg.blur}px) brightness(${cfg.brightness}) saturate(${cfg.saturate ?? 1})`,

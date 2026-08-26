@@ -165,3 +165,98 @@ export const exchangeBankCode = async (
   };
   return { accounts: data.accounts, sessionId: data.session_id };
 };
+
+interface EBTransaction {
+  entry_reference?: string;
+  transaction_id?: string;
+  booking_date?: string;
+  transaction_amount?: {
+    amount?: string;
+    currency?: string;
+  };
+  remittance_information?: string[];
+  creditor?: { name?: string };
+  debtor?: { name?: string };
+  credit_debit_indicator?: string;
+}
+
+/**
+ * Fetch transactions for a specific account from Enable Banking.
+ *
+ * Enable Banking API: `GET /accounts/{account_id}/transactions`
+ * The account_id is the UUID returned in POST /sessions (stored as providerAccountId).
+ * Authentication is JWT-based via the Authorization header (handled by ebFetch).
+ * The session ID is NOT part of the URL — it only gates which accounts are accessible.
+ *
+ * Handles pagination via `continuation_key`.
+ */
+export const getTransactions = async (
+  _sessionId: string,
+  accountId: string,
+  dateFrom: string,
+  dateTo: string
+): Promise<{
+  transactions: {
+    transactionId: string;
+    date: string;
+    amount: number;
+    currency: string;
+    description: string;
+    counterpartyName?: string;
+  }[];
+}> => {
+  const allTransactions: EBTransaction[] = [];
+  let continuationKey: string | undefined;
+
+  do {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    if (continuationKey) {
+      params.set("continuation_key", continuationKey);
+    }
+
+    const response = await ebFetch(
+      `/accounts/${encodeURIComponent(accountId)}/transactions?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Enable Banking transactions failed: ${response.status} ${text}`
+      );
+    }
+
+
+    // SAFETY: Enable Banking GET /accounts/{id}/transactions returns
+    // { transactions: EBTransaction[], continuation_key?: string }
+    const data = (await response.json()) as {
+      transactions?: EBTransaction[];
+      continuation_key?: string;
+    };
+
+    if (data.transactions) {
+      allTransactions.push(...data.transactions);
+    }
+
+    continuationKey = data.continuation_key ?? undefined;
+  } while (continuationKey);
+
+  return {
+    transactions: allTransactions.map((tx) => {
+      const abs = Number.parseFloat(tx.transaction_amount?.amount ?? "0");
+      // DBIT = money leaving the account (outgoing), CRDT = money entering (incoming)
+      const sign = tx.credit_debit_indicator === "DBIT" ? -1 : 1;
+      return {
+        amount: abs * sign,
+        counterpartyName: tx.creditor?.name ?? tx.debtor?.name ?? undefined,
+        currency: tx.transaction_amount?.currency ?? "EUR",
+        date: tx.booking_date ?? dateFrom,
+        description: tx.remittance_information?.join(" ") ?? "",
+        transactionId:
+          tx.transaction_id ?? tx.entry_reference ?? crypto.randomUUID(),
+      };
+    }),
+  };
+};

@@ -8,7 +8,11 @@ import { GITHUB_REPO_URL } from "@/lib/constants";
 
 import { OnboardingStepHeader } from "./onboarding-step-header";
 
-interface Country { code: string; flag: string; name: string }
+interface Country {
+  code: string;
+  flag: string;
+  name: string;
+}
 
 const SUPPORTED_CODES = new Set(["FR"]);
 

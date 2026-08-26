@@ -10,8 +10,8 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Elysia } from "elysia";
 import { initLogger } from "evlog";
-import { createAuthMiddleware } from 'evlog/better-auth';
-import type { BetterAuthInstance } from 'evlog/better-auth';
+import { createAuthMiddleware } from "evlog/better-auth";
+import type { BetterAuthInstance } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
 import { createFsDrain } from "evlog/fs";
 

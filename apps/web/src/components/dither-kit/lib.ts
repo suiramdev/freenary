@@ -1,5 +1,5 @@
-import { clsx } from 'clsx';
-import type { ClassValue } from 'clsx';
+import { clsx } from "clsx";
+import type { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /** Tailwind-aware className combiner — local copy so the chart pack is

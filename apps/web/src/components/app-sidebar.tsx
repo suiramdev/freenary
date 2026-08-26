@@ -16,6 +16,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -36,13 +37,18 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
 
 const navItems = [
-  { icon: HouseIcon, title: "Home", to: "/" },
-  { icon: WalletIcon, title: "Portfolio", to: "/portfolio" },
-  { icon: CurrencyCircleDollarIcon, title: "Budget", to: "/budget" },
-  { icon: ChartBarIcon, title: "Analysis", to: "/analysis" },
-  { icon: TargetIcon, title: "Goals", to: "/goals" },
-  { icon: BrainIcon, title: "AI", to: "/ai" },
-] as const;
+  { icon: HouseIcon, planned: false, title: "Home", to: "/" },
+  { icon: WalletIcon, planned: true, title: "Portfolio", to: "/portfolio" },
+  {
+    icon: CurrencyCircleDollarIcon,
+    planned: false,
+    title: "Budget",
+    to: "/budget",
+  },
+  { icon: ChartBarIcon, planned: true, title: "Analysis", to: "/analysis" },
+  { icon: TargetIcon, planned: true, title: "Goals", to: "/goals" },
+  { icon: BrainIcon, planned: true, title: "AI", to: "/ai" },
+];
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
@@ -69,18 +75,30 @@ export const AppSidebar = () => {
 
   return (
     <Sidebar collapsible="icon" variant="floating">
-
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map(({ title, to, icon: Icon }) => (
+              {navItems.map(({ title, to, icon: Icon, planned }) => (
                 <SidebarMenuItem key={to}>
-                  <SidebarMenuButton render={<Link to={to} />} tooltip={title}>
+                  <SidebarMenuButton
+                    render={<Link to={to} />}
+                    tooltip={planned ? `${title} (Planned)` : title}
+                    className={
+                      planned
+                        ? "text-sidebar-foreground/40 hover:text-sidebar-foreground/50"
+                        : undefined
+                    }
+                  >
                     <Icon data-icon="inline-start" />
                     <span>{title}</span>
                   </SidebarMenuButton>
+                  {planned && (
+                    <SidebarMenuBadge className="text-muted-foreground/60 text-[0.625rem]">
+                      Planned
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

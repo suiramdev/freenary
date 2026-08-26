@@ -29,8 +29,12 @@ export function computeBands(
     for (const key of keys) {
       bands[key] = data.map((row) => {
         const v = num(row[key]);
-        if (v > max) {max = v;}
-        if (v < min) {min = v;}
+        if (v > max) {
+          max = v;
+        }
+        if (v < min) {
+          min = v;
+        }
         return [0, v];
       });
     }
@@ -53,8 +57,12 @@ export function computeBands(
   let min = 0;
   series.forEach((layer) => {
     bands[layer.key] = layer.map((point) => {
-      if (point[1] > max) {max = point[1];}
-      if (point[0] < min) {min = point[0];}
+      if (point[1] > max) {
+        max = point[1];
+      }
+      if (point[0] < min) {
+        min = point[0];
+      }
       return [point[0], point[1]];
     });
   });
@@ -80,7 +88,9 @@ export function buildBandScale(length: number, plotWidth: number) {
 
 /** Index of the category whose band a horizontal pixel offset falls in. */
 export function indexAtBand(px: number, length: number, plotWidth: number) {
-  if (length <= 0 || plotWidth <= 0) {return 0;}
+  if (length <= 0 || plotWidth <= 0) {
+    return 0;
+  }
   const t = Math.max(0, Math.min(0.999, px / plotWidth));
   return Math.min(length - 1, Math.floor(t * length));
 }
@@ -103,7 +113,9 @@ export function buildYScale(min: number, max: number, plotHeight: number) {
 
 /** Index of the row nearest a horizontal pixel offset within the plot. */
 export function nearestIndex(px: number, length: number, plotWidth: number) {
-  if (length <= 1 || plotWidth <= 0) {return 0;}
+  if (length <= 1 || plotWidth <= 0) {
+    return 0;
+  }
   const t = Math.max(0, Math.min(1, px / plotWidth));
   return Math.round(t * (length - 1));
 }

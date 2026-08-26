@@ -1,7 +1,7 @@
 "use client";
 
-import { Children, isValidElement } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import { Children, isValidElement } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 import type { ChartConfig, Margins } from "./chart-context";
 import { CommonChartContext } from "./common-context";
@@ -24,7 +24,9 @@ const DEFAULT_POLAR_MARGINS: Margins = {
 };
 
 function layerOf(node: ReactNode): "back" | "dom" | "svg" {
-  if (!isValidElement(node) || typeof node.type === "string") {return "svg";}
+  if (!isValidElement(node) || typeof node.type === "string") {
+    return "svg";
+  }
   return (node.type as { chartLayer?: "back" | "dom" }).chartLayer ?? "svg";
 }
 
@@ -98,14 +100,20 @@ export function PolarRoot<TData extends Row>({
   const domChildren: ReactNode[] = [];
   Children.forEach(children, (child) => {
     const layer = layerOf(child);
-    if (layer === "back") {backChildren.push(child);}
-    else if (layer === "dom") {domChildren.push(child);}
-    else {svgChildren.push(child);}
+    if (layer === "back") {
+      backChildren.push(child);
+    } else if (layer === "dom") {
+      domChildren.push(child);
+    } else {
+      svgChildren.push(child);
+    }
   });
 
   const onMove = (clientX: number, clientY: number) => {
     const el = ref.current;
-    if (!el) {return;}
+    if (!el) {
+      return;
+    }
     const rect = el.getBoundingClientRect();
     const dx = clientX - rect.left - margins.left - ctx.center.x;
     const dy = clientY - rect.top - margins.top - ctx.center.y;

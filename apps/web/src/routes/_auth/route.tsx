@@ -11,7 +11,12 @@ import {
   SidebarTrigger,
 } from "@freenary/ui/components/sidebar";
 import { TooltipProvider } from "@freenary/ui/components/tooltip";
-import { Outlet, createFileRoute, redirect, useMatches } from "@tanstack/react-router";
+import {
+  Outlet,
+  createFileRoute,
+  redirect,
+  useMatches,
+} from "@tanstack/react-router";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { authClient } from "@/lib/auth-client";
@@ -28,7 +33,7 @@ const routeTitles: Record<string, string> = {
 
 const AuthLayout = () => {
   const matches = useMatches();
-  const leafMatch = matches[matches.length - 1];
+  const leafMatch = matches.at(-1);
   const pageTitle = routeTitles[leafMatch?.routeId ?? ""] ?? "Home";
 
   return (
@@ -38,7 +43,7 @@ const AuthLayout = () => {
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 px-4">
             <SidebarTrigger size="icon" className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 !self-auto h-4" />
+            <Separator orientation="vertical" className="mr-2 h-4 !self-auto" />
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>

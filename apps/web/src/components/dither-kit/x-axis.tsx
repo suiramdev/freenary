@@ -12,7 +12,9 @@ export function XAxis({
   maxTicks?: number;
 }) {
   const ctx = useChartPart("XAxis");
-  if (!ctx.ready) {return null;}
+  if (!ctx.ready) {
+    return null;
+  }
 
   const step = Math.max(1, Math.ceil(ctx.dataLength / maxTicks));
   const y = ctx.plot.height + tickMargin;
@@ -20,7 +22,9 @@ export function XAxis({
   return (
     <g className="text-muted-foreground fill-current font-mono text-[10px]">
       {ctx.data.map((row, i) => {
-        if (i % step !== 0) {return null;}
+        if (i % step !== 0) {
+          return null;
+        }
         const raw = dataKey ? row[dataKey] : i;
         const label = tickFormatter ? tickFormatter(raw, i) : String(raw ?? "");
         return (

@@ -1,6 +1,6 @@
 import { CartesianCanvas } from "./cartesian-canvas";
-import { CartesianRoot } from './cartesian-root';
-import type { CartesianChartProps } from './cartesian-root';
+import { CartesianRoot } from "./cartesian-root";
+import type { CartesianChartProps } from "./cartesian-root";
 
 // `object` rather than `Record<string, unknown>`: interfaces don't get an
 // implicit index signature, so interface-typed rows failed to satisfy the

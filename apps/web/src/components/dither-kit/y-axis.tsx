@@ -12,7 +12,9 @@ export function YAxis({
   tickMargin?: number;
 }) {
   const ctx = useChartPart("YAxis");
-  if (!ctx.ready) {return null;}
+  if (!ctx.ready) {
+    return null;
+  }
 
   return (
     <g className="text-muted-foreground fill-current font-mono text-[10px]">

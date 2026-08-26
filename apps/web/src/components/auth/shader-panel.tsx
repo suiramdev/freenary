@@ -22,8 +22,8 @@ const weeklyData = [
 const weeklyConfig = { amount: { color: "green" as const } };
 
 const netWorthTrend = [
-  32_000, 33_500, 34_200, 35_800, 37_100, 38_500, 36_900, 39_200, 41_000, 43_500, 45_200,
-  47_850,
+  32_000, 33_500, 34_200, 35_800, 37_100, 38_500, 36_900, 39_200, 41_000,
+  43_500, 45_200, 47_850,
 ];
 
 export const ShaderPanel = () => (

@@ -5,21 +5,21 @@ import { Link } from "@tanstack/react-router";
 import { ShaderBackground } from "@/components/shader-background";
 
 export const NotFound = () => (
-  <main className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden bg-background px-6 text-center">
+  <main className="bg-background relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 text-center">
     <div className="pointer-events-none fixed inset-0" aria-hidden="true">
       <ShaderBackground />
     </div>
 
-    <div className="pointer-events-none absolute inset-0 bg-radial from-background/90 via-background/50 to-transparent" />
+    <div className="from-background/90 via-background/50 pointer-events-none absolute inset-0 bg-radial to-transparent" />
 
     <div className="relative z-10 flex max-w-md flex-col items-center gap-5">
       <p
         aria-hidden="true"
-        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-[7rem] font-bold leading-none text-primary sm:text-[9rem]"
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-primary text-[7rem] leading-none font-bold sm:text-[9rem]"
       >
         404
       </p>
-      <h1 className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-2xl font-bold text-foreground delay-75">
+      <h1 className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-foreground text-2xl font-bold delay-75">
         This page filed for bankruptcy
       </h1>
       <p className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-muted-foreground delay-100">

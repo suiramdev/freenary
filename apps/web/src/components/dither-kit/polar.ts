@@ -38,12 +38,19 @@ export function pieSlices(
 export function sliceAtAngle(slices: PieSlice[], angle: number): number {
   // Normalize so comparisons against [start, end) (which begin at TOP) work.
   let a = angle;
-  while (a < TOP) {a += TAU;}
-  while (a >= TOP + TAU) {a -= TAU;}
+  while (a < TOP) {
+    a += TAU;
+  }
+  while (a >= TOP + TAU) {
+    a -= TAU;
+  }
   return slices.findIndex((s) => a >= s.start && a < s.end);
 }
 
-export interface RadarAxis { label: string; angle: number }
+export interface RadarAxis {
+  label: string;
+  angle: number;
+}
 
 /** Evenly-spaced spokes, one per data row, labelled by `nameKey`. */
 export function radarAxes(data: Row[], nameKey: string): RadarAxis[] {
@@ -116,7 +123,9 @@ export function distToPolygonEdge(
     const ex = xi + t * dx - px;
     const ey = yi + t * dy - py;
     const d = Math.hypot(ex, ey);
-    if (d < best) {best = d;}
+    if (d < best) {
+      best = d;
+    }
   }
   return best;
 }

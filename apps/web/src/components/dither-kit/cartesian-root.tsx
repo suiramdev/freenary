@@ -1,8 +1,8 @@
-import { Children, isValidElement } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import { Children, isValidElement } from "react";
+import type { ComponentType, ReactNode } from "react";
 
-import { ChartContext, useChartController } from './chart-context';
-import type { ChartConfig, ChartType, Margins } from './chart-context';
+import { ChartContext, useChartController } from "./chart-context";
+import type { ChartConfig, ChartType, Margins } from "./chart-context";
 import { CommonChartContext } from "./common-context";
 import type { BloomInput } from "./dither-paint";
 import { cn } from "./lib";
@@ -51,7 +51,9 @@ export interface CartesianChartProps<TData extends Row> {
 
 /** Which render layer a composed part targets — defaults to the front SVG. */
 function layerOf(node: ReactNode): "back" | "dom" | "svg" {
-  if (!isValidElement(node) || typeof node.type === "string") {return "svg";}
+  if (!isValidElement(node) || typeof node.type === "string") {
+    return "svg";
+  }
   return (node.type as { chartLayer?: "back" | "dom" }).chartLayer ?? "svg";
 }
 
@@ -115,14 +117,20 @@ export function CartesianRoot<TData extends Row>({
   const domChildren: ReactNode[] = [];
   Children.forEach(children, (child) => {
     const layer = layerOf(child);
-    if (layer === "back") {backChildren.push(child);}
-    else if (layer === "dom") {domChildren.push(child);}
-    else {svgChildren.push(child);}
+    if (layer === "back") {
+      backChildren.push(child);
+    } else if (layer === "dom") {
+      domChildren.push(child);
+    } else {
+      svgChildren.push(child);
+    }
   });
 
   const onMove = (clientX: number) => {
     const el = ref.current;
-    if (!el) {return;}
+    if (!el) {
+      return;
+    }
     const rect = el.getBoundingClientRect();
     const px = clientX - rect.left - margins.left;
     const index = ctx.indexAtX(px);

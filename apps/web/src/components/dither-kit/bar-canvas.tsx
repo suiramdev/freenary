@@ -12,7 +12,10 @@ import {
   prefersReducedMotion,
 } from "./dither-paint";
 
-interface Bars { top: number[]; base: number[] } // per data index, in backing rows
+interface Bars {
+  top: number[];
+  base: number[];
+} // per data index, in backing rows
 
 // Fraction of the timeline spent staggering bar starts — the rest is each bar's
 // own grow window, so the rise sweeps across the chart as a wave.
@@ -40,11 +43,15 @@ export function BarCanvas() {
   // rebuild every band's geometry.
   const targets = useMemo(() => {
     const out: Record<string, Bars> = {};
-    if (!ready) {return out;}
+    if (!ready) {
+      return out;
+    }
     const h = height || 1;
     for (const key of configKeys) {
       const band = bands[key];
-      if (!band) {continue;}
+      if (!band) {
+        continue;
+      }
       out[key] = {
         base: band.map((b) => (y(b[0]) / h) * (rows - 1)),
         top: band.map((b) => (y(b[1]) / h) * (rows - 1)),
@@ -66,7 +73,9 @@ export function BarCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const c = canvas?.getContext("2d");
-    if (!(canvas && c) || cols <= 0 || rows <= 0) {return;}
+    if (!(canvas && c) || cols <= 0 || rows <= 0) {
+      return;
+    }
     canvas.width = cols;
     canvas.height = rows;
 
@@ -84,7 +93,9 @@ export function BarCanvas() {
 
     // Eased grow factor for bar `i` at global progress `prog`.
     const barProgress = (i: number, len: number, prog: number) => {
-      if (!animate) {return 1;}
+      if (!animate) {
+        return 1;
+      }
       const start = len > 1 ? (i / (len - 1)) * STAGGER : 0;
       return easeOutCubic(clamp01((prog - start) / (1 - STAGGER)));
     };
@@ -96,7 +107,9 @@ export function BarCanvas() {
       const keys = s.configKeys;
       keys.forEach((key, si) => {
         const t = targetsRef.current[key];
-        if (!t) {return;}
+        if (!t) {
+          return;
+        }
         const seed = s.seedOf(key);
         const variant = s.seriesSpecs[key]?.variant ?? "gradient";
         const emphasis = s.selectedDataKey ?? s.focusDataKey;
@@ -141,7 +154,9 @@ export function BarCanvas() {
     const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
       const s = state.current;
-      if (!s.ready) {return;}
+      if (!s.ready) {
+        return;
+      }
       if (bloomCtx) {
         const on =
           s.bloom !== "off" &&
@@ -156,7 +171,9 @@ export function BarCanvas() {
         animStart = 0; // re-play the wave on data change / replay
         lastProg = -1;
       }
-      if (!animStart) {animStart = now;}
+      if (!animStart) {
+        animStart = now;
+      }
       const prog = animate ? Math.min(1, (now - animStart) / duration) : 1;
 
       if (prog !== lastProg) {
@@ -176,7 +193,9 @@ export function BarCanvas() {
       if (Math.abs(intensity - itTarget) > 0.001) {
         intensity += (itTarget - intensity) * (reduce ? 1 : 0.16);
         needsFill = true;
-      } else {intensity = itTarget;}
+      } else {
+        intensity = itTarget;
+      }
 
       // Live tweak repaint (variant, stacking) without replaying the wave.
       const paintSig = `${s.stackType}|${s.configKeys
@@ -187,7 +206,9 @@ export function BarCanvas() {
         needsFill = true;
       }
 
-      if (!needsFill) {return;}
+      if (!needsFill) {
+        return;
+      }
       paint(prog);
       needsFill = false;
     };

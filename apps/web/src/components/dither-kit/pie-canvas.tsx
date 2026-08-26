@@ -44,7 +44,9 @@ export function PieCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const c = canvas?.getContext("2d");
-    if (!(canvas && c) || cols <= 0 || rows <= 0) {return;}
+    if (!(canvas && c) || cols <= 0 || rows <= 0) {
+      return;
+    }
     canvas.width = cols;
     canvas.height = rows;
 
@@ -72,7 +74,9 @@ export function PieCanvas() {
     const paint = (prog: number) => {
       const s = state.current;
       const slices = s.pie;
-      if (!slices) {return;}
+      if (!slices) {
+        return;
+      }
       c.clearRect(0, 0, cols, rows);
       const cx = s.center.x;
       const cy = s.center.y;
@@ -87,18 +91,30 @@ export function PieCanvas() {
           const dx = px - cx;
           const dy = py - cy;
           const r = Math.hypot(dx, dy);
-          if (r < innerR) {continue;}
+          if (r < innerR) {
+            continue;
+          }
           const angle = Math.atan2(dy, dx);
           let na = angle;
-          while (na < TOP) {na += TAU;}
-          while (na >= TOP + TAU) {na -= TAU;}
-          if (na > revealAngle) {continue;} // clockwise sweep-in
+          while (na < TOP) {
+            na += TAU;
+          }
+          while (na >= TOP + TAU) {
+            na -= TAU;
+          }
+          if (na > revealAngle) {
+            continue;
+          } // clockwise sweep-in
           const si = sliceAtAngle(slices, angle);
-          if (si < 0) {continue;}
+          if (si < 0) {
+            continue;
+          }
           const slice = slices[si];
           const active = s.hoverIndex === si;
           const localOuter = active ? outerR + POP * popEase : outerR;
-          if (r > localOuter) {continue;}
+          if (r > localOuter) {
+            continue;
+          }
 
           const seed = s.seedOf(slice.name);
           const variant = s.variantOf(slice.name);
@@ -114,11 +130,15 @@ export function PieCanvas() {
           }
           const density = (r - innerR) / Math.max(localOuter - innerR, 1);
           const bias = variant === "dotted" ? 0.12 : 0;
-          if (variant === "hatched" && ((x + y) & 3) >= 2) {continue;}
+          if (variant === "hatched" && ((x + y) & 3) >= 2) {
+            continue;
+          }
           const lit =
             variant === "solid" ||
             density > BAYER[y & 3][x & 3] - 0.1 * it - bias;
-          if (variant === "dotted" && !lit) {continue;}
+          if (variant === "dotted" && !lit) {
+            continue;
+          }
           // Density → opacity (see the colour-vs-opacity note in dither-paint);
           // off cells drop to a faint tier, never a hole to the background.
           const k = (0.35 + density * 0.65) * (1 + 0.22 * it);
@@ -132,7 +152,9 @@ export function PieCanvas() {
     const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
       const s = state.current;
-      if (!s.ready || !s.pie) {return;}
+      if (!s.ready || !s.pie) {
+        return;
+      }
       if (bloomCtx) {
         const on = s.bloom !== "off" && (!s.bloomOnHover || s.isMouseInChart);
         if (on) {
@@ -145,7 +167,9 @@ export function PieCanvas() {
         animStart = 0;
         lastProg = -1;
       }
-      if (!animStart) {animStart = now;}
+      if (!animStart) {
+        animStart = now;
+      }
       const prog = animate ? Math.min(1, (now - animStart) / duration) : 1;
 
       const emphasisNow = s.selectedDataKey ?? s.focusDataKey;
@@ -162,13 +186,17 @@ export function PieCanvas() {
       if (Math.abs(intensity - itTarget) > 0.001) {
         intensity += (itTarget - intensity) * (reduce ? 1 : 0.16);
         needsFill = true;
-      } else {intensity = itTarget;}
+      } else {
+        intensity = itTarget;
+      }
       // Ease the hovered slice's bulge in (and back out when nothing's hovered).
       const popTarget = s.hoverIndex == null ? 0 : 1;
       if (Math.abs(popEase - popTarget) > 0.001) {
         popEase += (popTarget - popEase) * (reduce ? 1 : 0.22);
         needsFill = true;
-      } else {popEase = popTarget;}
+      } else {
+        popEase = popTarget;
+      }
       if (prog !== lastProg) {
         lastProg = prog;
         needsFill = true;
@@ -183,7 +211,9 @@ export function PieCanvas() {
         needsFill = true;
       }
 
-      if (!needsFill) {return;}
+      if (!needsFill) {
+        return;
+      }
       paint(prog);
       needsFill = false;
     };

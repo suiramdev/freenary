@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-export interface Dimensions { width: number; height: number }
+export interface Dimensions {
+  width: number;
+  height: number;
+}
 
 /**
  * Tracks an element's CSS pixel size via {@link ResizeObserver}. Uses
@@ -15,7 +18,9 @@ export function useChartDimensions<T extends HTMLElement>() {
 
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) {return;}
+    if (!el) {
+      return;
+    }
 
     const measure = () => {
       const width = Math.max(0, el.clientWidth);

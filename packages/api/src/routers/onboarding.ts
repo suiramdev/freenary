@@ -61,9 +61,40 @@ export const onboardingRouter = {
 
 export const bankConnectionRouter = {
   exchangeCode: protectedProcedure
-    .input(z.object({ code: z.string() }))
-    .handler(async ({ input }) => {
+    .input(z.object({ code: z.string(), state: z.string().optional() }))
+    .handler(async ({ context, input }) => {
       const result = await exchangeBankCode(input.code);
+
+      let bankName = "Unknown";
+      if (input.state) {
+        try {
+          const parsed = JSON.parse(input.state) as { bankName?: string };
+          bankName = parsed.bankName ?? bankName;
+        } catch {
+          // state was not JSON — use as-is
+        }
+      }
+
+      const userId = context.session.user.id;
+
+      const connection = await prisma.bankConnection.create({
+        data: {
+          institutionName: bankName,
+          provider: "enable-banking",
+          providerSessionId: result.sessionId,
+          userId,
+        },
+      });
+
+      await prisma.bankAccount.createMany({
+        data: result.accounts.map((account) => ({
+          connectionId: connection.id,
+          iban: account.iban ?? null,
+          name: account.name ?? null,
+          providerAccountId: account.uid,
+        })),
+      });
+
       return result;
     }),
 
@@ -72,16 +103,20 @@ export const bankConnectionRouter = {
       z.object({
         bankCountry: z.string(),
         bankName: z.string(),
-        state: z.string(),
+        state: z.string().optional(),
       })
     )
     .handler(async ({ input }) => {
       const redirectUrl = `${env.CORS_ORIGIN}/callback/enable-banking`;
+      const encodedState = JSON.stringify({
+        bankName: input.bankName,
+        ...(input.state ? { original: input.state } : {}),
+      });
       const result = await startBankConnection({
         bankCountry: input.bankCountry,
         bankName: input.bankName,
         redirectUrl,
-        state: input.state,
+        state: encodedState,
       });
       return result;
     }),

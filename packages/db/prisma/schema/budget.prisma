@@ -1,0 +1,74 @@
+/// A link to an external banking provider (e.g. Enable Banking).
+/// Hierarchy: User → BankConnection → BankAccount → Transaction.
+model BankConnection {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Provider identifier (e.g. "enable-banking").
+  provider          String
+  /// Provider-level session identifier used to refresh data.
+  providerSessionId String
+  /// Human-readable institution name shown in the UI.
+  institutionName   String
+  /// Status of the connection — active connections can sync transactions.
+  status            BankConnectionStatus @default(ACTIVE)
+  /// Last time transactions were successfully synchronized.
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  accounts          BankAccount[]
+
+  @@index([userId])
+  @@map("bank_connection")
+}
+
+enum BankConnectionStatus {
+  ACTIVE
+  EXPIRED
+  ERROR
+}
+
+/// An individual bank account within a connection.
+model BankAccount {
+  id                 String         @id @default(cuid())
+  connectionId       String
+  connection         BankConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  /// Provider-level unique identifier for the account.
+  providerAccountId  String
+  /// IBAN when available (EU accounts).
+  iban               String?
+  /// Display name from the provider.
+  name               String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  transactions       Transaction[]
+
+  @@unique([connectionId, providerAccountId])
+  @@index([connectionId])
+  @@map("bank_account")
+}
+
+/// A single financial transaction (purchase, sale, deposit, withdrawal, etc.).
+model Transaction {
+  id                String      @id @default(cuid())
+  accountId         String
+  account           BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  /// Provider-level transaction identifier for deduplication.
+  providerTransactionId String?
+  /// Booking date of the transaction.
+  date              DateTime
+  /// Signed amount in minor units (negative = outgoing, positive = incoming).
+  amount            Int
+  /// ISO 4217 currency code (e.g. "EUR", "USD").
+  currency          String
+  /// Transaction description / narrative from the bank.
+  description       String      @default("")
+  /// Counterparty name when available.
+  counterpartyName  String?
+  createdAt         DateTime    @default(now())
+
+  @@unique([accountId, providerTransactionId])
+  @@index([accountId, date])
+  @@index([accountId, amount])
+  @@map("transaction")
+}

@@ -4,8 +4,8 @@ import { cn } from "@freenary/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
 import { BAYER, CELL, BORDER_ALPHA, OFF_TIER, clamp01 } from "./dither-paint";
-import { rgb, seedOfColor } from './palette';
-import type { DitherColor } from './palette';
+import { rgb, seedOfColor } from "./palette";
+import type { DitherColor } from "./palette";
 
 interface DitherProgressProps {
   /** 0–1 fill fraction. */
@@ -31,7 +31,9 @@ export function DitherProgress({
   useEffect(() => {
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
-    if (!canvas || !wrap) {return;}
+    if (!canvas || !wrap) {
+      return;
+    }
 
     const rect = wrap.getBoundingClientRect();
     const cols = Math.max(4, Math.round(rect.width / CELL));
@@ -41,7 +43,9 @@ export function DitherProgress({
     canvas.height = rows;
 
     const octx = canvas.getContext("2d");
-    if (!octx) {return;}
+    if (!octx) {
+      return;
+    }
 
     const seed = seedOfColor(color);
     const fillCols = Math.round(clamp01(value) * cols);

@@ -10,7 +10,7 @@ import { client } from "@/utils/orpc";
 const callbackSearchSchema = z.object({
   code: z.string().optional(),
   error: z.string().optional(),
-  state: z.string().optional(),
+  state: z.unknown().optional(),
 });
 
 export const Route = createFileRoute("/callback/enable-banking")({
@@ -29,6 +29,12 @@ export const Route = createFileRoute("/callback/enable-banking")({
     try {
       const result = await client.bankConnection.exchangeCode({
         code: search.code,
+        state:
+          typeof search.state === "string"
+            ? search.state
+            : search.state != null
+              ? JSON.stringify(search.state)
+              : undefined,
       });
       return {
         exchangeResult: { accounts: result.accounts, ok: true as const },

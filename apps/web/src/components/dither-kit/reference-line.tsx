@@ -20,7 +20,9 @@ export function ReferenceLine({
   className?: string;
 }) {
   const ctx = useChartPart("ReferenceLine");
-  if (!ctx.ready) {return null;}
+  if (!ctx.ready) {
+    return null;
+  }
 
   const { width } = ctx.plot;
   const py = ctx.y(y);

@@ -2,14 +2,19 @@
 
 import { createContext, use, useCallback, useMemo, useState } from "react";
 
-import { useRevision } from './chart-context';
-import type { AreaVariant, ChartConfig, ChartType, Margins } from './chart-context';
+import { useRevision } from "./chart-context";
+import type {
+  AreaVariant,
+  ChartConfig,
+  ChartType,
+  Margins,
+} from "./chart-context";
 import type { CommonChart } from "./common-context";
 import type { BloomInput } from "./dither-paint";
 import type { Seed } from "./palette";
 import { seedOfColor } from "./palette";
-import { pieSlices, radarAxes } from './polar';
-import type { PieSlice, RadarAxis } from './polar';
+import { pieSlices, radarAxes } from "./polar";
+import type { PieSlice, RadarAxis } from "./polar";
 import type { Dimensions } from "./use-chart-dimensions";
 
 type Row = Record<string, unknown>;
@@ -156,7 +161,9 @@ export function usePolarController({
   }, []);
   const unregisterVariant = useCallback((key: string) => {
     setVariants((prev) => {
-      if (!(key in prev)) {return prev;}
+      if (!(key in prev)) {
+        return prev;
+      }
       const next = { ...prev };
       delete next[key];
       return next;
@@ -209,12 +216,16 @@ export function usePolarController({
 
   // Memoized: walks every row × series for the axis max, then builds the axes.
   const radar = useMemo(() => {
-    if (chartType !== "radar") {return null;}
+    if (chartType !== "radar") {
+      return null;
+    }
     let max = 0;
     for (const row of data) {
       for (const key of configKeys) {
         const v = Number(row[key]) || 0;
-        if (v > max) {max = v;}
+        if (v > max) {
+          max = v;
+        }
       }
     }
     return { axes: radarAxes(data, nameKey), max: max || 1 };
@@ -234,14 +245,14 @@ export function usePolarController({
         hoverIndex,
         itemsAt: (i) => {
           const s = pie[i];
-          if (!s) return [];
+          if (!s) {return [];}
           return [
             {
-              name: s.name,
-              label: config[s.name]?.label ?? s.name,
-              value: s.value,
-              seed: seedOf(s.name),
               dimmed: emphasis !== null && emphasis !== s.name,
+              label: config[s.name]?.label ?? s.name,
+              name: s.name,
+              seed: seedOf(s.name),
+              value: s.value,
             },
           ];
         },
@@ -265,11 +276,11 @@ export function usePolarController({
         configKeys.map((name) => {
           const raw = data[i]?.[name];
           return {
-            name,
-            label: config[name]?.label ?? name,
-            value: typeof raw === "number" ? raw : 0,
-            seed: seedOf(name),
             dimmed: emphasis !== null && emphasis !== name,
+            label: config[name]?.label ?? name,
+            name,
+            seed: seedOf(name),
+            value: typeof raw === "number" ? raw : 0,
           };
         }),
       labelOf: (n) => config[n]?.label ?? n,

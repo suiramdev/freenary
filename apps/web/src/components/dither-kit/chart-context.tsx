@@ -5,8 +5,15 @@ import type { CommonChart } from "./common-context";
 import type { BloomInput } from "./dither-paint";
 import type { DitherColor, Seed } from "./palette";
 import { seedOfColor } from "./palette";
-import { buildBandScale, buildXScale, buildYScale, computeBands, indexAtBand, nearestIndex } from './scales';
-import type { StackType } from './scales';
+import {
+  buildBandScale,
+  buildXScale,
+  buildYScale,
+  computeBands,
+  indexAtBand,
+  nearestIndex,
+} from "./scales";
+import type { StackType } from "./scales";
 import type { Dimensions } from "./use-chart-dimensions";
 
 /** Which chart root a part is composed under — drives the boundary guards. */
@@ -245,7 +252,9 @@ export function useChartController({
   }, []);
   const unregisterSeries = useCallback((dataKey: string) => {
     setSeriesSpecs((prev) => {
-      if (!(dataKey in prev)) {return prev;}
+      if (!(dataKey in prev)) {
+        return prev;
+      }
       const next = { ...prev };
       delete next[dataKey];
       return next;
@@ -369,13 +378,19 @@ export function useChartController({
       // keep enough headroom that the upward-lifted card never clips the top.
       tooltipTop: (() => {
         const floor = mTop + 44;
-        if (hoverIndex == null) {return floor;}
+        if (hoverIndex == null) {
+          return floor;
+        }
         let minY = Number.POSITIVE_INFINITY;
         for (const key of configKeys) {
           const b = bands[key]?.[hoverIndex];
-          if (b) {minY = Math.min(minY, y(b[1]));}
+          if (b) {
+            minY = Math.min(minY, y(b[1]));
+          }
         }
-        if (!Number.isFinite(minY)) {return floor;}
+        if (!Number.isFinite(minY)) {
+          return floor;
+        }
         return Math.max(floor, mTop + minY);
       })(),
       heading: (i, labelKey) =>

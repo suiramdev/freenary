@@ -25,7 +25,9 @@ interface PersistedState {
 function loadPersistedState(): PersistedState | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) {return null;}
+    if (!raw) {
+      return null;
+    }
     return JSON.parse(raw) as PersistedState;
   } catch {
     return null;

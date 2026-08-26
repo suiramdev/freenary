@@ -1,6 +1,6 @@
 import { useChart } from "./chart-context";
-import { rgb } from './palette';
-import type { Seed } from './palette';
+import { rgb } from "./palette";
+import type { Seed } from "./palette";
 import { useSeries } from "./series-context";
 
 export type DotVariant = "border" | "colored-border" | "filled";
@@ -38,7 +38,9 @@ export function Dot({
   const ctx = useChart();
   const { dataKey, seed } = useSeries("Dot");
   const band = ctx.bands[dataKey];
-  if (!ctx.ready || !band) {return null;}
+  if (!ctx.ready || !band) {
+    return null;
+  }
   const paint = dotPaint(variant, seed);
 
   return (
@@ -74,10 +76,13 @@ export function ActiveDot({
   const ctx = useChart();
   const { dataKey, seed } = useSeries("ActiveDot");
   const band = ctx.bands[dataKey];
-  if (!ctx.ready || !band || ctx.hoverIndex == null || !ctx.entranceDone)
-    {return null;}
+  if (!ctx.ready || !band || ctx.hoverIndex == null || !ctx.entranceDone) {
+    return null;
+  }
   const b = band[ctx.hoverIndex];
-  if (!b) {return null;}
+  if (!b) {
+    return null;
+  }
   const paint = dotPaint(variant, seed);
   const cx = ctx.xCenter(ctx.hoverIndex);
   const cy = ctx.y(b[1]);
