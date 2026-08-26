@@ -15,7 +15,14 @@ import { client } from "@/utils/orpc";
 const callbackSearchSchema = z.object({
   code: z.string().optional(),
   error: z.string().optional(),
-  state: z.string().optional(),
+  // TanStack Router auto-parses JSON-shaped query values into objects;
+  // Enable Banking sends state as a JSON string, so coerce it back.
+  state: z.preprocess((v) => {
+    if (v === undefined || v === null || v === "") {
+      return;
+    }
+    return v instanceof Object ? JSON.stringify(v) : String(v);
+  }, z.string().optional()),
 });
 
 const EnableBankingCallback = () => {
