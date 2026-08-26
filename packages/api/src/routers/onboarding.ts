@@ -2,7 +2,7 @@ import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
 import { z } from "zod";
 
-import { protectedProcedure } from "../index";
+import { protectedProcedure, publicProcedure } from "../index";
 import {
   exchangeBankCode,
   getAvailableBanks,
@@ -11,6 +11,16 @@ import {
 } from "../lib/enable-banking";
 
 export const onboardingRouter = {
+  checkEmail: publicProcedure
+    .input(z.object({ email: z.email() }))
+    .handler(async ({ input }) => {
+      const user = await prisma.user.findUnique({
+        select: { id: true },
+        where: { email: input.email },
+      });
+      return { exists: user !== null };
+    }),
+
   completeOnboarding: protectedProcedure
     .input(z.object({ country: z.string() }))
     .handler(async ({ context, input }) => {

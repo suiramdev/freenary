@@ -1,5 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
-import { SpinnerGapIcon } from "@phosphor-icons/react"
+import { MeshGradient } from "@paper-design/shaders-react";
+import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -80,14 +81,30 @@ export const OnboardingWizard = () => {
   };
 
   return (
-    <main className="bg-background flex min-h-svh flex-col">
-      <div className="flex items-center justify-end px-4 py-3">
+    <main className="bg-background relative flex min-h-svh flex-col">
+      <div className="pointer-events-none fixed inset-0" aria-hidden="true">
+        <MeshGradient
+          colors={["#0a0a0a", "#1a2e1a", "#2d4a2d", "#0d1f0d"]}
+          distortion={0.4}
+          speed={0.3}
+          style={{ width: "100%", height: "100%" }}
+          swirl={0.1}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 50% 60% at 50% 50%, oklch(0.147 0.004 49.25 / 0.95) 0%, oklch(0.147 0.004 49.25 / 0.80) 40%, transparent 75%)",
+          }}
+        />
+      </div>
+      <div className="relative z-10 flex items-center justify-end px-4 py-3">
         <Button onClick={handleSignOut} size="sm" type="button" variant="ghost">
           Sign out
         </Button>
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-4 py-10">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md space-y-8">
           {ebAvailability.isLoading ? (
             <div className="flex items-center justify-center py-12">
