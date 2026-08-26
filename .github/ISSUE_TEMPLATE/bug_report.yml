@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a problem with Freenary
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for Freenary bugs. Include enough detail for someone else to reproduce the issue.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web app
+        - Server / API
+        - Database / migrations
+        - Docker / local setup
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The Freenary version, branch, or commit SHA you are running.
+      placeholder: main @ abc1234
+    validations:
+      required: false
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Describe the bug in your own words. Include a short summary, reproduction steps, and anything else that seems relevant.
+      placeholder: |
+        Short summary:
+        Freenary fails when ...
+
+        What happened?
+
+        How can we reproduce it?
+        1. ...
+        2. ...
+        3. ...
+
+        Anything else that might help (logs, screenshots):
+    validations:
+      required: true
