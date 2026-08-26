@@ -17,15 +17,15 @@ const STEPS = ["Country", "Bank connection"] as const;
 const STEPS_WITHOUT_BANKING = ["Country"] as const;
 const STORAGE_KEY = "freenary:onboarding";
 
-type PersistedState = {
+interface PersistedState {
   country: string;
   connectedBanks: string[];
-};
+}
 
 function loadPersistedState(): PersistedState | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) {return null;}
     return JSON.parse(raw) as PersistedState;
   } catch {
     return null;
@@ -35,7 +35,6 @@ function loadPersistedState(): PersistedState | null {
 export function persistOnboardingState(state: PersistedState) {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
-
 
 function clearPersistedState() {
   sessionStorage.removeItem(STORAGE_KEY);
@@ -72,7 +71,7 @@ export const OnboardingWizard = () => {
     setConnectedBanks((prev) => {
       const next = new Set(prev).add(name);
       if (country) {
-        persistOnboardingState({ country, connectedBanks: [...next] });
+        persistOnboardingState({ connectedBanks: [...next], country });
       }
       return next;
     });
@@ -93,7 +92,7 @@ export const OnboardingWizard = () => {
         queryKey: orpc.onboarding.getStatus.queryOptions().queryKey,
       });
       toast.success("You're all set!");
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/" });
     } else {
       toast.error("Something went wrong. Please try again.");
     }
@@ -103,7 +102,10 @@ export const OnboardingWizard = () => {
   const handleCountryContinue = () => {
     if (hasBankStep) {
       if (country) {
-        persistOnboardingState({ country, connectedBanks: [...connectedBanks] });
+        persistOnboardingState({
+          connectedBanks: [...connectedBanks],
+          country,
+        });
       }
       setStep(1);
     } else {

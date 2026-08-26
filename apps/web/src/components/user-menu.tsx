@@ -45,9 +45,7 @@ export default function UserMenu() {
               authClient.signOut({
                 fetchOptions: {
                   onSuccess: () => {
-                    navigate({
-                      to: "/",
-                    });
+                    navigate({ to: "/login" });
                   },
                 },
               });

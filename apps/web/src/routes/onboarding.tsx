@@ -14,7 +14,7 @@ export const Route = createFileRoute("/onboarding")({
 
     const status = await client.onboarding.getStatus();
     if (status.completed) {
-      throw redirect({ to: "/dashboard" });
+      throw redirect({ to: "/" });
     }
   },
   component: OnboardingWizard,

@@ -46,7 +46,7 @@ export const AuthForm = () => {
                 toast.error(error.error.message || error.error.statusText);
               },
               onSuccess: () => {
-                navigate({ to: "/dashboard" });
+                navigate({ to: "/" });
                 toast.success("Signed in successfully");
               },
             }
@@ -63,7 +63,7 @@ export const AuthForm = () => {
                 toast.error(error.error.message || error.error.statusText);
               },
               onSuccess: () => {
-                navigate({ to: "/dashboard" });
+                navigate({ to: "/" });
                 toast.success("Account created successfully");
               },
             }
