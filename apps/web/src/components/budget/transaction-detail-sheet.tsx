@@ -23,16 +23,19 @@ import {
   ArrowCounterClockwiseIcon,
   CalendarIcon,
   CaretUpDownIcon,
-  SpinnerGapIcon,
   TagIcon,
 } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { client } from "@/utils/orpc";
 
 import { CategoryIcon } from "./category-icon";
 import type { Transaction } from "./transaction-list";
+
+const isBudgetQuery = ({ queryKey: [key] }: { queryKey: readonly unknown[] }) =>
+  key === "budget" || (Array.isArray(key) && key[0] === "budget");
 
 interface TransactionDetailSheetProps {
   formatAmount: (amount: number, currency: string) => string;
@@ -49,19 +52,65 @@ export const TransactionDetailSheet = ({
 }: TransactionDetailSheetProps) => {
   const queryClient = useQueryClient();
 
-  const updateCategory = useMutation({
+  const patchCategory = (txId: string, category: SpendingCategory) => {
+    queryClient.setQueriesData<{
+      pageParams: unknown[];
+      pages: { transactions: Transaction[] }[];
+    }>(
+      {
+        predicate: ({ queryKey }) =>
+          queryKey[0] === "budget" && queryKey[1] === "getTransactions",
+      },
+      (old) => {
+        if (!old?.pages) {
+          return old;
+        }
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            transactions: page.transactions.map((tx) =>
+              tx.id === txId ? { ...tx, category } : tx
+            ),
+          })),
+        };
+      }
+    );
+  };
+
+  const updateCategory = useMutation<
+    unknown,
+    Error,
+    SpendingCategory | null,
+    { previousCategory: SpendingCategory; txId: string }
+  >({
     mutationFn: (category: SpendingCategory | null) =>
       client.budget.updateTransactionCategory({
         category,
         transactionId: transaction?.id ?? "",
       }),
-    onSuccess: () => {
-      // Invalidate all budget queries so transaction list + charts refetch.
-      // oRPC keys are [["budget", ...], ...]; manual key is ["budget", ...].
-      queryClient.invalidateQueries({
-        predicate: ({ queryKey: [key] }) =>
-          key === "budget" || (Array.isArray(key) && key[0] === "budget"),
-      });
+    onError: (_err, _vars, context) => {
+      if (context) {
+        patchCategory(context.txId, context.previousCategory);
+      }
+      toast.error("Failed to update category");
+    },
+    onMutate: async (newCategory) => {
+      // The dropdown is only rendered when transaction is non-null
+      const tx = transaction;
+      if (!tx) {
+        throw new Error("Missing transaction");
+      }
+
+      await queryClient.cancelQueries({ predicate: isBudgetQuery });
+
+      const previousCategory = tx.category;
+      patchCategory(tx.id, newCategory ?? tx.derivedCategory);
+
+      return { previousCategory, txId: tx.id };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ predicate: isBudgetQuery });
     },
   });
 
@@ -162,13 +211,9 @@ export const TransactionDetailSheet = ({
                           variant="ghost"
                           size="sm"
                           className="h-auto justify-start gap-1.5 px-0 py-0.5 font-normal"
-                          disabled={updateCategory.isPending}
                         />
                       }
                     >
-                      {updateCategory.isPending ? (
-                        <SpinnerGapIcon className="size-3 animate-spin" />
-                      ) : null}
                       <span className="text-sm">
                         {CATEGORY_LABELS[transaction.category]}
                       </span>
@@ -203,7 +248,6 @@ export const TransactionDetailSheet = ({
                       variant="ghost"
                       size="icon-xs"
                       onClick={() => updateCategory.mutate(null)}
-                      disabled={updateCategory.isPending}
                       className="text-muted-foreground"
                     >
                       <ArrowCounterClockwiseIcon className="size-3" />

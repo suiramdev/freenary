@@ -1,5 +1,10 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -50,6 +55,12 @@ const BudgetPage = () => {
     "outgoing"
   );
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
@@ -61,36 +72,44 @@ const BudgetPage = () => {
 
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
 
-  const breakdownQuery = useQuery(
-    orpc.budget.getSpendingBreakdown.queryOptions({
+  const breakdownQuery = useQuery({
+    ...orpc.budget.getSpendingBreakdown.queryOptions({
       input: { from, to },
-    })
-  );
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  const sankeyQuery = useQuery(
-    orpc.budget.getSankeyData.queryOptions({
+  const sankeyQuery = useQuery({
+    ...orpc.budget.getSankeyData.queryOptions({
       input: { from, to },
-    })
-  );
+    }),
+    placeholderData: keepPreviousData,
+  });
 
   const transactionsQuery = useInfiniteQuery({
     queryKey: [
       "budget",
       "getTransactions",
-      { from: from.toISOString(), to: to.toISOString(), direction, search },
+      {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        direction,
+        search: debouncedSearch,
+      },
     ],
     queryFn: ({ pageParam }) =>
       client.budget.getTransactions({
         from,
         to,
         direction,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         cursor: pageParam,
         limit: 50,
       }),
     // SAFETY: TanStack Query requires initialPageParam typed to match pageParam; undefined is the valid initial state
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
   const syncMutation = useMutation({
