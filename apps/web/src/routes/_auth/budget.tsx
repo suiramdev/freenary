@@ -10,6 +10,7 @@ import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { SankeyChart } from "@/components/budget/sankey-chart";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
+import { TransactionDetailSheet } from "@/components/budget/transaction-detail-sheet";
 import { TransactionList } from "@/components/budget/transaction-list";
 import type { TimeRange } from "@/components/budget/transaction-list";
 import { client, orpc } from "@/utils/orpc";
@@ -49,6 +50,9 @@ const BudgetPage = () => {
     "outgoing"
   );
   const [search, setSearch] = useState("");
+  const [selectedTransactionId, setSelectedTransactionId] = useState<
+    string | null
+  >(null);
 
   const { from, to } = useMemo(
     () => computeDateRange(anchorYear, anchorMonth, range),
@@ -140,6 +144,9 @@ const BudgetPage = () => {
     incoming: 0,
     outgoing: 0,
   };
+  const selectedTransaction = selectedTransactionId
+    ? (allTransactions.find((t) => t.id === selectedTransactionId) ?? null)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4">
@@ -197,7 +204,19 @@ const BudgetPage = () => {
           transactionsQuery.isLoading || transactionsQuery.isFetchingNextPage
         }
         formatAmount={formatCurrency}
+        onTransactionClick={(tx) => setSelectedTransactionId(tx.id)}
         range={range}
+      />
+
+      <TransactionDetailSheet
+        transaction={selectedTransaction}
+        open={selectedTransactionId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTransactionId(null);
+          }
+        }}
+        formatAmount={formatCurrency}
       />
     </div>
   );

@@ -1,10 +1,16 @@
 import type { Prisma } from "@freenary/db";
 import prisma from "@freenary/db";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
 import { getTransactions as ebGetTransactions } from "../lib/enable-banking";
-import { CATEGORY_LABELS, deriveCategory } from "../lib/mcc-categories";
+import {
+  CATEGORY_LABELS,
+  SPENDING_CATEGORIES,
+  deriveCategory,
+  effectiveCategory,
+} from "../lib/mcc-categories";
 import type { SpendingCategory } from "../lib/mcc-categories";
 
 const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
@@ -21,9 +27,10 @@ const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   GROUP BY ${truncExpr}, ${labelExpr}
   ORDER BY ${truncExpr} ASC`;
 
-
 type ConnectionWithAccounts = Awaited<
-  ReturnType<typeof prisma.bankConnection.findMany<{ include: { accounts: true } }>>
+  ReturnType<
+    typeof prisma.bankConnection.findMany<{ include: { accounts: true } }>
+  >
 >[number];
 
 const upsertTransaction = async (
@@ -199,6 +206,7 @@ export const budgetRouter = {
         select: {
           amount: true,
           bankTransactionCode: true,
+          category: true,
           counterpartyName: true,
           merchantCategoryCode: true,
         },
@@ -221,7 +229,7 @@ export const budgetRouter = {
             (incomeSources.get(source) ?? 0) + tx.amount
           );
         } else {
-          const category = deriveCategory(tx);
+          const category = effectiveCategory(tx);
           const abs = Math.abs(tx.amount);
           expenseCategories.set(
             category,
@@ -299,6 +307,7 @@ export const budgetRouter = {
         select: {
           amount: true,
           bankTransactionCode: true,
+          category: true,
           counterpartyName: true,
           merchantCategoryCode: true,
         },
@@ -310,9 +319,8 @@ export const budgetRouter = {
       });
 
       const totals = new Map<SpendingCategory, number>();
-
       for (const tx of transactions) {
-        const category = deriveCategory(tx);
+        const category = effectiveCategory(tx);
         const abs = Math.abs(tx.amount);
         totals.set(category, (totals.get(category) ?? 0) + abs);
       }
@@ -381,11 +389,14 @@ export const budgetRouter = {
         orderBy: [{ date: "desc" }, { id: "desc" }],
         select: {
           amount: true,
+          bankTransactionCode: true,
+          category: true,
           counterpartyName: true,
           currency: true,
           date: true,
           description: true,
           id: true,
+          merchantCategoryCode: true,
         },
         take: limit + 1,
         where: baseWhere,
@@ -422,9 +433,11 @@ export const budgetRouter = {
         },
         transactions: transactions.map((t) => ({
           amount: t.amount,
+          category: effectiveCategory(t),
           counterpartyName: t.counterpartyName,
           currency: t.currency,
           date: t.date.toISOString(),
+          derivedCategory: deriveCategory(t),
           description: t.description,
           id: t.id,
         })),
@@ -450,4 +463,53 @@ export const budgetRouter = {
       success: errors.length === 0,
     };
   }),
+
+  updateTransactionCategory: protectedProcedure
+    .input(
+      z.object({
+        category: z.enum(SPENDING_CATEGORIES).nullable(),
+        transactionId: z.string(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+
+      const tx = await prisma.transaction.findFirst({
+        select: {
+          amount: true,
+          bankTransactionCode: true,
+          category: true,
+          counterpartyName: true,
+          id: true,
+          merchantCategoryCode: true,
+        },
+        where: {
+          account: { connection: { userId } },
+          id: input.transactionId,
+        },
+      });
+
+      if (!tx) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Transaction not found",
+        });
+      }
+
+      const updated = await prisma.transaction.update({
+        data: { category: input.category },
+        select: {
+          amount: true,
+          bankTransactionCode: true,
+          category: true,
+          counterpartyName: true,
+          merchantCategoryCode: true,
+        },
+        where: { id: input.transactionId },
+      });
+
+      return {
+        category: effectiveCategory(updated),
+        derivedCategory: deriveCategory(updated),
+      };
+    }),
 };

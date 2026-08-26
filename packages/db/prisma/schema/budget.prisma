@@ -87,6 +87,8 @@ model Transaction {
   referenceNumber       String?
   /// Foreign exchange rate as a string.
   exchangeRate          String?
+  /// User-assigned spending category override; null = auto-derived from MCC / heuristics.
+  category              String?
   createdAt         DateTime    @default(now())
 
   @@unique([accountId, providerTransactionId])

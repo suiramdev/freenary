@@ -17,6 +17,26 @@ export type SpendingCategory =
   | "travel"
   | "utilities";
 
+export const SPENDING_CATEGORIES = [
+  "dining",
+  "education",
+  "entertainment",
+  "groceries",
+  "health",
+  "housing",
+  "income",
+  "insurance",
+  "other",
+  "savings",
+  "shopping",
+  "subscriptions",
+  "taxes",
+  "transfers",
+  "transport",
+  "travel",
+  "utilities",
+] as const satisfies readonly SpendingCategory[];
+
 type DitherColor =
   | "green"
   | "blue"
@@ -388,3 +408,17 @@ export const deriveCategory = (tx: {
 
   return "other";
 };
+
+/**
+ * The single source of truth for a transaction's category.
+ * Returns the user override when set, otherwise the auto-derived category.
+ */
+export const effectiveCategory = (tx: {
+  category?: string | null;
+  merchantCategoryCode?: string | null;
+  bankTransactionCode?: string | null;
+  counterpartyName?: string | null;
+  amount: number;
+}): SpendingCategory =>
+  // SAFETY: category column is only written with validated SpendingCategory values or null
+  (tx.category as SpendingCategory | null) ?? deriveCategory(tx);

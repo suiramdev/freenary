@@ -1,3 +1,4 @@
+import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import {
   Empty,
   EmptyDescription,
@@ -16,12 +17,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@freenary/ui/components/tabs";
-import { MagnifyingGlass, Receipt } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, ReceiptIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { CategoryIcon } from "./category-icon";
 import { TransactionRowsSkeleton } from "./transaction-rows-skeleton";
 
 interface Transaction {
@@ -29,6 +31,8 @@ interface Transaction {
   date: string;
   amount: number;
   currency: string;
+  category: SpendingCategory;
+  derivedCategory: SpendingCategory;
   description: string;
   counterpartyName: string | null;
 }
@@ -46,6 +50,7 @@ interface TransactionListProps {
   onLoadMore: () => void;
   isLoading: boolean;
   formatAmount: (amount: number, currency: string) => string;
+  onTransactionClick: (tx: Transaction) => void;
   range: TimeRange;
 }
 
@@ -187,6 +192,7 @@ const TransactionRows = ({
   isLoading,
   formatAmount,
   isIncoming,
+  onTransactionClick,
   range,
 }: {
   transactions: Transaction[];
@@ -195,6 +201,7 @@ const TransactionRows = ({
   isLoading: boolean;
   formatAmount: (amount: number, currency: string) => string;
   isIncoming: boolean;
+  onTransactionClick: (tx: Transaction) => void;
   range: TimeRange;
 }) => {
   "use no memo";
@@ -235,7 +242,7 @@ const TransactionRows = ({
       <Empty className="border-none py-8">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Receipt />
+            <ReceiptIcon />
           </EmptyMedia>
           <EmptyTitle>No transactions</EmptyTitle>
           <EmptyDescription>
@@ -278,14 +285,20 @@ const TransactionRows = ({
 
           const { tx } = item;
           return (
-            <div
+            <button
+              type="button"
               key={item.key}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
-              className="border-border hover:bg-muted/50 absolute inset-x-0 flex items-center justify-between gap-4 border-b px-1 py-3 transition-colors duration-150"
+              className="border-border hover:bg-muted/50 absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b px-1 py-3 text-left transition-colors duration-150"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
+              onClick={() => onTransactionClick(tx)}
             >
-              <div className="flex min-w-0 flex-col gap-0.5">
+              <CategoryIcon
+                category={tx.category}
+                className="size-8 [&_svg]:size-4"
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="truncate text-xs font-medium">
                   {tx.counterpartyName ?? tx.description}
                 </span>
@@ -304,7 +317,7 @@ const TransactionRows = ({
                 {isIncoming ? "+" : "−"}
                 {formatAmount(Math.abs(tx.amount), tx.currency)}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -324,6 +337,7 @@ export const TransactionList = ({
   onLoadMore,
   isLoading,
   formatAmount,
+  onTransactionClick,
   range,
 }: TransactionListProps) => {
   const outgoingLabel = `Outgoing · ${formatAmount(Math.abs(totals.outgoing), "EUR")}`;
@@ -333,7 +347,7 @@ export const TransactionList = ({
     <div className="flex flex-1 flex-col gap-3">
       <InputGroup>
         <InputGroupAddon>
-          <MagnifyingGlass />
+          <MagnifyingGlassIcon />
         </InputGroupAddon>
         <InputGroupInput
           placeholder="Search transactions..."
@@ -360,6 +374,7 @@ export const TransactionList = ({
             isLoading={isLoading}
             formatAmount={formatAmount}
             isIncoming={false}
+            onTransactionClick={onTransactionClick}
             range={range}
           />
         </TabsContent>
@@ -371,6 +386,7 @@ export const TransactionList = ({
             isLoading={isLoading}
             formatAmount={formatAmount}
             isIncoming={true}
+            onTransactionClick={onTransactionClick}
             range={range}
           />
         </TabsContent>
