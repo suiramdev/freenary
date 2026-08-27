@@ -93,6 +93,8 @@ const resolveCategorisation = async (
 ): Promise<CategorisationFields> => {
   const parsed = parseDescriptor({
     amountMinor: tx.amountMinor,
+    bankTransactionFamilyCode: tx.bankTransactionFamilyCode,
+    bankTransactionSubCode: tx.bankTransactionSubCode,
     creditorName: tx.creditorName,
     debtorName: tx.debtorName,
     institutionName,

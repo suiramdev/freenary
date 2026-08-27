@@ -733,3 +733,120 @@ describe("channel verb detection", () => {
     }
   });
 });
+
+// ── ISO 20022 family code channel signal ──────────────────────────────────
+
+describe("iso 20022 family code", () => {
+  it("RCDT → transfer overrides verb detection", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "RCDT",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["CARTE MONOPRIX"],
+      })
+    );
+    expect(result.channel).toBe("transfer");
+  });
+
+  it("RDDT → direct-debit for any institution", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "RDDT",
+        institutionName: "Boursorama",
+        remittanceLines: ["SOME RANDOM TEXT"],
+      })
+    );
+    expect(result.channel).toBe("direct-debit");
+  });
+
+  it("CCRD → card", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "CCRD",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["MONOPRIX PARIS"],
+      })
+    );
+    expect(result.channel).toBe("card");
+  });
+
+  it("CHRG → fee", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "CHRG",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["TENUE DE COMPTE"],
+      })
+    );
+    expect(result.channel).toBe("fee");
+  });
+
+  it("CNTR → atm", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "CNTR",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["RETRAIT"],
+      })
+    );
+    expect(result.channel).toBe("atm");
+  });
+
+  it("LDAS → loan", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "LDAS",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["ECHEANCE PRET"],
+      })
+    );
+    expect(result.channel).toBe("loan");
+  });
+
+  it("null/undefined falls back to verb detection", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: null,
+        institutionName: "Unknown Bank",
+        remittanceLines: ["VIR SEPA JEAN DUPONT"],
+      })
+    );
+    expect(result.channel).toBe("transfer");
+  });
+
+  it("unknown code falls back to verb detection", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "ZZZZ",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["PRLV SEPA NETFLIX"],
+      })
+    );
+    expect(result.channel).toBe("direct-debit");
+  });
+
+  it("family code is case-insensitive", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "rcdt",
+        institutionName: "Unknown Bank",
+        remittanceLines: ["SOME TEXT"],
+      })
+    );
+    expect(result.channel).toBe("transfer");
+  });
+
+  it("family code takes priority but regex still extracts payee details", () => {
+    const result = parseDescriptor(
+      input({
+        bankTransactionFamilyCode: "MCRD",
+        institutionName: "Boursorama",
+        remittanceLines: ["CARTE 01/03/25 CARREFOUR MARKET CB*4567"],
+      })
+    );
+    expect(result.channel).toBe("card");
+    expect(result.payeeText).toBe("CARREFOUR MARKET");
+    expect(result.cardLast4).toBe("4567");
+    expect(result.labelDate).toBe("2025-03-01");
+  });
+});

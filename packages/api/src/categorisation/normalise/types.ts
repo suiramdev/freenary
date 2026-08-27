@@ -16,6 +16,10 @@ export interface DescriptorParseInput {
   /** Institution display name, e.g. "Boursorama". */
   institutionName: string;
   institutionBic?: string | null;
+  /** ISO 20022 bank transaction family code (e.g. "RCDT", "RDDT"). */
+  bankTransactionFamilyCode?: string | null;
+  /** ISO 20022 bank transaction sub-code (e.g. "SALA", "DMCT"). */
+  bankTransactionSubCode?: string | null;
   /** Signed minor units; negative = outgoing. */
   amountMinor: number;
 }
