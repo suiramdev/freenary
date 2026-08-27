@@ -111,6 +111,8 @@ export const bankConnectionRouter = {
 
       const connection = await prisma.bankConnection.create({
         data: {
+          institutionBic: institution.bic ?? null,
+          institutionCountry: institution.country,
           institutionName: bankName,
           provider: provider.id,
           providerSessionId: result.providerSessionId,

@@ -8,6 +8,7 @@ let learnedQueryRows: unknown[] = [];
 // Mock @freenary/db before any transitive import pulls it in
 mock.module("@freenary/db", () => ({
   default: {
+    $executeRaw: () => 0,
     $queryRaw: (query: TemplateStringsArray) => {
       const sql = query.join("");
       if (sql.includes('FROM "merchant", unnest') && idfFailuresRemaining > 0) {
@@ -19,7 +20,6 @@ mock.module("@freenary/db", () => ({
       }
       return [];
     },
-    $executeRaw: () => 0,
     descriptorMemo: {
       deleteMany: () => ({}),
       update: () => ({}),
@@ -369,5 +369,36 @@ describe("resolveTransaction — enrichment stage disabled without API key", () 
     // Must resolve to something without throwing
     expect(result.band).toBeDefined();
     expect(result.stage).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveTransaction — business-registry skipped without country context
+// ---------------------------------------------------------------------------
+
+describe("resolveTransaction — business-registry dispatch (generic)", () => {
+  test("without country, cascade skips business-registry stage", async () => {
+    const result = await resolveTransaction({
+      amountMinor: -1200,
+      channel: "card",
+      normalisedDescriptor: "some unknown merchant xyz",
+      rawDescriptor: "SOME UNKNOWN MERCHANT XYZ",
+      userId: "test-user",
+    });
+
+    expect(result.stage).not.toBe("business-registry");
+  });
+
+  test("with unsupported country, cascade skips business-registry stage", async () => {
+    const result = await resolveTransaction({
+      amountMinor: -1200,
+      channel: "card",
+      country: "XX",
+      normalisedDescriptor: "some unknown merchant xyz",
+      rawDescriptor: "SOME UNKNOWN MERCHANT XYZ",
+      userId: "test-user",
+    });
+
+    expect(result.stage).not.toBe("business-registry");
   });
 });

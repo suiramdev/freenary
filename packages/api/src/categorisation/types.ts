@@ -3,6 +3,7 @@ import type { TransactionChannel } from "./normalise/types";
 
 export type ResolutionBand = "auto" | "suggest" | "unknown";
 export type ResolutionStage =
+  | "business-registry"
   | "channel"
   | "dictionary"
   | "enrichment"
@@ -10,8 +11,7 @@ export type ResolutionStage =
   | "learned"
   | "mcc"
   | "memo"
-  | "none"
-  | "sirene";
+  | "none";
 
 export interface MerchantCandidate {
   merchantId: string;
@@ -44,6 +44,8 @@ export interface ResolveRequest {
   normalisedDescriptor: string;
   rawDescriptor: string;
   channel: TransactionChannel;
+  /** ISO 3166-1 alpha-2 country code of the institution (e.g. "FR", "DE"). */
+  country?: string | null;
   allowExternalLookup?: boolean;
   creditorIban?: string | null;
   creditorIdentifications?: readonly { identification: string }[] | null;

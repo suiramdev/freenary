@@ -10,6 +10,10 @@ model BankConnection {
   providerSessionId String
   /// Human-readable institution name shown in the UI.
   institutionName   String
+  /// ISO 3166-1 alpha-2 country code of the institution (e.g. "FR", "DE").
+  institutionCountry String?
+  /// SWIFT/BIC of the institution when available from the provider.
+  institutionBic    String?
   /// Status of the connection — active connections can sync transactions.
   status            BankConnectionStatus @default(ACTIVE)
   /// Last time transactions were successfully synchronized.

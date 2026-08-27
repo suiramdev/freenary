@@ -91,14 +91,18 @@ const resolveCategorisation = async (
   tx: ProviderTransaction,
   userId: string,
   institutionName: string,
+  institutionCountry: string | null,
+  institutionBic: string | null,
   allowExternalLookup: boolean
 ): Promise<CategorisationFields> => {
   const parsed = parseDescriptor({
     amountMinor: tx.amountMinor,
     bankTransactionFamilyCode: tx.bankTransactionFamilyCode,
     bankTransactionSubCode: tx.bankTransactionSubCode,
+    country: institutionCountry,
     creditorName: tx.creditorName,
     debtorName: tx.debtorName,
+    institutionBic,
     institutionName,
     remittanceLines: tx.remittanceLines,
   });
@@ -109,6 +113,7 @@ const resolveCategorisation = async (
     allowExternalLookup,
     amountMinor: tx.amountMinor,
     channel: parsed.channel,
+    country: institutionCountry,
     creditorIban: tx.creditorIban,
     creditorIdentifications: tx.creditorIdentifications,
     merchantCategoryCode: tx.merchantCategoryCode,
@@ -141,6 +146,8 @@ const upsertTransaction = async (
   tx: ProviderTransaction,
   userId: string,
   institutionName: string,
+  institutionCountry: string | null,
+  institutionBic: string | null,
   categorisationProblems: string[],
   allowExternalLookup: boolean
 ) => {
@@ -160,6 +167,8 @@ const upsertTransaction = async (
       tx,
       userId,
       institutionName,
+      institutionCountry,
+      institutionBic,
       allowExternalLookup
     );
   } catch (error) {
@@ -234,6 +243,8 @@ const syncConnection = async (
             tx,
             userId,
             connection.institutionName,
+            connection.institutionCountry ?? null,
+            connection.institutionBic ?? null,
             categorisationProblems,
             allowExternalLookup
           );

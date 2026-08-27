@@ -13,317 +13,320 @@ const input = (
   ...overrides,
 });
 
-// ── Boursorama ───────────────────────────────────────────────────────────
+// ── FR: French institutions ──────────────────────────────────────────────
 
-describe("boursorama", () => {
-  it("parses CARTE with date and card suffix", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["CARTE 01/03/25 CARREFOUR MARKET 4587 CB*4567"],
-      })
-    );
-    expect(result.payeeText).toBe("CARREFOUR MARKET");
-    expect(result.normalisedDescriptor).toBe("carrefour market");
-    expect(result.channel).toBe("card");
-    expect(result.cardLast4).toBe("4567");
-    expect(result.labelDate).toBe("2025-03-01");
-    expect(result.parserId).toBe("boursorama");
+describe("FR", () => {
+  // ── Boursorama ─────────────────────────────────────────────────────────
+  describe("boursorama", () => {
+    it("parses CARTE with date and card suffix", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["CARTE 01/03/25 CARREFOUR MARKET 4587 CB*4567"],
+        })
+      );
+      expect(result.payeeText).toBe("CARREFOUR MARKET");
+      expect(result.normalisedDescriptor).toBe("carrefour market");
+      expect(result.channel).toBe("card");
+      expect(result.cardLast4).toBe("4567");
+      expect(result.labelDate).toBe("2025-03-01");
+      expect(result.parserId).toBe("boursorama");
+    });
+
+    it("parses RETRAIT DAB as atm channel", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "BoursoBank",
+          remittanceLines: ["RETRAIT DAB 15/04/25 DISTRIBUTEUR BNP CB*1234"],
+        })
+      );
+      expect(result.channel).toBe("atm");
+      expect(result.cardLast4).toBe("1234");
+      expect(result.parserId).toBe("boursorama");
+    });
+
+    it("parses PRLV SEPA as direct-debit", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["PRLV SEPA EDF CLIENTS PARTICULIERS"],
+        })
+      );
+      expect(result.payeeText).toBe("EDF CLIENTS PARTICULIERS");
+      expect(result.normalisedDescriptor).toBe("edf clients particuliers");
+      expect(result.channel).toBe("direct-debit");
+    });
+
+    it("strips backslash-delimited localisation", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["CARTE 10/05/25 MONOPRIX\\PARIS 15\\ FR CB*9999"],
+        })
+      );
+      expect(result.payeeText).toBe("MONOPRIX");
+      expect(result.channel).toBe("card");
+    });
+
+    it("drops Réf lines as noise", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: [
+            "Réf : 12345678",
+            "CARTE 01/03/25 BOULANGERIE PAUL CB*4567",
+          ],
+        })
+      );
+      expect(result.payeeText).toBe("BOULANGERIE PAUL");
+      expect(result.droppedLines).toContain("Réf : 12345678");
+    });
+
+    it("matches on BIC prefix", () => {
+      const result = parseDescriptor(
+        input({
+          institutionBic: "BOUSFRPPXXX",
+          institutionName: "Some Random Name",
+          remittanceLines: ["CARTE 01/03/25 FNAC CB*1111"],
+        })
+      );
+      expect(result.parserId).toBe("boursorama");
+    });
+
+    it("parses VIR SEPA as transfer", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["VIR SEPA JEAN DUPONT"],
+        })
+      );
+      expect(result.channel).toBe("transfer");
+      expect(result.payeeText).toBe("JEAN DUPONT");
+    });
+
+    it("parses ECH PRET as loan", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["ECH PRET: CREDIT IMMOBILIER"],
+        })
+      );
+      expect(result.channel).toBe("loan");
+    });
+
+    it("handles CARTE with DDMMYY format (no slashes)", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Boursorama",
+          remittanceLines: ["CARTE 010325 CARREFOUR CB*4567"],
+        })
+      );
+      expect(result.payeeText).toBe("CARREFOUR");
+      expect(result.labelDate).toBe("2025-03-01");
+      expect(result.channel).toBe("card");
+    });
   });
 
-  it("parses RETRAIT DAB as atm channel", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "BoursoBank",
-        remittanceLines: ["RETRAIT DAB 15/04/25 DISTRIBUTEUR BNP CB*1234"],
-      })
-    );
-    expect(result.channel).toBe("atm");
-    expect(result.cardLast4).toBe("1234");
-    expect(result.parserId).toBe("boursorama");
+  // ── BNP Paribas ──────────────────────────────────────────────────────────
+
+  describe("bnp-paribas", () => {
+    it("parses FACTURE CARTE DU with date and card", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "BNP Paribas",
+          remittanceLines: [
+            "FACTURE CARTE DU 150325 PHARMACIE LAFAYETTE CARTE 7890",
+          ],
+        })
+      );
+      expect(result.payeeText).toBe("PHARMACIE LAFAYETTE");
+      expect(result.normalisedDescriptor).toBe("pharmacie lafayette");
+      expect(result.channel).toBe("card");
+      expect(result.cardLast4).toBe("7890");
+      expect(result.labelDate).toBe("2025-03-15");
+      expect(result.parserId).toBe("bnp-paribas");
+    });
+
+    it("parses PRLV EUROPEEN SEPA with metadata suffixes", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "BNP Paribas",
+          remittanceLines: [
+            "PRLV EUROPEEN SEPA FREE MOBILE MDT/123 ECH/456 ID ABC",
+          ],
+        })
+      );
+      expect(result.payeeText).toBe("FREE MOBILE");
+      expect(result.channel).toBe("direct-debit");
+    });
+
+    it("matches on BIC", () => {
+      const result = parseDescriptor(
+        input({
+          institutionBic: "BNPAFRPPXXX",
+          institutionName: "Unknown",
+          remittanceLines: ["FACTURE CARTE DU 010125 SEPHORA CARTE 5555"],
+        })
+      );
+      expect(result.parserId).toBe("bnp-paribas");
+    });
   });
 
-  it("parses PRLV SEPA as direct-debit", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["PRLV SEPA EDF CLIENTS PARTICULIERS"],
-      })
-    );
-    expect(result.payeeText).toBe("EDF CLIENTS PARTICULIERS");
-    expect(result.normalisedDescriptor).toBe("edf clients particuliers");
-    expect(result.channel).toBe("direct-debit");
+  // ── Crédit Agricole ──────────────────────────────────────────────────────
+
+  describe("credit-agricole", () => {
+    it("parses PAIEMENT PAR CARTE with date suffix (DD/MM, no year)", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Crédit Agricole",
+          remittanceLines: ["PAIEMENT PAR CARTE MONOPRIX PARIS 15 12/03"],
+        })
+      );
+      expect(result.payeeText).toBe("MONOPRIX PARIS 15");
+      expect(result.normalisedDescriptor).toBe("monoprix paris");
+      expect(result.channel).toBe("card");
+      // DD/MM only — no year, so labelDate is undefined
+      expect(result.labelDate).toBeUndefined();
+      expect(result.parserId).toBe("credit-agricole");
+    });
+
+    it("parses PRELEVEMENT with DD/MM/YYYY date", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Crédit Agricole",
+          remittanceLines: ["PRELEVEMENT EDF CLIENTS 15/03/2025"],
+        })
+      );
+      expect(result.payeeText).toBe("EDF CLIENTS");
+      expect(result.channel).toBe("direct-debit");
+      expect(result.labelDate).toBe("2025-03-15");
+    });
+
+    it("parses PRELEVEMENT with DD-MM date (no year)", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Crédit Agricole",
+          remittanceLines: ["PRELEVEMENT NETFLIX 15-03"],
+        })
+      );
+      expect(result.payeeText).toBe("NETFLIX");
+      expect(result.channel).toBe("direct-debit");
+      expect(result.labelDate).toBeUndefined();
+    });
   });
 
-  it("strips backslash-delimited localisation", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["CARTE 10/05/25 MONOPRIX\\PARIS 15\\ FR CB*9999"],
-      })
-    );
-    expect(result.payeeText).toBe("MONOPRIX");
-    expect(result.channel).toBe("card");
+  // ── Société Générale ─────────────────────────────────────────────────────
+
+  describe("societe-generale", () => {
+    it("parses CARTE with card token before date", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Société Générale",
+          remittanceLines: ["CARTE X1234 15/03 BOULANGERIE DUPONT"],
+        })
+      );
+      expect(result.payeeText).toBe("BOULANGERIE DUPONT");
+      expect(result.channel).toBe("card");
+      expect(result.cardLast4).toBe("X1234");
+      expect(result.parserId).toBe("societe-generale");
+    });
+
+    it("parses VIR POUR with REF and MOTIF", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Société Générale",
+          remittanceLines: [
+            "VIR POUR: JEAN DUPONT REF: ABC123 MOTIF: LOYER MARS",
+          ],
+        })
+      );
+      expect(result.payeeText).toBe("LOYER MARS");
+      expect(result.channel).toBe("transfer");
+    });
+
+    it("parses bare date/payee format", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Société Générale",
+          remittanceLines: ["0315/MONOPRIX PARIS"],
+        })
+      );
+      expect(result.payeeText).toBe("MONOPRIX PARIS");
+    });
   });
 
-  it("drops Réf lines as noise", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: [
-          "Réf : 12345678",
-          "CARTE 01/03/25 BOULANGERIE PAUL CB*4567",
-        ],
-      })
-    );
-    expect(result.payeeText).toBe("BOULANGERIE PAUL");
-    expect(result.droppedLines).toContain("Réf : 12345678");
+  // ── Crédit Mutuel / CIC ─────────────────────────────────────────────────
+
+  describe("credit-mutuel", () => {
+    it("parses PAIEMENT CB with card after merchant", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Crédit Mutuel",
+          remittanceLines: ["PAIEMENT CB 1503 INTERMARCHE CARTE 4567"],
+        })
+      );
+      expect(result.payeeText).toBe("INTERMARCHE");
+      expect(result.channel).toBe("card");
+      expect(result.cardLast4).toBe("4567");
+      expect(result.parserId).toBe("credit-mutuel");
+    });
+
+    it("matches CIC by name", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "CIC",
+          remittanceLines: ["PAIEMENT PSC 0115 SNCF PAYWEB9876"],
+        })
+      );
+      expect(result.parserId).toBe("credit-mutuel");
+      expect(result.payeeText).toBe("SNCF");
+      expect(result.cardLast4).toBe("9876");
+    });
+
+    it("no year from 4-digit date — labelDate undefined", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "Crédit Mutuel",
+          remittanceLines: ["PAIEMENT CB 1503 AUCHAN CARTE 1111"],
+        })
+      );
+      expect(result.labelDate).toBeUndefined();
+    });
   });
 
-  it("matches on BIC prefix", () => {
-    const result = parseDescriptor(
-      input({
-        institutionBic: "BOUSFRPPXXX",
-        institutionName: "Some Random Name",
-        remittanceLines: ["CARTE 01/03/25 FNAC CB*1111"],
-      })
-    );
-    expect(result.parserId).toBe("boursorama");
+  // ── LCL ──────────────────────────────────────────────────────────────────
+
+  describe("lcl", () => {
+    it("parses CB payee DD/MM/YY (date as suffix)", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "LCL",
+          remittanceLines: ["CB BOULANGER 15/03/25"],
+        })
+      );
+      expect(result.payeeText).toBe("BOULANGER");
+      expect(result.channel).toBe("card");
+      expect(result.labelDate).toBe("2025-03-15");
+      expect(result.parserId).toBe("lcl");
+    });
   });
 
-  it("parses VIR SEPA as transfer", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["VIR SEPA JEAN DUPONT"],
-      })
-    );
-    expect(result.channel).toBe("transfer");
-    expect(result.payeeText).toBe("JEAN DUPONT");
-  });
+  // ── La Banque Postale ────────────────────────────────────────────────────
 
-  it("parses ECH PRET as loan", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["ECH PRET: CREDIT IMMOBILIER"],
-      })
-    );
-    expect(result.channel).toBe("loan");
-  });
-
-  it("handles CARTE with DDMMYY format (no slashes)", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Boursorama",
-        remittanceLines: ["CARTE 010325 CARREFOUR CB*4567"],
-      })
-    );
-    expect(result.payeeText).toBe("CARREFOUR");
-    expect(result.labelDate).toBe("2025-03-01");
-    expect(result.channel).toBe("card");
-  });
-});
-
-// ── BNP Paribas ──────────────────────────────────────────────────────────
-
-describe("bnp-paribas", () => {
-  it("parses FACTURE CARTE DU with date and card", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "BNP Paribas",
-        remittanceLines: [
-          "FACTURE CARTE DU 150325 PHARMACIE LAFAYETTE CARTE 7890",
-        ],
-      })
-    );
-    expect(result.payeeText).toBe("PHARMACIE LAFAYETTE");
-    expect(result.normalisedDescriptor).toBe("pharmacie lafayette");
-    expect(result.channel).toBe("card");
-    expect(result.cardLast4).toBe("7890");
-    expect(result.labelDate).toBe("2025-03-15");
-    expect(result.parserId).toBe("bnp-paribas");
-  });
-
-  it("parses PRLV EUROPEEN SEPA with metadata suffixes", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "BNP Paribas",
-        remittanceLines: [
-          "PRLV EUROPEEN SEPA FREE MOBILE MDT/123 ECH/456 ID ABC",
-        ],
-      })
-    );
-    expect(result.payeeText).toBe("FREE MOBILE");
-    expect(result.channel).toBe("direct-debit");
-  });
-
-  it("matches on BIC", () => {
-    const result = parseDescriptor(
-      input({
-        institutionBic: "BNPAFRPPXXX",
-        institutionName: "Unknown",
-        remittanceLines: ["FACTURE CARTE DU 010125 SEPHORA CARTE 5555"],
-      })
-    );
-    expect(result.parserId).toBe("bnp-paribas");
-  });
-});
-
-// ── Crédit Agricole ──────────────────────────────────────────────────────
-
-describe("credit-agricole", () => {
-  it("parses PAIEMENT PAR CARTE with date suffix (DD/MM, no year)", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Crédit Agricole",
-        remittanceLines: ["PAIEMENT PAR CARTE MONOPRIX PARIS 15 12/03"],
-      })
-    );
-    expect(result.payeeText).toBe("MONOPRIX PARIS 15");
-    expect(result.normalisedDescriptor).toBe("monoprix paris");
-    expect(result.channel).toBe("card");
-    // DD/MM only — no year, so labelDate is undefined
-    expect(result.labelDate).toBeUndefined();
-    expect(result.parserId).toBe("credit-agricole");
-  });
-
-  it("parses PRELEVEMENT with DD/MM/YYYY date", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Crédit Agricole",
-        remittanceLines: ["PRELEVEMENT EDF CLIENTS 15/03/2025"],
-      })
-    );
-    expect(result.payeeText).toBe("EDF CLIENTS");
-    expect(result.channel).toBe("direct-debit");
-    expect(result.labelDate).toBe("2025-03-15");
-  });
-
-  it("parses PRELEVEMENT with DD-MM date (no year)", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Crédit Agricole",
-        remittanceLines: ["PRELEVEMENT NETFLIX 15-03"],
-      })
-    );
-    expect(result.payeeText).toBe("NETFLIX");
-    expect(result.channel).toBe("direct-debit");
-    expect(result.labelDate).toBeUndefined();
-  });
-});
-
-// ── Société Générale ─────────────────────────────────────────────────────
-
-describe("societe-generale", () => {
-  it("parses CARTE with card token before date", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Société Générale",
-        remittanceLines: ["CARTE X1234 15/03 BOULANGERIE DUPONT"],
-      })
-    );
-    expect(result.payeeText).toBe("BOULANGERIE DUPONT");
-    expect(result.channel).toBe("card");
-    expect(result.cardLast4).toBe("X1234");
-    expect(result.parserId).toBe("societe-generale");
-  });
-
-  it("parses VIR POUR with REF and MOTIF", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Société Générale",
-        remittanceLines: [
-          "VIR POUR: JEAN DUPONT REF: ABC123 MOTIF: LOYER MARS",
-        ],
-      })
-    );
-    expect(result.payeeText).toBe("LOYER MARS");
-    expect(result.channel).toBe("transfer");
-  });
-
-  it("parses bare date/payee format", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Société Générale",
-        remittanceLines: ["0315/MONOPRIX PARIS"],
-      })
-    );
-    expect(result.payeeText).toBe("MONOPRIX PARIS");
-  });
-});
-
-// ── Crédit Mutuel / CIC ─────────────────────────────────────────────────
-
-describe("credit-mutuel", () => {
-  it("parses PAIEMENT CB with card after merchant", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Crédit Mutuel",
-        remittanceLines: ["PAIEMENT CB 1503 INTERMARCHE CARTE 4567"],
-      })
-    );
-    expect(result.payeeText).toBe("INTERMARCHE");
-    expect(result.channel).toBe("card");
-    expect(result.cardLast4).toBe("4567");
-    expect(result.parserId).toBe("credit-mutuel");
-  });
-
-  it("matches CIC by name", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "CIC",
-        remittanceLines: ["PAIEMENT PSC 0115 SNCF PAYWEB9876"],
-      })
-    );
-    expect(result.parserId).toBe("credit-mutuel");
-    expect(result.payeeText).toBe("SNCF");
-    expect(result.cardLast4).toBe("9876");
-  });
-
-  it("no year from 4-digit date — labelDate undefined", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "Crédit Mutuel",
-        remittanceLines: ["PAIEMENT CB 1503 AUCHAN CARTE 1111"],
-      })
-    );
-    expect(result.labelDate).toBeUndefined();
-  });
-});
-
-// ── LCL ──────────────────────────────────────────────────────────────────
-
-describe("lcl", () => {
-  it("parses CB payee DD/MM/YY (date as suffix)", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "LCL",
-        remittanceLines: ["CB BOULANGER 15/03/25"],
-      })
-    );
-    expect(result.payeeText).toBe("BOULANGER");
-    expect(result.channel).toBe("card");
-    expect(result.labelDate).toBe("2025-03-15");
-    expect(result.parserId).toBe("lcl");
-  });
-});
-
-// ── La Banque Postale ────────────────────────────────────────────────────
-
-describe("la-banque-postale", () => {
-  it("parses ACHAT CB payee DD.MM.YY (dot dates)", () => {
-    const result = parseDescriptor(
-      input({
-        institutionName: "La Banque Postale",
-        remittanceLines: ["ACHAT CB PHARMACIE DE LA GARE 03.04.25"],
-      })
-    );
-    expect(result.payeeText).toBe("PHARMACIE DE LA GARE");
-    expect(result.normalisedDescriptor).toBe("pharmacie gare");
-    expect(result.channel).toBe("card");
-    expect(result.labelDate).toBe("2025-04-03");
-    expect(result.parserId).toBe("la-banque-postale");
+  describe("la-banque-postale", () => {
+    it("parses ACHAT CB payee DD.MM.YY (dot dates)", () => {
+      const result = parseDescriptor(
+        input({
+          institutionName: "La Banque Postale",
+          remittanceLines: ["ACHAT CB PHARMACIE DE LA GARE 03.04.25"],
+        })
+      );
+      expect(result.payeeText).toBe("PHARMACIE DE LA GARE");
+      expect(result.normalisedDescriptor).toBe("pharmacie gare");
+      expect(result.channel).toBe("card");
+      expect(result.labelDate).toBe("2025-04-03");
+      expect(result.parserId).toBe("la-banque-postale");
+    });
   });
 });
 

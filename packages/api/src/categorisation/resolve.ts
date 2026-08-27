@@ -1,13 +1,15 @@
 /**
  * Transaction categorisation cascade.
  *
- * Precedence: channel → memo → intermediary → dictionary → learned → sirene → enrichment → MCC → unknown.
+ * Precedence: channel → memo → intermediary → dictionary → learned → business-registry → enrichment → MCC → unknown.
  * Never throws for any input.
  */
 
 import prisma from "@freenary/db";
+
 import type { SpendingCategory } from "../lib/mcc-categories";
 import { MCC_TO_CATEGORY } from "../lib/mcc-categories";
+import { getBusinessRegistryAdapter } from "./business-registry/registry";
 import { findMerchantCandidates } from "./candidates";
 import { lookupEnrichment } from "./enrichment/lookup";
 import { detectIntermediary } from "./intermediaries/detect";
@@ -15,7 +17,6 @@ import { findLearnedMatch } from "./learned";
 import { lookupMemo, recordMemoHit } from "./memo";
 import { normaliseDescriptor } from "./normalise/normalise-descriptor";
 import { isEntirelyPlaceName } from "./place-tokens";
-import { lookupSirene } from "./sirene/lookup";
 import type {
   MerchantCandidate,
   ResolveRequest,
@@ -170,33 +171,38 @@ const resolveLearned = async (
   }
 };
 
-/** Stage 6: NAF-derived category from the French company register. */
-const resolveSirene = async (
+/** Stage 6: country-specific business-registry lookup. */
+const resolveBusinessRegistry = async (
   normalisedDescriptor: string,
   ctx: StageContext,
+  country: string | null | undefined,
   allowExternalLookup: boolean
 ): Promise<ResolutionResult | null> => {
-  if (normalisedDescriptor.length <= 1) {
+  if (!country || normalisedDescriptor.length <= 1) {
+    return null;
+  }
+  const adapter = getBusinessRegistryAdapter(country);
+  if (!adapter) {
     return null;
   }
   try {
-    const sirene = await lookupSirene(
+    const result = await adapter.lookup(
       normalisedDescriptor,
       allowExternalLookup
     );
-    if (!sirene) {
+    if (!result) {
       return null;
     }
     return {
       band: "suggest",
       candidates: [],
-      category: sirene.category,
+      category: result.category,
       confidence: 0.45,
       intermediaryId: ctx.intermediaryId,
       intermediaryName: ctx.intermediaryName,
       merchantId: null,
-      merchantName: sirene.tradeName ?? sirene.denomination,
-      stage: "sirene",
+      merchantName: result.tradeName ?? result.denomination,
+      stage: "business-registry",
     };
   } catch {
     return null;
@@ -251,6 +257,7 @@ const resolveInternal = async (
   const {
     allowExternalLookup = false,
     channel,
+    country,
     creditorIban,
     creditorIdentifications,
     merchantCategoryCode,
@@ -359,15 +366,16 @@ const resolveInternal = async (
   }
 
   // -------------------------------------------------------------------
-  // 6. Sirene — NAF-derived category from the French company register
+  // 6. Business registry — country-specific company-register lookup
   // -------------------------------------------------------------------
-  const sireneResult = await resolveSirene(
+  const registryResult = await resolveBusinessRegistry(
     normalisedDescriptor,
     ctx,
+    country,
     allowExternalLookup
   );
-  if (sireneResult) {
-    return sireneResult;
+  if (registryResult) {
+    return registryResult;
   }
 
   // -------------------------------------------------------------------
