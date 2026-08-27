@@ -112,6 +112,10 @@ const CONTAINS_DIGIT = /[0-9]/u;
  */
 export const normaliseTokens = (text: string): string[] => {
   const folded = text
+    .replaceAll("œ", "oe")
+    .replaceAll("Œ", "oe")
+    .replaceAll("æ", "ae")
+    .replaceAll("Æ", "ae")
     .normalize("NFD")
     .replace(COMBINING_MARKS, "")
     .toLowerCase()

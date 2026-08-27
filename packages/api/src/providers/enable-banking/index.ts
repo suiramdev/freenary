@@ -7,7 +7,9 @@ import type {
   StartConnectionRequest,
 } from "../types";
 import { ebFetch, fetchTransactionPages, isConfigured } from "./client";
-import { mapEBTransaction } from "./map-transaction";
+import type { EBCompletedConnection } from "./map-connection";
+import { mapEBCompletedConnection } from "./map-connection";
+import { mapEBTransactions } from "./map-transaction";
 
 export const enableBankingProvider: BankingProvider = {
   async completeConnection(code: string): Promise<CompletedConnection> {
@@ -24,20 +26,8 @@ export const enableBankingProvider: BankingProvider = {
     }
 
     // SAFETY: Enable Banking POST /sessions returns { session_id, accounts } per their docs
-    const data = (await response.json()) as {
-      accounts: { iban?: string; name?: string; uid: string }[];
-      session_id: string;
-    };
-
-    return {
-      accounts: data.accounts.map((a) => ({
-        iban: a.iban,
-        name: a.name,
-        providerAccountId: a.uid,
-      })),
-      institutionName: "",
-      providerSessionId: data.session_id,
-    };
+    const data = (await response.json()) as EBCompletedConnection;
+    return mapEBCompletedConnection(data);
   },
 
   async fetchTransactions(
@@ -48,7 +38,7 @@ export const enableBankingProvider: BankingProvider = {
       request.dateFrom,
       request.dateTo
     );
-    return raw.map((tx) => mapEBTransaction(tx, request.dateFrom));
+    return mapEBTransactions(raw, request.dateFrom);
   },
 
   id: "enable-banking",

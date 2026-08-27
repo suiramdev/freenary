@@ -1,3 +1,5 @@
+import { env } from "@freenary/env/server";
+
 import { mapNafToCategory } from "./naf-categories";
 import type { SireneResult } from "./types";
 
@@ -20,14 +22,24 @@ interface SireneResponse {
   results: SireneEntry[];
 }
 
+export const canLookupSirene = (
+  deploymentEnabled: boolean,
+  userPermitted: boolean
+): boolean => deploymentEnabled && userPermitted;
+
 /**
  * Query recherche-entreprises for a business name and return the NAF-derived
  * category. Returns null on network error, no results, or unmappable NAF code.
  * Never throws.
  */
 export const lookupSirene = async (
-  creditorName: string
+  creditorName: string,
+  allowExternalLookup = false
 ): Promise<SireneResult | null> => {
+  if (!canLookupSirene(env.SIRENE_LOOKUP_ENABLED, allowExternalLookup)) {
+    return null;
+  }
+
   try {
     const name = creditorName.trim().replaceAll(/\s+/gu, " ");
     if (!name) {
@@ -73,7 +85,7 @@ export const lookupSirene = async (
       denomination: entry.nom_raison_sociale ?? entry.nom_complet,
       nafCode,
       siren: entry.siren,
-      tradeName: etablissement.enseigne ?? null,
+      tradeName: etablissement?.enseigne ?? null,
     };
   } catch {
     // Network error, timeout, or JSON parse failure — swallow silently.

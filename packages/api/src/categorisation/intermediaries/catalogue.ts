@@ -109,10 +109,16 @@ export const HIGH_CONFIDENCE_MARKER_IDS = {
   zettle: true,
 } as const satisfies Record<string, true>;
 
+// SAFETY: `satisfies` guarantees every definition conforms to IntermediaryDefinition;
+// the cast restores the declared interface because `as const` omits absent optional keys
+const catalogueDefinitions = Object.values(
+  INTERMEDIARY_CATALOGUE
+) as readonly IntermediaryDefinition[];
+
 /** O(1) marker → intermediary id lookup, built once at module scope. */
 export const MARKER_INDEX: Record<string, string> = {};
 
-for (const def of Object.values(INTERMEDIARY_CATALOGUE)) {
+for (const def of catalogueDefinitions) {
   for (const marker of def.markers) {
     MARKER_INDEX[marker] = def.id;
   }
@@ -121,10 +127,21 @@ for (const def of Object.values(INTERMEDIARY_CATALOGUE)) {
 /** O(1) IBAN → intermediary id lookup, built once at module scope. */
 export const IBAN_INDEX: Record<string, string> = {};
 
-for (const def of Object.values(INTERMEDIARY_CATALOGUE)) {
+for (const def of catalogueDefinitions) {
   if (def.ibans) {
     for (const iban of def.ibans) {
       IBAN_INDEX[iban] = def.id;
+    }
+  }
+}
+
+/** O(1) SEPA creditor identifier → intermediary id lookup, built once. */
+export const CREDITOR_IDENTIFIER_INDEX: Record<string, string> = {};
+
+for (const def of catalogueDefinitions) {
+  if (def.creditorIdentifiers) {
+    for (const identifier of def.creditorIdentifiers) {
+      CREDITOR_IDENTIFIER_INDEX[identifier] = def.id;
     }
   }
 }

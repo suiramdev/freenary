@@ -1,11 +1,24 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import type { MerchantCandidate, ResolveRequest } from "./types";
+
+let idfFailuresRemaining = 0;
+let learnedQueryRows: unknown[] = [];
 
 // Mock @freenary/db before any transitive import pulls it in
 mock.module("@freenary/db", () => ({
   default: {
-    $queryRaw: () => [],
+    $queryRaw: (query: TemplateStringsArray) => {
+      const sql = query.join("");
+      if (sql.includes('FROM "merchant", unnest') && idfFailuresRemaining > 0) {
+        idfFailuresRemaining -= 1;
+        throw new Error("transient IDF failure");
+      }
+      if (sql.includes("SELECT DISTINCT ON")) {
+        return learnedQueryRows;
+      }
+      return [];
+    },
     descriptorMemo: {
       deleteMany: () => ({}),
       update: () => ({}),
@@ -20,6 +33,13 @@ mock.module("@freenary/db", () => ({
 // Dynamic import required: mock.module must register before resolve.ts loads @freenary/db
 const { classifyCandidate, resolveTransaction } = await import("./resolve");
 const { computeIdfPeak } = await import("./candidates");
+const { getTokenIdf, resetTokenIdf } = await import("./idf");
+
+afterEach(() => {
+  idfFailuresRemaining = 0;
+  learnedQueryRows = [];
+  resetTokenIdf();
+});
 
 // ---------------------------------------------------------------------------
 // classifyCandidate — pure gate decision, no DB needed
@@ -158,6 +178,61 @@ describe("resolveTransaction — intermediary without sub-merchant", () => {
     expect(result.stage).toBe("intermediary");
     expect(result.confidence).toBe(0.4);
   });
+
+  test("creditor identification resolves with an empty descriptor", async () => {
+    const result = await resolveTransaction({
+      amountMinor: -2000,
+      channel: "card",
+      creditorIdentifications: [
+        { identification: "UNKNOWN" },
+        { identification: "NL48ZZZ342764500000" },
+      ],
+      normalisedDescriptor: "",
+      rawDescriptor: "",
+      userId: "test-user",
+    });
+
+    expect(result.intermediaryId).toBe("adyen");
+    expect(result.intermediaryName).toBe("Adyen");
+    expect(result.stage).toBe("intermediary");
+  });
+});
+
+describe("resolveTransaction — learned suggestions", () => {
+  test("does not expose merchant identity for suggest-band evidence", async () => {
+    learnedQueryRows = [
+      {
+        category: "groceries",
+        merchantId: "merchant-1",
+        merchantName: "Merchant One",
+        normalisedDescriptor: "merchant one paris",
+        sim: 0.4,
+        userId: "test-user",
+      },
+      {
+        category: "groceries",
+        merchantId: "merchant-2",
+        merchantName: "Merchant Two",
+        normalisedDescriptor: "merchant two paris",
+        sim: 0.4,
+        userId: "test-user",
+      },
+    ];
+
+    const result = await resolveTransaction({
+      amountMinor: -2000,
+      channel: "card",
+      normalisedDescriptor: "merchant paris",
+      rawDescriptor: "MERCHANT PARIS",
+      userId: "test-user",
+    });
+
+    expect(result.stage).toBe("learned");
+    expect(result.band).toBe("suggest");
+    expect(result.category).toBe("groceries");
+    expect(result.merchantId).toBeNull();
+    expect(result.merchantName).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -225,6 +300,17 @@ describe("computeIdfPeak — place-token exclusion", () => {
   test("unknown non-place token gets maxIdf", () => {
     const peak = computeIdfPeak(["carrefour"], "carrefour", idf, maxIdf);
     expect(peak).toBe(maxIdf);
+  });
+});
+
+describe("getTokenIdf", () => {
+  test("retries after a failed load", async () => {
+    idfFailuresRemaining = 1;
+
+    await expect(getTokenIdf()).rejects.toThrow("transient IDF failure");
+    const result = await getTokenIdf();
+
+    expect(result.totalMerchants).toBe(1);
   });
 });
 

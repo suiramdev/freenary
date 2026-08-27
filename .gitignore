@@ -56,4 +56,3 @@ coverage
 .cache
 tmp
 temp
-packages/api/data/wikidata-brands.json

@@ -368,11 +368,17 @@ const COUNTERPARTY_KEYWORDS: [RegExp, SpendingCategory][] = [
 // ---------------------------------------------------------------------------
 
 export const deriveCategory = (tx: {
+  resolvedCategory?: string | null;
   merchantCategoryCode?: string | null;
   bankTransactionCode?: string | null;
   counterpartyName?: string | null;
   amount: number;
 }): SpendingCategory => {
+  if (tx.resolvedCategory) {
+    // SAFETY: resolvedCategory is written only from a validated ResolutionResult.
+    return tx.resolvedCategory as SpendingCategory;
+  }
+
   // 1. MCC lookup
   if (tx.merchantCategoryCode) {
     const cat = mccToCategory(tx.merchantCategoryCode);
@@ -415,6 +421,7 @@ export const deriveCategory = (tx: {
  */
 export const effectiveCategory = (tx: {
   category?: string | null;
+  resolvedCategory?: string | null;
   merchantCategoryCode?: string | null;
   bankTransactionCode?: string | null;
   counterpartyName?: string | null;

@@ -20,9 +20,10 @@ import prisma from "@freenary/db";
 import { loadMerchantDictionary } from "../src/categorisation/dictionary/load";
 import { resetTokenIdf } from "../src/categorisation/idf";
 import { INTERMEDIARY_CATALOGUE } from "../src/categorisation/intermediaries/catalogue";
+import type { IntermediaryDefinition } from "../src/categorisation/intermediaries/types";
 
 /** Sources that come from the dictionary build pipeline and are safe to prune. */
-const DICTIONARY_SOURCES = ["nsi", "curated"] as const;
+const DICTIONARY_SOURCES = ["nsi", "curated", "wikidata"] as const;
 
 // ---------------------------------------------------------------------------
 // Intermediaries
@@ -34,7 +35,10 @@ interface IntermediaryResult {
 }
 
 const seedAndPruneIntermediaries = async (): Promise<IntermediaryResult> => {
-  const defs = Object.values(INTERMEDIARY_CATALOGUE);
+  // SAFETY: `satisfies` guarantees conformance; the cast restores the declared interface
+  const defs = Object.values(
+    INTERMEDIARY_CATALOGUE
+  ) as readonly IntermediaryDefinition[];
   const catalogueIds = new Set<string>();
 
   for (const def of defs) {

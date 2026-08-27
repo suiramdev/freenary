@@ -158,32 +158,28 @@ export const findLearnedMatch = async (
 
   try {
     const rows = await prisma.$queryRaw<SimilarMemoRow[]>`
-      SELECT dm."normalisedDescriptor",
-             dm."category",
-             dm."merchantId",
-             m."name"   AS "merchantName",
-             dm."userId",
-             similarity(dm."normalisedDescriptor", ${normalisedDescriptor}) AS sim
-        FROM "descriptor_memo" dm
-        LEFT JOIN "merchant" m ON m."id" = dm."merchantId"
-       WHERE (dm."userId" = ${userId} OR dm."userId" IS NULL)
-         AND dm."category" IS NOT NULL
-         AND similarity(dm."normalisedDescriptor", ${normalisedDescriptor}) > 0.3
-       ORDER BY sim DESC
+      SELECT deduped.*
+        FROM (
+          SELECT DISTINCT ON (dm."normalisedDescriptor")
+                 dm."normalisedDescriptor",
+                 dm."category",
+                 dm."merchantId",
+                 m."name" AS "merchantName",
+                 dm."userId",
+                 similarity(dm."normalisedDescriptor", ${normalisedDescriptor}) AS sim
+            FROM "descriptor_memo" dm
+            LEFT JOIN "merchant" m ON m."id" = dm."merchantId"
+           WHERE (dm."userId" = ${userId} OR dm."userId" IS NULL)
+             AND dm."category" IS NOT NULL
+             AND similarity(dm."normalisedDescriptor", ${normalisedDescriptor}) > 0.3
+           ORDER BY dm."normalisedDescriptor", (dm."userId" IS NOT NULL) DESC
+        ) AS deduped
+       ORDER BY deduped.sim DESC
        LIMIT 10
     `;
 
-    // User memo shadows global memo for the same normalised descriptor
-    const deduped = new Map<string, SimilarMemoRow>();
-    for (const row of rows) {
-      const existing = deduped.get(row.normalisedDescriptor);
-      if (!existing || (row.userId !== null && existing.userId === null)) {
-        deduped.set(row.normalisedDescriptor, row);
-      }
-    }
-
     const inputs: LearnedVoteInput[] = [];
-    for (const row of deduped.values()) {
+    for (const row of rows) {
       inputs.push({
         // SAFETY: category column stores validated SpendingCategory values
         category: row.category as SpendingCategory,

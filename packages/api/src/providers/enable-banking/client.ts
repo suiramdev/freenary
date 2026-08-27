@@ -79,9 +79,9 @@ export interface EBTransaction {
     currency?: string;
   };
   remittance_information?: string[];
+  creditor_agent?: { bic_fi?: string };
   creditor?: {
     name?: string;
-    agent?: { bic_fi?: string };
     postal_address?: {
       town_name?: string;
       country?: string;

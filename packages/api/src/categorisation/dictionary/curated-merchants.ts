@@ -136,10 +136,16 @@ export const CURATED_MERCHANTS: CuratedEntry[] = [
     name: "BlaBlaCar",
   },
   {
-    aliases: ["Uber BV", "Uber Eats"],
+    aliases: ["Uber BV"],
     category: "transport",
     domains: ["uber.com"],
     name: "Uber",
+  },
+  {
+    aliases: [],
+    category: "dining",
+    domains: ["ubereats.com"],
+    name: "Uber Eats",
   },
   {
     aliases: ["Bolt Technology"],

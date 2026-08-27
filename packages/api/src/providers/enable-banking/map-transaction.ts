@@ -26,19 +26,56 @@ export const parseMinorUnits = (
   return abs * sign;
 };
 
-/**
- * Build a deterministic dedup key when both entry_reference and
- * transaction_id are absent. Uses sha256 of the core fields.
- */
-const deriveDedupKey = (tx: EBTransaction): string => {
-  const parts = [
-    tx.booking_date ?? "",
-    tx.transaction_amount?.amount ?? "",
-    tx.transaction_amount?.currency ?? "",
-    ...(tx.remittance_information ?? []),
-  ];
-  const hash = createHash("sha256").update(parts.join("|")).digest("hex");
-  return `derived:${hash.slice(0, 32)}`;
+const fingerprintCreditorIdentifications = (
+  raw: EBCreditorIdentification | EBCreditorIdentification[] | undefined
+): string[] => {
+  if (!raw) {
+    return [];
+  }
+  const identifications = Array.isArray(raw) ? raw : [raw];
+  return identifications
+    .map(
+      (identification) =>
+        `${identification.scheme_name ?? ""}\u001F${identification.identification ?? ""}`
+    )
+    .toSorted();
+};
+
+const deriveFingerprint = (tx: EBTransaction): string => {
+  const stableFields = {
+    balanceAfterAmount: tx.balance_after_transaction?.amount,
+    balanceAfterCurrency: tx.balance_after_transaction?.currency,
+    bankTransactionCode: tx.bank_transaction_code?.code,
+    bankTransactionDescription: tx.bank_transaction_code?.description,
+    bankTransactionSubCode: tx.bank_transaction_code?.sub_code,
+    bookingDate: tx.booking_date,
+    creditDebitIndicator: tx.credit_debit_indicator,
+    creditorAgentBic: tx.creditor_agent?.bic_fi,
+    creditorCountry: tx.creditor?.postal_address?.country,
+    creditorIban: tx.creditor_account?.iban,
+    creditorIdentifications: fingerprintCreditorIdentifications(
+      tx.creditor_account_additional_identification
+    ),
+    creditorName: tx.creditor?.name,
+    creditorTown: tx.creditor?.postal_address?.town_name,
+    debtorIban: tx.debtor_account?.iban,
+    debtorName: tx.debtor?.name,
+    exchangeRate: tx.exchange_rate?.exchange_rate,
+    merchantCategoryCode: tx.merchant_category_code,
+    note: tx.note,
+    referenceNumber: tx.reference_number,
+    referenceNumberSchema: tx.reference_number_schema,
+    remittanceInformation: tx.remittance_information?.toSorted(),
+    status: tx.status,
+    transactionAmount: tx.transaction_amount?.amount,
+    transactionCurrency: tx.transaction_amount?.currency,
+    transactionDate: tx.transaction_date,
+    valueDate: tx.value_date,
+  };
+  return createHash("sha256")
+    .update(JSON.stringify(stableFields))
+    .digest("hex")
+    .slice(0, 32);
 };
 
 const normaliseCreditorIdentifications = (
@@ -62,7 +99,7 @@ const normaliseCreditorIdentifications = (
 
 /** Map an Enable Banking raw transaction to the provider-agnostic model. */
 const mapCreditorFields = (tx: EBTransaction) => ({
-  creditorAgentBic: tx.creditor?.agent?.bic_fi,
+  creditorAgentBic: tx.creditor_agent?.bic_fi,
   creditorCountry: tx.creditor?.postal_address?.country,
   creditorIban: tx.creditor_account?.iban,
   creditorIdentifications: normaliseCreditorIdentifications(
@@ -84,10 +121,10 @@ const mapAmountFields = (tx: EBTransaction) => ({
   exchangeRate: tx.exchange_rate?.exchange_rate,
 });
 
-/** Map an Enable Banking raw transaction to the provider-agnostic model. */
-export const mapEBTransaction = (
+const mapEBTransaction = (
   tx: EBTransaction,
-  fallbackDate: string
+  fallbackDate: string,
+  providerTransactionId: string
 ): ProviderTransaction => ({
   ...mapAmountFields(tx),
   ...mapCreditorFields(tx),
@@ -98,8 +135,7 @@ export const mapEBTransaction = (
   debtorIban: tx.debtor_account?.iban,
   debtorName: tx.debtor?.name,
   merchantCategoryCode: tx.merchant_category_code,
-  providerTransactionId:
-    tx.entry_reference ?? tx.transaction_id ?? deriveDedupKey(tx),
+  providerTransactionId,
   psuNote: tx.note,
   referenceNumber: tx.reference_number,
   referenceNumberScheme: tx.reference_number_schema,
@@ -108,3 +144,26 @@ export const mapEBTransaction = (
   transactionDate: tx.transaction_date,
   valueDate: tx.value_date,
 });
+
+/** Map a batch so indistinguishable no-reference transactions remain distinct. */
+export const mapEBTransactions = (
+  transactions: EBTransaction[],
+  fallbackDate: string
+): ProviderTransaction[] => {
+  const fingerprintOccurrences = new Map<string, number>();
+
+  return transactions.map((tx) => {
+    if (tx.entry_reference !== undefined) {
+      return mapEBTransaction(tx, fallbackDate, tx.entry_reference);
+    }
+
+    const fingerprint = deriveFingerprint(tx);
+    const occurrence = (fingerprintOccurrences.get(fingerprint) ?? 0) + 1;
+    fingerprintOccurrences.set(fingerprint, occurrence);
+    return mapEBTransaction(
+      tx,
+      fallbackDate,
+      `derived:${fingerprint}:${occurrence}`
+    );
+  });
+};

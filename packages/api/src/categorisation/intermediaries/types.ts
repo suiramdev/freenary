@@ -36,4 +36,5 @@ export interface DetectIntermediaryInput {
   /** The raw descriptor text, used only for asterisk-position corroboration. */
   rawDescriptor: string;
   creditorIban?: string | null;
+  creditorIdentifications?: readonly { identification: string }[] | null;
 }

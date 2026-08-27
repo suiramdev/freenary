@@ -55,10 +55,13 @@ export const getTokenIdf = async (): Promise<TokenIdf> => {
     loadingPromise = buildTokenIdf();
   }
 
-  const result = await loadingPromise;
-  cachedIdf = result;
-  loadingPromise = null;
-  return result;
+  try {
+    const result = await loadingPromise;
+    cachedIdf = result;
+    return result;
+  } finally {
+    loadingPromise = null;
+  }
 };
 
 /** Clear the cached IDF table — call after reseeding or in tests. */

@@ -6,6 +6,7 @@
  * and a privacy requirement.
  */
 
+import type { Prisma } from "@freenary/db";
 import prisma from "@freenary/db";
 
 import type { SpendingCategory } from "../lib/mcc-categories";
@@ -76,9 +77,10 @@ export const recordMemoHit = async (memoId: string): Promise<void> => {
  * Upsert a USER-scoped memo. Never touches global rows.
  */
 export const upsertUserMemo = async (
-  input: UpsertUserMemoInput
+  input: UpsertUserMemoInput,
+  db: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<void> => {
-  await prisma.descriptorMemo.upsert({
+  await db.descriptorMemo.upsert({
     create: {
       category: input.category,
       intermediaryId: input.intermediaryId ?? null,
@@ -105,9 +107,10 @@ export const upsertUserMemo = async (
 /** Delete a user-scoped memo (reset to auto). Never touches global rows. */
 export const deleteUserMemo = async (
   userId: string,
-  normalisedDescriptor: string
+  normalisedDescriptor: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<void> => {
-  await prisma.descriptorMemo.deleteMany({
+  await db.descriptorMemo.deleteMany({
     where: { normalisedDescriptor, userId },
   });
 };

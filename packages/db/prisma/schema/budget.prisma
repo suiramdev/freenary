@@ -87,8 +87,12 @@ model Transaction {
   referenceNumber       String?
   /// Foreign exchange rate as a string.
   exchangeRate          String?
-  /// User-assigned spending category override; null = auto-derived from MCC / heuristics.
+  /// User-selected or memo-propagated category; null = use automatic resolution.
   category              String?
+  /// True only when this transaction was edited directly by the user.
+  categoryOverride      Boolean     @default(false)
+  /// Category produced by the categorisation cascade.
+  resolvedCategory      String?
   /// Canonical normalised descriptor — the categorisation match key.
   normalisedDescriptor String?
   /// Raw remittance lines as provided by the bank; order is not guaranteed.

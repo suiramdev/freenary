@@ -363,11 +363,71 @@ describe("generic", () => {
     );
     expect(result.payeeText).toBe("JEAN DUPONT");
   });
+
+  it("uses the debtor for incoming transactions", () => {
+    const result = parseDescriptor(
+      input({
+        amountMinor: 1500,
+        creditorName: "ACCOUNT OWNER",
+        debtorName: "SALARY PAYER",
+        remittanceLines: [],
+      })
+    );
+
+    expect(result.payeeText).toBe("SALARY PAYER");
+  });
+
+  it("uses the creditor for outgoing transactions", () => {
+    const result = parseDescriptor(
+      input({
+        amountMinor: -1500,
+        creditorName: "ENERGY COMPANY",
+        debtorName: "ACCOUNT OWNER",
+        remittanceLines: [],
+      })
+    );
+
+    expect(result.payeeText).toBe("ENERGY COMPANY");
+  });
+
+  it("keeps descriptor text ahead of structured counterparties", () => {
+    const result = parseDescriptor(
+      input({
+        amountMinor: 1500,
+        creditorName: "RECIPIENT",
+        debtorName: "SENDER",
+        remittanceLines: ["VIR SEPA DESCRIPTOR NAME"],
+      })
+    );
+    expect(result.payeeText).toBe("DESCRIPTOR NAME");
+  });
+
+  it("selects the same descriptor when remittance lines are reversed", () => {
+    const remittanceLines = [
+      "PRLV SEPA NETFLIX",
+      "PRLV SEPA ELECTRICITY COMPANY",
+    ];
+    const forward = parseDescriptor(input({ remittanceLines }));
+    const reversed = parseDescriptor(
+      input({ remittanceLines: remittanceLines.toReversed() })
+    );
+
+    expect(reversed.normalisedDescriptor).toBe(forward.normalisedDescriptor);
+  });
 });
 
 // ── Cross-cutting requirements ───────────────────────────────────────────
 
 describe("cross-cutting", () => {
+  it("expands upper- and lowercase Latin ligatures", () => {
+    const result = parseDescriptor(
+      input({
+        remittanceLines: ["ŒUVRE BœUF ÆSOP CæSAR"],
+      })
+    );
+    expect(result.normalisedDescriptor).toBe("oeuvre boeuf aesop caesar");
+  });
+
   it("AMZN Mktp FR*308J preserves merchant left of *", () => {
     const result = parseDescriptor(
       input({
@@ -394,6 +454,41 @@ describe("cross-cutting", () => {
     expect(result.payeeText).toBe("CARREFOUR MARKET");
     expect(result.channel).toBe("card");
     expect(result.droppedLines).toContain("Réf : 999999");
+  });
+
+  it("produces the same key for either remittance-line order", () => {
+    const first = parseDescriptor(
+      input({
+        institutionName: "Boursorama",
+        remittanceLines: [
+          "CARTE 01/03/25 CARREFOUR MARKET CB*4567",
+          "Réf : 999999",
+        ],
+      })
+    );
+    const reversed = parseDescriptor(
+      input({
+        institutionName: "Boursorama",
+        remittanceLines: [
+          "Réf : 999999",
+          "CARTE 01/03/25 CARREFOUR MARKET CB*4567",
+        ],
+      })
+    );
+
+    expect(first.normalisedDescriptor).toBe(reversed.normalisedDescriptor);
+  });
+
+  it("normalises Latin ligatures to their expanded spelling", () => {
+    const ligatures = parseDescriptor(
+      input({ remittanceLines: ["CŒUR LÆTITIA"] })
+    );
+    const expanded = parseDescriptor(
+      input({ remittanceLines: ["COEUR LAETITIA"] })
+    );
+
+    expect(ligatures.normalisedDescriptor).toBe("coeur laetitia");
+    expect(ligatures.normalisedDescriptor).toBe(expanded.normalisedDescriptor);
   });
 
   it("RETRAIT DAB yields channel atm", () => {

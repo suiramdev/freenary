@@ -151,15 +151,16 @@ const resolveLearned = async (
     if (!learned) {
       return null;
     }
+    const band = learned.confidence >= 0.7 ? "auto" : "suggest";
     return {
-      band: learned.confidence >= 0.7 ? "auto" : "suggest",
+      band,
       candidates: [],
       category: learned.category,
       confidence: learned.confidence,
       intermediaryId: ctx.intermediaryId,
       intermediaryName: ctx.intermediaryName,
-      merchantId: learned.merchantId,
-      merchantName: learned.merchantName,
+      merchantId: band === "auto" ? learned.merchantId : null,
+      merchantName: band === "auto" ? learned.merchantName : null,
       stage: "learned",
     };
   } catch {
@@ -170,13 +171,17 @@ const resolveLearned = async (
 /** Stage 6: NAF-derived category from the French company register. */
 const resolveSirene = async (
   normalisedDescriptor: string,
-  ctx: StageContext
+  ctx: StageContext,
+  allowExternalLookup: boolean
 ): Promise<ResolutionResult | null> => {
   if (normalisedDescriptor.length <= 1) {
     return null;
   }
   try {
-    const sirene = await lookupSirene(normalisedDescriptor);
+    const sirene = await lookupSirene(
+      normalisedDescriptor,
+      allowExternalLookup
+    );
     if (!sirene) {
       return null;
     }
@@ -200,8 +205,10 @@ const resolveInternal = async (
   request: ResolveRequest
 ): Promise<ResolutionResult> => {
   const {
+    allowExternalLookup = false,
     channel,
     creditorIban,
+    creditorIdentifications,
     merchantCategoryCode,
     normalisedDescriptor,
     rawDescriptor,
@@ -261,33 +268,32 @@ const resolveInternal = async (
   let intermediaryName: string | null = null;
   let dictionaryText = normalisedDescriptor;
 
-  if (normalisedDescriptor.length > 0) {
-    const intermediary = detectIntermediary({
-      creditorIban,
-      normalisedDescriptor,
-      rawDescriptor,
-    });
+  const intermediary = detectIntermediary({
+    creditorIban,
+    creditorIdentifications,
+    normalisedDescriptor,
+    rawDescriptor,
+  });
 
-    if (intermediary) {
-      ({ intermediaryId, intermediaryName } = intermediary);
+  if (intermediary) {
+    ({ intermediaryId, intermediaryName } = intermediary);
 
-      if (intermediary.normalisedSubmerchant.length > 0) {
-        // Run dictionary lookup against the sub-merchant text
-        dictionaryText = intermediary.normalisedSubmerchant;
-      } else {
-        // No sub-merchant: intermediary-only result, never resolve the merchant
-        return {
-          band: "suggest",
-          candidates: [],
-          category: null,
-          confidence: 0.4,
-          intermediaryId,
-          intermediaryName,
-          merchantId: null,
-          merchantName: null,
-          stage: "intermediary",
-        };
-      }
+    if (intermediary.normalisedSubmerchant.length > 0) {
+      // Run dictionary lookup against the sub-merchant text
+      dictionaryText = intermediary.normalisedSubmerchant;
+    } else {
+      // No sub-merchant: intermediary-only result, never resolve the merchant
+      return {
+        band: "suggest",
+        candidates: [],
+        category: null,
+        confidence: 0.4,
+        intermediaryId,
+        intermediaryName,
+        merchantId: null,
+        merchantName: null,
+        stage: "intermediary",
+      };
     }
   }
 
@@ -311,7 +317,11 @@ const resolveInternal = async (
   // -------------------------------------------------------------------
   // 6. Sirene — NAF-derived category from the French company register
   // -------------------------------------------------------------------
-  const sireneResult = await resolveSirene(normalisedDescriptor, ctx);
+  const sireneResult = await resolveSirene(
+    normalisedDescriptor,
+    ctx,
+    allowExternalLookup
+  );
   if (sireneResult) {
     return sireneResult;
   }

@@ -1,5 +1,6 @@
 import { normaliseDescriptor } from "../normalise/normalise-descriptor";
 import {
+  CREDITOR_IDENTIFIER_INDEX,
   HIGH_CONFIDENCE_MARKER_IDS,
   IBAN_INDEX,
   INTERMEDIARY_CATALOGUE,
@@ -38,7 +39,12 @@ const hasCorroboratingAsterisk = (raw: string): boolean => {
 export const detectIntermediary = (
   input: DetectIntermediaryInput
 ): IntermediaryMatch | null => {
-  const { normalisedDescriptor, rawDescriptor, creditorIban } = input;
+  const {
+    creditorIban,
+    creditorIdentifications,
+    normalisedDescriptor,
+    rawDescriptor,
+  } = input;
 
   // --- Marker-based detection (leading token only) ---
   if (normalisedDescriptor.length > 0) {
@@ -113,6 +119,30 @@ export const detectIntermediary = (
         intermediaryId,
         intermediaryName: def.name,
         matchedBy: "iban",
+        normalisedSubmerchant: "",
+        submerchantText: null,
+      };
+    }
+  }
+
+  // --- SEPA creditor-identifier detection ---
+  for (const { identification } of creditorIdentifications ?? []) {
+    const intermediaryId = CREDITOR_IDENTIFIER_INDEX[identification];
+
+    if (intermediaryId !== undefined) {
+      // SAFETY: intermediaryId comes from the index built from catalogue definitions
+      const def =
+        INTERMEDIARY_CATALOGUE[
+          intermediaryId as keyof typeof INTERMEDIARY_CATALOGUE
+        ];
+      if (!def) {
+        return null;
+      }
+      return {
+        confidence: "high",
+        intermediaryId,
+        intermediaryName: def.name,
+        matchedBy: "creditor-identifier",
         normalisedSubmerchant: "",
         submerchantText: null,
       };

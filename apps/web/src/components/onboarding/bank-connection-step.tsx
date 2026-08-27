@@ -48,11 +48,16 @@ export const BankConnectionStep = ({
     );
   }, [banks, search]);
 
-  const handleConnect = async (bankName: string) => {
-    setConnecting(bankName);
+  const handleConnect = async (institutionId: string, bankName: string) => {
+    setConnecting(institutionId);
     const state = crypto.randomUUID();
     const result = await client.bankConnection
-      .startConnection({ bankCountry: country, bankName, state })
+      .startConnection({
+        bankCountry: country,
+        bankName,
+        institutionId,
+        state,
+      })
       .catch(() => null);
 
     if (result?.url) {
@@ -89,8 +94,8 @@ export const BankConnectionStep = ({
         hasSearch={search.length > 0}
         isError={isBanksError}
         isPending={isBanksPending}
-        onConnect={(bankName) => {
-          void handleConnect(bankName);
+        onConnect={(institutionId, bankName) => {
+          void handleConnect(institutionId, bankName);
         }}
       />
       <div className="flex items-center justify-between gap-3">

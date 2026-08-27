@@ -43,7 +43,9 @@ export interface ResolveRequest {
   normalisedDescriptor: string;
   rawDescriptor: string;
   channel: TransactionChannel;
+  allowExternalLookup?: boolean;
   creditorIban?: string | null;
+  creditorIdentifications?: readonly { identification: string }[] | null;
   merchantCategoryCode?: string | null;
   amountMinor: number;
 }

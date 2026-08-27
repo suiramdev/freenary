@@ -73,7 +73,7 @@ export const Route = createFileRoute("/callback/enable-banking")({
       throw redirect({ to: "/login" });
     }
 
-    if (!search.code) {
+    if (!(search.code && search.state)) {
       // SAFETY: null literal cast narrows the union for TanStack Router's context typing
       return { exchangeResult: null as null };
     }

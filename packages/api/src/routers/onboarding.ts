@@ -1,9 +1,16 @@
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { protectedProcedure, publicProcedure } from "../index";
 import { getDefaultProvider } from "../providers/registry";
+import type { BankConnectionState } from "./bank-connection-state";
+import {
+  encodeBankConnectionState,
+  findInstitution,
+  parseBankConnectionState,
+} from "./bank-connection-state";
 
 export const onboardingRouter = {
   checkEmail: publicProcedure
@@ -39,6 +46,7 @@ export const onboardingRouter = {
         banks: institutions.map((inst) => ({
           bic: inst.bic ?? null,
           country: inst.country,
+          id: inst.id,
           logo: inst.logoUrl ?? null,
           name: inst.name,
         })),
@@ -64,21 +72,40 @@ export const onboardingRouter = {
 
 export const bankConnectionRouter = {
   exchangeCode: protectedProcedure
-    .input(z.object({ code: z.string(), state: z.string().optional() }))
+    .input(z.object({ code: z.string(), state: z.string() }))
     .handler(async ({ context, input }) => {
       const provider = getDefaultProvider();
-      const result = await provider.completeConnection(input.code);
-
-      let bankName = result.institutionName || "Unknown";
-      if (input.state) {
-        try {
-          // SAFETY: input.state is a JSON string serialized by the client; parsed shape is validated by optional chaining
-          const parsed = JSON.parse(input.state) as { bankName?: string };
-          bankName = parsed.bankName ?? bankName;
-        } catch {
-          // state was not JSON — use as-is
-        }
+      let connectionState: BankConnectionState;
+      try {
+        connectionState = parseBankConnectionState(input.state);
+      } catch {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid bank connection state",
+        });
       }
+      if (connectionState.providerId !== provider.id) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid banking provider in connection state",
+        });
+      }
+
+      const institutions = await provider.listInstitutions(
+        connectionState.institution.country
+      );
+      const institution = findInstitution(
+        institutions,
+        connectionState.institution.id,
+        connectionState.institution.country
+      );
+      if (!institution) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Bank institution is no longer available",
+        });
+      }
+
+      const result = await provider.completeConnection(input.code);
+      const providerInstitutionName = result.institutionName.trim();
+      const bankName = providerInstitutionName || institution.name;
 
       const userId = context.session.user.id;
 
@@ -115,19 +142,33 @@ export const bankConnectionRouter = {
       z.object({
         bankCountry: z.string(),
         bankName: z.string(),
+        institutionId: z.string(),
         state: z.string().optional(),
       })
     )
     .handler(async ({ input }) => {
       const provider = getDefaultProvider();
+      const institutions = await provider.listInstitutions(input.bankCountry);
+      const institution = findInstitution(
+        institutions,
+        input.institutionId,
+        input.bankCountry
+      );
+      if (!institution) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Unknown bank institution",
+        });
+      }
+
       const redirectUrl = `${env.CORS_ORIGIN}/callback/enable-banking`;
-      const stateObj = input.state
-        ? { bankName: input.bankName, original: input.state }
-        : { bankName: input.bankName };
-      const encodedState = JSON.stringify(stateObj);
+      const encodedState = encodeBankConnectionState(
+        provider.id,
+        institution,
+        input.state
+      );
       const result = await provider.startConnection({
         country: input.bankCountry,
-        institutionId: input.bankName,
+        institutionId: institution.id,
         redirectUrl,
         state: encodedState,
       });

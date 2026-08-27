@@ -21,6 +21,10 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    SIRENE_LOOKUP_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });

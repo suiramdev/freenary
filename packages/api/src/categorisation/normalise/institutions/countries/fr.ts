@@ -111,8 +111,7 @@ const CM_CHQ_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
 const CM_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
 // LCL
-const LCL_CB_RE =
-  /^CB\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2}\/\d{2})\s*$/iu;
+const LCL_CB_RE = /^CB\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2}\/\d{2})\s*$/iu;
 const LCL_PRLV_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
 const LCL_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
 const LCL_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
@@ -172,7 +171,11 @@ const institutions: readonly InstitutionDef[] = [
     names: ["credit agricole", "crédit agricole"],
     patterns: [
       { channel: "card", re: CA_CARTE_RE },
-      { channel: "direct-debit", dateParser: parseCaDate, re: CA_PRELEV_FULL_RE },
+      {
+        channel: "direct-debit",
+        dateParser: parseCaDate,
+        re: CA_PRELEV_FULL_RE,
+      },
       { channel: "direct-debit", re: CA_PRELEV_SHORT_RE },
       { channel: "direct-debit", re: CA_PRELEV_BARE_RE },
       { channel: "atm", re: CA_RETRAIT_RE },
@@ -201,7 +204,7 @@ const institutions: readonly InstitutionDef[] = [
     ],
   },
   {
-    bics: ["CEPAFRPP", "CMCIFR", "CMCIFRPP"],
+    bics: ["CMCIFR", "CMCIFRPP"],
     id: "credit-mutuel",
     names: ["cic", "credit mutuel", "crédit mutuel"],
     patterns: [

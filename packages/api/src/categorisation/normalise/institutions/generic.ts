@@ -175,7 +175,7 @@ const parseLines = (
 
   const clean = def?.cleanPayee ?? ((t: string) => t);
 
-  for (const raw of input.remittanceLines) {
+  for (const raw of input.remittanceLines.toSorted()) {
     const line = raw.trim();
     if (line.length === 0) {
       droppedLines.push(line);
@@ -232,9 +232,12 @@ const parseLines = (
 
   // Promote creditorName/debtorName when regex extraction yielded nothing
   if (!payee || payee.length === 0) {
-    const counterparty =
-      (input.creditorName ?? input.debtorName ?? null)?.trim() ?? null;
-    payee = counterparty && counterparty.length > 0 ? counterparty : null;
+    const preferredCounterparty =
+      input.amountMinor >= 0 ? input.debtorName : input.creditorName;
+    const fallbackCounterparty =
+      input.amountMinor >= 0 ? input.creditorName : input.debtorName;
+    payee =
+      preferredCounterparty?.trim() || fallbackCounterparty?.trim() || null;
   }
 
   return {

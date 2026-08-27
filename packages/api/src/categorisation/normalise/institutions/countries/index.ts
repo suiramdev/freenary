@@ -12,13 +12,15 @@ export type { CountryProfile } from "./types";
 const profiles: readonly CountryProfile[] = [fr];
 
 /** Combined institution definitions across all countries. */
-export const allInstitutions: readonly InstitutionDef[] =
-  profiles.flatMap((p) => p.institutions);
+export const allInstitutions: readonly InstitutionDef[] = profiles.flatMap(
+  (p) => p.institutions
+);
 
 /** Combined verb patterns across all countries, deduplicated by reference. */
 export const allVerbPatterns: readonly [RegExp, TransactionChannel][] =
   profiles.flatMap((p) => p.verbPatterns);
 
 /** Combined trailing-noise regexes across all countries. */
-export const allTrailingNoise: readonly RegExp[] =
-  profiles.flatMap((p) => p.trailingNoise);
+export const allTrailingNoise: readonly RegExp[] = profiles.flatMap(
+  (p) => p.trailingNoise
+);

@@ -154,6 +154,37 @@ describe("detectIntermediary", () => {
     expect(result.submerchantText).toBeNull();
   });
 
+  it("matches by creditor identifier with an empty descriptor", () => {
+    const result = detectIntermediary({
+      creditorIdentifications: [{ identification: "NL48ZZZ342764500000" }],
+      normalisedDescriptor: "",
+      rawDescriptor: "",
+    });
+
+    expect(result?.intermediaryId).toBe("adyen");
+    expect(result?.matchedBy).toBe("creditor-identifier");
+    expect(result?.confidence).toBe("high");
+  });
+
+  it("matches any creditor identification with an empty descriptor", () => {
+    const result = detectIntermediary({
+      creditorIdentifications: [
+        { identification: "UNKNOWN" },
+        { identification: "NL08ZZZ502057730000" },
+      ],
+      normalisedDescriptor: "",
+      rawDescriptor: "",
+    });
+    expect(result).not.toBeNull();
+    if (!result) {
+      throw new Error("unreachable");
+    }
+    expect(result.intermediaryId).toBe("mollie");
+    expect(result.intermediaryName).toBe("Mollie");
+    expect(result.matchedBy).toBe("creditor-identifier");
+    expect(result.confidence).toBe("high");
+  });
+
   // ---------------------------------------------------------------
   // Edge cases
   // ---------------------------------------------------------------
