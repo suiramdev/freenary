@@ -5,8 +5,12 @@ import type {
   InstitutionParser,
   TransactionChannel,
 } from "../types";
+import {
+  allInstitutions,
+  allTrailingNoise,
+  allVerbPatterns,
+} from "./countries";
 import type { InstitutionDef } from "./definitions";
-import { institutionDefs } from "./definitions";
 import { channelFromFamilyCode } from "./iso20022-channel";
 
 // ── Shared types for pattern rules ───────────────────────────────────────
@@ -30,37 +34,6 @@ export interface LineMatch {
   labelDate?: string;
 }
 
-// ── Channel-verb patterns (generic fallback) ─────────────────────────────
-
-/**
- * Channel-verb patterns, ordered longest-first to avoid partial matches.
- *
- * These detect the channel from the leading verb of any French bank descriptor.
- */
-const CHANNEL_VERB_PATTERNS: [RegExp, TransactionChannel][] = [
-  [/^PAIEMENT\s+PAR\s+CARTE(?:\s+|$)/iu, "card"],
-  [/^FACTURE\s+CARTE(?:\s+|$)/iu, "card"],
-  [/^PAIEMENT\s+(?:PSC|CB|MOB)(?:\s+|$)/iu, "card"],
-  [/^PRLV\s+(?:EUROPEEN\s+)?SEPA(?:\s+|$)/iu, "direct-debit"],
-  [/^PRELEVEMENT(?:\s+SEPA)?(?:\s+|$)/iu, "direct-debit"],
-  [/^RETRAIT\s+DAB(?:\s+|$)/iu, "atm"],
-  [/^RETRAIT(?:\s+|$)/iu, "atm"],
-  [/^VIR(?:EMENT)?(?:\s+(?:SEPA|INST))?(?:\s+|$)/iu, "transfer"],
-  [/^ACHAT\s+CB(?:\s+|$)/iu, "card"],
-  [/^CARTE(?:\s+|$)/iu, "card"],
-  [/^CB(?:\s+|$)/iu, "card"],
-  [/^(?:CHEQUE|CHQ)(?:\s+|$)/iu, "cheque"],
-  [/^ECH\s+PRET\s*:?\s*/iu, "loan"],
-  [/^(?:FRAIS|COTISATION|COMMISSION)(?:\s+|$)/iu, "fee"],
-];
-
-/** Trailing date, card or reference chunks that are not payee identity. */
-const TRAILING_NOISE =
-  /\s+(?:CARTE\s+\d{4,}|CB\*?\d{4,}|\d{2}[./]\d{2}(?:[./]\d{2,4})?)$/iu;
-
-/** Reference suffixes like REF: ..., MDT/..., ECH/..., ID ... */
-const REF_SUFFIX = /\s+(?:REF\s*:\s*\S+|MDT\/\S+|ECH\/\S+|ID\s+\S+)$/iu;
-
 // ── Shared helpers ───────────────────────────────────────────────────────
 
 export interface VerbPrefixResult {
@@ -74,7 +47,7 @@ export interface VerbPrefixResult {
  * with channel "unknown".
  */
 export const stripVerbPrefix = (line: string): VerbPrefixResult => {
-  for (const [re, channel] of CHANNEL_VERB_PATTERNS) {
+  for (const [re, channel] of allVerbPatterns) {
     if (re.test(line)) {
       return { channel, text: line.replace(re, "").trim() };
     }
@@ -82,9 +55,14 @@ export const stripVerbPrefix = (line: string): VerbPrefixResult => {
   return { channel: "unknown", text: line };
 };
 
-/** Strip trailing date, card and reference noise that is not payee identity. */
-export const cleanTrailingNoise = (text: string): string =>
-  text.replace(REF_SUFFIX, "").replace(TRAILING_NOISE, "").trim();
+/** Strip trailing noise that is not payee identity. */
+export const cleanTrailingNoise = (text: string): string => {
+  let result = text;
+  for (const re of allTrailingNoise) {
+    result = result.replace(re, "");
+  }
+  return result.trim();
+};
 
 /**
  * Read a named capture group, returning the trimmed value or undefined when
@@ -284,7 +262,7 @@ const fromDef = (def: InstitutionDef): InstitutionParser => ({
  * The generic parser is NOT in this list — it is the fallback.
  */
 export const institutionParsers: readonly InstitutionParser[] =
-  institutionDefs.map(fromDef);
+  allInstitutions.map(fromDef);
 
 /** Generic fallback parser — no institution-specific knowledge. */
 export const generic: InstitutionParser = {
