@@ -30,8 +30,7 @@ const OUTPUT_PATH = path.resolve(
 const USER_AGENT = "freenary-merchant-build/1.0 (https://freenary.com)";
 const DELAY_MS = 1500;
 
-const SIRENE_SEARCH_URL =
-  "https://recherche-entreprises.api.gouv.fr/search";
+const SIRENE_SEARCH_URL = "https://recherche-entreprises.api.gouv.fr/search";
 const CURATED_WIKIDATA_BATCH_SIZE = 10;
 
 /**
@@ -295,9 +294,7 @@ const fetchCuratedFromWikidata = async (
 } LIMIT 50`;
 
     const batchNum = Math.floor(i / CURATED_WIKIDATA_BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(
-      names.length / CURATED_WIKIDATA_BATCH_SIZE
-    );
+    const totalBatches = Math.ceil(names.length / CURATED_WIKIDATA_BATCH_SIZE);
     const data = await runQuery(
       query,
       `curated batch ${batchNum}/${totalBatches}`
@@ -313,9 +310,7 @@ const fetchCuratedFromWikidata = async (
         }
         const qid = itemVal.value.split("/").pop() ?? itemVal.value;
         const label = labelVal.value;
-        const domain = row.website
-          ? extractDomain(row.website.value)
-          : null;
+        const domain = row.website ? extractDomain(row.website.value) : null;
 
         let entry = merged.get(qid);
         if (!entry) {
@@ -421,7 +416,9 @@ const main = async (): Promise<void> => {
   // Phase 1b: Wikidata lookup for curated merchants by label
   const curatedNames = CURATED_MERCHANTS.map((m) => m.name);
   await fetchCuratedFromWikidata(curatedNames, merged);
-  console.log(`Phase 1b complete: ${merged.size} total entities after curated lookup`);
+  console.log(
+    `Phase 1b complete: ${merged.size} total entities after curated lookup`
+  );
 
   // Phase 2: fetch aliases in batches
   const allQids = [...merged.keys()];

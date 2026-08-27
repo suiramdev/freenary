@@ -4,11 +4,9 @@ import { canLookupSirene } from "./lookup";
 import { mapNafToCategory } from "./naf-categories";
 
 describe("canLookupSirene", () => {
-  test("requires both deployment enablement and user permission", () => {
-    expect(canLookupSirene(false, false)).toBe(false);
-    expect(canLookupSirene(true, false)).toBe(false);
-    expect(canLookupSirene(false, true)).toBe(false);
-    expect(canLookupSirene(true, true)).toBe(true);
+  test("requires user permission", () => {
+    expect(canLookupSirene(false)).toBe(false);
+    expect(canLookupSirene(true)).toBe(true);
   });
 });
 

@@ -30,7 +30,7 @@ export const lookupEnrichment = async (
     const response = await fetch(ENDPOINT, {
       body: JSON.stringify({ description: descriptor }),
       headers: {
-        "Authorization": `Bearer ${env.LOGO_DEV_API_KEY}`,
+        Authorization: `Bearer ${env.LOGO_DEV_API_KEY}`,
         "Content-Type": "application/json",
       },
       method: "POST",

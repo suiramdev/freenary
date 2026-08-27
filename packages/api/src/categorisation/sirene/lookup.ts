@@ -1,5 +1,3 @@
-import { env } from "@freenary/env/server";
-
 import { mapNafToCategory } from "./naf-categories";
 import type { SireneResult } from "./types";
 
@@ -22,10 +20,8 @@ interface SireneResponse {
   results: SireneEntry[];
 }
 
-export const canLookupSirene = (
-  deploymentEnabled: boolean,
-  userPermitted: boolean
-): boolean => deploymentEnabled && userPermitted;
+export const canLookupSirene = (userPermitted: boolean): boolean =>
+  userPermitted;
 
 /**
  * Query recherche-entreprises for a business name and return the NAF-derived
@@ -36,7 +32,7 @@ export const lookupSirene = async (
   creditorName: string,
   allowExternalLookup = false
 ): Promise<SireneResult | null> => {
-  if (!canLookupSirene(env.SIRENE_LOOKUP_ENABLED, allowExternalLookup)) {
+  if (!canLookupSirene(allowExternalLookup)) {
     return null;
   }
 
