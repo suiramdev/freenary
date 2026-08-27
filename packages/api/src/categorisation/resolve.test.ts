@@ -19,6 +19,7 @@ mock.module("@freenary/db", () => ({
       }
       return [];
     },
+    $executeRaw: () => 0,
     descriptorMemo: {
       deleteMany: () => ({}),
       update: () => ({}),
@@ -346,5 +347,27 @@ describe("classifyCandidate — place-token gate regression", () => {
     });
     expect(result.band).toBe("suggest");
     expect(result.band).not.toBe("auto");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveTransaction — enrichment stage disabled without API key
+// ---------------------------------------------------------------------------
+
+describe("resolveTransaction — enrichment stage disabled without API key", () => {
+  test("without LOGO_DEV_API_KEY, cascade skips enrichment and falls through to MCC or unknown", async () => {
+    const result = await resolveTransaction({
+      amountMinor: -1200,
+      channel: "card",
+      normalisedDescriptor: "some unknown merchant xyz",
+      rawDescriptor: "SOME UNKNOWN MERCHANT XYZ",
+      userId: "test-user",
+    });
+
+    // No API key → enrichment is a no-op → cascade falls through
+    expect(result.stage).not.toBe("enrichment");
+    // Must resolve to something without throwing
+    expect(result.band).toBeDefined();
+    expect(result.stage).toBeDefined();
   });
 });

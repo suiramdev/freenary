@@ -1,13 +1,15 @@
 /**
  * Transaction categorisation cascade.
  *
- * Precedence: channel → memo → intermediary → dictionary → learned → sirene → MCC → unknown.
+ * Precedence: channel → memo → intermediary → dictionary → learned → sirene → enrichment → MCC → unknown.
  * Never throws for any input.
  */
 
+import prisma from "@freenary/db";
 import type { SpendingCategory } from "../lib/mcc-categories";
 import { MCC_TO_CATEGORY } from "../lib/mcc-categories";
 import { findMerchantCandidates } from "./candidates";
+import { lookupEnrichment } from "./enrichment/lookup";
 import { detectIntermediary } from "./intermediaries/detect";
 import { findLearnedMatch } from "./learned";
 import { lookupMemo, recordMemoHit } from "./memo";
@@ -201,6 +203,48 @@ const resolveSirene = async (
   }
 };
 
+/** Stage 6b: Logo.dev transaction enrichment. */
+const resolveEnrichment = async (
+  normalisedDescriptor: string,
+  ctx: StageContext
+): Promise<ResolutionResult | null> => {
+  if (normalisedDescriptor.length <= 1) {
+    return null;
+  }
+  try {
+    const enrichment = await lookupEnrichment(normalisedDescriptor);
+    if (!enrichment?.category) {
+      return null;
+    }
+
+    // Write a global memo so subsequent lookups skip the API
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO "descriptor_memo" ("id", "userId", "normalisedDescriptor", "category", "intermediaryId", "merchantId", "source", "hitCount", "createdAt", "updatedAt")
+        VALUES (gen_random_uuid(), NULL, ${normalisedDescriptor}, ${enrichment.category}, ${ctx.intermediaryId}, NULL, 'enrichment', 1, now(), now())
+        ON CONFLICT ("userId", "normalisedDescriptor")
+        DO UPDATE SET "category" = ${enrichment.category}, "intermediaryId" = ${ctx.intermediaryId}, "source" = 'enrichment', "updatedAt" = now()
+      `;
+    } catch {
+      // Memo write failure must not break resolution
+    }
+
+    return {
+      band: "suggest",
+      candidates: [],
+      category: enrichment.category,
+      confidence: 0.4,
+      intermediaryId: ctx.intermediaryId,
+      intermediaryName: ctx.intermediaryName,
+      merchantId: null,
+      merchantName: enrichment.merchantName,
+      stage: "enrichment",
+    };
+  } catch {
+    return null;
+  }
+};
+
 const resolveInternal = async (
   request: ResolveRequest
 ): Promise<ResolutionResult> => {
@@ -324,6 +368,14 @@ const resolveInternal = async (
   );
   if (sireneResult) {
     return sireneResult;
+  }
+
+  // -------------------------------------------------------------------
+  // 6b. Enrichment API (Logo.dev)
+  // -------------------------------------------------------------------
+  const enrichResult = await resolveEnrichment(normalisedDescriptor, ctx);
+  if (enrichResult) {
+    return enrichResult;
   }
 
   // -------------------------------------------------------------------

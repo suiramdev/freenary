@@ -4,7 +4,7 @@
 
 1. **Name Suggestion Index (NSI)** — the OSM brand/operator index, providing ~9,800 consumer-facing merchants with mapped categories.
 2. **Wikidata brands** — ~51k commercial entities with official websites (P856), providing aliases and domain coverage that NSI misses.
-3. **Curated supplement** — a hand-authored list (~50 entries) covering categories NSI structurally under-covers.
+3. **Curated supplement** — a list of ~50 merchant names and categories covering sectors NSI structurally under-covers. Aliases and domains for curated merchants are resolved at build time from Wikidata and SIRENE, not hard-coded.
 
 Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `SpendingCategory` (or `null` for Wikidata-only entries), and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
 
@@ -17,24 +17,31 @@ Wikidata broadens brand coverage to online-only and service businesses that lack
 ## Regeneration
 
 ```bash
-# Fetch Wikidata brands (run manually; writes wikidata-brands.json)
+# Fetch Wikidata brands + SIRENE enrichment (run manually; writes wikidata-brands.json)
 bun packages/api/scripts/fetch-wikidata-brands.ts
 
 # Build the dictionary (merges NSI + Wikidata + curated)
 bun packages/api/scripts/build-merchant-dictionary.ts
 ```
 
-`fetch-wikidata-brands.ts` queries the Wikidata SPARQL endpoint in two phases: entity collection by type, then batch alias lookup. The intermediate `wikidata-brands.json` is committed so the dictionary build is reproducible without network access to WDQS. If the intermediate file is absent, the build proceeds with NSI + curated only.
+`fetch-wikidata-brands.ts` runs three phases: Phase 0 queries the SIRENE API (`recherche-entreprises.api.gouv.fr`) for each curated merchant to obtain SIREN identifiers and NAF codes. Phase 1 collects entities from Wikidata SPARQL by type, then Phase 1b searches Wikidata for curated merchant names by label. Phase 2 fetches aliases in batches. The intermediate `wikidata-brands.json` must be present for the build — the build fails if it is missing.
 
-The build script fetches the pinned NSI tarball from npm, reads the Wikidata intermediate file, applies the curated supplement, normalises all names, and writes sorted gzipped JSONL. Output is byte-stable across rebuilds.
+The build script fetches the pinned NSI tarball from npm, reads the Wikidata intermediate file, applies the curated supplement (looking up each curated merchant's aliases and domains from the Wikidata data), normalises all names, and writes sorted gzipped JSONL.
+
+## Runtime enrichment
+
+Transactions that no dictionary, learned, or SIRENE stage can resolve are sent to the Logo.dev transaction enrichment API (when `LOGO_DEV_API_KEY` is set). The result is cached as a global memo in the `descriptor_memo` table so subsequent transactions with the same descriptor skip the API.
 
 ## Pinned versions
 
 - NSI **v8.0.20260729** (BSD-3-Clause).
 - Wikidata brands: fetched from WDQS, intermediate committed as `wikidata-brands.json`.
+- SIRENE: `recherche-entreprises.api.gouv.fr` (free, no key required).
 
 ## Licence and attribution
 
 The NSI-derived data is from the **Name Suggestion Index** project, licensed under **BSD-3-Clause**. NSI is used instead of raw OpenStreetMap extracts because OSM data is licensed under ODbL (share-alike), which would contaminate the generated artifact. NSI's BSD-3-Clause licence permits redistribution of the derived dataset without share-alike obligations. The curated supplement is original to this project.
 
 Wikidata data is licensed under **CC0** (public domain). The `fetch-wikidata-brands.ts` script queries the Wikidata Query Service, which is free and open. Aliases and domains are merged but categories are not — Wikidata has no OSM tags, so category mapping is deferred to other categorisation stages.
+
+SIRENE data is from the French government's open company register, free and open for reuse.

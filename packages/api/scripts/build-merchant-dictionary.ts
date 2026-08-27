@@ -12,7 +12,7 @@
  * Usage: bun packages/api/scripts/build-merchant-dictionary.ts
  */
 
-import { createWriteStream, existsSync } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -404,6 +404,12 @@ interface WikidataBrand {
   domains: string[];
   id: string;
   label: string;
+  sirene?: {
+    siren: string;
+    nafCode: string;
+    denomination: string;
+    tradeName: string | null;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -501,10 +507,23 @@ const mergeWikidataBrands = (
 // Pass 4: merge curated supplement into NSI merchants
 // ---------------------------------------------------------------------------
 
-const mergeCuratedSupplement = (nsiMerchants: DictionaryMerchant[]) => {
+const mergeCuratedSupplement = (
+  nsiMerchants: DictionaryMerchant[],
+  wikidataBrands: WikidataBrand[]
+) => {
   const nsiByNorm: Record<string, number> = {};
   for (let i = 0; i < nsiMerchants.length; i += 1) {
     nsiByNorm[nsiMerchants[i].normalisedName] = i;
+  }
+
+  // Index Wikidata brands by lower-case label for curated cross-reference
+  const wdByLabel: Record<string, WikidataBrand> = {};
+  for (const wd of wikidataBrands) {
+    const key = wd.label.toLowerCase();
+    // Keep the first match (most likely the canonical entity)
+    if (!wdByLabel[key]) {
+      wdByLabel[key] = wd;
+    }
   }
 
   let curatedAdded = 0;
@@ -516,9 +535,15 @@ const mergeCuratedSupplement = (nsiMerchants: DictionaryMerchant[]) => {
       continue;
     }
 
+    // Look up aliases and domains from Wikidata data (curated entries no
+    // longer carry them — they were moved to the Wikidata fetch pipeline).
+    const wdMatch = wdByLabel[curated.name.toLowerCase()];
+    const rawAliases = wdMatch?.aliases ?? [];
+    const rawDomains = wdMatch?.domains ?? [];
+
     const seenNormalised = new Set<string>([normalisedName]);
     const aliases: DictionaryAlias[] = [];
-    for (const rawAlias of curated.aliases) {
+    for (const rawAlias of rawAliases) {
       const normAlias = normaliseDescriptor(rawAlias);
       if (normAlias.length === 0 || seenNormalised.has(normAlias)) {
         continue;
@@ -527,10 +552,12 @@ const mergeCuratedSupplement = (nsiMerchants: DictionaryMerchant[]) => {
       aliases.push({ alias: rawAlias, normalisedAlias: normAlias });
     }
 
+    const domains = buildDomains(rawDomains.map((d) => `https://${d}`));
+
     const merchant: DictionaryMerchant = {
       aliases,
       category: curated.category,
-      domains: curated.domains,
+      domains,
       id: `curated:${slugify(curated.name)}`,
       name: curated.name,
       normalisedName,
@@ -660,26 +687,23 @@ const main = async (): Promise<void> => {
   );
 
   // Pass 3b: merge Wikidata brands (aliases + domains only; no category)
-  let wikidataMatched = 0;
-  let wikidataNew = 0;
-  if (existsSync(WIKIDATA_PATH)) {
-    const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
-    // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
-    const wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
-    const { wikidataMatched: matched, wikidataNew: added } =
-      mergeWikidataBrands(nsiMerchants, wikidataBrands, isGenericToken);
-    wikidataMatched = matched;
-    wikidataNew = added;
-    console.log(
-      `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
-    );
-  } else {
-    console.log("Wikidata brands: skipped (wikidata-brands.json not found)");
-  }
+  const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
+  // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
+  const wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
+  const { wikidataMatched, wikidataNew } = mergeWikidataBrands(
+    nsiMerchants,
+    wikidataBrands,
+    isGenericToken
+  );
+  console.log(
+    `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
+  );
 
-  // Pass 4: merge curated supplement
-  const { curatedAdded, curatedOverridden } =
-    mergeCuratedSupplement(nsiMerchants);
+  // Pass 4: merge curated supplement (aliases/domains from Wikidata data)
+  const { curatedAdded, curatedOverridden } = mergeCuratedSupplement(
+    nsiMerchants,
+    wikidataBrands
+  );
   console.log(
     `Curated supplement: ${curatedAdded} added, ${curatedOverridden} overrode NSI`
   );

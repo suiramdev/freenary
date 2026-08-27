@@ -5,6 +5,7 @@ export type ResolutionBand = "auto" | "suggest" | "unknown";
 export type ResolutionStage =
   | "channel"
   | "dictionary"
+  | "enrichment"
   | "intermediary"
   | "learned"
   | "mcc"
