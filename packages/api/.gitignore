@@ -6,6 +6,9 @@ out
 dist
 *.tgz
 
+
+# generated merchant dictionary (built at CI/docker build time)
+data/merchants.jsonl.gz
 # code coverage
 coverage
 *.lcov

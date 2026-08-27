@@ -8,6 +8,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 ENV NODE_ENV=production
+RUN cd packages/api && bun run build:merchants
 RUN cd apps/server && bun run build
 
 FROM oven/bun:1 AS runner
