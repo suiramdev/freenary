@@ -25,3 +25,7 @@ COPY . .
 # Prisma config reads DATABASE_URL; the generate step needs only the schema, not a
 # live database, so a dummy value satisfies the config loader.
 RUN cd packages/db && DATABASE_URL=postgresql://x@x/x bun x prisma generate
+
+# Generate place tokens and merchant dictionary from remote APIs.
+# Graceful: keeps existing artifacts when the APIs are unreachable.
+RUN cd packages/api && bun run build:data

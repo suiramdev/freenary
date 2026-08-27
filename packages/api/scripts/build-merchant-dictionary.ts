@@ -9,11 +9,16 @@
  * on collision), and writes a gzipped JSONL artifact sorted by id for
  * byte-stable diffs.
  *
+ * Graceful degradation:
+ *  When the NSI tarball download fails and an existing merchants.jsonl.gz file
+ *  is present, the script logs a warning and exits successfully, leaving the
+ *  existing artifact intact.
+ *
  * Usage: bun packages/api/scripts/build-merchant-dictionary.ts
  */
 
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -765,8 +770,18 @@ const run = async (): Promise<void> => {
   try {
     await main();
   } catch (error) {
-    console.error("Build failed:", error);
-    process.exit(1);
+    // Graceful degradation: keep existing artifact when remote is unavailable.
+    const exists = await access(OUTPUT_PATH)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
+      console.warn(
+        `⚠ Merchant dictionary build failed — keeping existing merchants.jsonl.gz. Error: ${error instanceof Error ? error.message : error}`
+      );
+    } else {
+      console.error("Build failed:", error);
+      process.exit(1);
+    }
   }
 };
 

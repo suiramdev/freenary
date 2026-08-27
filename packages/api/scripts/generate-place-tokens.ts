@@ -18,10 +18,22 @@
  *    descriptors, including smaller préfectures.
  *  - Other European countries: ≥ 200 000 — capitals and major cities only.
  *
+ * Country filtering (environment variables):
+ *  - FREENARY_PLACE_COUNTRIES — comma-separated whitelist of ISO 3166-1 alpha-2
+ *    codes. When set, replaces the built-in default set entirely.
+ *  - FREENARY_PLACE_COUNTRIES_EXCLUDE — comma-separated blacklist. Codes listed
+ *    here are removed from the active set (whether default or whitelisted).
+ *  Both are optional and case-insensitive.
+ *
+ * Graceful degradation:
+ *  When the GeoNames download fails and an existing place-tokens.ts file is
+ *  present, the script logs a warning and exits successfully, leaving the
+ *  existing file intact.
+ *
  * Usage: bun packages/api/scripts/generate-place-tokens.ts
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -33,7 +45,7 @@ const GEONAMES_URL =
   "https://download.geonames.org/export/dump/cities15000.zip";
 const OUTPUT_PATH = path.resolve(
   import.meta.dirname,
-  "../src/categorisation/place-tokens.ts",
+  "../src/categorisation/place-tokens.ts"
 );
 
 const MIN_TOKEN_LENGTH = 4;
@@ -43,19 +55,88 @@ const POP_THRESHOLDS: Record<string, number> = {
 };
 const DEFAULT_POP_THRESHOLD = 200_000;
 
-const INCLUDED_COUNTRIES = new Set([
-  "AT", "BE", "CH", "CZ", "DE", "DK", "ES", "FI", "FR", "GB", "GR",
-  "HR", "HU", "IE", "IT", "LU", "NL", "NO", "PL", "PT", "RO", "SE",
-]);
+const DEFAULT_COUNTRIES = [
+  "AT",
+  "BE",
+  "CH",
+  "CZ",
+  "DE",
+  "DK",
+  "ES",
+  "FI",
+  "FR",
+  "GB",
+  "GR",
+  "HR",
+  "HU",
+  "IE",
+  "IT",
+  "LU",
+  "NL",
+  "NO",
+  "PL",
+  "PT",
+  "RO",
+  "SE",
+];
+
+/**
+ * Parse a comma-separated list of ISO country codes from an env var.
+ * Returns undefined when the var is unset or blank.
+ */
+const parseCountryEnv = (name: string): string[] | undefined => {
+  const raw = process.env[name]?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  return raw
+    .split(",")
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => c.length > 0);
+};
+
+const buildCountrySet = (): Set<string> => {
+  const whitelist = parseCountryEnv("FREENARY_PLACE_COUNTRIES");
+  const base = whitelist ?? DEFAULT_COUNTRIES;
+
+  const blacklist = parseCountryEnv("FREENARY_PLACE_COUNTRIES_EXCLUDE");
+  if (!blacklist) {
+    return new Set(base);
+  }
+
+  const excluded = new Set(blacklist);
+  return new Set(base.filter((c) => !excluded.has(c)));
+};
+
+const INCLUDED_COUNTRIES = buildCountrySet();
 
 /**
  * Country-name tokens (accent-folded, lowercase).
  */
 const COUNTRY_NAME_TOKENS = [
-  "allemagne", "austria", "belgique", "croatia", "danmark", "deutschland",
-  "espana", "finland", "france", "greece", "hungary", "ireland", "italia",
-  "luxembourg", "nederland", "norge", "osterreich", "polska", "portugal",
-  "romania", "schweiz", "suisse", "sverige",
+  "allemagne",
+  "austria",
+  "belgique",
+  "croatia",
+  "danmark",
+  "deutschland",
+  "espana",
+  "finland",
+  "france",
+  "greece",
+  "hungary",
+  "ireland",
+  "italia",
+  "luxembourg",
+  "nederland",
+  "norge",
+  "osterreich",
+  "polska",
+  "portugal",
+  "romania",
+  "schweiz",
+  "suisse",
+  "sverige",
 ];
 
 /** Prefix tokens from compound commune names (Saint-Denis, Sainte-Maxime). */
@@ -67,23 +148,23 @@ const FIXED_PREFIX_TOKENS = ["saint", "sainte"];
  * descriptors containing e.g. "BRUXELLES" or "MUNCHEN" are matched.
  */
 const ALTERNATE_CITY_NAMES = [
-  "aix",         // Aix-en-Provence, first token (3 chars, below auto threshold)
-  "antwerpen",   // Antwerp in Dutch
-  "bruxelles",   // Brussels in French
-  "dunkerque",   // Dunkirk in French
-  "geneve",      // Geneva in French (folds from Genève)
-  "kobenhavn",   // Copenhagen in Danish (folds from København)
-  "lisboa",      // Lisbon in Portuguese
-  "mans",        // Le Mans, second token of compound name
-  "milano",      // Milan in Italian
-  "munchen",     // Munich in German (folds from München)
-  "napoli",      // Naples in Italian
-  "pau",         // Pau, 3 chars (below auto threshold)
-  "praha",       // Prague in Czech
-  "roma",        // Rome in Italian
-  "torino",      // Turin in Italian
-  "warszawa",    // Warsaw in Polish
-  "wien",        // Vienna in German
+  "aix", // Aix-en-Provence, first token (3 chars, below auto threshold)
+  "antwerpen", // Antwerp in Dutch
+  "bruxelles", // Brussels in French
+  "dunkerque", // Dunkirk in French
+  "geneve", // Geneva in French (folds from Genève)
+  "kobenhavn", // Copenhagen in Danish (folds from København)
+  "lisboa", // Lisbon in Portuguese
+  "mans", // Le Mans, second token of compound name
+  "milano", // Milan in Italian
+  "munchen", // Munich in German (folds from München)
+  "napoli", // Naples in Italian
+  "pau", // Pau, 3 chars (below auto threshold)
+  "praha", // Prague in Czech
+  "roma", // Rome in Italian
+  "torino", // Turin in Italian
+  "warszawa", // Warsaw in Polish
+  "wien", // Vienna in German
 ];
 
 /**
@@ -94,28 +175,128 @@ const ALTERNATE_CITY_NAMES = [
  */
 const EXCLUSIONS = new Set([
   // Generic geographic / administrative terms
-  "arrondissement", "bains", "barre", "berg", "bois", "burg", "campo",
-  "cote", "dorf", "east", "eure", "field", "fort", "gare", "glen",
-  "grand", "hall", "haut", "heim", "hill", "isle", "king", "klein",
-  "lake", "land", "loir", "mare", "mill", "mine", "mons", "moor",
-  "moss", "neuf", "neue", "nord", "oise", "park", "petit", "pine",
-  "plage", "pont", "port", "rive", "rose", "seine", "stein", "tree",
-  "vert", "wald", "west", "wood", "ville",
+  "arrondissement",
+  "bains",
+  "barre",
+  "berg",
+  "bois",
+  "burg",
+  "campo",
+  "cote",
+  "dorf",
+  "east",
+  "eure",
+  "field",
+  "fort",
+  "gare",
+  "glen",
+  "grand",
+  "hall",
+  "haut",
+  "heim",
+  "hill",
+  "isle",
+  "king",
+  "klein",
+  "lake",
+  "land",
+  "loir",
+  "mare",
+  "mill",
+  "mine",
+  "mons",
+  "moor",
+  "moss",
+  "neuf",
+  "neue",
+  "nord",
+  "oise",
+  "park",
+  "petit",
+  "pine",
+  "plage",
+  "pont",
+  "port",
+  "rive",
+  "rose",
+  "seine",
+  "stein",
+  "tree",
+  "vert",
+  "wald",
+  "west",
+  "wood",
+  "ville",
   // Person-name fragments from Saint-* / Sainte-* communes
-  "aignan", "amand", "ambroise", "andre", "anne", "aubin", "avertin",
-  "barthelemy", "benoit", "brieuc", "charles", "cloud", "denis",
-  "dizier", "etienne", "florentin", "flour", "gaudens", "genis",
-  "georges", "germain", "gervais", "gilles", "herblain", "hilaire",
-  "jacques", "jean", "joseph", "julien", "just", "laurent", "louis",
-  "malo", "mande", "marcel", "martin", "maur", "medard", "michel",
-  "nazaire", "nicolas", "omer", "ouen", "paul", "pierre", "priest",
-  "quentin", "raphael",
+  "aignan",
+  "amand",
+  "ambroise",
+  "andre",
+  "anne",
+  "aubin",
+  "avertin",
+  "barthelemy",
+  "benoit",
+  "brieuc",
+  "charles",
+  "cloud",
+  "denis",
+  "dizier",
+  "etienne",
+  "florentin",
+  "flour",
+  "gaudens",
+  "genis",
+  "georges",
+  "germain",
+  "gervais",
+  "gilles",
+  "herblain",
+  "hilaire",
+  "jacques",
+  "jean",
+  "joseph",
+  "julien",
+  "just",
+  "laurent",
+  "louis",
+  "malo",
+  "mande",
+  "marcel",
+  "martin",
+  "maur",
+  "medard",
+  "michel",
+  "nazaire",
+  "nicolas",
+  "omer",
+  "ouen",
+  "paul",
+  "pierre",
+  "priest",
+  "quentin",
+  "raphael",
   // Merchant / brand name collisions
-  "apple", "avon", "canal", "gap", "metro", "orange", "shell", "total",
+  "apple",
+  "avon",
+  "canal",
+  "gap",
+  "metro",
+  "orange",
+  "shell",
+  "total",
   "uber",
   // English city-name fragments that read as common words
-  "archway", "barking", "bath", "camp", "city", "cork", "dame", "dieu",
-  "eden", "hopital",
+  "archway",
+  "barking",
+  "bath",
+  "camp",
+  "city",
+  "cork",
+  "dame",
+  "dieu",
+  "eden",
+  "hopital",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -143,8 +324,8 @@ const foldToTokens = (name: string): string[] => {
 
   const tokens: string[] = [];
   for (const token of folded.split(" ")) {
-    if (token.length === 0) continue;
-    if (CONTAINS_DIGIT.test(token)) continue;
+    if (token.length === 0) {continue;}
+    if (CONTAINS_DIGIT.test(token)) {continue;}
     tokens.push(token);
   }
   return tokens;
@@ -165,7 +346,7 @@ const parseCities = (tsv: string): Set<string> => {
   let skippedPop = 0;
 
   for (const line of tsv.split("\n")) {
-    if (line.length === 0 || line.startsWith("#")) continue;
+    if (line.length === 0 || line.startsWith("#")) {continue;}
 
     const cols = line.split("\t");
     const countryCode = cols[8] ?? "";
@@ -206,7 +387,7 @@ const parseCities = (tsv: string): Set<string> => {
   }
 
   console.log(
-    `  GeoNames: ${included} cities, ${skippedCountry} outside country set, ${skippedPop} below threshold`,
+    `  GeoNames: ${included} cities, ${skippedCountry} outside country set, ${skippedPop} below threshold`
   );
   return tokens;
 };
@@ -287,7 +468,25 @@ export const isEntirelyPlaceName = (normalisedName: string): boolean => {
 // ---------------------------------------------------------------------------
 
 const main = async (): Promise<void> => {
-  const tsv = await downloadAndExtract();
+  let tsv: string;
+  try {
+    tsv = await downloadAndExtract();
+  } catch (error) {
+    // Graceful degradation: keep existing file when remote is unavailable.
+    const exists = await access(OUTPUT_PATH)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
+      console.warn(
+        `⚠ GeoNames download failed — keeping existing place-tokens.ts. Error: ${error instanceof Error ? error.message : error}`
+      );
+      return;
+    }
+    throw new Error(
+      `GeoNames download failed and no existing place-tokens.ts found: ${error instanceof Error ? error.message : error}`
+    );
+  }
+
   const geoTokens = parseCities(tsv);
 
   for (const token of COUNTRY_NAME_TOKENS) {
@@ -302,6 +501,7 @@ const main = async (): Promise<void> => {
 
   const sorted = [...geoTokens].sort();
   console.log(`  Total unique tokens: ${sorted.length}`);
+  console.log(`  Countries: ${[...INCLUDED_COUNTRIES].sort().join(", ")}`);
 
   const code = generateTypeScript(sorted);
   await writeFile(OUTPUT_PATH, code, "utf-8");
