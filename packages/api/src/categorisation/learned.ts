@@ -10,9 +10,7 @@ import prisma from "@freenary/db";
 
 import type { SpendingCategory } from "../lib/mcc-categories";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface LearnedMatch {
   /** Best pg_trgm similarity score among the matches. */
@@ -34,9 +32,7 @@ export interface LearnedVoteInput {
   similarity: number;
 }
 
-// ---------------------------------------------------------------------------
 // Internal types
-// ---------------------------------------------------------------------------
 
 interface SimilarMemoRow {
   category: string;
@@ -47,9 +43,7 @@ interface SimilarMemoRow {
   userId: string | null;
 }
 
-// ---------------------------------------------------------------------------
 // Pure voting logic — exported for unit testing without a database
-// ---------------------------------------------------------------------------
 
 /**
  * Given a set of similar memo rows, vote on the most likely category.
@@ -139,9 +133,7 @@ export const computeLearnedVote = (
   };
 };
 
-// ---------------------------------------------------------------------------
 // Database-backed entry point
-// ---------------------------------------------------------------------------
 
 /**
  * Find the most likely category by fuzzy-matching against user-corrected memos.

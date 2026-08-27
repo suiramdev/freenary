@@ -4,9 +4,7 @@ import { IBAN_INDEX } from "./catalogue";
 import { detectIntermediary } from "./detect";
 
 describe("detectIntermediary", () => {
-  // ---------------------------------------------------------------
   // Marker matches with sub-merchant extraction
-  // ---------------------------------------------------------------
 
   it("detects sumup and recovers sub-merchant", () => {
     const result = detectIntermediary({
@@ -71,9 +69,7 @@ describe("detectIntermediary", () => {
     expect(result.matchedBy).toBe("marker");
   });
 
-  // ---------------------------------------------------------------
   // Critical counter-example: Amazon is NOT an intermediary
-  // ---------------------------------------------------------------
 
   it("returns null for amzn mktp fr (not a catalogued intermediary)", () => {
     const result = detectIntermediary({
@@ -83,9 +79,7 @@ describe("detectIntermediary", () => {
     expect(result).toBeNull();
   });
 
-  // ---------------------------------------------------------------
   // Non-leading marker must not match
-  // ---------------------------------------------------------------
 
   it("returns null when marker is not the leading token", () => {
     const result = detectIntermediary({
@@ -95,9 +89,7 @@ describe("detectIntermediary", () => {
     expect(result).toBeNull();
   });
 
-  // ---------------------------------------------------------------
   // Marker without sub-merchant
-  // ---------------------------------------------------------------
 
   it("detects stripe alone with null submerchantText", () => {
     const result = detectIntermediary({
@@ -127,9 +119,7 @@ describe("detectIntermediary", () => {
     expect(result.submerchantText).toBeNull();
   });
 
-  // ---------------------------------------------------------------
   // IBAN-only match (no marker in descriptor)
-  // ---------------------------------------------------------------
 
   const TEST_IBAN = "NL00TEST0000000099";
 
@@ -185,9 +175,7 @@ describe("detectIntermediary", () => {
     expect(result.confidence).toBe("high");
   });
 
-  // ---------------------------------------------------------------
   // Edge cases
-  // ---------------------------------------------------------------
 
   it("returns null for empty string without throwing", () => {
     const result = detectIntermediary({
@@ -220,9 +208,7 @@ describe("detectIntermediary", () => {
     expect(result.intermediaryId).toBe("adyen");
   });
 
-  // ---------------------------------------------------------------
   // Asterisk corroboration promotes medium → high
-  // ---------------------------------------------------------------
 
   it("promotes medium confidence to high when asterisk is at a scheme position", () => {
     const result = detectIntermediary({
@@ -250,9 +236,7 @@ describe("detectIntermediary", () => {
     expect(result.confidence).toBe("medium");
   });
 
-  // ---------------------------------------------------------------
   // PayPal alternate marker (pp)
-  // ---------------------------------------------------------------
 
   it("detects pp as paypal", () => {
     const result = detectIntermediary({
@@ -267,9 +251,7 @@ describe("detectIntermediary", () => {
     expect(result.submerchantText).toBe("merchant name");
   });
 
-  // ---------------------------------------------------------------
   // Checkout.com (cko marker)
-  // ---------------------------------------------------------------
 
   it("detects cko as checkout.com", () => {
     const result = detectIntermediary({

@@ -1,6 +1,5 @@
 import type { SpendingCategory } from "../../lib/mcc-categories";
 
-// ---------------------------------------------------------------------------
 // NAF (APE) code → SpendingCategory
 //
 // Division-level (2-digit prefix) entries provide broad coverage.
@@ -8,7 +7,6 @@ import type { SpendingCategory } from "../../lib/mcc-categories";
 // mapping is wrong — e.g. pharmacy 47.73Z is health, not shopping.
 //
 // Keys are sorted lexicographically (eslint sort-keys).
-// ---------------------------------------------------------------------------
 
 const NAF_TO_CATEGORY = {
   "01": "groceries",
