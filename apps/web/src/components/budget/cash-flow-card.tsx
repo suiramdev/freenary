@@ -50,12 +50,11 @@ export const CashFlowCard = ({
       </CardHeader>
       <CardContent>
         <SankeyChart
+          columns={flow.columns}
+          emphasizedId={flow.emphasizedId}
           formatValue={formatCurrency}
-          hub={flow.hub}
           label="Cash flow from income sources through the budget to spending categories"
           links={flow.links}
-          sources={flow.sources}
-          targets={flow.targets}
         />
         <CashFlowSummary
           totalExpenses={totalExpenses}

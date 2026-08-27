@@ -12,6 +12,8 @@ model User {
   accounts              Account[]
   bankConnections       BankConnection[]
   merchantOverrides     MerchantOverride[]
+  budgetLines           BudgetLine[]
+  customCategories      CustomCategory[]
 
   @@unique([email])
   @@map("user")

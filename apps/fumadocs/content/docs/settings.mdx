@@ -1,0 +1,35 @@
+---
+title: Settings
+description: Your budgeting profile and the categories your money is sorted into.
+---
+
+Settings is where you configure your financial profile by hand, without connecting anything. It works on a fresh account with no bank account linked.
+
+## Budgeting profile
+
+A budgeting profile is what you _plan_ each month, declared in three ordered groups: **revenues**, then **investments**, then **outgoings**. Each line carries a name, a monthly amount, and a category.
+
+A Sankey diagram above the form updates as you type, reading left to right:
+
+**revenues → Budget → category → line**
+
+The middle column groups your lines by the category you assigned, so several outgoings sharing one category appear as a single band that splits into its lines. Investment categories are drawn before outgoing ones, matching the order you enter them.
+
+Whatever your revenues do not cover appears as a grey **Unallocated** band, and the strip under the diagram totals revenues, allocated and unallocated. Allocate more than you earn and that strip flips to **Over-allocated** — the plan is still saved; nothing is clamped.
+
+Amounts are entered in major units (`500` means €500) and saved as whole cents. Saving replaces the whole profile at once, so reordering or removing a line takes effect on save, not before.
+
+## Categories
+
+The same section lists the seventeen built-in categories — Dining, Education, Entertainment, Groceries, Health, Housing, Income, Insurance, Other, Savings, Shopping, Subscriptions, Taxes, Transfers, Transport, Travel and Utilities — each marked **Built-in** and not editable.
+
+Alongside them are your own categories. Create one from the Categories section, or straight from a budget line's category picker when none of the existing ones fit. A custom category has a name unique to your account, a color drawn from the chart palette, an icon, and optionally a built-in category to nest under; nested categories are indented beneath their parent and can be reordered within it.
+
+Custom categories can be renamed, recolored, re-iconed, re-parented, reordered and deleted. Each row shows how many budget lines currently use it.
+
+Deleting one never orphans a budget line. Before the category goes away, every line using it is moved to its parent category, or to **Other** when it has no parent — the confirmation tells you exactly how many lines will move and where.
+
+<Callout type="info">
+  Custom categories apply to your budgeting profile. Categorizing an imported
+  transaction still uses the built-in categories only.
+</Callout>

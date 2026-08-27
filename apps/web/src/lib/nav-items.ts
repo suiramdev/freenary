@@ -2,6 +2,7 @@ import {
   BrainIcon,
   ChartBarIcon,
   CurrencyCircleDollarIcon,
+  GearIcon,
   HouseIcon,
   TargetIcon,
   WalletIcon,
@@ -50,6 +51,13 @@ export const NAV_ITEMS = [
     routeId: "/_auth/ai",
     title: "AI",
     to: "/ai",
+  },
+  {
+    icon: GearIcon,
+    planned: false,
+    routeId: "/_auth/settings",
+    title: "Settings",
+    to: "/settings",
   },
 ] as const;
 

@@ -42,7 +42,7 @@ export const SPENDING_CATEGORIES = [
   "utilities",
 ] as const satisfies readonly SpendingCategory[];
 
-type DitherColor =
+export type CategoryColor =
   | "green"
   | "blue"
   | "purple"
@@ -89,7 +89,7 @@ export const CATEGORY_COLORS = {
   transport: "blue",
   travel: "blue",
   utilities: "grey",
-} as const satisfies Record<SpendingCategory, DitherColor>;
+} as const satisfies Record<SpendingCategory, CategoryColor>;
 
 // MCC → SpendingCategory flat lookup (keys sorted lexicographically)
 

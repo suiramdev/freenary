@@ -1,3 +1,4 @@
+import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import {
   CATEGORY_LABELS,
   SPENDING_CATEGORIES,
@@ -51,7 +52,10 @@ export const TransactionCategoryPicker = ({
         >
           {SPENDING_CATEGORIES.map((cat) => (
             <DropdownMenuRadioItem key={cat} value={cat}>
-              <CategoryIcon category={cat} className="size-5 [&_svg]:size-3" />
+              <CategoryIcon
+                {...predefinedCategoryAppearance(cat)}
+                className="size-5 [&_svg]:size-3"
+              />
               {CATEGORY_LABELS[cat]}
             </DropdownMenuRadioItem>
           ))}

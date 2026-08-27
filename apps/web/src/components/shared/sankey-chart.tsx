@@ -15,28 +15,27 @@ interface SankeyChartProps extends SankeyFlow {
 }
 
 /**
- * A dithered sankey of a sources → hub → targets flow. Values and colors are
- * given; the chart holds no opinion about what they represent.
+ * A dithered sankey of a left-to-right column flow. Values and colors are given;
+ * the chart holds no opinion about what they represent.
  */
 export const SankeyChart = ({
   className,
+  columns,
+  emphasizedId,
   formatValue,
-  hub,
   label,
   links,
-  sources,
-  targets,
 }: SankeyChartProps) => {
   const layout = useMemo(
-    () => computeSankeyLayout({ hub, links, sources, targets }),
-    [hub, links, sources, targets]
+    () => computeSankeyLayout({ columns, emphasizedId, links }),
+    [columns, emphasizedId, links]
   );
 
   const { canvasRef, setHovered } = useSankeyCanvas(layout);
 
-  // A ribbon highlights the node at its far end from the hub.
+  // A ribbon highlights the node at its far end from the emphasized node.
   const pairedNodeOf = (band: { sourceId: string; targetId: string }) =>
-    band.sourceId === layout.hubId ? band.targetId : band.sourceId;
+    band.sourceId === layout.emphasizedId ? band.targetId : band.sourceId;
 
   return (
     <div
@@ -85,6 +84,8 @@ export const SankeyChart = ({
           <SankeyNodeLabel
             key={`label-${node.id}`}
             formatValue={formatValue}
+            isEmphasized={node.id === layout.emphasizedId}
+            isFirstColumn={node.column === 0}
             node={node}
           />
         ))}

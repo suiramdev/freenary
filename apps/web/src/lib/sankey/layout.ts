@@ -16,16 +16,17 @@ export interface SankeyLink {
 }
 
 export interface SankeyFlow {
-  hub: SankeyNode;
+  /** Node columns, left to right. Links may only join adjacent columns. */
+  columns: SankeyNode[][];
+  /** Node whose label is drawn above it instead of inside, e.g. the budget hub. */
+  emphasizedId?: string;
   links: SankeyLink[];
-  sources: SankeyNode[];
-  targets: SankeyNode[];
 }
 
 /** A laid-out node, in chart user units. */
 export interface NodeRect {
   color: DitherColor;
-  column: 0 | 1 | 2;
+  column: number;
   h: number;
   id: string;
   label: string;
@@ -50,8 +51,9 @@ export interface LinkBand {
 }
 
 export interface SankeyLayout {
+  columnCount: number;
+  emphasizedId?: string;
   height: number;
-  hubId: string;
   links: LinkBand[];
   nodes: NodeRect[];
   width: number;
@@ -65,7 +67,10 @@ export const ACCENT_W = 3;
 export const LABEL_MIN_H = 28;
 
 const PAD = { bottom: 16, left: 12, right: 12, top: 20 };
+/** Column width and inter-column gap as fractions of the usable width. A three-column
+ *  flow fills it exactly, which is why the existing cash-flow chart does not move. */
 const COL_FRAC = 0.22;
+const GAP_FRAC = 0.17;
 const NODE_GAP = 6;
 const MIN_NODE_H = 16;
 const MAX_COL_H = 260;
@@ -87,7 +92,7 @@ export const svgLinkPath = (band: LinkBand): string => {
 
 const stackColumn = (
   nodes: SankeyNode[],
-  column: 0 | 2,
+  column: number,
   x: number,
   w: number,
   maxValue: number
@@ -102,113 +107,97 @@ const stackColumn = (
   return { bottom: y, rects };
 };
 
+/** A link's share of one of its endpoints, guarded against a zero-valued node. */
+const sliceOf = (value: number, node: NodeRect) =>
+  node.value > 0
+    ? Math.max(MIN_BAND_H, (value / node.value) * node.h)
+    : MIN_BAND_H;
+
 /**
- * Lays out a three-column flow (sources → hub → targets) in user units.
+ * Lays out a left-to-right column flow in user units.
  * Values drive heights; nothing here knows what the values mean.
  */
 export const computeSankeyLayout = ({
-  hub,
+  columns,
+  emphasizedId,
   links,
-  sources,
-  targets,
 }: SankeyFlow): SankeyLayout => {
   const usable = CHART_WIDTH - PAD.left - PAD.right;
-  const colW = usable * COL_FRAC;
-  const gapW = (usable - 3 * colW) / 2;
+  const columnCount = Math.max(1, columns.length);
+  const scale =
+    1 / (columnCount * COL_FRAC + Math.max(0, columnCount - 1) * GAP_FRAC);
+  const colW = usable * COL_FRAC * scale;
+  const gapW = usable * GAP_FRAC * scale;
 
-  const sourceX = PAD.left;
-  const hubX = sourceX + colW + gapW;
-  const targetX = hubX + colW + gapW;
+  const maxValue = Math.max(1, ...columns.map(sumOf));
 
-  const maxValue = Math.max(hub.value, sumOf(targets), 1);
+  const nodes: NodeRect[] = [];
+  let bottom = PAD.top;
+  for (const [index, column] of columns.entries()) {
+    const stacked = stackColumn(
+      column,
+      index,
+      PAD.left + index * (colW + gapW),
+      colW,
+      maxValue
+    );
+    nodes.push(...stacked.rects);
+    bottom = Math.max(bottom, stacked.bottom);
+  }
 
-  const sourceColumn = stackColumn(sources, 0, sourceX, colW, maxValue);
-  const targetColumn = stackColumn(targets, 2, targetX, colW, maxValue);
-
-  const hubRect: NodeRect = {
-    ...hub,
-    column: 1,
-    h: Math.max(MIN_NODE_H, (hub.value / maxValue) * MAX_COL_H),
-    w: colW,
-    x: hubX,
-    y: PAD.top,
-  };
-
-  const nodeById = new Map(
-    [...sourceColumn.rects, ...targetColumn.rects].map((rect) => [
-      rect.id,
-      rect,
-    ])
-  );
-
-  // Each side of the hub stacks its own ribbons; a source also stacks the
-  // ribbons leaving it, so several links out of one node never overlap.
-  const bands: LinkBand[] = [];
-  const sourcePorts = new Map<string, number>();
-  let hubInPort = 0;
-  let hubOutPort = 0;
-
+  const nodeById = new Map(nodes.map((rect) => [rect.id, rect]));
+  const outgoing = new Map<string, SankeyLink[]>();
   for (const link of links) {
-    const hubSlice = Math.max(MIN_BAND_H, (link.value / maxValue) * MAX_COL_H);
-
-    if (link.target === hub.id) {
-      const source = nodeById.get(link.source);
-      if (!source) {
-        continue;
-      }
-      const port = sourcePorts.get(source.id) ?? 0;
-      const slice = Math.max(
-        MIN_BAND_H,
-        (link.value / source.value) * source.h
-      );
-      sourcePorts.set(source.id, port + slice);
-      bands.push({
-        color: source.color,
-        id: `${link.source}→${link.target}`,
-        sourceId: source.id,
-        sx: source.x + source.w,
-        sy0: source.y + port,
-        sy1: source.y + port + slice,
-        targetId: hubRect.id,
-        tx: hubRect.x,
-        ty0: hubRect.y + hubInPort,
-        ty1: hubRect.y + hubInPort + hubSlice,
-      });
-      hubInPort += hubSlice;
-      continue;
+    const forSource = outgoing.get(link.source);
+    if (forSource) {
+      forSource.push(link);
+    } else {
+      outgoing.set(link.source, [link]);
     }
+  }
 
-    if (link.source === hub.id) {
+  // Walking nodes column by column, then each node's links in order, stacks every
+  // ribbon on both faces so links leaving or entering one node never overlap.
+  const bands: LinkBand[] = [];
+  const outPort = new Map<string, number>();
+  const inPort = new Map<string, number>();
+
+  for (const rect of nodes) {
+    for (const link of outgoing.get(rect.id) ?? []) {
       const target = nodeById.get(link.target);
-      if (!target) {
+      if (!target || target.column !== rect.column + 1) {
         continue;
       }
+
+      const sourceSlice = sliceOf(link.value, rect);
+      const targetSlice = sliceOf(link.value, target);
+      const sourceOffset = outPort.get(rect.id) ?? 0;
+      const targetOffset = inPort.get(target.id) ?? 0;
+
       bands.push({
-        color: target.color,
+        color: rect.column === 0 ? rect.color : target.color,
         id: `${link.source}→${link.target}`,
-        sourceId: hubRect.id,
-        sx: hubRect.x + hubRect.w,
-        sy0: hubRect.y + hubOutPort,
-        sy1: hubRect.y + hubOutPort + hubSlice,
+        sourceId: rect.id,
+        sx: rect.x + rect.w,
+        sy0: rect.y + sourceOffset,
+        sy1: rect.y + sourceOffset + sourceSlice,
         targetId: target.id,
         tx: target.x,
-        ty0: target.y,
-        ty1: target.y + target.h,
+        ty0: target.y + targetOffset,
+        ty1: target.y + targetOffset + targetSlice,
       });
-      hubOutPort += hubSlice;
+
+      outPort.set(rect.id, sourceOffset + sourceSlice);
+      inPort.set(target.id, targetOffset + targetSlice);
     }
   }
 
   return {
-    height:
-      Math.max(
-        sourceColumn.bottom,
-        targetColumn.bottom,
-        hubRect.y + hubRect.h
-      ) + PAD.bottom,
-    hubId: hubRect.id,
+    columnCount,
+    emphasizedId,
+    height: bottom + PAD.bottom,
     links: bands,
-    nodes: [...sourceColumn.rects, hubRect, ...targetColumn.rects],
+    nodes,
     width: CHART_WIDTH,
   };
 };
