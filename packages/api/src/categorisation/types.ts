@@ -3,12 +3,14 @@ import type { TransactionChannel } from "./normalise/types";
 
 export type ResolutionBand = "auto" | "suggest" | "unknown";
 export type ResolutionStage =
-  | "memo"
-  | "intermediary"
-  | "dictionary"
-  | "mcc"
   | "channel"
-  | "none";
+  | "dictionary"
+  | "intermediary"
+  | "learned"
+  | "mcc"
+  | "memo"
+  | "none"
+  | "sirene";
 
 export interface MerchantCandidate {
   merchantId: string;

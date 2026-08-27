@@ -1,7 +1,7 @@
 /**
  * Transaction categorisation cascade.
  *
- * Precedence: channel short-circuit → memo → intermediary → dictionary → MCC → unknown.
+ * Precedence: channel → memo → intermediary → dictionary → learned → sirene → MCC → unknown.
  * Never throws for any input.
  */
 
@@ -9,9 +9,11 @@ import type { SpendingCategory } from "../lib/mcc-categories";
 import { MCC_TO_CATEGORY } from "../lib/mcc-categories";
 import { findMerchantCandidates } from "./candidates";
 import { detectIntermediary } from "./intermediaries/detect";
+import { findLearnedMatch } from "./learned";
 import { lookupMemo, recordMemoHit } from "./memo";
 import { normaliseDescriptor } from "./normalise/normalise-descriptor";
 import { isEntirelyPlaceName } from "./place-tokens";
+import { lookupSirene } from "./sirene/lookup";
 import type {
   MerchantCandidate,
   ResolveRequest,
@@ -95,6 +97,103 @@ const findBestCandidate = (
     }
   }
   return null;
+};
+
+interface StageContext {
+  intermediaryId: string | null;
+  intermediaryName: string | null;
+}
+
+/** Stage 4: dictionary trigram match. */
+const resolveDictionary = async (
+  text: string,
+  ctx: StageContext
+): Promise<ResolutionResult | null> => {
+  if (text.length <= 1) {
+    return null;
+  }
+  const candidates = await findMerchantCandidates(text, 200);
+  if (candidates.length === 0) {
+    return null;
+  }
+  const best = findBestCandidate(candidates);
+  if (!best) {
+    return null;
+  }
+  const { band, confidence } = classifyCandidate(best);
+  if (band === "unknown") {
+    return null;
+  }
+  return {
+    band,
+    candidates: candidates.slice(0, 5),
+    category: band === "auto" ? best.category : null,
+    confidence,
+    intermediaryId: ctx.intermediaryId,
+    intermediaryName: ctx.intermediaryName,
+    merchantId: band === "auto" ? best.merchantId : null,
+    merchantName: band === "auto" ? best.merchantName : null,
+    stage: "dictionary",
+  };
+};
+
+/** Stage 5: fuzzy match against previously corrected descriptors. */
+const resolveLearned = async (
+  userId: string,
+  normalisedDescriptor: string,
+  ctx: StageContext
+): Promise<ResolutionResult | null> => {
+  if (normalisedDescriptor.length <= 1) {
+    return null;
+  }
+  try {
+    const learned = await findLearnedMatch(userId, normalisedDescriptor);
+    if (!learned) {
+      return null;
+    }
+    return {
+      band: learned.confidence >= 0.7 ? "auto" : "suggest",
+      candidates: [],
+      category: learned.category,
+      confidence: learned.confidence,
+      intermediaryId: ctx.intermediaryId,
+      intermediaryName: ctx.intermediaryName,
+      merchantId: learned.merchantId,
+      merchantName: learned.merchantName,
+      stage: "learned",
+    };
+  } catch {
+    return null;
+  }
+};
+
+/** Stage 6: NAF-derived category from the French company register. */
+const resolveSirene = async (
+  normalisedDescriptor: string,
+  ctx: StageContext
+): Promise<ResolutionResult | null> => {
+  if (normalisedDescriptor.length <= 1) {
+    return null;
+  }
+  try {
+    const sirene = await lookupSirene(normalisedDescriptor);
+    if (!sirene) {
+      return null;
+    }
+    return {
+      band: "suggest",
+      candidates: [],
+      category: sirene.category,
+      confidence: 0.45,
+      intermediaryId: ctx.intermediaryId,
+      intermediaryName: ctx.intermediaryName,
+      merchantId: null,
+      merchantName: sirene.tradeName ?? sirene.denomination,
+      stage: "sirene",
+    };
+  } catch {
+    return null;
+  }
 };
 
 const resolveInternal = async (
@@ -195,34 +294,30 @@ const resolveInternal = async (
   // -------------------------------------------------------------------
   // 4. Dictionary (trigram)
   // -------------------------------------------------------------------
-  if (dictionaryText.length > 1) {
-    const candidates = await findMerchantCandidates(dictionaryText, 200);
-
-    if (candidates.length > 0) {
-      const best = findBestCandidate(candidates);
-
-      if (best) {
-        const { band, confidence } = classifyCandidate(best);
-
-        if (band !== "unknown") {
-          return {
-            band,
-            candidates: candidates.slice(0, 5),
-            category: band === "auto" ? best.category : null,
-            confidence,
-            intermediaryId,
-            intermediaryName,
-            merchantId: band === "auto" ? best.merchantId : null,
-            merchantName: band === "auto" ? best.merchantName : null,
-            stage: "dictionary",
-          };
-        }
-      }
-    }
+  const ctx: StageContext = { intermediaryId, intermediaryName };
+  const dictResult = await resolveDictionary(dictionaryText, ctx);
+  if (dictResult) {
+    return dictResult;
   }
 
   // -------------------------------------------------------------------
-  // 5. MCC — category only, never merchant
+  // 5. Learned — fuzzy match against previously corrected descriptors
+  // -------------------------------------------------------------------
+  const learnedResult = await resolveLearned(userId, normalisedDescriptor, ctx);
+  if (learnedResult) {
+    return learnedResult;
+  }
+
+  // -------------------------------------------------------------------
+  // 6. Sirene — NAF-derived category from the French company register
+  // -------------------------------------------------------------------
+  const sireneResult = await resolveSirene(normalisedDescriptor, ctx);
+  if (sireneResult) {
+    return sireneResult;
+  }
+
+  // -------------------------------------------------------------------
+  // 7. MCC — category only, never merchant
   // -------------------------------------------------------------------
   if (merchantCategoryCode) {
     const mccCategory = categoryFromMcc(merchantCategoryCode);
@@ -242,7 +337,7 @@ const resolveInternal = async (
   }
 
   // -------------------------------------------------------------------
-  // 6. Unknown
+  // 8. Unknown
   // -------------------------------------------------------------------
   return {
     band: "unknown",

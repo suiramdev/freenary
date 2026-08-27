@@ -1,17 +1,19 @@
 /**
- * Builds the embedded merchant dictionary from the Name Suggestion Index (NSI)
- * plus a hand-curated supplement for categories NSI under-covers.
+ * Builds the embedded merchant dictionary from three sources:
+ *  1. Name Suggestion Index (NSI) — OSM brand/operator data
+ *  2. Wikidata brands — CC0 entities with official websites (P856)
+ *  3. Hand-curated supplement — categories NSI under-covers
  *
- * Fetches the pinned NSI tarball from npm, extracts nsi.min.json, maps OSM tags
- * to SpendingCategory, normalises names via the shared normaliseDescriptor, merges
- * curated entries (which win on collision), and writes a gzipped JSONL artifact
- * sorted by id for byte-stable diffs.
+ * Fetches the pinned NSI tarball from npm, merges Wikidata aliases/domains from
+ * the pre-fetched intermediate file, applies the curated supplement (which wins
+ * on collision), and writes a gzipped JSONL artifact sorted by id for
+ * byte-stable diffs.
  *
  * Usage: bun packages/api/scripts/build-merchant-dictionary.ts
  */
 
-import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { createWriteStream, existsSync } from "node:fs";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -34,6 +36,10 @@ const NSI_TARBALL_URL = `https://registry.npmjs.org/name-suggestion-index/-/name
 const OUTPUT_PATH = path.resolve(
   import.meta.dirname,
   "../data/merchants.jsonl.gz"
+);
+const WIKIDATA_PATH = path.resolve(
+  import.meta.dirname,
+  "../data/wikidata-brands.json"
 );
 
 /**
@@ -390,6 +396,108 @@ const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
 };
 
 // ---------------------------------------------------------------------------
+// Wikidata intermediate file types
+// ---------------------------------------------------------------------------
+
+interface WikidataBrand {
+  aliases: string[];
+  domains: string[];
+  id: string;
+  label: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pass 3b: merge Wikidata brands into NSI merchants
+// ---------------------------------------------------------------------------
+
+const mergeWikidataBrands = (
+  merchants: DictionaryMerchant[],
+  wikidataBrands: WikidataBrand[],
+  isGenericToken: (token: string) => boolean
+) => {
+  const byNorm: Record<string, number> = {};
+  for (let i = 0; i < merchants.length; i += 1) {
+    byNorm[merchants[i].normalisedName] = i;
+  }
+
+  let wikidataMatched = 0;
+  let wikidataNew = 0;
+
+  for (const wd of wikidataBrands) {
+    const normalisedName = normaliseDescriptor(wd.label);
+    if (normalisedName.length === 0) {
+      continue;
+    }
+
+    // Filter: single short token or generic word
+    const [firstToken] = normalisedName.split(" ");
+    if (
+      !normalisedName.includes(" ") &&
+      (firstToken.length < 3 || isGenericToken(firstToken))
+    ) {
+      continue;
+    }
+
+    // Filter: place-only name
+    if (isEntirelyPlaceName(normalisedName)) {
+      continue;
+    }
+
+    const domains = buildDomains(wd.domains.map((d) => `https://${d}`));
+    const aliases = buildAliases(wd.aliases, normalisedName, isGenericToken);
+
+    const existingIdx = byNorm[normalisedName];
+    if (existingIdx !== undefined) {
+      // Enrich existing entry with new aliases and domains
+      const existing = merchants[existingIdx];
+      const seenAliases = new Set<string>([
+        existing.normalisedName,
+        ...existing.aliases.map((a) => a.normalisedAlias),
+      ]);
+      const seenDomains = new Set(existing.domains);
+
+      let enriched = false;
+      for (const alias of aliases) {
+        if (!seenAliases.has(alias.normalisedAlias)) {
+          seenAliases.add(alias.normalisedAlias);
+          existing.aliases.push(alias);
+          enriched = true;
+        }
+      }
+      for (const domain of domains) {
+        if (!seenDomains.has(domain)) {
+          seenDomains.add(domain);
+          existing.domains.push(domain);
+          enriched = true;
+        }
+      }
+      if (enriched) {
+        wikidataMatched += 1;
+      }
+    } else if (domains.length > 0) {
+      // Only add unmatched Wikidata brands that carry a domain — evidence
+      // of being a real commercial entity rather than a Wikipedia article.
+      merchants.push({
+        aliases,
+        category: null,
+        domains,
+        id: `wd:${wd.id}`,
+        name: wd.label,
+        normalisedName,
+        osmTag: null,
+        source: "wikidata",
+      });
+      // Register so later Wikidata entries with the same normalised name
+      // enrich rather than duplicate.
+      byNorm[normalisedName] = merchants.length - 1;
+      wikidataNew += 1;
+    }
+  }
+
+  return { wikidataMatched, wikidataNew };
+};
+
+// ---------------------------------------------------------------------------
 // Pass 4: merge curated supplement into NSI merchants
 // ---------------------------------------------------------------------------
 
@@ -551,6 +659,24 @@ const main = async (): Promise<void> => {
     `Collision resolution: merged ${mergedCount} NSI rows (category-priority)`
   );
 
+  // Pass 3b: merge Wikidata brands (aliases + domains only; no category)
+  let wikidataMatched = 0;
+  let wikidataNew = 0;
+  if (existsSync(WIKIDATA_PATH)) {
+    const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
+    // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
+    const wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
+    const { wikidataMatched: matched, wikidataNew: added } =
+      mergeWikidataBrands(nsiMerchants, wikidataBrands, isGenericToken);
+    wikidataMatched = matched;
+    wikidataNew = added;
+    console.log(
+      `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
+    );
+  } else {
+    console.log("Wikidata brands: skipped (wikidata-brands.json not found)");
+  }
+
   // Pass 4: merge curated supplement
   const { curatedAdded, curatedOverridden } =
     mergeCuratedSupplement(nsiMerchants);
@@ -564,10 +690,13 @@ const main = async (): Promise<void> => {
   let totalAliases = 0;
   let nsiCount = 0;
   let curatedCount = 0;
+  let wikidataCount = 0;
   for (const m of merchants) {
     totalAliases += m.aliases.length;
     if (m.source === "curated") {
       curatedCount += 1;
+    } else if (m.source === "wikidata") {
+      wikidataCount += 1;
     } else {
       nsiCount += 1;
     }
@@ -597,6 +726,8 @@ const main = async (): Promise<void> => {
   console.log(`Items scanned:      ${scannedCount}`);
   console.log(`Raw NSI candidates: ${rawMerchants.length}`);
   console.log(`NSI kept:           ${nsiCount}`);
+  console.log(`Wikidata matched:   ${wikidataMatched}`);
+  console.log(`Wikidata new:       ${wikidataNew} (${wikidataCount} total)`);
   console.log(`Curated:            ${curatedCount}`);
   console.log(`Total merchants:    ${merchants.length}`);
   console.log(`Aliases kept:       ${totalAliases}`);

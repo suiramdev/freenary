@@ -70,5 +70,7 @@ model DescriptorMemo {
 
   @@unique([userId, normalisedDescriptor])
   @@index([normalisedDescriptor])
+  /// GiST is required for the similarity() function used by the learned stage.
+  @@index([normalisedDescriptor(ops: raw("gist_trgm_ops"))], type: Gist, name: "descriptor_memo_normalisedDescriptor_trgm_idx")
   @@map("descriptor_memo")
 }
