@@ -10,7 +10,12 @@ export const env = createEnv({
       .string()
       .min(32)
       .default("dev_secret_change_me_at_least_32chars"),
-    BETTER_AUTH_URL: z.url().default("http://localhost:3000"),
+    // Follows PORT so a second worktree's auth callbacks never point at the first.
+    // `||` not `??`: a declared-but-blank PORT= must fall through, matching
+    // this object's emptyStringAsUndefined contract.
+    BETTER_AUTH_URL: z
+      .url()
+      .default(`http://localhost:${process.env.PORT || 3000}`),
     CORS_ORIGIN: z.url().default("http://localhost:3001"),
     DATABASE_URL: z
       .string()
@@ -21,6 +26,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    /** Lets a second checkout or worktree run its own stack alongside the default. */
+    PORT: z.coerce.number().int().positive().default(3000),
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });
