@@ -1,4 +1,5 @@
 import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import { cn } from "@freenary/ui/lib/utils";
 import type { Icon } from "@phosphor-icons/react";
 import {
   AirplaneIcon,
@@ -19,8 +20,6 @@ import {
   ShoppingBagIcon,
   StorefrontIcon,
 } from "@phosphor-icons/react";
-
-import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS = {
   dining: ForkKnifeIcon,
@@ -91,5 +90,3 @@ export const CategoryIcon = ({
     </div>
   );
 };
-
-export { CATEGORY_ICONS };

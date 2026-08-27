@@ -15,8 +15,7 @@ import type { ChartConfig } from "@/components/dither-kit/chart-context";
 import { Pie } from "@/components/dither-kit/pie";
 import { PieChart } from "@/components/dither-kit/pie-chart";
 import { Tooltip } from "@/components/dither-kit/tooltip";
-
-import { formatCurrency } from "./format-currency";
+import { formatCurrency } from "@/lib/budget/format-currency";
 
 interface CategoryData {
   amount: number;

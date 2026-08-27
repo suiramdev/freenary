@@ -18,25 +18,14 @@ import {
   useMatches,
 } from "@tanstack/react-router";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/shared/app-sidebar";
 import { authClient } from "@/lib/auth-client";
+import { navTitleOf } from "@/lib/nav-items";
 import { client } from "@/utils/orpc";
-
-const routeTitles = {
-  "/_auth/": "Home",
-  "/_auth/portfolio": "Portfolio",
-  "/_auth/budget": "Budget",
-  "/_auth/analysis": "Analysis",
-  "/_auth/goals": "Goals",
-  "/_auth/ai": "AI",
-} satisfies Record<string, string>;
 
 const AuthLayout = () => {
   const matches = useMatches();
-  const leafMatch = matches.at(-1);
-  // SAFETY: routeId may not match a known key; the fallback ?? "Home" handles unknown routes
-  const pageTitle =
-    routeTitles[leafMatch?.routeId as keyof typeof routeTitles] ?? "Home";
+  const pageTitle = navTitleOf(matches.at(-1)?.routeId);
 
   return (
     <TooltipProvider>

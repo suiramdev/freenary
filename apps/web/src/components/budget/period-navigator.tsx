@@ -7,42 +7,21 @@ import {
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useState } from "react";
 
-type TimeRange = "1M" | "3M" | "1Y";
-
-interface PeriodNavigatorProps {
-  from: Date;
-  to: Date;
-  range: TimeRange;
-  onRangeChange: (range: TimeRange) => void;
-  onMonthChange: (year: number, month: number) => void;
-}
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-const RANGES: TimeRange[] = ["1M", "3M", "1Y"];
-
-const formatMonthYear = (date: Date): string =>
-  date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+import { PeriodMonthPicker } from "@/components/budget/period-month-picker";
+import { formatMonthYear, TIME_RANGES } from "@/lib/budget/period";
+import type { TimeRange } from "@/lib/budget/period";
 
 export const PeriodNavigator = ({
   from,
   range,
   onRangeChange,
   onMonthChange,
-}: PeriodNavigatorProps) => {
+}: {
+  from: Date;
+  range: TimeRange;
+  onRangeChange: (range: TimeRange) => void;
+  onMonthChange: (year: number, month: number) => void;
+}) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(from.getFullYear());
 
@@ -75,44 +54,13 @@ export const PeriodNavigator = ({
             <span className="text-xs font-medium">{formatMonthYear(from)}</span>
           </PopoverTrigger>
           <PopoverContent className="w-56" align="center">
-            <div className="flex items-center justify-between px-1">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setPickerYear((y) => y - 1)}
-                aria-label="Previous year"
-              >
-                <CaretLeft />
-              </Button>
-              <span className="text-xs font-medium tabular-nums">
-                {pickerYear}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setPickerYear((y) => y + 1)}
-                aria-label="Next year"
-              >
-                <CaretRight />
-              </Button>
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              {MONTHS.map((label, i) => {
-                const isCurrent =
-                  i === anchorMonth && pickerYear === anchorYear;
-                return (
-                  <Button
-                    key={label}
-                    variant={isCurrent ? "default" : "ghost"}
-                    size="xs"
-                    onClick={() => selectMonth(i)}
-                    className="tabular-nums"
-                  >
-                    {label}
-                  </Button>
-                );
-              })}
-            </div>
+            <PeriodMonthPicker
+              year={pickerYear}
+              onYearChange={setPickerYear}
+              anchorYear={anchorYear}
+              anchorMonth={anchorMonth}
+              onSelectMonth={selectMonth}
+            />
           </PopoverContent>
         </Popover>
         <Button
@@ -125,7 +73,7 @@ export const PeriodNavigator = ({
         </Button>
       </div>
       <div className="flex items-center gap-1">
-        {RANGES.map((r) => (
+        {TIME_RANGES.map((r) => (
           <Button
             key={r}
             variant={range === r ? "secondary" : "ghost"}

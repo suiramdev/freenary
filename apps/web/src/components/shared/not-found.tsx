@@ -2,7 +2,7 @@ import { Button } from "@freenary/ui/components/button";
 import { ArrowLeft } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
-import { ShaderBackground } from "@/components/shader-background";
+import { ShaderBackground } from "@/components/shared/shader-background";
 
 export const NotFound = () => (
   <main className="bg-background relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 text-center">

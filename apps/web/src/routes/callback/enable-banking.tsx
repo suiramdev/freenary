@@ -48,11 +48,17 @@ const EnableBankingCallback = () => {
   }, [exchangeResult, navigate]);
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
-      <Skeleton className="size-10 rounded-full" />
-      <div className="space-y-2 text-center">
-        <Skeleton className="mx-auto h-4 w-52" />
-        <Skeleton className="mx-auto h-3 w-36" />
+    <div
+      aria-busy="true"
+      className="flex min-h-svh flex-col items-center justify-center gap-4"
+    >
+      <output className="sr-only">Finishing bank connection</output>
+      <div aria-hidden="true" className="flex flex-col items-center gap-4">
+        <Skeleton className="size-10 rounded-full" />
+        <div className="space-y-2 text-center">
+          <Skeleton className="mx-auto h-4 w-52" />
+          <Skeleton className="mx-auto h-3 w-36" />
+        </div>
       </div>
     </div>
   );
