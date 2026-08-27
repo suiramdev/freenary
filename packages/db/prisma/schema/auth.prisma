@@ -11,6 +11,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   bankConnections       BankConnection[]
+  descriptorMemos     DescriptorMemo[]
 
   @@unique([email])
   @@map("user")

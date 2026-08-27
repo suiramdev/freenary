@@ -3,12 +3,7 @@ import { env } from "@freenary/env/server";
 import { z } from "zod";
 
 import { protectedProcedure, publicProcedure } from "../index";
-import {
-  exchangeBankCode,
-  getAvailableBanks,
-  isEnableBankingConfigured,
-  startBankConnection,
-} from "../lib/enable-banking";
+import { getDefaultProvider } from "../providers/registry";
 
 export const onboardingRouter = {
   checkEmail: publicProcedure
@@ -38,12 +33,20 @@ export const onboardingRouter = {
   getAvailableBanks: protectedProcedure
     .input(z.object({ country: z.string() }))
     .handler(async ({ input }) => {
-      const banks = await getAvailableBanks(input.country);
-      return { banks };
+      const provider = getDefaultProvider();
+      const institutions = await provider.listInstitutions(input.country);
+      return {
+        banks: institutions.map((inst) => ({
+          bic: inst.bic ?? null,
+          country: inst.country,
+          logo: inst.logoUrl ?? null,
+          name: inst.name,
+        })),
+      };
     }),
 
   getEnableBankingAvailability: protectedProcedure.handler(() => ({
-    available: isEnableBankingConfigured(),
+    available: getDefaultProvider().isConfigured(),
   })),
 
   getStatus: protectedProcedure.handler(async ({ context }) => {
@@ -63,9 +66,10 @@ export const bankConnectionRouter = {
   exchangeCode: protectedProcedure
     .input(z.object({ code: z.string(), state: z.string().optional() }))
     .handler(async ({ context, input }) => {
-      const result = await exchangeBankCode(input.code);
+      const provider = getDefaultProvider();
+      const result = await provider.completeConnection(input.code);
 
-      let bankName = "Unknown";
+      let bankName = result.institutionName || "Unknown";
       if (input.state) {
         try {
           // SAFETY: input.state is a JSON string serialized by the client; parsed shape is validated by optional chaining
@@ -81,8 +85,8 @@ export const bankConnectionRouter = {
       const connection = await prisma.bankConnection.create({
         data: {
           institutionName: bankName,
-          provider: "enable-banking",
-          providerSessionId: result.sessionId,
+          provider: provider.id,
+          providerSessionId: result.providerSessionId,
           userId,
         },
       });
@@ -92,11 +96,18 @@ export const bankConnectionRouter = {
           connectionId: connection.id,
           iban: account.iban ?? null,
           name: account.name ?? null,
-          providerAccountId: account.uid,
+          providerAccountId: account.providerAccountId,
         })),
       });
 
-      return result;
+      return {
+        accounts: result.accounts.map((a) => ({
+          iban: a.iban,
+          name: a.name,
+          uid: a.providerAccountId,
+        })),
+        sessionId: result.providerSessionId,
+      };
     }),
 
   startConnection: protectedProcedure
@@ -108,14 +119,15 @@ export const bankConnectionRouter = {
       })
     )
     .handler(async ({ input }) => {
+      const provider = getDefaultProvider();
       const redirectUrl = `${env.CORS_ORIGIN}/callback/enable-banking`;
       const stateObj = input.state
         ? { bankName: input.bankName, original: input.state }
         : { bankName: input.bankName };
       const encodedState = JSON.stringify(stateObj);
-      const result = await startBankConnection({
-        bankCountry: input.bankCountry,
-        bankName: input.bankName,
+      const result = await provider.startConnection({
+        country: input.bankCountry,
+        institutionId: input.bankName,
         redirectUrl,
         state: encodedState,
       });

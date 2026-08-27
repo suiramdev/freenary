@@ -9,7 +9,10 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build:merchants": "bun scripts/build-merchant-dictionary.ts",
+    "seed:merchants": "bun scripts/seed-merchant-dictionary.ts"
+  },
   "dependencies": {
     "@freenary/auth": "workspace:*",
     "@freenary/db": "workspace:*",

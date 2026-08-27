@@ -3,8 +3,11 @@ import prisma from "@freenary/db";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
+import { getTokenIdf } from "../categorisation/idf";
+import { deleteUserMemo, upsertUserMemo } from "../categorisation/memo";
+import { parseDescriptor } from "../categorisation/normalise/parse-descriptor";
+import { resolveTransaction } from "../categorisation/resolve";
 import { protectedProcedure } from "../index";
-import { getTransactions as ebGetTransactions } from "../lib/enable-banking";
 import {
   CATEGORY_LABELS,
   SPENDING_CATEGORIES,
@@ -12,6 +15,8 @@ import {
   effectiveCategory,
 } from "../lib/mcc-categories";
 import type { SpendingCategory } from "../lib/mcc-categories";
+import { getProvider } from "../providers/registry";
+import type { ProviderTransaction } from "../providers/types";
 
 const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   `SELECT
@@ -33,41 +38,160 @@ type ConnectionWithAccounts = Awaited<
   >
 >[number];
 
+// ---------------------------------------------------------------------------
+// Provider → persistence field mapping
+// ---------------------------------------------------------------------------
+
+const mapProviderFields = (tx: ProviderTransaction) => ({
+  amount: tx.amountMinor,
+  balanceAfterTransaction: tx.balanceAfterMinor ?? null,
+  bankTransactionCode: tx.bankTransactionDescription ?? null,
+  bankTransactionFamilyCode: tx.bankTransactionFamilyCode ?? null,
+  bankTransactionSubCode: tx.bankTransactionSubCode ?? null,
+  counterpartyName: tx.creditorName ?? tx.debtorName ?? null,
+  creditorAccountIban: tx.creditorIban ?? null,
+  creditorAgentBic: tx.creditorAgentBic ?? null,
+  creditorCountry: tx.creditorCountry ?? null,
+  // SAFETY: ProviderCreditorIdentification[] is a plain {schemeName, identification}
+  // array; structuredClone produces a JSON-compatible value for Prisma's Json? column
+  creditorIdentifications: tx.creditorIdentifications
+    ? (structuredClone(tx.creditorIdentifications) as Prisma.InputJsonValue)
+    : undefined,
+  creditorTown: tx.creditorTown ?? null,
+  currency: tx.currency,
+  date: new Date(tx.bookingDate),
+  debtorAccountIban: tx.debtorIban ?? null,
+  description: tx.remittanceLines.join(" "),
+  exchangeRate: tx.exchangeRate ?? null,
+  merchantCategoryCode: tx.merchantCategoryCode ?? null,
+  psuNote: tx.psuNote ?? null,
+  referenceNumber: tx.referenceNumber ?? null,
+  referenceNumberScheme: tx.referenceNumberScheme ?? null,
+  remittanceLines: tx.remittanceLines,
+  status: tx.status,
+  transactionDate: tx.transactionDate ? new Date(tx.transactionDate) : null,
+  valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
+});
+
+// ---------------------------------------------------------------------------
+// Categorisation cascade for a single transaction
+// ---------------------------------------------------------------------------
+
+interface CategorisationFields {
+  intermediaryId: string | null;
+  merchantId: string | null;
+  normalisedDescriptor: string | null;
+  resolutionConfidence: number | null;
+  resolutionStage: string | null;
+  resolvedCategory: string | null;
+}
+
+const resolveCategorisation = async (
+  tx: ProviderTransaction,
+  userId: string,
+  institutionName: string
+): Promise<CategorisationFields> => {
+  const parsed = parseDescriptor({
+    amountMinor: tx.amountMinor,
+    creditorName: tx.creditorName,
+    debtorName: tx.debtorName,
+    institutionName,
+    remittanceLines: tx.remittanceLines,
+  });
+
+  const normalisedDescriptor = parsed.normalisedDescriptor || null;
+
+  if (!normalisedDescriptor) {
+    return {
+      intermediaryId: null,
+      merchantId: null,
+      normalisedDescriptor: null,
+      resolutionConfidence: null,
+      resolutionStage: null,
+      resolvedCategory: null,
+    };
+  }
+
+  const resolution = await resolveTransaction({
+    amountMinor: tx.amountMinor,
+    channel: parsed.channel,
+    creditorIban: tx.creditorIban,
+    merchantCategoryCode: tx.merchantCategoryCode,
+    normalisedDescriptor,
+    rawDescriptor: tx.remittanceLines.join(" "),
+    userId,
+  });
+
+  const { intermediaryId, merchantId } = resolution;
+
+  return {
+    intermediaryId,
+    merchantId,
+    normalisedDescriptor,
+    resolutionConfidence: resolution.confidence,
+    resolutionStage: resolution.stage,
+    resolvedCategory:
+      resolution.band === "auto" && resolution.category
+        ? resolution.category
+        : null,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Transaction upsert
+// ---------------------------------------------------------------------------
+
 const upsertTransaction = async (
   accountId: string,
-  tx: Awaited<ReturnType<typeof ebGetTransactions>>["transactions"][number]
+  tx: ProviderTransaction,
+  userId: string,
+  institutionName: string,
+  errors: string[]
 ) => {
-  const amountMinor = Math.round(tx.amount * 100);
-  const shared = {
-    amount: amountMinor,
-    balanceAfterTransaction: tx.balanceAfterTransaction ?? null,
-    bankTransactionCode: tx.bankTransactionCode ?? null,
-    bankTransactionSubCode: tx.bankTransactionSubCode ?? null,
-    counterpartyName: tx.counterpartyName ?? null,
-    creditorAccountIban: tx.creditorAccountIban ?? null,
-    currency: tx.currency,
-    date: new Date(tx.date),
-    debtorAccountIban: tx.debtorAccountIban ?? null,
-    description: tx.description,
-    exchangeRate: tx.exchangeRate ?? null,
-    merchantCategoryCode: tx.merchantCategoryCode ?? null,
-    referenceNumber: tx.referenceNumber ?? null,
-    status: tx.status,
-    transactionDate: tx.transactionDate ? new Date(tx.transactionDate) : null,
-    valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
+  const shared = mapProviderFields(tx);
+
+  let categorisation: CategorisationFields = {
+    intermediaryId: null,
+    merchantId: null,
+    normalisedDescriptor: null,
+    resolutionConfidence: null,
+    resolutionStage: null,
+    resolvedCategory: null,
+  };
+
+  try {
+    categorisation = await resolveCategorisation(tx, userId, institutionName);
+  } catch (error) {
+    const msg =
+      error instanceof Error ? error.message : "Unknown categorisation error";
+    errors.push(`Categorisation ${tx.providerTransactionId}: ${msg}`);
+  }
+
+  const persistedFields = {
+    intermediaryId: categorisation.intermediaryId,
+    merchantId: categorisation.merchantId,
+    normalisedDescriptor: categorisation.normalisedDescriptor,
+    resolutionConfidence: categorisation.resolutionConfidence,
+    resolutionStage: categorisation.resolutionStage,
   };
 
   await prisma.transaction.upsert({
     create: {
       ...shared,
+      ...persistedFields,
       accountId,
-      providerTransactionId: tx.transactionId,
+      // Set auto-derived category only on create (never overwrite user override)
+      category: categorisation.resolvedCategory,
+      providerTransactionId: tx.providerTransactionId,
     },
-    update: shared,
+    update: {
+      ...shared,
+      ...persistedFields,
+    },
     where: {
       accountId_providerTransactionId: {
         accountId,
-        providerTransactionId: tx.transactionId,
+        providerTransactionId: tx.providerTransactionId,
       },
     },
   });
@@ -75,6 +199,7 @@ const upsertTransaction = async (
 
 const syncConnection = async (
   connection: ConnectionWithAccounts,
+  userId: string,
   errors: string[]
 ) => {
   try {
@@ -87,17 +212,24 @@ const syncConnection = async (
 
     for (const account of connection.accounts) {
       try {
-        // eslint-disable-next-line no-await-in-loop -- accounts within a connection are synced sequentially to respect API rate limits
-        const { transactions } = await ebGetTransactions(
-          connection.providerSessionId,
-          account.providerAccountId,
+        const provider = getProvider(connection.provider);
+        // eslint-disable-next-line no-await-in-loop -- accounts within a connection are fetched sequentially to avoid rate-limiting the external API
+        const transactions = await provider.fetchTransactions({
           dateFrom,
-          dateTo
-        );
+          dateTo,
+          providerAccountId: account.providerAccountId,
+          providerSessionId: connection.providerSessionId,
+        });
 
         for (const tx of transactions) {
           // eslint-disable-next-line no-await-in-loop -- transaction upserts must be sequential to avoid unique constraint race conditions
-          await upsertTransaction(account.id, tx);
+          await upsertTransaction(
+            account.id,
+            tx,
+            userId,
+            connection.institutionName,
+            errors
+          );
         }
       } catch (error) {
         const msg =
@@ -448,6 +580,9 @@ export const budgetRouter = {
     const userId = context.session.user.id;
     const errors: string[] = [];
 
+    // Prime the IDF table once per sync run, not per transaction
+    await getTokenIdf();
+
     const connections = await prisma.bankConnection.findMany({
       include: { accounts: true },
       where: { status: "ACTIVE", userId },
@@ -455,7 +590,7 @@ export const budgetRouter = {
 
     for (const connection of connections) {
       // eslint-disable-next-line no-await-in-loop -- connections must be synced sequentially to avoid overwhelming the external API
-      await syncConnection(connection, errors);
+      await syncConnection(connection, userId, errors);
     }
 
     return {
@@ -482,6 +617,7 @@ export const budgetRouter = {
           counterpartyName: true,
           id: true,
           merchantCategoryCode: true,
+          normalisedDescriptor: true,
         },
         where: {
           account: { connection: { userId } },
@@ -495,8 +631,42 @@ export const budgetRouter = {
         });
       }
 
-      const updated = await prisma.transaction.update({
+      await prisma.transaction.update({
         data: { category: input.category },
+        where: { id: input.transactionId },
+      });
+
+      let additionalUpdated = 0;
+
+      if (tx.normalisedDescriptor) {
+        if (input.category === null) {
+          // Reset to auto: delete the user-scoped memo
+          await deleteUserMemo(userId, tx.normalisedDescriptor);
+        } else {
+          // Upsert a user-scoped memo for this descriptor
+          await upsertUserMemo({
+            category: input.category,
+            normalisedDescriptor: tx.normalisedDescriptor,
+            userId,
+          });
+
+          // Apply the same category to other transactions with the same
+          // normalisedDescriptor that don't carry a user override
+          const result = await prisma.transaction.updateMany({
+            data: { category: input.category },
+            where: {
+              account: { connection: { userId } },
+              category: null,
+              id: { not: input.transactionId },
+              normalisedDescriptor: tx.normalisedDescriptor,
+            },
+          });
+          additionalUpdated = result.count;
+        }
+      }
+
+      // Re-fetch for the response after the update
+      const updated = await prisma.transaction.findUniqueOrThrow({
         select: {
           amount: true,
           bankTransactionCode: true,
@@ -508,6 +678,7 @@ export const budgetRouter = {
       });
 
       return {
+        additionalUpdated,
         category: effectiveCategory(updated),
         derivedCategory: deriveCategory(updated),
       };

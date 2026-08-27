@@ -89,11 +89,41 @@ model Transaction {
   exchangeRate          String?
   /// User-assigned spending category override; null = auto-derived from MCC / heuristics.
   category              String?
+  /// Canonical normalised descriptor — the categorisation match key.
+  normalisedDescriptor String?
+  /// Raw remittance lines as provided by the bank; order is not guaranteed.
+  remittanceLines      String[]
+  /// ISO 20022 family code for the transaction; the domain is not exposed upstream.
+  bankTransactionFamilyCode String?
+  /// Creditor agent BIC — identifies the acquiring bank.
+  creditorAgentBic     String?
+  /// Creditor town from the postal address; weak geographic signal.
+  creditorTown         String?
+  /// Creditor country, ISO 3166 alpha-2.
+  creditorCountry      String?
+  /// Extra creditor identifiers from the provider (SIREN/SIRET/CPAN...).
+  creditorIdentifications Json?
+  /// Scheme of referenceNumber when the provider reports it.
+  referenceNumberScheme String?
+  /// The account holder's own note, where the bank exposes it.
+  psuNote              String?
+  /// Resolved merchant, when identification succeeded.
+  merchantId           String?
+  merchant             Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  /// Detected payment intermediary when the descriptor masks the real merchant.
+  intermediaryId       String?
+  intermediary         Intermediary? @relation(fields: [intermediaryId], references: [id], onDelete: SetNull)
+  /// Cascade stage that produced the resolution: memo | intermediary | dictionary | mcc | none.
+  resolutionStage      String?
+  /// Confidence of the resolution in the range 0..1.
+  resolutionConfidence Float?
   createdAt         DateTime    @default(now())
 
   @@unique([accountId, providerTransactionId])
   @@index([accountId, date])
   @@index([accountId, amount])
   @@index([accountId, merchantCategoryCode])
+  @@index([normalisedDescriptor])
+  @@index([merchantId])
   @@map("transaction")
 }
