@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build:merchants": "bun scripts/build-merchant-dictionary.ts",
+    "build:places": "bun scripts/generate-place-tokens.ts",
     "seed:merchants": "bun scripts/seed-merchant-dictionary.ts"
   },
   "dependencies": {
