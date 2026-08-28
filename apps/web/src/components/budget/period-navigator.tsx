@@ -30,9 +30,13 @@ const YEAR_PAGE_SIZE = 12;
 /** A 3×4 grid of years with page navigation. */
 const PeriodYearPicker = ({
   selectedYear,
+  minYear,
+  maxYear,
   onSelectYear,
 }: {
   selectedYear: number;
+  minYear?: number;
+  maxYear?: number;
   onSelectYear: (year: number) => void;
 }) => {
   const [pageStart, setPageStart] = useState(
@@ -64,17 +68,23 @@ const PeriodYearPicker = ({
         </Button>
       </div>
       <div className="grid grid-cols-3 gap-1">
-        {years.map((year) => (
-          <Button
-            key={year}
-            variant={year === selectedYear ? "default" : "ghost"}
-            size="xs"
-            onClick={() => onSelectYear(year)}
-            className="tabular-nums"
-          >
-            {year}
-          </Button>
-        ))}
+        {years.map((year) => {
+          const disabled =
+            (minYear !== undefined && year < minYear) ||
+            (maxYear !== undefined && year > maxYear);
+          return (
+            <Button
+              key={year}
+              variant={year === selectedYear ? "default" : "ghost"}
+              size="xs"
+              disabled={disabled}
+              onClick={() => onSelectYear(year)}
+              className="tabular-nums"
+            >
+              {year}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -85,6 +95,8 @@ export const PeriodNavigator = ({
   from,
   to,
   range,
+  firstMonth,
+  lastMonth,
   onAggregationChange,
   onRangeChange,
   onMonthChange,
@@ -93,6 +105,8 @@ export const PeriodNavigator = ({
   from: Date;
   to: Date;
   range: TimeRange;
+  firstMonth?: Date;
+  lastMonth?: Date;
   onAggregationChange: (mode: AggregationMode) => void;
   onRangeChange: (range: TimeRange) => void;
   onMonthChange: (year: number, month: number) => void;
@@ -108,12 +122,21 @@ export const PeriodNavigator = ({
     onMonthChange(d.getFullYear(), d.getMonth());
   };
 
+  // Disable arrows when navigating would exceed the data bounds.
+  const canGoBack =
+    !firstMonth ||
+    new Date(anchorYear, anchorMonth - step, 1) >= firstMonth;
+  const canGoForward =
+    !lastMonth ||
+    new Date(anchorYear, anchorMonth + step, 1) <= lastMonth;
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
           size="icon-sm"
+          disabled={!canGoBack}
           onClick={() => navigate(-1)}
           aria-label="Previous period"
         >
@@ -129,6 +152,8 @@ export const PeriodNavigator = ({
             {range === "1Y" ? (
               <PeriodYearPicker
                 selectedYear={anchorYear}
+                minYear={firstMonth?.getFullYear()}
+                maxYear={lastMonth?.getFullYear()}
                 onSelectYear={(year) => {
                   onMonthChange(year, 11);
                   setPopoverOpen(false);
@@ -139,6 +164,14 @@ export const PeriodNavigator = ({
                 mode="single"
                 defaultMonth={to}
                 selected={to}
+                disabled={[
+                  ...(firstMonth
+                    ? [{ before: firstMonth }]
+                    : []),
+                  ...(lastMonth
+                    ? [{ after: lastMonth }]
+                    : []),
+                ]}
                 onSelect={(date) => {
                   if (date) {
                     onMonthChange(date.getFullYear(), date.getMonth());
@@ -152,6 +185,7 @@ export const PeriodNavigator = ({
         <Button
           variant="ghost"
           size="icon-sm"
+          disabled={!canGoForward}
           onClick={() => navigate(1)}
           aria-label="Next period"
         >

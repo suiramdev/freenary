@@ -20,8 +20,25 @@ import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { client, orpc } from "@/utils/orpc";
 
 const BudgetPage = () => {
-  const { aggregation, from, to, range, setAggregation, setRange, setMonth } =
-    useBudgetPeriod();
+  const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
+  const {
+    aggregation,
+    firstMonth,
+    from,
+    lastMonth,
+    to,
+    range,
+    setAggregation,
+    setRange,
+    setMonth,
+  } = useBudgetPeriod(
+    accountsQuery.data
+      ? {
+          first: accountsQuery.data.firstTransactionDate,
+          last: accountsQuery.data.lastTransactionDate,
+        }
+      : undefined,
+  );
   const [direction, setDirection] = useState<"incoming" | "outgoing">(
     "outgoing"
   );
@@ -30,8 +47,6 @@ const BudgetPage = () => {
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
-
-  const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
 
   const breakdownQuery = useQuery({
     ...orpc.budget.getSpendingBreakdown.queryOptions({
@@ -109,6 +124,8 @@ const BudgetPage = () => {
         from={from}
         to={to}
         range={range}
+        firstMonth={firstMonth}
+        lastMonth={lastMonth}
         onAggregationChange={setAggregation}
         onRangeChange={setRange}
         onMonthChange={setMonth}

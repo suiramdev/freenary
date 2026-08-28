@@ -403,6 +403,13 @@ export const budgetRouter = {
       },
     });
 
+    // Date bounds of available transaction data — drives the period picker.
+    const bounds = await prisma.transaction.aggregate({
+      _max: { date: true },
+      _min: { date: true },
+      where: { account: { connection: { userId } } },
+    });
+
     return {
       accounts: accounts.map((a) => ({
         iban: a.iban,
@@ -410,7 +417,9 @@ export const budgetRouter = {
         institutionName: a.connection.institutionName,
         name: a.name,
       })),
+      firstTransactionDate: bounds._min.date,
       hasAccounts: accounts.length > 0,
+      lastTransactionDate: bounds._max.date,
     };
   }),
 
