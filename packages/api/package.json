@@ -25,6 +25,7 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "dotenv": "catalog:",
+    "fflate": "^0.8.3",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -26,6 +26,3 @@ COPY . .
 # live database, so a dummy value satisfies the config loader.
 RUN cd packages/db && DATABASE_URL=postgresql://x@x/x bun x prisma generate
 
-# Merchant data: downloads pre-built artifacts from the latest GitHub data
-# release. Falls back to local generation when no release is available.
-RUN cd packages/api && bun run build:data

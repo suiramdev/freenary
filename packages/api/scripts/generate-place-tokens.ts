@@ -13,10 +13,11 @@
  * Usage: bun packages/api/scripts/generate-place-tokens.ts
  */
 
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
+
+import { unzipSync } from "fflate";
 
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 
@@ -64,10 +65,9 @@ const EUROPEAN_COUNTRIES = {
 const ALPHA_ONLY = /^[a-z]+$/u;
 
 /**
- * Downloads a URL to a temporary file and returns the path.
+ * Downloads the zip and extracts cities15000.txt in memory.
  */
-const downloadToTemp = async (url: string): Promise<string> => {
-  const tempPath = path.join(tmpdir(), `cities15000-${Date.now()}.zip`);
+const downloadAndExtract = async (url: string): Promise<string> => {
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -76,30 +76,15 @@ const downloadToTemp = async (url: string): Promise<string> => {
     );
   }
 
-  const buffer = await response.arrayBuffer();
-  await writeFile(tempPath, Buffer.from(buffer));
-  return tempPath;
-};
+  const buffer = new Uint8Array(await response.arrayBuffer());
+  const entries = unzipSync(buffer);
+  const entry = entries["cities15000.txt"];
 
-/**
- * Extracts cities15000.txt from the zip archive using `unzip -p` and returns
- * its content as a string.
- */
-const extractFromZip = async (zipPath: string): Promise<string> => {
-  const proc = Bun.spawn(["unzip", "-p", zipPath, "cities15000.txt"], {
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-
-  const output = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
-    throw new Error(`unzip failed (exit ${exitCode}): ${stderr}`);
+  if (!entry) {
+    throw new Error("cities15000.txt not found in zip archive");
   }
 
-  return output;
+  return new TextDecoder().decode(entry);
 };
 
 /**
@@ -157,13 +142,8 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
 const main = async (): Promise<void> => {
   console.log("Downloading GeoNames cities15000 dataset…");
 
-  let tempPath: string | null = null;
-
   try {
-    tempPath = await downloadToTemp(GEONAMES_URL);
-    console.log(`Downloaded to ${tempPath}`);
-
-    const tsvContent = await extractFromZip(tempPath);
+    const tsvContent = await downloadAndExtract(GEONAMES_URL);
     console.log(`Extracted ${tsvContent.split("\n").length} lines`);
 
     const tokens = collectPlaceTokens(tsvContent);
@@ -179,10 +159,6 @@ const main = async (): Promise<void> => {
       return;
     }
     throw error;
-  } finally {
-    if (tempPath !== null && existsSync(tempPath)) {
-      unlinkSync(tempPath);
-    }
   }
 };
 
