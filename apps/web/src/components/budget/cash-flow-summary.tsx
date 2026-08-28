@@ -1,10 +1,10 @@
-import type { AggregationMode } from "@/lib/budget/period";
 import { formatCurrency } from "@/lib/budget/format-currency";
+import type { AggregationMode } from "@/lib/budget/period";
 
 const SUMMARY_PREFIX: Record<AggregationMode, string> = {
-  total: "",
   average: "Avg. ",
   median: "Med. ",
+  total: "",
 };
 
 interface CashFlowSummaryProps {

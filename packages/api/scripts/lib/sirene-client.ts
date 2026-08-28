@@ -140,9 +140,9 @@ const fetchSireneBatch = async <T>(
         if (res.ok) {
           const raw: unknown = await res.json();
           writeCache(query, raw);
-          results[idx] = { query, data: parse(raw, query) };
+          results[idx] = { data: parse(raw, query), query };
         } else {
-          results[idx] = { query, data: null };
+          results[idx] = { data: null, query };
         }
       } catch {
         results[idx] = { data: null, query };

@@ -12,9 +12,9 @@ import { CashFlowSummary } from "@/components/budget/cash-flow-summary";
 import { SankeyChart } from "@/components/shared/sankey-chart";
 import { toCashFlowSankey } from "@/lib/budget/cash-flow-sankey";
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
+import { formatCurrency } from "@/lib/budget/format-currency";
 import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
-import { formatCurrency } from "@/lib/budget/format-currency";
 
 const LABEL_TO_CATEGORY: Record<string, SpendingCategory> = Object.fromEntries(
   Object.entries(CATEGORY_LABELS).map(([slug, label]) => [label, slug])
@@ -53,10 +53,10 @@ export const CashFlowCard = ({
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
-      if (!onCategoryClick || !nodeId.startsWith("expense:")) return;
+      if (!onCategoryClick || !nodeId.startsWith("expense:")) {return;}
       const label = nodeId.slice("expense:".length);
       const category = LABEL_TO_CATEGORY[label];
-      if (category) onCategoryClick(category);
+      if (category) {onCategoryClick(category);}
     },
     [onCategoryClick]
   );

@@ -151,7 +151,11 @@ export function PolarRoot<TData extends Row>({
         <div
           ref={ref}
           className={cn("relative h-full w-full", className)}
-          style={chartType === "pie" && ctx.hoverIndex !== null ? { cursor: "pointer" } : undefined}
+          style={
+            chartType === "pie" && ctx.hoverIndex !== null
+              ? { cursor: "pointer" }
+              : undefined
+          }
           onClick={onClick}
           onPointerEnter={() => ctx.setMouseInChart(true)}
           onPointerMove={(e) => onMove(e.clientX, e.clientY)}

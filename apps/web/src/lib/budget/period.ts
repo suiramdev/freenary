@@ -9,9 +9,9 @@ export const AGGREGATION_MODES: AggregationMode[] = [
 ];
 
 export const AGGREGATION_LABELS: Record<AggregationMode, string> = {
-  total: "Total",
   average: "Monthly avg.",
   median: "Monthly median",
+  total: "Total",
 };
 
 /** True when the selected range spans more than a single month. */
@@ -20,12 +20,15 @@ export const isMultiMonth = (range: TimeRange) => range !== "1M";
 /** Number of calendar months the range spans. */
 export const rangeMonths = (range: TimeRange): number => {
   switch (range) {
-    case "3M":
+    case "3M": {
       return 3;
-    case "1Y":
+    }
+    case "1Y": {
       return 12;
-    default:
+    }
+    default: {
       return 1;
+    }
   }
 };
 
@@ -39,10 +42,10 @@ export const rangeMonths = (range: TimeRange): number => {
 export const formatPeriodLabel = (
   from: Date,
   to: Date,
-  range: TimeRange,
+  range: TimeRange
 ): string => {
-  if (range === "1M") return formatMonthYear(from);
-  if (range === "1Y") return String(from.getFullYear());
+  if (range === "1M") {return formatMonthYear(from);}
+  if (range === "1Y") {return String(from.getFullYear());}
 
   const opts: Intl.DateTimeFormatOptions = { month: "short" };
   const fromMonth = from.toLocaleDateString(undefined, opts);

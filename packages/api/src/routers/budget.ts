@@ -58,12 +58,12 @@ const allMonthKeys = (from: Date, to: Date): string[] => {
 
 /** Median of a numeric array. Returns 0 for an empty array. */
 const median = (values: number[]): number => {
-  if (values.length === 0) return 0;
+  if (values.length === 0) {return 0;}
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0
-    ? sorted[mid]!
-    : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+  return sorted.length % 2 === 0
+    ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2)
+    : sorted[mid]!;
 };
 
 /**
@@ -74,7 +74,7 @@ const median = (values: number[]): number => {
 const aggregateMonthly = <K>(
   monthly: Map<K, Map<string, number>>,
   months: string[],
-  mode: "average" | "median",
+  mode: "average" | "median"
 ): Map<K, number> => {
   const result = new Map<K, number>();
   for (const [key, monthValues] of monthly) {
@@ -83,7 +83,7 @@ const aggregateMonthly = <K>(
       key,
       mode === "average"
         ? Math.round(series.reduce((s, v) => s + v, 0) / months.length)
-        : median(series),
+        : median(series)
     );
   }
   return result;
@@ -526,14 +526,14 @@ export const budgetRouter = {
             const source = tx.counterpartyName ?? "Other Income";
             incomeSources.set(
               source,
-              (incomeSources.get(source) ?? 0) + tx.amount,
+              (incomeSources.get(source) ?? 0) + tx.amount
             );
           } else {
             const category = effectiveCategory(tx);
             const abs = Math.abs(tx.amount);
             expenseCategories.set(
               category,
-              (expenseCategories.get(category) ?? 0) + abs,
+              (expenseCategories.get(category) ?? 0) + abs
             );
           }
         }
@@ -572,7 +572,7 @@ export const budgetRouter = {
         expenseCategories = aggregateMonthly(
           monthlyExpense,
           active,
-          aggregation,
+          aggregation
         );
       }
 
@@ -668,7 +668,7 @@ export const budgetRouter = {
           const abs = Math.abs(tx.amount);
           categoryAmounts.set(
             category,
-            (categoryAmounts.get(category) ?? 0) + abs,
+            (categoryAmounts.get(category) ?? 0) + abs
           );
         }
       } else {

@@ -16,9 +16,9 @@ import type { ChartConfig } from "@/components/dither-kit/chart-context";
 import { Pie } from "@/components/dither-kit/pie";
 import { PieChart } from "@/components/dither-kit/pie-chart";
 import { Tooltip } from "@/components/dither-kit/tooltip";
+import { formatCurrency } from "@/lib/budget/format-currency";
 import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
-import { formatCurrency } from "@/lib/budget/format-currency";
 
 interface CategoryData {
   amount: number;
@@ -60,13 +60,13 @@ export const SpendingBreakdownChart = ({
 
   const handleSelectionChange = useCallback(
     (key: string | null) => {
-      if (!onCategoryClick) return;
+      if (!onCategoryClick) {return;}
       if (!key) {
         onCategoryClick(null);
         return;
       }
       const entry = data.find((d) => d.label === key);
-      if (entry) onCategoryClick(entry.category);
+      if (entry) {onCategoryClick(entry.category);}
     },
     [data, onCategoryClick]
   );
@@ -74,7 +74,7 @@ export const SpendingBreakdownChart = ({
   const handleLegendClick = useCallback(
     (name: string) => {
       const entry = data.find((d) => d.label === name);
-      if (entry && onCategoryClick) onCategoryClick(entry.category);
+      if (entry && onCategoryClick) {onCategoryClick(entry.category);}
     },
     [data, onCategoryClick]
   );

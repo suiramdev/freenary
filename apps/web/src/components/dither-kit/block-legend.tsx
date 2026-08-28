@@ -47,7 +47,7 @@ export function BlockLegend({
             key={name}
             className={cn(
               "text-muted-foreground flex items-center gap-1.5 font-mono text-[11px]",
-              onItemClick && "cursor-pointer hover:text-foreground"
+              onItemClick && "hover:text-foreground cursor-pointer"
             )}
             onClick={onItemClick ? () => onItemClick(name) : undefined}
           >

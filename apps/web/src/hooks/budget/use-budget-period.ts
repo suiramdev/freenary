@@ -22,7 +22,7 @@ export const useBudgetPeriod = (dateBounds?: {
   // Once we know the last transaction date, snap the anchor to it (once).
   const snapped = useRef(false);
   useEffect(() => {
-    if (snapped.current || !dateBounds?.last) return;
+    if (snapped.current || !dateBounds?.last) {return;}
     snapped.current = true;
     setAnchor({
       month: dateBounds.last.getMonth(),
@@ -55,32 +55,24 @@ export const useBudgetPeriod = (dateBounds?: {
         });
       }
     },
-    [dateBounds?.last],
+    [dateBounds?.last]
   );
 
   const { from, to } = useMemo(
     () => computeDateRange(anchor.year, anchor.month, range),
-    [anchor, range],
+    [anchor, range]
   );
 
   return {
     aggregation,
     /** Earliest month with data (start-of-month). */
     firstMonth: dateBounds?.first
-      ? new Date(
-          dateBounds.first.getFullYear(),
-          dateBounds.first.getMonth(),
-          1,
-        )
+      ? new Date(dateBounds.first.getFullYear(), dateBounds.first.getMonth(), 1)
       : undefined,
     from,
     /** Latest month with data (start-of-month). */
     lastMonth: dateBounds?.last
-      ? new Date(
-          dateBounds.last.getFullYear(),
-          dateBounds.last.getMonth(),
-          1,
-        )
+      ? new Date(dateBounds.last.getFullYear(), dateBounds.last.getMonth(), 1)
       : undefined,
     range,
     setAggregation,
