@@ -3,8 +3,9 @@ model CustomCategory {
   id          String       @id @default(cuid())
   userId      String
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// Display name; unique per user.
-  label       String
+  /// Display name; unique per user, case-insensitively (citext compares
+  /// case-insensitively, so the DB backs the API's insensitive conflict check).
+  label       String       @db.Citext
   /// Palette color name, validated against CATEGORY_COLOR_VALUES.
   color       String
   /// Phosphor icon name, validated against CATEGORY_ICON_NAMES.

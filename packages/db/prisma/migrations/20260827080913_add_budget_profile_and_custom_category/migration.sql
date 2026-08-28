@@ -1,3 +1,6 @@
+-- CreateExtension
+CREATE EXTENSION IF NOT EXISTS "citext";
+
 -- CreateEnum
 CREATE TYPE "BudgetLineKind" AS ENUM ('REVENUE', 'INVESTMENT', 'OUTGOING');
 
@@ -5,7 +8,7 @@ CREATE TYPE "BudgetLineKind" AS ENUM ('REVENUE', 'INVESTMENT', 'OUTGOING');
 CREATE TABLE "custom_category" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "label" TEXT NOT NULL,
+    "label" CITEXT NOT NULL,
     "color" TEXT NOT NULL,
     "icon" TEXT NOT NULL,
     "parentSlug" TEXT,
