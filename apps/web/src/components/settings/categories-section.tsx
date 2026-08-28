@@ -4,13 +4,13 @@ import { PlusIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { CategoryRow } from "@/components/settings/category-row";
-import { CustomCategorySheet } from "@/components/settings/custom-category-sheet";
+import { CustomCategoryDrawer } from "@/components/settings/custom-category-drawer";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useCustomCategoryActions } from "@/hooks/settings/use-custom-category-actions";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
 
-/** `null` closes the sheet; `"new"` opens it empty; an entry opens it for editing. */
-type SheetState = EditedCustomCategory | "new" | null;
+/** `null` closes the drawer; `"new"` opens it empty; an entry opens it for editing. */
+type DrawerState = EditedCustomCategory | "new" | null;
 
 const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
   color: entry.color,
@@ -28,7 +28,7 @@ interface CategoriesSectionProps {
 export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
   const { deleteCategory, isDeleting, isMoving, moveCategory } =
     useCustomCategoryActions();
-  const [sheet, setSheet] = useState<SheetState>(null);
+  const [drawer, setDrawer] = useState<DrawerState>(null);
 
   const labelByKey = new Map(
     categories.map((entry) => [entry.key, entry.label] as const)
@@ -37,7 +37,7 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
   return (
     <SettingsSection
       action={
-        <Button onClick={() => setSheet("new")} size="sm" variant="outline">
+        <Button onClick={() => setDrawer("new")} variant="outline">
           <PlusIcon data-icon="inline-start" />
           New category
         </Button>
@@ -58,21 +58,21 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
             isMoving={isMoving}
             key={entry.key}
             onDelete={deleteCategory}
-            onEdit={(edited) => setSheet(editedOf(edited))}
+            onEdit={(edited) => setDrawer(editedOf(edited))}
             onMove={moveCategory}
           />
         ))}
       </div>
 
-      <CustomCategorySheet
-        edited={sheet === "new" ? null : sheet}
-        key={sheet === "new" || sheet === null ? "new" : sheet.id}
+      <CustomCategoryDrawer
+        edited={drawer === "new" ? null : drawer}
+        key={drawer === "new" || drawer === null ? "new" : drawer.id}
         onOpenChange={(open) => {
           if (!open) {
-            setSheet(null);
+            setDrawer(null);
           }
         }}
-        open={sheet !== null}
+        open={drawer !== null}
       />
     </SettingsSection>
   );

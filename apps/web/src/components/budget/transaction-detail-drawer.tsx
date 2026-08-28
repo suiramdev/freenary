@@ -1,12 +1,12 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
-import { Separator } from "@freenary/ui/components/separator";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@freenary/ui/components/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@freenary/ui/components/drawer";
+import { Separator } from "@freenary/ui/components/separator";
 import { cn } from "@freenary/ui/lib/utils";
 import { CalendarIcon, TagIcon } from "@phosphor-icons/react";
 
@@ -17,7 +17,7 @@ import { useTransactionCategory } from "@/hooks/budget/use-transaction-category"
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { Transaction } from "@/lib/budget/transaction";
 
-export const TransactionDetailSheet = ({
+export const TransactionDetailDrawer = ({
   onOpenChange,
   open,
   transaction,
@@ -42,16 +42,16 @@ export const TransactionDetailSheet = ({
   });
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Transaction details</SheetTitle>
-          <SheetDescription className="sr-only">
+    <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="right">
+      <DrawerContent className="w-full sm:max-w-md">
+        <DrawerHeader>
+          <DrawerTitle>Transaction details</DrawerTitle>
+          <DrawerDescription className="sr-only">
             View and edit transaction details
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4 pt-0">
           <div className="flex flex-col items-center gap-3 pt-2">
             <CategoryIcon
               {...predefinedCategoryAppearance(transaction.category)}
@@ -113,7 +113,7 @@ export const TransactionDetailSheet = ({
             </TransactionDetailRow>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };

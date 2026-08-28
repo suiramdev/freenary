@@ -13,7 +13,7 @@ import { CashFlowCard } from "@/components/budget/cash-flow-card";
 import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
-import { TransactionDetailSheet } from "@/components/budget/transaction-detail-sheet";
+import { TransactionDetailDrawer } from "@/components/budget/transaction-detail-drawer";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { useAccountSync } from "@/hooks/budget/use-account-sync";
 import { useBudgetPeriod } from "@/hooks/budget/use-budget-period";
@@ -38,7 +38,7 @@ const BudgetPage = () => {
           first: accountsQuery.data.firstTransactionDate,
           last: accountsQuery.data.lastTransactionDate,
         }
-      : undefined,
+      : undefined
   );
   const [direction, setDirection] = useState<"incoming" | "outgoing">(
     "outgoing"
@@ -106,8 +106,8 @@ const BudgetPage = () => {
   const handleCategoryClick = useCallback(
     (category: SpendingCategory | null) => {
       setCategories((prev) => {
-        if (category === null) return [];
-        if (prev.length === 1 && prev[0] === category) return [];
+        if (category === null) {return [];}
+        if (prev.length === 1 && prev[0] === category) {return [];}
         return [category];
       });
     },
@@ -189,7 +189,7 @@ const BudgetPage = () => {
         range={range}
       />
 
-      <TransactionDetailSheet
+      <TransactionDetailDrawer
         transaction={selectedTransaction}
         open={selectedTransactionId !== null}
         onOpenChange={(open) => {

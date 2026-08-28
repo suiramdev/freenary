@@ -9,6 +9,13 @@ import {
 import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import { Button } from "@freenary/ui/components/button";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@freenary/ui/components/drawer";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -17,13 +24,6 @@ import {
 } from "@freenary/ui/components/dropdown-menu";
 import { Input } from "@freenary/ui/components/input";
 import { Label } from "@freenary/ui/components/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@freenary/ui/components/sheet";
 import { cn } from "@freenary/ui/lib/utils";
 import { CaretUpDownIcon, CheckIcon } from "@phosphor-icons/react";
 import { useEffect } from "react";
@@ -37,19 +37,19 @@ import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-
 
 const NO_PARENT = "none";
 
-interface CustomCategorySheetProps {
+interface CustomCategoryDrawerProps {
   edited: EditedCustomCategory | null;
   onCreated?: (key: string) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
 
-export const CustomCategorySheet = ({
+export const CustomCategoryDrawer = ({
   edited,
   onCreated,
   onOpenChange,
   open,
-}: CustomCategorySheetProps) => {
+}: CustomCategoryDrawerProps) => {
   const { form, isSaving } = useCustomCategoryForm({
     edited,
     onCreated,
@@ -64,18 +64,18 @@ export const CustomCategorySheet = ({
     }
   }, [form, open]);
   return (
-    <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="gap-0">
-        <SheetHeader>
-          <SheetTitle>{edited ? "Edit category" : "New category"}</SheetTitle>
-          <SheetDescription>
+    <Drawer onOpenChange={onOpenChange} open={open} swipeDirection="right">
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>{edited ? "Edit category" : "New category"}</DrawerTitle>
+          <DrawerDescription>
             Custom categories can be assigned to any revenue, investment or
             outgoing in your budgeting profile.
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
         <form
-          className="flex flex-col gap-5 overflow-y-auto px-6 pb-6"
+          className="flex flex-col gap-5 overflow-y-auto p-4 pt-0"
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -228,7 +228,7 @@ export const CustomCategorySheet = ({
             </Button>
           </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };

@@ -2,7 +2,7 @@ import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { useState } from "react";
 
 import { BudgetLineGroup } from "@/components/settings/budget-line-group";
-import { CustomCategorySheet } from "@/components/settings/custom-category-sheet";
+import { CustomCategoryDrawer } from "@/components/settings/custom-category-drawer";
 import { SettingsSection } from "@/components/settings/settings-section";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
 import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
@@ -87,7 +87,7 @@ export const BudgetingSection = ({
         );
       })}
 
-      <CustomCategorySheet
+      <CustomCategoryDrawer
         edited={null}
         key={creatingForLineId ?? "closed"}
         onCreated={(key) => {
