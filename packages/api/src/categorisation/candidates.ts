@@ -1,9 +1,13 @@
 /**
  * Stage 3 candidate generation: KNN trigram lookup, then TypeScript rescoring.
  *
- * The indexable KNN operator (<->) retrieves a broad shortlist at ~30 ms,
- * then strict_word_similarity + similarity rescore. The containment
- * direction (<<%>) is NOT indexable and must never be used.
+ * The `<<<->` KNN operator retrieves candidates by strict_word_similarity
+ * distance — the same metric used for scoring — so a short merchant name
+ * that appears as a word in a longer descriptor (e.g. "edf" in
+ * "edf electricite") ranks near the top instead of drowning in noise.
+ * The plain `<->` operator uses `similarity()`, which penalises length
+ * mismatch and systematically misses short names. `<<<->` is GiST-indexable
+ * on the existing `gist_trgm_ops` indexes.
  */
 
 import prisma from "@freenary/db";
@@ -71,7 +75,7 @@ export const findMerchantCandidates = async (
            similarity(m."normalisedName", ${descriptor}) AS sim,
            m."normalisedName"
     FROM "merchant" m
-    ORDER BY m."normalisedName" <-> ${descriptor}
+    ORDER BY m."normalisedName" <<<-> ${descriptor}
     LIMIT ${limit}
   `;
 
@@ -84,7 +88,7 @@ export const findMerchantCandidates = async (
            ma."normalisedAlias" AS "normalisedName"
     FROM "merchant_alias" ma
     JOIN "merchant" m ON m."id" = ma."merchantId"
-    ORDER BY ma."normalisedAlias" <-> ${descriptor}
+    ORDER BY ma."normalisedAlias" <<<-> ${descriptor}
     LIMIT ${limit}
   `;
 
