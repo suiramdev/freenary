@@ -129,12 +129,30 @@ export function PolarRoot<TData extends Row>({
     ctx.setCursor(clientX - rect.left, clientY - rect.top);
   };
 
+  const onClick = (e: React.MouseEvent) => {
+    if (chartType !== "pie" || !ctx.pie) return;
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const dx = e.clientX - rect.left - margins.left - ctx.center.x;
+    const dy = e.clientY - rect.top - margins.top - ctx.center.y;
+    const r = Math.hypot(dx, dy);
+    if (r > ctx.outerRadius || r < ctx.innerRadius) return;
+    const angle = Math.atan2(dy, dx);
+    const i = sliceAtAngle(ctx.pie, angle);
+    if (i < 0) return;
+    const name = ctx.pie[i].name;
+    ctx.selectDataKey(ctx.selectedDataKey === name ? null : name);
+  };
+
   return (
     <PolarChartContext value={ctx}>
       <CommonChartContext value={ctx.common}>
         <div
           ref={ref}
           className={cn("relative h-full w-full", className)}
+          style={chartType === "pie" && ctx.hoverIndex !== null ? { cursor: "pointer" } : undefined}
+          onClick={onClick}
           onPointerEnter={() => ctx.setMouseInChart(true)}
           onPointerMove={(e) => onMove(e.clientX, e.clientY)}
           onPointerLeave={() => {

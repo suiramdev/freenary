@@ -21,12 +21,14 @@ export function BlockLegend({
   valueFormatter = (v) => String(v),
   align = "start",
   className,
+  onItemClick,
 }: {
   config: ChartConfig;
   values?: Record<string, number>;
   valueFormatter?: (value: number) => string;
   align?: "start" | "center" | "end";
   className?: string;
+  onItemClick?: (name: string) => void;
 }) {
   return (
     <ul
@@ -43,7 +45,11 @@ export function BlockLegend({
         return (
           <li
             key={name}
-            className="text-muted-foreground flex items-center gap-1.5 font-mono text-[11px]"
+            className={cn(
+              "text-muted-foreground flex items-center gap-1.5 font-mono text-[11px]",
+              onItemClick && "cursor-pointer hover:text-foreground"
+            )}
+            onClick={onItemClick ? () => onItemClick(name) : undefined}
           >
             <span
               className="size-2 rounded-[1px]"

@@ -1,10 +1,12 @@
+import { CATEGORY_LABELS } from "@freenary/api/lib/mcc-categories";
+import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@freenary/ui/components/card";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { CashFlowSummary } from "@/components/budget/cash-flow-summary";
 import { SankeyChart } from "@/components/shared/sankey-chart";
@@ -14,9 +16,14 @@ import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
 import { formatCurrency } from "@/lib/budget/format-currency";
 
+const LABEL_TO_CATEGORY: Record<string, SpendingCategory> = Object.fromEntries(
+  Object.entries(CATEGORY_LABELS).map(([slug, label]) => [label, slug])
+) as Record<string, SpendingCategory>;
+
 interface CashFlowCardProps extends CashFlowData {
   aggregation: AggregationMode;
   className?: string;
+  onCategoryClick?: (category: SpendingCategory) => void;
   totalExpenses: number;
 }
 
@@ -28,6 +35,7 @@ export const CashFlowCard = ({
   expenseNodes,
   incomeLinks,
   incomeNodes,
+  onCategoryClick,
   totalExpenses,
   totalIncome,
 }: CashFlowCardProps) => {
@@ -41,6 +49,16 @@ export const CashFlowCard = ({
         totalIncome,
       }),
     [expenseLinks, expenseNodes, incomeLinks, incomeNodes, totalIncome]
+  );
+
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      if (!onCategoryClick || !nodeId.startsWith("expense:")) return;
+      const label = nodeId.slice("expense:".length);
+      const category = LABEL_TO_CATEGORY[label];
+      if (category) onCategoryClick(category);
+    },
+    [onCategoryClick]
   );
 
   if (incomeNodes.length === 0 && expenseNodes.length === 0) {
@@ -67,6 +85,7 @@ export const CashFlowCard = ({
           formatValue={formatCurrency}
           label="Cash flow from income sources through the budget to spending categories"
           links={flow.links}
+          onNodeClick={onCategoryClick ? handleNodeClick : undefined}
         />
         <CashFlowSummary
           aggregation={aggregation}

@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@freenary/ui/components/card";
+import { useCallback } from "react";
 
 import { BlockLegend } from "@/components/dither-kit/block-legend";
 import type { ChartConfig } from "@/components/dither-kit/chart-context";
@@ -29,6 +30,7 @@ interface SpendingBreakdownChartProps {
   aggregation: AggregationMode;
   data: CategoryData[];
   className?: string;
+  onCategoryClick?: (category: SpendingCategory | null) => void;
 }
 
 const buildConfig = (data: CategoryData[]): ChartConfig => {
@@ -46,6 +48,7 @@ export const SpendingBreakdownChart = ({
   aggregation,
   data,
   className,
+  onCategoryClick,
 }: SpendingBreakdownChartProps) => {
   const config = buildConfig(data);
 
@@ -54,6 +57,27 @@ export const SpendingBreakdownChart = ({
   for (const d of data) {
     values[d.label] = d.amount;
   }
+
+  const handleSelectionChange = useCallback(
+    (key: string | null) => {
+      if (!onCategoryClick) return;
+      if (!key) {
+        onCategoryClick(null);
+        return;
+      }
+      const entry = data.find((d) => d.label === key);
+      if (entry) onCategoryClick(entry.category);
+    },
+    [data, onCategoryClick]
+  );
+
+  const handleLegendClick = useCallback(
+    (name: string) => {
+      const entry = data.find((d) => d.label === name);
+      if (entry && onCategoryClick) onCategoryClick(entry.category);
+    },
+    [data, onCategoryClick]
+  );
 
   return (
     <Card className={className}>
@@ -76,6 +100,7 @@ export const SpendingBreakdownChart = ({
           nameKey="label"
           innerRadius={0.55}
           className="mx-auto aspect-square h-auto w-full max-w-[200px]"
+          onSelectionChange={handleSelectionChange}
         >
           <Pie variant="gradient" />
           <Tooltip
@@ -89,6 +114,7 @@ export const SpendingBreakdownChart = ({
           values={values}
           valueFormatter={(v) => formatCurrency(v)}
           align="start"
+          onItemClick={onCategoryClick ? handleLegendClick : undefined}
         />
       </CardContent>
     </Card>

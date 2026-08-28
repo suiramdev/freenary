@@ -12,6 +12,8 @@ interface SankeyChartProps extends SankeyFlow {
   formatValue: (value: number) => string;
   /** Names the flow for assistive tech, e.g. "Cash flow". */
   label: string;
+  /** Fires when a node rectangle is clicked. */
+  onNodeClick?: (nodeId: string) => void;
 }
 
 /**
@@ -25,6 +27,7 @@ export const SankeyChart = ({
   formatValue,
   label,
   links,
+  onNodeClick,
 }: SankeyChartProps) => {
   const layout = useMemo(
     () => computeSankeyLayout({ columns, emphasizedId, links }),
@@ -75,6 +78,8 @@ export const SankeyChart = ({
             width={node.w}
             height={node.h}
             fill="transparent"
+            style={onNodeClick ? { cursor: "pointer" } : undefined}
+            onClick={onNodeClick ? () => onNodeClick(node.id) : undefined}
             onPointerEnter={() => setHovered(node.id)}
             onPointerLeave={() => setHovered(null)}
           />
