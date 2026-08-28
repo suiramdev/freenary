@@ -30,15 +30,33 @@ export const useBudgetPeriod = (dateBounds?: {
     });
   }, [dateBounds?.last]);
 
-  const setRange = useCallback((next: TimeRange) => {
-    setRangeRaw(next);
-    if (!isMultiMonth(next)) {
-      setAggregation("total");
-    }
-    if (next === "1Y") {
-      setAnchor((prev) => ({ ...prev, month: 11 }));
-    }
-  }, []);
+  const setRange = useCallback(
+    (next: TimeRange) => {
+      setRangeRaw(next);
+      if (!isMultiMonth(next)) {
+        setAggregation("total");
+      }
+      if (next === "1Y") {
+        setAnchor((prev) => ({ ...prev, month: 11 }));
+      } else if (dateBounds?.last) {
+        // Switching to a shorter range: clamp anchor to last month with data
+        // so we don't land on future months without transactions
+        // (e.g. after "1Y" forced anchor.month to December).
+        const lastMonth = dateBounds.last.getMonth();
+        const lastYear = dateBounds.last.getFullYear();
+        setAnchor((prev) => {
+          if (
+            prev.year > lastYear ||
+            (prev.year === lastYear && prev.month > lastMonth)
+          ) {
+            return { month: lastMonth, year: lastYear };
+          }
+          return prev;
+        });
+      }
+    },
+    [dateBounds?.last],
+  );
 
   const { from, to } = useMemo(
     () => computeDateRange(anchor.year, anchor.month, range),
