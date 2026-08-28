@@ -27,48 +27,64 @@ export const BudgetLineRow = ({
   onCreateCategory,
   onRemove,
   onUpdate,
-}: BudgetLineRowProps) => (
-  <div className="flex flex-col gap-1">
-    <div className="flex items-center gap-2">
-      <Input
-        aria-label="Name"
-        className="min-w-0 flex-1"
-        onChange={(event) => onUpdate(line.id, { label: event.target.value })}
-        placeholder="Name"
-        value={line.label}
-      />
+}: BudgetLineRowProps) => {
+  const selectedLabel =
+    categories.find((entry) => entry.key === line.categoryKey)?.label ?? "";
 
-      <InputGroup className="w-28 shrink-0">
-        <InputGroupAddon>€</InputGroupAddon>
-        <InputGroupInput
-          aria-label="Monthly amount"
-          inputMode="decimal"
-          onChange={(event) =>
-            onUpdate(line.id, { amountInput: event.target.value })
-          }
-          placeholder="0"
-          value={line.amountInput}
+  const handleCategoryChange = (categoryKey: string) => {
+    const newLabel =
+      categories.find((entry) => entry.key === categoryKey)?.label ?? "";
+    // Auto-fill the name when it is empty or still matches the previous category.
+    const patch: Partial<EditorLine> =
+      !line.label || line.label === selectedLabel
+        ? { categoryKey, label: newLabel }
+        : { categoryKey };
+    onUpdate(line.id, patch);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <Input
+          aria-label="Name"
+          className="min-w-0 flex-1"
+          onChange={(event) => onUpdate(line.id, { label: event.target.value })}
+          placeholder={selectedLabel || "Name"}
+          value={line.label}
         />
-      </InputGroup>
 
-      <CategoryPicker
-        categories={categories}
-        onCreateRequest={() => onCreateCategory(line.id)}
-        onSelect={(categoryKey) => onUpdate(line.id, { categoryKey })}
-        value={line.categoryKey}
-      />
+        <InputGroup className="w-28 shrink-0">
+          <InputGroupAddon>€</InputGroupAddon>
+          <InputGroupInput
+            aria-label="Monthly amount"
+            inputMode="decimal"
+            onChange={(event) =>
+              onUpdate(line.id, { amountInput: event.target.value })
+            }
+            placeholder="0"
+            value={line.amountInput}
+          />
+        </InputGroup>
 
-      <Button
-        className="text-muted-foreground"
-        onClick={() => onRemove(line.id)}
-        size="icon-xs"
-        variant="ghost"
-      >
-        <TrashIcon className="size-3" />
-        <span className="sr-only">Remove {line.label || "line"}</span>
-      </Button>
+        <CategoryPicker
+          categories={categories}
+          onCreateRequest={() => onCreateCategory(line.id)}
+          onSelect={handleCategoryChange}
+          value={line.categoryKey}
+        />
+
+        <Button
+          className="text-muted-foreground"
+          onClick={() => onRemove(line.id)}
+          size="icon-xs"
+          variant="ghost"
+        >
+          <TrashIcon className="size-3" />
+          <span className="sr-only">Remove {line.label || "line"}</span>
+        </Button>
+      </div>
+
+      {error ? <p className="text-destructive text-xs">{error}</p> : null}
     </div>
-
-    {error ? <p className="text-destructive text-xs">{error}</p> : null}
-  </div>
-);
+  );
+};

@@ -1,18 +1,11 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@freenary/ui/components/card";
 import { PlusIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { CategoryRow } from "@/components/settings/category-row";
 import { CustomCategorySheet } from "@/components/settings/custom-category-sheet";
+import { SettingsSection } from "@/components/settings/settings-section";
 import { useCustomCategoryActions } from "@/hooks/settings/use-custom-category-actions";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
 
@@ -42,40 +35,34 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xs font-medium">Categories</CardTitle>
-        <CardDescription>
-          Built-in categories are fixed. Your own categories can be renamed,
-          recolored, nested under a built-in one, reordered or removed.
-        </CardDescription>
-        <CardAction>
-          <Button onClick={() => setSheet("new")} size="sm" variant="outline">
-            <PlusIcon data-icon="inline-start" />
-            New category
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col">
-          {categories.map((entry) => (
-            <CategoryRow
-              entry={entry}
-              fallbackLabel={
-                entry.parentKey
-                  ? (labelByKey.get(entry.parentKey) ?? "Other")
-                  : "Other"
-              }
-              isDeleting={isDeleting}
-              isMoving={isMoving}
-              key={entry.key}
-              onDelete={deleteCategory}
-              onEdit={(edited) => setSheet(editedOf(edited))}
-              onMove={moveCategory}
-            />
-          ))}
-        </div>
-      </CardContent>
+    <SettingsSection
+      action={
+        <Button onClick={() => setSheet("new")} size="sm" variant="outline">
+          <PlusIcon data-icon="inline-start" />
+          New category
+        </Button>
+      }
+      description="Built-in categories are fixed. Your own categories can be renamed, recolored, nested under a built-in one, reordered or removed."
+      title="Categories"
+    >
+      <div className="flex flex-col">
+        {categories.map((entry) => (
+          <CategoryRow
+            entry={entry}
+            fallbackLabel={
+              entry.parentKey
+                ? (labelByKey.get(entry.parentKey) ?? "Other")
+                : "Other"
+            }
+            isDeleting={isDeleting}
+            isMoving={isMoving}
+            key={entry.key}
+            onDelete={deleteCategory}
+            onEdit={(edited) => setSheet(editedOf(edited))}
+            onMove={moveCategory}
+          />
+        ))}
+      </div>
 
       <CustomCategorySheet
         edited={sheet === "new" ? null : sheet}
@@ -87,6 +74,6 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
         }}
         open={sheet !== null}
       />
-    </Card>
+    </SettingsSection>
   );
 };
