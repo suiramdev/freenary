@@ -99,6 +99,9 @@ export const useBudgetProfileEditor = (
 ) => {
   const queryClient = useQueryClient();
   const [isDirty, setIsDirty] = useState(false);
+  // Bumped by every draft edit; the save handler snapshots it so edits made
+  // while the request is in flight can be told apart from what was submitted.
+  const editCount = useRef(0);
   const [lines, setLines] = useState<EditorLine[]>(() =>
     toEditorLines(serverLines ?? [])
   );
@@ -131,13 +134,18 @@ export const useBudgetProfileEditor = (
   }, [categories, lines]);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      client.settings.saveBudgetProfile({ lines: lines.map(toPayload) }),
+    mutationFn: (submitted: EditorLine[]) =>
+      client.settings.saveBudgetProfile({ lines: submitted.map(toPayload) }),
     onError: (error: Error) => {
       toast.error(error.message || "Failed to save budgeting profile");
     },
-    onSuccess: async () => {
-      setIsDirty(false);
+    onMutate: () => ({ editCount: editCount.current }),
+    onSuccess: async (_result, _submitted, saved) => {
+      // Clearing the flag while an edit made during the request is still in
+      // the draft would let the refetched server snapshot overwrite it below.
+      if (editCount.current === saved.editCount) {
+        setIsDirty(false);
+      }
       // Saving moves lines between categories, so listCategories' usageCount is stale too.
       await Promise.all([
         queryClient.invalidateQueries({
@@ -152,6 +160,7 @@ export const useBudgetProfileEditor = (
   });
 
   const addLine = useCallback((kind: BudgetLineKind) => {
+    editCount.current += 1;
     setIsDirty(true);
     setLines((current) => [
       ...current,
@@ -166,16 +175,22 @@ export const useBudgetProfileEditor = (
   }, []);
 
   const removeLine = useCallback((id: string) => {
+    editCount.current += 1;
     setIsDirty(true);
     setLines((current) => current.filter((line) => line.id !== id));
   }, []);
 
   const updateLine = useCallback((id: string, patch: Partial<EditorLine>) => {
+    editCount.current += 1;
     setIsDirty(true);
     setLines((current) =>
       current.map((line) => (line.id === id ? { ...line, ...patch } : line))
     );
   }, []);
+
+  const save = useCallback(() => {
+    saveMutation.mutate(lines);
+  }, [lines, saveMutation]);
 
   return {
     addLine,
@@ -184,7 +199,7 @@ export const useBudgetProfileEditor = (
     isSaving: saveMutation.isPending,
     lines,
     removeLine,
-    save: saveMutation.mutate,
+    save,
     updateLine,
   };
 };

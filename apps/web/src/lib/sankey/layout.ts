@@ -168,6 +168,11 @@ export const computeSankeyLayout = ({
       if (!target || target.column !== rect.column + 1) {
         continue;
       }
+      // The budget preview feeds 0 for an amount still being typed; a band
+      // here would render an empty ribbon and burn a port on both nodes.
+      if (link.value <= 0) {
+        continue;
+      }
 
       const sourceSlice = sliceOf(link.value, rect);
       const targetSlice = sliceOf(link.value, target);

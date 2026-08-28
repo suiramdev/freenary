@@ -141,4 +141,29 @@ describe("computeSankeyLayout", () => {
     }
     expect(Number.isFinite(layout.height)).toBe(true);
   });
+
+  test("emits no band for a non-positive link", () => {
+    const layout = computeSankeyLayout({
+      columns: [
+        [node("salary", 100)],
+        [node("hub", 100)],
+        [node("rent", 100), node("food", 0), node("extra", 0)],
+      ],
+      emphasizedId: "hub",
+      links: [
+        { source: "salary", target: "hub", value: 100 },
+        { source: "hub", target: "rent", value: 100 },
+        { source: "hub", target: "food", value: 0 },
+        { source: "hub", target: "extra", value: -20 },
+      ],
+    });
+
+    expect(bandOf(layout, "hub", "food")).toBeUndefined();
+    expect(bandOf(layout, "hub", "extra")).toBeUndefined();
+
+    // The skipped links consumed no ports, so rent's ribbon spans the hub.
+    const hub = layout.nodes.find((rect) => rect.id === "hub");
+    const rent = bandOf(layout, "hub", "rent");
+    expect(hub && rent && rent.sy1 - rent.sy0 === hub.h).toBe(true);
+  });
 });

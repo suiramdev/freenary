@@ -26,6 +26,7 @@ import {
 } from "@freenary/ui/components/sheet";
 import { cn } from "@freenary/ui/lib/utils";
 import { CaretUpDownIcon, CheckIcon } from "@phosphor-icons/react";
+import { useEffect } from "react";
 
 import {
   CategoryIcon,
@@ -55,6 +56,13 @@ export const CustomCategorySheet = ({
     onDone: () => onOpenChange(false),
   });
 
+  // The component survives close/reopen, so the form would otherwise show the
+  // previous unsaved draft (or stale edit) instead of the requested values.
+  useEffect(() => {
+    if (open) {
+      form.reset();
+    }
+  }, [form, open]);
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="gap-0">
