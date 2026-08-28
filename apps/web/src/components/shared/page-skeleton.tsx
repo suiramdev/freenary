@@ -10,7 +10,7 @@ export const PageSkeleton = () => (
         <Skeleton className="h-[200px]" />
         <Skeleton className="h-[200px]" />
       </div>
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {Array.from({ length: 5 }, (_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}

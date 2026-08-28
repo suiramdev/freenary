@@ -1,4 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
+import { Card, CardContent } from "@freenary/ui/components/card";
+import { Spinner } from "@freenary/ui/components/spinner";
 import { AnimatePresence, motion } from "motion/react";
 
 interface UnsavedChangesBarProps {
@@ -22,7 +24,7 @@ export const UnsavedChangesBar = ({
     {changeCount > 0 && (
       <motion.div
         animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-        className="bg-card text-card-foreground ring-foreground/10 fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit items-center gap-3 rounded-lg px-4 py-2 shadow-md ring-1"
+        className="fixed inset-x-0 bottom-4 z-50 mx-auto w-fit"
         exit={{
           filter: "blur(4px)",
           opacity: 0,
@@ -32,15 +34,21 @@ export const UnsavedChangesBar = ({
         initial={{ filter: "blur(4px)", opacity: 0, y: 12 }}
         transition={spring}
       >
-        <span className="text-muted-foreground text-xs font-medium">
-          {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
-        </span>
-        <Button disabled={isSaving} onClick={onCancel} variant="ghost">
-          Cancel
-        </Button>
-        <Button disabled={isSaving || hasErrors} onClick={onSave}>
-          {isSaving ? "Saving…" : "Save"}
-        </Button>
+        {/* Elevated: the bar floats over the page it is editing. */}
+        <Card className="shadow-md" size="sm">
+          <CardContent className="flex items-center gap-3">
+            <span className="text-muted-foreground text-xs font-medium">
+              {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
+            </span>
+            <Button disabled={isSaving} onClick={onCancel} variant="ghost">
+              Cancel
+            </Button>
+            <Button disabled={isSaving || hasErrors} onClick={onSave}>
+              {isSaving && <Spinner data-icon="inline-start" />}
+              Save
+            </Button>
+          </CardContent>
+        </Card>
       </motion.div>
     )}
   </AnimatePresence>

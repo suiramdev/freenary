@@ -1,6 +1,13 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemMedia,
+  ItemTitle,
+} from "@freenary/ui/components/item";
 import { cn } from "@freenary/ui/lib/utils";
 import {
   ArrowDownIcon,
@@ -9,7 +16,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
-import { DeleteCategoryPopover } from "@/components/settings/delete-category-popover";
+import { DeleteCategoryDialog } from "@/components/settings/delete-category-dialog";
 
 interface CategoryRowProps {
   entry: CategoryEntry;
@@ -34,67 +41,69 @@ export const CategoryRow = ({
   const customId = entry.key.split(":")[1] ?? "";
 
   return (
-    <div
-      className={cn(
-        "border-border flex items-center gap-3 border-b px-1 py-2",
-        entry.parentKey && "pl-8"
-      )}
+    <Item
+      className={cn("border-b-border", entry.parentKey && "pl-8")}
+      render={<li />}
+      size="sm"
     >
-      <CategoryIcon
-        className="size-8 [&_svg]:size-4"
-        color={entry.color}
-        icon={entry.icon}
-      />
+      <ItemMedia>
+        <CategoryIcon
+          className="size-8 [&_svg]:size-4"
+          color={entry.color}
+          icon={entry.icon}
+        />
+      </ItemMedia>
 
-      <span className="flex-1 truncate text-xs font-medium">{entry.label}</span>
+      <ItemContent className="min-w-0">
+        <ItemTitle className="block w-full truncate">{entry.label}</ItemTitle>
+      </ItemContent>
 
-      {entry.isCustom ? (
-        <>
-          {entry.usageCount > 0 ? (
-            <span className="text-muted-foreground text-[10px]">
-              {entry.usageCount} line{entry.usageCount === 1 ? "" : "s"}
-            </span>
-          ) : null}
-          <Button
-            className="text-muted-foreground"
-            disabled={isMoving}
-            onClick={() => onMove({ direction: "up", id: customId })}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <ArrowUpIcon className="size-3" />
-            <span className="sr-only">Move {entry.label} up</span>
-          </Button>
-          <Button
-            className="text-muted-foreground"
-            disabled={isMoving}
-            onClick={() => onMove({ direction: "down", id: customId })}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <ArrowDownIcon className="size-3" />
-            <span className="sr-only">Move {entry.label} down</span>
-          </Button>
-          <Button
-            className="text-muted-foreground"
-            onClick={() => onEdit(entry)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <PencilSimpleIcon className="size-3" />
-            <span className="sr-only">Edit {entry.label}</span>
-          </Button>
-          <DeleteCategoryPopover
-            fallbackLabel={fallbackLabel}
-            isDeleting={isDeleting}
-            label={entry.label}
-            onConfirm={() => onDelete(customId)}
-            usageCount={entry.usageCount}
-          />
-        </>
-      ) : (
-        <Badge variant="outline">Built-in</Badge>
-      )}
-    </div>
+      <ItemActions>
+        {entry.isCustom ? (
+          <>
+            {entry.usageCount > 0 ? (
+              <span className="text-muted-foreground text-[0.625rem]">
+                {entry.usageCount} line{entry.usageCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            <Button
+              disabled={isMoving}
+              onClick={() => onMove({ direction: "up", id: customId })}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <ArrowUpIcon />
+              <span className="sr-only">Move {entry.label} up</span>
+            </Button>
+            <Button
+              disabled={isMoving}
+              onClick={() => onMove({ direction: "down", id: customId })}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <ArrowDownIcon />
+              <span className="sr-only">Move {entry.label} down</span>
+            </Button>
+            <Button
+              onClick={() => onEdit(entry)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <PencilSimpleIcon />
+              <span className="sr-only">Edit {entry.label}</span>
+            </Button>
+            <DeleteCategoryDialog
+              fallbackLabel={fallbackLabel}
+              isDeleting={isDeleting}
+              label={entry.label}
+              onConfirm={() => onDelete(customId)}
+              usageCount={entry.usageCount}
+            />
+          </>
+        ) : (
+          <Badge variant="outline">Built-in</Badge>
+        )}
+      </ItemActions>
+    </Item>
   );
 };

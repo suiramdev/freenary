@@ -1,7 +1,7 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 
 export const BankListSkeleton = ({ rows = 4 }: { rows?: number }) => (
-  <div className="space-y-1.5">
+  <div className="flex flex-col gap-1.5">
     {Array.from({ length: rows }, (_, i) => (
       <div key={i} className="flex items-center gap-3 px-4 py-3">
         <Skeleton className="size-8 rounded" />

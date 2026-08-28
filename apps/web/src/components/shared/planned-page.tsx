@@ -20,7 +20,7 @@ export const PlannedPage = ({
   title,
 }: PlannedPageProps) => (
   <div className="flex flex-1 flex-col items-center justify-center p-4">
-    <Empty className="border-none">
+    <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <PageIcon />

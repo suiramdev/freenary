@@ -11,7 +11,7 @@ import { Link } from "@tanstack/react-router";
 
 export const NoBankAccount = () => (
   <div className="flex flex-1 flex-col items-center justify-center p-4">
-    <Empty className="border-none">
+    <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Wallet />

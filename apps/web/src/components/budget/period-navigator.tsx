@@ -1,18 +1,23 @@
 import { Button } from "@freenary/ui/components/button";
 import { Calendar } from "@freenary/ui/components/calendar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@freenary/ui/components/popover";
-import { CaretLeft, CaretRight, CaretUpDown } from "@phosphor-icons/react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@freenary/ui/components/select";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@freenary/ui/components/toggle-group";
+import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import {
@@ -53,7 +58,7 @@ const PeriodYearPicker = ({
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
           aria-label="Previous years"
         >
-          <CaretLeft />
+          <CaretLeftIcon />
         </Button>
         <span className="text-xs font-medium tabular-nums">
           {pageStart} – {pageStart + YEAR_PAGE_SIZE - 1}
@@ -64,7 +69,7 @@ const PeriodYearPicker = ({
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
           aria-label="Next years"
         >
-          <CaretRight />
+          <CaretRightIcon />
         </Button>
       </div>
       <div className="grid grid-cols-3 gap-1">
@@ -138,13 +143,11 @@ export const PeriodNavigator = ({
           onClick={() => navigate(-1)}
           aria-label="Previous period"
         >
-          <CaretLeft />
+          <CaretLeftIcon />
         </Button>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger render={<Button variant="ghost" />}>
-            <span className="text-xs font-medium">
-              {formatPeriodLabel(from, to, range)}
-            </span>
+            {formatPeriodLabel(from, to, range)}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="center">
             {range === "1Y" ? (
@@ -183,41 +186,50 @@ export const PeriodNavigator = ({
           onClick={() => navigate(1)}
           aria-label="Next period"
         >
-          <CaretRight />
+          <CaretRightIcon />
         </Button>
       </div>
       <div className="flex items-center gap-1">
         {isMultiMonth(range) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" />}>
-              <span>{AGGREGATION_LABELS[aggregation]}</span>
-              <CaretUpDown className="text-muted-foreground size-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup
-                value={aggregation}
-                onValueChange={(v) => onAggregationChange(v as AggregationMode)}
-              >
-                {AGGREGATION_MODES.map((mode) => (
-                  <DropdownMenuRadioItem key={mode} value={mode}>
-                    {AGGREGATION_LABELS[mode]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {TIME_RANGES.map((r) => (
-          <Button
-            key={r}
-            variant={range === r ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => onRangeChange(r)}
-            className="tabular-nums"
+          <Select
+            value={aggregation}
+            onValueChange={(next) => {
+              const mode = AGGREGATION_MODES.find((m) => m === next);
+              if (mode) {
+                onAggregationChange(mode);
+              }
+            }}
           >
-            {r}
-          </Button>
-        ))}
+            <SelectTrigger size="sm">
+              <SelectValue>{() => AGGREGATION_LABELS[aggregation]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {AGGREGATION_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {AGGREGATION_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        )}
+        <ToggleGroup
+          size="sm"
+          value={[range]}
+          onValueChange={([next]) => {
+            const timeRange = TIME_RANGES.find((r) => r === next);
+            if (timeRange) {
+              onRangeChange(timeRange);
+            }
+          }}
+        >
+          {TIME_RANGES.map((r) => (
+            <ToggleGroupItem key={r} value={r}>
+              {r}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
     </div>
   );

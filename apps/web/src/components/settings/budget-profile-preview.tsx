@@ -86,7 +86,7 @@ export const BudgetProfilePreview = ({
     return (
       <Card>
         <CardContent>
-          <Empty className="border-none">
+          <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ChartDonutIcon />
@@ -105,7 +105,7 @@ export const BudgetProfilePreview = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xs font-medium">Budget Flow</CardTitle>
+        <CardTitle>Budget Flow</CardTitle>
       </CardHeader>
       <CardContent>
         <SankeyChart

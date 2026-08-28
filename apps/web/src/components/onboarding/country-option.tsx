@@ -1,3 +1,11 @@
+import { Badge } from "@freenary/ui/components/badge";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemMedia,
+  ItemTitle,
+} from "@freenary/ui/components/item";
 import { cn } from "@freenary/ui/lib/utils";
 
 import { SUPPORTED_COUNTRY_CODES } from "@/lib/onboarding/countries";
@@ -15,34 +23,38 @@ export const CountryOption = ({
   onSelect,
 }: CountryOptionProps) => {
   const supported = SUPPORTED_COUNTRY_CODES.has(country.code);
-  let stateClass: string;
-  if (!supported) {
-    stateClass =
-      "border-border bg-muted text-muted-foreground cursor-not-allowed";
-  } else if (isSelected) {
-    stateClass = "border-primary bg-secondary text-foreground";
-  } else {
-    stateClass =
-      "border-border bg-card hover:border-primary hover:bg-muted text-foreground";
-  }
 
   return (
-    <button
+    <Item
       className={cn(
-        "flex w-full items-center gap-3 border px-4 py-3 text-left text-sm transition-colors",
-        stateClass
+        "text-left disabled:pointer-events-none disabled:opacity-50",
+        isSelected ? "border-primary bg-secondary" : "hover:bg-muted"
       )}
-      disabled={!supported}
-      onClick={() => onSelect(country.code)}
-      type="button"
+      render={
+        <button
+          aria-label={
+            supported ? country.name : `${country.name}, not supported yet`
+          }
+          aria-pressed={isSelected}
+          disabled={!supported}
+          type="button"
+          onClick={() => onSelect(country.code)}
+        />
+      }
+      size="sm"
+      variant="outline"
     >
-      <span className="text-xl">{country.flag}</span>
-      <span className="font-medium">{country.name}</span>
-      {!supported && (
-        <span className="text-muted-foreground ml-auto text-xs">
-          Not supported yet
-        </span>
+      <ItemMedia>
+        <span className="text-xl">{country.flag}</span>
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{country.name}</ItemTitle>
+      </ItemContent>
+      {supported ? null : (
+        <ItemActions>
+          <Badge variant="outline">Not supported yet</Badge>
+        </ItemActions>
       )}
-    </button>
+    </Item>
   );
 };

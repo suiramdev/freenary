@@ -1,9 +1,13 @@
-import { Input } from "@freenary/ui/components/input";
-import { Label } from "@freenary/ui/components/label";
+import { Field, FieldError, FieldLabel } from "@freenary/ui/components/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@freenary/ui/components/input-group";
 import type { ReactNode } from "react";
 
 interface AuthFormFieldProps {
-  /** Rendered on top of the input's trailing edge. */
+  /** Rendered in the input's trailing addon. */
   endAdornment?: ReactNode;
   errors: (string | undefined)[];
   id: string;
@@ -25,27 +29,30 @@ export const AuthFormField = ({
   placeholder,
   type,
   value,
-}: AuthFormFieldProps) => (
-  <div className="space-y-2">
-    <Label htmlFor={id}>{label}</Label>
-    {/* The wrapper is unconditional: swapping it in and out remounts the input
-        and drops focus mid-typing. */}
-    <div className="relative">
-      <Input
-        id={id}
-        name={id}
-        placeholder={placeholder}
-        type={type}
-        value={value}
-        onBlur={onBlur}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {endAdornment}
-    </div>
-    {errors.map((error) => (
-      <p key={error} className="text-destructive text-xs">
-        {error}
-      </p>
-    ))}
-  </div>
-);
+}: AuthFormFieldProps) => {
+  const isInvalid = errors.length > 0;
+
+  return (
+    <Field data-invalid={isInvalid || undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {/* The group is unconditional: swapping it in and out remounts the input
+          and drops focus mid-typing. */}
+      <InputGroup>
+        <InputGroupInput
+          aria-invalid={isInvalid || undefined}
+          id={id}
+          name={id}
+          placeholder={placeholder}
+          type={type}
+          value={value}
+          onBlur={onBlur}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {endAdornment ? (
+          <InputGroupAddon align="inline-end">{endAdornment}</InputGroupAddon>
+        ) : null}
+      </InputGroup>
+      <FieldError errors={errors.map((message) => ({ message }))} />
+    </Field>
+  );
+};

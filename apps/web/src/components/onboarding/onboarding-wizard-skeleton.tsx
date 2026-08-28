@@ -5,7 +5,7 @@ import { BankListSkeleton } from "@/components/onboarding/bank-list-skeleton";
 export const OnboardingWizardSkeleton = () => (
   <div aria-busy="true">
     <output className="sr-only">Loading onboarding</output>
-    <div aria-hidden="true" className="space-y-8">
+    <div aria-hidden="true" className="flex flex-col gap-8">
       <div className="flex items-center justify-center gap-3">
         <div className="flex items-center gap-2.5">
           <Skeleton className="size-7 rounded-full" />
@@ -18,7 +18,7 @@ export const OnboardingWizardSkeleton = () => (
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         <Skeleton className="mx-auto h-6 w-48" />
         <Skeleton className="mx-auto h-4 w-72" />
       </div>

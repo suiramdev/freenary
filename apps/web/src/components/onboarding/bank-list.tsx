@@ -1,5 +1,13 @@
 import type { AppRouter } from "@freenary/api/routers/index";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@freenary/ui/components/empty";
 import type { InferRouterOutputs } from "@orpc/server";
+import { BankIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
 import { BankCard } from "@/components/onboarding/bank-card";
 import { BankListSkeleton } from "@/components/onboarding/bank-list-skeleton";
@@ -37,18 +45,43 @@ export const BankList = ({
     );
   }
 
+  // Only when there is nothing to fall back on: a refetch failure must not
+  // wipe the institutions already on screen.
+  if (isError && banks.length === 0) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <WarningCircleIcon />
+          </EmptyMedia>
+          <EmptyTitle>Could not load banks</EmptyTitle>
+          <EmptyDescription>
+            You can skip this step and connect later.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  if (banks.length === 0) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <BankIcon />
+          </EmptyMedia>
+          <EmptyTitle>
+            {hasSearch ? "No banks match your search" : "No banks available"}
+          </EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
   return (
-    <div className="max-h-64 space-y-1.5 overflow-y-auto">
-      {isError && (
-        <p className="text-muted-foreground py-4 text-center text-sm">
-          Could not load banks. You can skip this step and connect later.
-        </p>
-      )}
-      {banks.length === 0 && !isError && (
-        <p className="text-muted-foreground py-4 text-center text-sm">
-          {hasSearch ? "No banks match your search." : "No banks available."}
-        </p>
-      )}
+    // A real list rather than ItemGroup: its `div[role=list]` cannot hold the
+    // `<li>` rows without tripping HTML's content model.
+    <ul className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
       {banks.map((bank) => (
         <BankCard
           key={bank.id}
@@ -60,6 +93,6 @@ export const BankList = ({
           onConnect={() => onConnect(bank.id, bank.name)}
         />
       ))}
-    </div>
+    </ul>
   );
 };

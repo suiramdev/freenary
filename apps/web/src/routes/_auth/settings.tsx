@@ -1,5 +1,14 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@freenary/ui/components/empty";
+import { Spinner } from "@freenary/ui/components/spinner";
+import { WarningCircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -54,22 +63,28 @@ const SettingsPage = () => {
     const isRetrying = categoriesQuery.isFetching || profileQuery.isFetching;
 
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
-        <p className="text-muted-foreground text-sm">
-          Could not load your settings.
-        </p>
-        <Button
-          disabled={isRetrying}
-          onClick={() => {
-            void categoriesQuery.refetch();
-            void profileQuery.refetch();
-          }}
-          size="sm"
-          variant="outline"
-        >
-          Try again
-        </Button>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <WarningCircleIcon />
+          </EmptyMedia>
+          <EmptyTitle>Could not load your settings</EmptyTitle>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            disabled={isRetrying}
+            onClick={() => {
+              void categoriesQuery.refetch();
+              void profileQuery.refetch();
+            }}
+            size="sm"
+            variant="outline"
+          >
+            {isRetrying && <Spinner data-icon="inline-start" />}
+            Try again
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
 

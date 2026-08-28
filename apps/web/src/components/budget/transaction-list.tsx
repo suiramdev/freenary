@@ -6,17 +6,18 @@ import {
 import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
-import { Checkbox } from "@freenary/ui/components/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuTrigger,
+} from "@freenary/ui/components/dropdown-menu";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from "@freenary/ui/components/input-group";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@freenary/ui/components/popover";
 import {
   Tabs,
   TabsContent,
@@ -85,71 +86,61 @@ export const TransactionList = ({
             type="search"
           />
         </InputGroup>
-        <Popover>
-          <PopoverTrigger
-            render={<Button variant="outline" className="gap-1.5" />}
-          >
-            <FunnelIcon className="size-3.5" />
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" />}>
+            <FunnelIcon data-icon="inline-start" />
             Category
             {categories.length > 0 && (
-              <Badge variant="secondary" className="ml-0.5">
-                {categories.length}
-              </Badge>
+              <Badge variant="secondary">{categories.length}</Badge>
             )}
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            className="flex max-h-72 flex-col gap-0 overflow-y-auto p-1"
-          >
-            {SPENDING_CATEGORIES.map((cat) => {
-              const appearance = predefinedCategoryAppearance(cat);
-              const checked = categories.includes(cat);
-              return (
-                <button
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-56">
+            <DropdownMenuGroup>
+              {SPENDING_CATEGORIES.map((cat) => (
+                <DropdownMenuCheckboxItem
                   key={cat}
-                  type="button"
-                  className="hover:bg-muted flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
-                  onClick={() => toggleCategory(cat)}
+                  checked={categories.includes(cat)}
+                  onCheckedChange={() => toggleCategory(cat)}
                 >
-                  <Checkbox checked={checked} tabIndex={-1} />
                   <CategoryIcon
-                    {...appearance}
+                    {...predefinedCategoryAppearance(cat)}
                     className="size-5 [&_svg]:size-3"
                   />
-                  <span>{CATEGORY_LABELS[cat]}</span>
-                </button>
-              );
-            })}
-          </PopoverContent>
-        </Popover>
+                  {CATEGORY_LABELS[cat]}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {categories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {categories.map((cat) => (
-            <Badge key={cat} variant="outline" className="pr-1">
+            <Badge
+              key={cat}
+              className="hover:bg-muted"
+              render={
+                <button
+                  aria-label={`Remove ${CATEGORY_LABELS[cat]} filter`}
+                  type="button"
+                  onClick={() => toggleCategory(cat)}
+                />
+              }
+              variant="outline"
+            >
               <CategoryIcon
                 {...predefinedCategoryAppearance(cat)}
                 className="size-4 [&_svg]:size-2.5"
               />
               {CATEGORY_LABELS[cat]}
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground ml-0.5 rounded-full p-0.5"
-                onClick={() => toggleCategory(cat)}
-              >
-                <XIcon className="size-3" />
-                <span className="sr-only">
-                  Remove {CATEGORY_LABELS[cat]} filter
-                </span>
-              </button>
+              <XIcon data-icon="inline-end" />
             </Badge>
           ))}
           {categories.length >= 2 && (
             <Button
-              variant="ghost"
               size="xs"
-              className="text-muted-foreground"
+              variant="ghost"
               onClick={() => onCategoriesChange([])}
             >
               Clear all

@@ -2,8 +2,7 @@ import { Button } from "@freenary/ui/components/button";
 import { Input } from "@freenary/ui/components/input";
 import { Textarea } from "@freenary/ui/components/textarea";
 import { cn } from "@freenary/ui/lib/utils";
-import { cva } from "class-variance-authority";
-import type { VariantProps } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
@@ -23,20 +22,20 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 const inputGroupAddonVariants = cva(
   "text-muted-foreground **:data-[slot=kbd]:bg-muted-foreground/10 flex h-auto cursor-text items-center justify-center gap-1 py-2 text-xs/relaxed font-medium select-none group-data-[disabled=true]/input-group:opacity-50 **:data-[slot=kbd]:rounded-[calc(var(--radius-sm)-2px)] **:data-[slot=kbd]:px-1 **:data-[slot=kbd]:text-[0.625rem] [&>svg:not([class*='size-'])]:size-3.5",
   {
-    defaultVariants: {
-      align: "inline-start",
-    },
     variants: {
       align: {
-        "block-end":
-          "order-last w-full justify-start px-2 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2",
-        "block-start":
-          "order-first w-full justify-start px-2 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2",
-        "inline-end":
-          "order-last pr-2 has-[>button]:mr-[-0.275rem] has-[>kbd]:mr-[-0.275rem]",
         "inline-start":
           "order-first pl-2 has-[>button]:ml-[-0.275rem] has-[>kbd]:ml-[-0.275rem]",
+        "inline-end":
+          "order-last pr-2 has-[>button]:mr-[-0.275rem] has-[>kbd]:mr-[-0.275rem]",
+        "block-start":
+          "order-first w-full justify-start px-2 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2",
+        "block-end":
+          "order-last w-full justify-start px-2 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2",
       },
+    },
+    defaultVariants: {
+      align: "inline-start",
     },
   }
 );
@@ -66,16 +65,16 @@ function InputGroupAddon({
 const inputGroupButtonVariants = cva(
   "flex items-center gap-2 rounded-md text-xs/relaxed shadow-none",
   {
-    defaultVariants: {
-      size: "xs",
-    },
     variants: {
       size: {
-        "icon-sm": "size-7 p-0 has-[>svg]:p-0",
-        "icon-xs": "size-6 p-0 has-[>svg]:p-0",
-        sm: "gap-1",
         xs: "h-5 gap-1 rounded-[calc(var(--radius-sm)-2px)] px-1 [&>svg:not([class*='size-'])]:size-3",
+        sm: "gap-1",
+        "icon-xs": "size-6 p-0 has-[>svg]:p-0",
+        "icon-sm": "size-7 p-0 has-[>svg]:p-0",
       },
+    },
+    defaultVariants: {
+      size: "xs",
     },
   }
 );

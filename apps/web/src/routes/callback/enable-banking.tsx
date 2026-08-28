@@ -55,7 +55,7 @@ const EnableBankingCallback = () => {
       <output className="sr-only">Finishing bank connection</output>
       <div aria-hidden="true" className="flex flex-col items-center gap-4">
         <Skeleton className="size-10 rounded-full" />
-        <div className="space-y-2 text-center">
+        <div className="flex flex-col gap-2 text-center">
           <Skeleton className="mx-auto h-4 w-52" />
           <Skeleton className="mx-auto h-3 w-36" />
         </div>

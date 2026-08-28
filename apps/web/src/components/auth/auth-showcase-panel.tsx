@@ -16,7 +16,7 @@ export const AuthShowcasePanel = () => (
     <ShaderBackground />
 
     <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 p-8">
-      <div className="w-full max-w-[280px] space-y-3">
+      <div className="flex w-full max-w-[280px] flex-col gap-3">
         <AuthPreviewCard
           label="Monthly Spending"
           trailing={
@@ -32,7 +32,6 @@ export const AuthShowcasePanel = () => (
         </AuthPreviewCard>
 
         <AuthPreviewCard
-          className="space-y-2"
           label="Emergency Fund"
           subValue="/ $12,000"
           trailing={

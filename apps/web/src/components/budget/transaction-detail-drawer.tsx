@@ -1,6 +1,8 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
+import { Button } from "@freenary/ui/components/button";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
@@ -8,7 +10,7 @@ import {
 } from "@freenary/ui/components/drawer";
 import { Separator } from "@freenary/ui/components/separator";
 import { cn } from "@freenary/ui/lib/utils";
-import { CalendarIcon, TagIcon } from "@phosphor-icons/react";
+import { CalendarIcon, TagIcon, XIcon } from "@phosphor-icons/react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { TransactionCategoryPicker } from "@/components/budget/transaction-category-picker";
@@ -49,6 +51,18 @@ export const TransactionDetailDrawer = ({
           <DrawerDescription className="sr-only">
             View and edit transaction details
           </DrawerDescription>
+          <DrawerClose
+            render={
+              <Button
+                variant="ghost"
+                className="absolute top-4 right-4"
+                size="icon-sm"
+              />
+            }
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </DrawerClose>
         </DrawerHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4 pt-0">
@@ -78,19 +92,13 @@ export const TransactionDetailDrawer = ({
 
           <Separator />
 
-          <div className="flex flex-col gap-4">
-            <TransactionDetailRow
-              icon={<CalendarIcon className="size-4" />}
-              label="Date"
-            >
+          <ul className="flex flex-col gap-2.5">
+            <TransactionDetailRow icon={<CalendarIcon />} label="Date">
               <span className="text-sm">{displayDate}</span>
             </TransactionDetailRow>
 
             {transaction.counterpartyName && transaction.description ? (
-              <TransactionDetailRow
-                icon={<TagIcon className="size-4" />}
-                label="Description"
-              >
+              <TransactionDetailRow icon={<TagIcon />} label="Description">
                 <span className="text-sm">{transaction.description}</span>
               </TransactionDetailRow>
             ) : null}
@@ -111,7 +119,7 @@ export const TransactionDetailDrawer = ({
                 onReset={() => updateCategory.mutate(null)}
               />
             </TransactionDetailRow>
-          </div>
+          </ul>
         </div>
       </DrawerContent>
     </Drawer>

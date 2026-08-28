@@ -56,7 +56,7 @@ export const OnboardingWizard = ({
     </div>
 
     <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md space-y-8">
+      <div className="flex w-full max-w-md flex-col gap-8">
         {isPending ? (
           <OnboardingWizardSkeleton />
         ) : (

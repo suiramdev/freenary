@@ -1,3 +1,11 @@
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@freenary/ui/components/card";
 import { cn } from "@freenary/ui/lib/utils";
 import type { ReactNode } from "react";
 
@@ -20,36 +28,19 @@ export const AuthPreviewCard = ({
   subValue,
   trailing,
   value,
-}: AuthPreviewCardProps) => {
-  const labelNode = (
-    <span className="text-muted-foreground text-xs">{label}</span>
-  );
-  const valueNode = <p className="text-lg font-bold tabular-nums">{value}</p>;
-
-  return (
-    <div
-      className={cn(
-        "border-border/50 bg-card/80 space-y-1 border p-3 backdrop-blur-sm",
-        className
-      )}
-    >
-      {trailing ? (
-        <div className="flex items-baseline justify-between">
-          {labelNode}
-          {trailing}
-        </div>
-      ) : (
-        labelNode
-      )}
-      {subValue ? (
-        <div className="flex items-baseline justify-between">
-          {valueNode}
-          <span className="text-muted-foreground text-xs">{subValue}</span>
-        </div>
-      ) : (
-        valueNode
-      )}
+}: AuthPreviewCardProps) => (
+  // Translucent so the animated shader behind the panel stays visible.
+  <Card className={cn("bg-card/80 backdrop-blur-sm", className)} size="sm">
+    <CardHeader>
+      <CardDescription>{label}</CardDescription>
+      {trailing ? <CardAction>{trailing}</CardAction> : null}
+    </CardHeader>
+    <CardContent className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <CardTitle className="tabular-nums">{value}</CardTitle>
+        {subValue ? <CardDescription>{subValue}</CardDescription> : null}
+      </div>
       {children}
-    </div>
-  );
-};
+    </CardContent>
+  </Card>
+);

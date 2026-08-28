@@ -24,8 +24,8 @@ export const SettingsSection = ({
 }: SettingsSectionProps) => (
   <Card>
     <CardHeader>
-      <CardTitle className="text-xs font-medium">{title}</CardTitle>
-      <CardDescription className="text-xs">{description}</CardDescription>
+      <CardTitle>{title}</CardTitle>
+      <CardDescription>{description}</CardDescription>
       {action ? <CardAction>{action}</CardAction> : null}
     </CardHeader>
     <CardContent className="flex flex-col gap-6">{children}</CardContent>

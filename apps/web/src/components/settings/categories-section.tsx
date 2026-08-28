@@ -45,7 +45,9 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
       description="Built-in categories are fixed. Your own categories can be renamed, recolored, nested under a built-in one, reordered or removed."
       title="Categories"
     >
-      <div className="flex flex-col">
+      {/* Flush: each row's bottom border is the divider. A real list rather
+          than ItemGroup, whose `div[role=list]` cannot hold `<li>` rows. */}
+      <ul className="flex flex-col">
         {categories.map((entry) => (
           <CategoryRow
             entry={entry}
@@ -62,7 +64,7 @@ export const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
             onMove={moveCategory}
           />
         ))}
-      </div>
+      </ul>
 
       <CustomCategoryDrawer
         edited={drawer === "new" ? null : drawer}

@@ -72,7 +72,7 @@ export const TransactionRows = ({
 
   if (transactions.length === 0 && !isLoading) {
     return (
-      <Empty className="border-none py-8">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <ReceiptIcon />

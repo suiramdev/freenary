@@ -1,3 +1,9 @@
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+} from "@freenary/ui/components/item";
 import type { ReactNode } from "react";
 
 /** One label/value line in the transaction sheet: `media` replaces the muted `icon` slot. */
@@ -12,15 +18,18 @@ export const TransactionDetailRow = ({
   label: string;
   children: ReactNode;
 }) => (
-  <div className="flex items-center gap-3">
-    {media ?? (
-      <div className="text-muted-foreground flex size-8 items-center justify-center">
+  // Flush with the drawer body, which already carries the horizontal padding.
+  <Item className="px-0" render={<li />} size="sm">
+    {media ? (
+      <ItemMedia>{media}</ItemMedia>
+    ) : (
+      <ItemMedia className="text-muted-foreground size-8" variant="icon">
         {icon}
-      </div>
+      </ItemMedia>
     )}
-    <div className="flex flex-1 flex-col">
-      <span className="text-muted-foreground text-[11px]">{label}</span>
+    <ItemContent>
+      <ItemDescription>{label}</ItemDescription>
       {children}
-    </div>
-  </div>
+    </ItemContent>
+  </Item>
 );

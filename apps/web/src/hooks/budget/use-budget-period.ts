@@ -22,7 +22,9 @@ export const useBudgetPeriod = (dateBounds?: {
   // Once we know the last transaction date, snap the anchor to it (once).
   const snapped = useRef(false);
   useEffect(() => {
-    if (snapped.current || !dateBounds?.last) {return;}
+    if (snapped.current || !dateBounds?.last) {
+      return;
+    }
     snapped.current = true;
     setAnchor({
       month: dateBounds.last.getMonth(),

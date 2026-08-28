@@ -1,5 +1,9 @@
-import { Input } from "@freenary/ui/components/input";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@freenary/ui/components/input-group";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 
 interface OnboardingSearchInputProps {
   onChange: (value: string) => void;
@@ -12,14 +16,17 @@ export const OnboardingSearchInput = ({
   placeholder,
   value,
 }: OnboardingSearchInputProps) => (
-  <div className="relative">
-    <MagnifyingGlass className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-    <Input
-      className="bg-background pl-8"
+  // Opaque: the wizard sits on the animated shader, which shows through the
+  // control's default translucent fill.
+  <InputGroup className="bg-background">
+    <InputGroupAddon>
+      <MagnifyingGlassIcon />
+    </InputGroupAddon>
+    <InputGroupInput
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       type="search"
       value={value}
     />
-  </div>
+  </InputGroup>
 );

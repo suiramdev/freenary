@@ -3,6 +3,7 @@ import { Button } from "@freenary/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -22,6 +23,10 @@ interface CategoryPickerProps {
   value: string;
 }
 
+/**
+ * A menu rather than a select: the list mixes the category values with a
+ * "create one" command, which a `Select` cannot carry.
+ */
 export const CategoryPicker = ({
   categories,
   onCreateRequest,
@@ -35,14 +40,14 @@ export const CategoryPicker = ({
       <DropdownMenuTrigger
         render={
           <Button
-            variant="outline"
+            className="w-40 shrink-0 justify-between"
             size="sm"
-            className="w-40 shrink-0 justify-between gap-1.5 font-normal"
+            variant="outline"
           />
         }
       >
         <span className="truncate">{selected?.label ?? "Pick a category"}</span>
-        <CaretUpDownIcon className="text-muted-foreground size-3" />
+        <CaretUpDownIcon data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
         <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
@@ -62,10 +67,12 @@ export const CategoryPicker = ({
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onCreateRequest}>
-          <PlusIcon data-icon="inline-start" />
-          New category…
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={onCreateRequest}>
+            <PlusIcon data-icon="inline-start" />
+            New category…
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

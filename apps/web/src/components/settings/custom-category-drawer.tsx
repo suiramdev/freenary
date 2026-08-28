@@ -2,11 +2,6 @@ import {
   CATEGORY_COLOR_VALUES,
   CATEGORY_ICON_NAMES,
 } from "@freenary/api/lib/categories";
-import {
-  CATEGORY_LABELS,
-  SPENDING_CATEGORIES,
-} from "@freenary/api/lib/mcc-categories";
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import { Button } from "@freenary/ui/components/button";
 import {
   Drawer,
@@ -16,26 +11,32 @@ import {
   DrawerTitle,
 } from "@freenary/ui/components/drawer";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
-import { Label } from "@freenary/ui/components/label";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@freenary/ui/components/toggle-group";
 import { cn } from "@freenary/ui/lib/utils";
-import { CaretUpDownIcon, CheckIcon } from "@phosphor-icons/react";
+import { CheckIcon } from "@phosphor-icons/react";
 import { useEffect } from "react";
 
 import {
   CategoryIcon,
   SWATCH_BY_COLOR,
 } from "@/components/budget/category-icon";
+import { SpendingCategorySelect } from "@/components/budget/spending-category-select";
 import { useCustomCategoryForm } from "@/hooks/settings/use-custom-category-form";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
 
-const NO_PARENT = "none";
+/** The swatch and the glyph cover the toggle's pressed background, so add a ring. */
+const SELECTED_RING = "aria-pressed:ring-2 aria-pressed:ring-ring";
 
 interface CustomCategoryDrawerProps {
   edited: EditedCustomCategory | null;
@@ -75,158 +76,143 @@ export const CustomCategoryDrawer = ({
         </DrawerHeader>
 
         <form
-          className="flex flex-col gap-5 overflow-y-auto p-4 pt-0"
+          className="overflow-y-auto p-4 pt-0"
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
             form.handleSubmit();
           }}
         >
-          <form.Field name="label">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="custom-category-label">Name</Label>
-                <Input
-                  id="custom-category-label"
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="Life insurance"
-                  value={field.state.value}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p className="text-destructive text-xs" key={error?.message}>
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
+          <FieldGroup>
+            <form.Field name="label">
+              {(field) => (
+                <Field data-invalid={field.state.meta.errors.length > 0}>
+                  <FieldLabel htmlFor="custom-category-label">Name</FieldLabel>
+                  <Input
+                    aria-invalid={field.state.meta.errors.length > 0}
+                    id="custom-category-label"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="Life insurance"
+                    value={field.state.value}
+                  />
+                  <FieldError errors={field.state.meta.errors} />
+                </Field>
+              )}
+            </form.Field>
 
-          <form.Field name="color">
-            {(field) => (
-              <div className="space-y-2">
-                <span className="text-sm font-medium">Color</span>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORY_COLOR_VALUES.map((color) => (
-                    <button
-                      aria-label={color}
-                      aria-pressed={field.state.value === color}
-                      className={cn(
-                        "ring-offset-background flex size-7 items-center justify-center rounded-full ring-offset-2",
-                        SWATCH_BY_COLOR[color],
-                        field.state.value === color && "ring-ring ring-2"
-                      )}
-                      key={color}
-                      onClick={() => field.handleChange(color)}
-                      type="button"
-                    >
-                      {field.state.value === color ? (
-                        <CheckIcon className="size-3.5" />
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="icon">
-            {(field) => (
-              <div className="space-y-2">
-                <span className="text-sm font-medium">Icon</span>
-                <form.Subscribe selector={(state) => state.values.color}>
-                  {(color) => (
-                    <div className="grid grid-cols-9 gap-2">
-                      {CATEGORY_ICON_NAMES.map((icon) => (
-                        <button
-                          aria-label={icon}
-                          aria-pressed={field.state.value === icon}
-                          className={cn(
-                            "ring-offset-background rounded-full ring-offset-2",
-                            field.state.value === icon && "ring-ring ring-2"
-                          )}
-                          key={icon}
-                          onClick={() => field.handleChange(icon)}
-                          type="button"
-                        >
-                          <CategoryIcon
-                            className="size-7 [&_svg]:size-4"
-                            color={color}
-                            icon={icon}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </form.Subscribe>
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="parentSlug">
-            {(field) => (
-              <div className="space-y-2">
-                <span className="text-sm font-medium">Nested under</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        className="w-full justify-between gap-1.5 font-normal"
-                        size="sm"
-                        variant="outline"
-                      />
-                    }
-                  >
-                    <span>
-                      {field.state.value
-                        ? CATEGORY_LABELS[field.state.value]
-                        : "No parent"}
-                    </span>
-                    <CaretUpDownIcon className="text-muted-foreground size-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="max-h-72 overflow-y-auto"
-                  >
-                    <DropdownMenuRadioGroup
-                      onValueChange={(value) =>
-                        field.handleChange(
-                          value === NO_PARENT
-                            ? null
-                            : (SPENDING_CATEGORIES.find(
-                                (slug: SpendingCategory) => slug === value
-                              ) ?? null)
-                        )
+            <form.Field name="color">
+              {(field) => (
+                <FieldSet>
+                  <FieldLegend variant="label">Color</FieldLegend>
+                  <ToggleGroup
+                    className="flex-wrap"
+                    value={[field.state.value]}
+                    onValueChange={([next]) => {
+                      const color = CATEGORY_COLOR_VALUES.find(
+                        (value) => value === next
+                      );
+                      if (color) {
+                        field.handleChange(color);
                       }
-                      value={field.state.value ?? NO_PARENT}
-                    >
-                      <DropdownMenuRadioItem value={NO_PARENT}>
-                        No parent
-                      </DropdownMenuRadioItem>
-                      {SPENDING_CATEGORIES.map((slug) => (
-                        <DropdownMenuRadioItem key={slug} value={slug}>
-                          {CATEGORY_LABELS[slug]}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
-          </form.Field>
+                    }}
+                  >
+                    {CATEGORY_COLOR_VALUES.map((color) => (
+                      <ToggleGroupItem
+                        key={color}
+                        aria-label={color}
+                        className={cn("size-8 rounded-full p-0", SELECTED_RING)}
+                        value={color}
+                      >
+                        <span
+                          className={cn(
+                            "flex size-full items-center justify-center rounded-full",
+                            SWATCH_BY_COLOR[color]
+                          )}
+                        >
+                          {field.state.value === color ? <CheckIcon /> : null}
+                        </span>
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </FieldSet>
+              )}
+            </form.Field>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="ghost"
-            >
-              Cancel
-            </Button>
-            <Button disabled={isSaving} type="submit">
-              {edited ? "Save changes" : "Create category"}
-            </Button>
-          </div>
+            <form.Field name="icon">
+              {(field) => (
+                <FieldSet>
+                  <FieldLegend variant="label">Icon</FieldLegend>
+                  <form.Subscribe selector={(state) => state.values.color}>
+                    {(color) => (
+                      // Past ToggleGroup's usual 2–7 options, but a grid of
+                      // glyphs reads faster here than any list control.
+                      <ToggleGroup
+                        className="grid grid-cols-9"
+                        value={[field.state.value]}
+                        onValueChange={([next]) => {
+                          const name = CATEGORY_ICON_NAMES.find(
+                            (value) => value === next
+                          );
+                          if (name) {
+                            field.handleChange(name);
+                          }
+                        }}
+                      >
+                        {CATEGORY_ICON_NAMES.map((icon) => (
+                          <ToggleGroupItem
+                            key={icon}
+                            aria-label={icon}
+                            className={cn(
+                              "size-8 rounded-full p-0",
+                              SELECTED_RING
+                            )}
+                            value={icon}
+                          >
+                            <CategoryIcon
+                              className="size-7 [&_svg]:size-4"
+                              color={color}
+                              icon={icon}
+                            />
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    )}
+                  </form.Subscribe>
+                </FieldSet>
+              )}
+            </form.Field>
+
+            <form.Field name="parentSlug">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="custom-category-parent">
+                    Nested under
+                  </FieldLabel>
+                  <SpendingCategorySelect
+                    allowNone
+                    id="custom-category-parent"
+                    noneLabel="No parent"
+                    onValueChange={(v) => field.handleChange(v)}
+                    value={field.state.value}
+                  />
+                </Field>
+              )}
+            </form.Field>
+
+            <Field orientation="horizontal" className="justify-end">
+              <Button
+                onClick={() => onOpenChange(false)}
+                type="button"
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button disabled={isSaving} type="submit">
+                {edited ? "Save changes" : "Create category"}
+              </Button>
+            </Field>
+          </FieldGroup>
         </form>
       </DrawerContent>
     </Drawer>

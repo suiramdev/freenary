@@ -60,13 +60,17 @@ export const SpendingBreakdownChart = ({
 
   const handleSelectionChange = useCallback(
     (key: string | null) => {
-      if (!onCategoryClick) {return;}
+      if (!onCategoryClick) {
+        return;
+      }
       if (!key) {
         onCategoryClick(null);
         return;
       }
       const entry = data.find((d) => d.label === key);
-      if (entry) {onCategoryClick(entry.category);}
+      if (entry) {
+        onCategoryClick(entry.category);
+      }
     },
     [data, onCategoryClick]
   );
@@ -74,7 +78,9 @@ export const SpendingBreakdownChart = ({
   const handleLegendClick = useCallback(
     (name: string) => {
       const entry = data.find((d) => d.label === name);
-      if (entry && onCategoryClick) {onCategoryClick(entry.category);}
+      if (entry && onCategoryClick) {
+        onCategoryClick(entry.category);
+      }
     },
     [data, onCategoryClick]
   );
@@ -82,7 +88,7 @@ export const SpendingBreakdownChart = ({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-xs font-medium">
+        <CardTitle>
           Spending Breakdown
           {aggregation !== "total" && (
             <span className="text-muted-foreground font-normal">

@@ -1,5 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
-import { ArrowLeft, SpinnerGapIcon } from "@phosphor-icons/react";
+import { Spinner } from "@freenary/ui/components/spinner";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -77,7 +78,7 @@ export const BankConnectionStep = ({
     connected.size > 0 ? `Finish (${connected.size})` : "Finish";
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <OnboardingStepHeader
         description="Connect your bank accounts to import transactions and balances. You can always do this later."
         title="Connect your bank"
@@ -100,7 +101,7 @@ export const BankConnectionStep = ({
       />
       <div className="flex items-center justify-between gap-3">
         <Button onClick={onBack} type="button" variant="ghost">
-          <ArrowLeft className="size-4" />
+          <ArrowLeftIcon data-icon="inline-start" />
           Back
         </Button>
         <div className="flex items-center gap-2">
@@ -108,11 +109,8 @@ export const BankConnectionStep = ({
             Skip for now
           </Button>
           <Button disabled={isCompleting} onClick={onFinish} type="button">
-            {isCompleting ? (
-              <SpinnerGapIcon className="size-3.5 animate-spin" />
-            ) : (
-              finishLabel
-            )}
+            {isCompleting && <Spinner data-icon="inline-start" />}
+            {finishLabel}
           </Button>
         </div>
       </div>

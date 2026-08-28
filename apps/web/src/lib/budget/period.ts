@@ -44,8 +44,12 @@ export const formatPeriodLabel = (
   to: Date,
   range: TimeRange
 ): string => {
-  if (range === "1M") {return formatMonthYear(from);}
-  if (range === "1Y") {return String(from.getFullYear());}
+  if (range === "1M") {
+    return formatMonthYear(from);
+  }
+  if (range === "1Y") {
+    return String(from.getFullYear());
+  }
 
   const opts: Intl.DateTimeFormatOptions = { month: "short" };
   const fromMonth = from.toLocaleDateString(undefined, opts);

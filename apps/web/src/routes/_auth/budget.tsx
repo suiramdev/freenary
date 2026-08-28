@@ -106,8 +106,12 @@ const BudgetPage = () => {
   const handleCategoryClick = useCallback(
     (category: SpendingCategory | null) => {
       setCategories((prev) => {
-        if (category === null) {return [];}
-        if (prev.length === 1 && prev[0] === category) {return [];}
+        if (category === null) {
+          return [];
+        }
+        if (prev.length === 1 && prev[0] === category) {
+          return [];
+        }
         return [category];
       });
     },

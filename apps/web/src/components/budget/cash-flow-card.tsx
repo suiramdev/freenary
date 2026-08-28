@@ -53,10 +53,14 @@ export const CashFlowCard = ({
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
-      if (!onCategoryClick || !nodeId.startsWith("expense:")) {return;}
+      if (!onCategoryClick || !nodeId.startsWith("expense:")) {
+        return;
+      }
       const label = nodeId.slice("expense:".length);
       const category = LABEL_TO_CATEGORY[label];
-      if (category) {onCategoryClick(category);}
+      if (category) {
+        onCategoryClick(category);
+      }
     },
     [onCategoryClick]
   );
@@ -68,7 +72,7 @@ export const CashFlowCard = ({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-xs font-medium">
+        <CardTitle>
           Cash Flow
           {aggregation !== "total" && (
             <span className="text-muted-foreground font-normal">

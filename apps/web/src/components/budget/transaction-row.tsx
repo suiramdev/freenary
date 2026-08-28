@@ -1,4 +1,11 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@freenary/ui/components/item";
 import { cn } from "@freenary/ui/lib/utils";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -19,37 +26,53 @@ export const TransactionRow = ({
   offset: number;
   measureRef: (node: Element | null) => void;
   onClick: () => void;
-}) => (
-  <button
-    type="button"
-    data-index={index}
-    ref={measureRef}
-    className="border-border hover:bg-muted/50 absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b px-1 py-3 text-left transition-colors duration-150"
-    style={{ transform: `translateY(${offset}px)` }}
-    onClick={onClick}
-  >
-    <CategoryIcon
-      {...predefinedCategoryAppearance(transaction.category)}
-      className="size-8 [&_svg]:size-4"
-    />
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="truncate text-xs font-medium">
-        {transaction.counterpartyName ?? transaction.description}
-      </span>
-      {transaction.counterpartyName && transaction.description ? (
-        <span className="text-muted-foreground truncate text-[10px]">
-          {transaction.description}
-        </span>
-      ) : null}
-    </div>
-    <span
-      className={cn(
-        "shrink-0 text-xs font-medium tabular-nums",
-        isIncoming ? "text-success" : "text-destructive"
-      )}
+}) => {
+  const amount = formatCurrency(
+    Math.abs(transaction.amount),
+    transaction.currency
+  );
+  const title = transaction.counterpartyName ?? transaction.description;
+
+  return (
+    <Item
+      className="hover:bg-muted/50 border-b-border absolute inset-x-0 cursor-pointer text-left"
+      data-index={index}
+      ref={measureRef}
+      render={
+        <button
+          aria-label={`${title}, ${isIncoming ? "received" : "paid"} ${amount}`}
+          type="button"
+        />
+      }
+      size="sm"
+      style={{ transform: `translateY(${offset}px)` }}
+      onClick={onClick}
     >
-      {isIncoming ? "+" : "−"}
-      {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
-    </span>
-  </button>
-);
+      <ItemMedia>
+        <CategoryIcon
+          {...predefinedCategoryAppearance(transaction.category)}
+          className="size-8 [&_svg]:size-4"
+        />
+      </ItemMedia>
+      <ItemContent className="min-w-0">
+        {/* ItemTitle's own `flex` beats its `line-clamp-1`, so truncation has
+            to be re-stated on a block box. */}
+        <ItemTitle className="block w-full truncate">{title}</ItemTitle>
+        {transaction.counterpartyName && transaction.description ? (
+          <ItemDescription className="block truncate">
+            {transaction.description}
+          </ItemDescription>
+        ) : null}
+      </ItemContent>
+      <ItemContent
+        className={cn(
+          "font-medium tabular-nums",
+          isIncoming ? "text-success" : "text-destructive"
+        )}
+      >
+        {isIncoming ? "+" : "−"}
+        {amount}
+      </ItemContent>
+    </Item>
+  );
+};

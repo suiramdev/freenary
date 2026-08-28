@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@freenary/ui/lib/utils";
 import * as React from "react";
 

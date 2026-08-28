@@ -1,5 +1,6 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
+import { Field, FieldError } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
 import {
   InputGroup,
@@ -43,9 +44,10 @@ export const BudgetLineRow = ({
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <Field data-invalid={Boolean(error)}>
       <div className="flex items-center gap-2">
         <Input
+          aria-invalid={Boolean(error)}
           aria-label="Name"
           className="min-w-0 flex-1"
           onChange={(event) => onUpdate(line.id, { label: event.target.value })}
@@ -74,17 +76,16 @@ export const BudgetLineRow = ({
         />
 
         <Button
-          className="text-muted-foreground"
           onClick={() => onRemove(line.id)}
           size="icon-xs"
           variant="ghost"
         >
-          <TrashIcon className="size-3" />
+          <TrashIcon />
           <span className="sr-only">Remove {line.label || "line"}</span>
         </Button>
       </div>
 
-      {error ? <p className="text-destructive text-xs">{error}</p> : null}
-    </div>
+      <FieldError>{error}</FieldError>
+    </Field>
   );
 };
