@@ -291,7 +291,9 @@ const fetchCuratedFromWikidata = async (
   ?item rdfs:label ?searchLabel .
   OPTIONAL { ?item wdt:P856 ?website }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
-} LIMIT 50`;
+}
+ORDER BY ?item ?website
+LIMIT ${batch.length * 50}`;
 
     const batchNum = Math.floor(i / CURATED_WIKIDATA_BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(names.length / CURATED_WIKIDATA_BATCH_SIZE);

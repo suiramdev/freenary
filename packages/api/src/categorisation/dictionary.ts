@@ -35,6 +35,7 @@ const countryDataPath = (country: string): string =>
 
 let dictionary: Map<string, DictionaryEntry> | null = null;
 let loadingPromise: Promise<void> | null = null;
+let refCount = 0;
 
 const buildDictionaryFromFile = async (
   filePath: string,
@@ -47,9 +48,14 @@ const buildDictionaryFromFile = async (
     return target;
   }
 
-  // Verify signature if configured
-  const sigPath = `${filePath}.sig`;
-  if (existsSync(sigPath) && isVerificationConfigured()) {
+  if (isVerificationConfigured()) {
+    const sigPath = `${filePath}.sig`;
+    if (!existsSync(sigPath)) {
+      console.warn(
+        `[categorisation] Dictionary signature missing: ${filePath} — refusing to load`
+      );
+      return target;
+    }
     const content = readFileSync(filePath);
     const sig = readFileSync(sigPath);
     if (!verifySignature(content, sig)) {
@@ -91,7 +97,7 @@ const buildDictionaryFromFile = async (
       target.set(merchant.normalisedName, entry);
 
       for (const { normalisedAlias } of merchant.aliases) {
-        if (normalisedAlias) {
+        if (normalisedAlias && !target.has(normalisedAlias)) {
           target.set(normalisedAlias, entry);
         }
       }
@@ -119,9 +125,9 @@ const ensureLoaded = async (): Promise<void> => {
 };
 
 const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
-  // Reset to rebuild with country-specific data
-  dictionary = null;
-  loadingPromise = null;
+  if (dictionary) {
+    return;
+  }
 
   const map = new Map<string, DictionaryEntry>();
   let anyCountryFileFound = false;
@@ -144,6 +150,10 @@ const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
 
 /** Eagerly load the dictionary into memory. Call once at batch start. */
 export const loadDictionary = async (countries?: string[]): Promise<void> => {
+  refCount++;
+  if (refCount > 1 && dictionary) {
+    return;
+  }
   try {
     if (countries && countries.length > 0) {
       await ensureLoadedForCountries(countries);
@@ -172,6 +182,9 @@ export const lookupDictionary = async (
 
 /** Release the dictionary from memory. Call after batch completes. */
 export const unloadDictionary = (): void => {
-  dictionary = null;
-  loadingPromise = null;
+  refCount = Math.max(0, refCount - 1);
+  if (refCount === 0) {
+    dictionary = null;
+    loadingPromise = null;
+  }
 };

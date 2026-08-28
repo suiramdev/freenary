@@ -78,7 +78,7 @@ export const INTERMEDIARY_CATALOGUE = {
   tfl: {
     carriesSubmerchant: true,
     id: "tfl",
-    markers: ["tml"],
+    markers: ["tfl"],
     name: "Transport for London",
   },
   worldline: {

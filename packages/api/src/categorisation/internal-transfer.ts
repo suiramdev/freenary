@@ -56,6 +56,7 @@ const matchInternal = async (userId: string): Promise<number> => {
     select: {
       accountId: true,
       amount: true,
+      currency: true,
       date: true,
       id: true,
     },
@@ -104,6 +105,10 @@ const matchInternal = async (userId: string): Promise<number> => {
       }
       // Must be on a different account
       if (candidate.accountId === tx.accountId) {
+        continue;
+      }
+
+      if (candidate.currency !== tx.currency) {
         continue;
       }
 

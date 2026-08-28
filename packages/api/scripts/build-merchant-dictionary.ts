@@ -24,7 +24,8 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -125,21 +126,29 @@ const extractFromTarball = async (
   tarballBytes: ArrayBuffer,
   memberGlob: string
 ): Promise<string> => {
-  const proc = Bun.spawn(["tar", "-xzO", "--include", memberGlob], {
-    stderr: "pipe",
-    stdin: new Uint8Array(tarballBytes),
-    stdout: "pipe",
-  });
-
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
-    throw new Error(
-      `tar extraction of ${memberGlob} failed (exit ${exitCode}): ${stderr}`
-    );
+  const tmpDir = await mkdtemp(path.join(tmpdir(), "nsi-"));
+  try {
+    const tarPath = path.join(tmpDir, "archive.tgz");
+    await Bun.write(tarPath, tarballBytes);
+    const proc = Bun.spawn(["tar", "-xzf", tarPath, "-C", tmpDir], {
+      stderr: "pipe",
+    });
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      const stderr = await new Response(proc.stderr).text();
+      throw new Error(
+        `tar extraction of ${memberGlob} failed (exit ${exitCode}): ${stderr}`
+      );
+    }
+    const glob = new Bun.Glob(memberGlob);
+    const [firstMatch] = [...glob.scanSync({ cwd: tmpDir })];
+    if (!firstMatch) {
+      throw new Error(`No files matching ${memberGlob} in tarball`);
+    }
+    return await readFile(path.join(tmpDir, firstMatch), "utf-8");
+  } finally {
+    await rm(tmpDir, { force: true, recursive: true }).catch(() => {});
   }
-  return stdout;
 };
 
 // ---------------------------------------------------------------------------
@@ -645,7 +654,7 @@ const enrichWithSirene = async (
 
     try {
       const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(merchant.name)}&page=1&per_page=1`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
       if (!res.ok) {
         continue;
@@ -653,9 +662,22 @@ const enrichWithSirene = async (
 
       // SAFETY: the API returns a known JSON shape documented by api.gouv.fr
       const data = (await res.json()) as SireneResponse;
+      const firstResult = data.results?.[0];
+      if (!firstResult) {
+        continue;
+      }
+
+      const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
+      const merchantNameLower = merchant.name.toLowerCase().trim();
+      if (
+        !resultName.includes(merchantNameLower) &&
+        !merchantNameLower.includes(resultName)
+      ) {
+        continue;
+      }
+
       const nafCode =
-        data.results?.[0]?.matching_etablissements?.[0]?.activite_principale ??
-        null;
+        firstResult.matching_etablissements?.[0]?.activite_principale ?? null;
 
       if (nafCode === null) {
         continue;
@@ -975,18 +997,29 @@ const run = async (): Promise<void> => {
   try {
     await main();
   } catch (error) {
-    // Graceful degradation: keep existing artifact when remote is unavailable.
-    const exists = await access(OUTPUT_PATH)
-      .then(() => true)
-      .catch(() => false);
-    if (exists) {
-      console.warn(
-        `⚠ Merchant dictionary build failed — keeping existing merchants.jsonl.gz. Error: ${error instanceof Error ? error.message : error}`
-      );
-    } else {
-      console.error("Build failed:", error);
-      process.exit(1);
+    const isTransient =
+      error instanceof TypeError ||
+      (error instanceof Error &&
+        (error.message.includes("fetch") ||
+          error.message.includes("ECONNREFUSED") ||
+          error.message.includes("ETIMEDOUT") ||
+          error.message.includes("ENOTFOUND") ||
+          error.message.includes("AbortError") ||
+          error.message.includes("network")));
+
+    if (isTransient) {
+      const exists = await access(OUTPUT_PATH)
+        .then(() => true)
+        .catch(() => false);
+      if (exists) {
+        console.warn(
+          `⚠ Merchant dictionary build failed (transient) — keeping existing merchants.jsonl.gz. Error: ${error instanceof Error ? error.message : error}`
+        );
+        return;
+      }
     }
+    console.error("Build failed:", error);
+    process.exit(1);
   }
 };
 

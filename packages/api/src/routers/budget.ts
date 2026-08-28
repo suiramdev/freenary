@@ -10,7 +10,6 @@ import { categoriseBatch } from "../categorisation/resolve";
 import type { CategoriseInput, TransactionPath } from "../categorisation/types";
 import {
   deleteUserOverride,
-  lookupUserOverride,
   upsertUserOverride,
 } from "../categorisation/user-override";
 import { protectedProcedure } from "../index";
@@ -243,6 +242,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
           },
         },
       },
+      amount: true,
       channel: true,
       creditorAccountIban: true,
       id: true,
@@ -277,7 +277,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
 
     inputs.push({
       allowCloudInference: false,
-      amountMinor: 0,
+      amountMinor: tx.amount,
       // SAFETY: channel column stores validated TransactionChannel values or null
       channel: (tx.channel ?? "unknown") as TransactionChannel,
       country: tx.account.connection.institutionCountry,
@@ -333,38 +333,6 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
       updated += 1;
     } catch {
       // Swallow individual update failures
-    }
-  }
-
-  // Write-back: auto-resolved dictionary hits feed forward as overrides
-  // so subsequent runs find them at step 2 (user-override lookup).
-  for (let i = 0; i < inputs.length; i += 1) {
-    const input = inputs[i];
-    const result = results[i];
-    if (!input || !result) {
-      continue;
-    }
-    if (result.stage !== "dictionary" || !result.category) {
-      continue;
-    }
-    try {
-      // Only write if the user hasn't already set an override for this key
-      // eslint-disable-next-line no-await-in-loop
-      const existing = await lookupUserOverride(
-        input.userId,
-        input.merchantKey
-      );
-      if (!existing) {
-        // eslint-disable-next-line no-await-in-loop
-        await upsertUserOverride(
-          input.userId,
-          input.merchantKey,
-          result.category,
-          result.merchantName
-        );
-      }
-    } catch {
-      // Swallow — feed-forward is best-effort
     }
   }
 
@@ -753,47 +721,48 @@ export const budgetRouter = {
    * Sync raw transaction data from banking providers, then run
    * internal transfer matching and batch categorisation.
    */
-  syncAccounts: protectedProcedure
-    .input(
-      z
-        .object({
-          allowExternalCategorisation: z.boolean().default(false),
-        })
-        .optional()
-    )
-    .handler(async ({ context }) => {
-      const userId = context.session.user.id;
-      const errors: string[] = [];
+  syncAccounts: protectedProcedure.handler(async ({ context }) => {
+    const userId = context.session.user.id;
+    const errors: string[] = [];
 
-      const connections = await prisma.bankConnection.findMany({
-        include: { accounts: true },
-        where: { status: "ACTIVE", userId },
-      });
+    const connections = await prisma.bankConnection.findMany({
+      include: { accounts: true },
+      where: { status: "ACTIVE", userId },
+    });
 
-      // Step 1: Sync raw transactions from all connections
-      for (const connection of connections) {
-        // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
-        await syncConnection(
-          connection,
-          errors,
-          connection.institutionName,
-          connection.institutionCountry ?? null,
-          connection.institutionBic ?? null,
-          connection.institutionGroup ?? null
-        );
-      }
+    // Step 1: Sync raw transactions from all connections
+    for (const connection of connections) {
+      // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
+      await syncConnection(
+        connection,
+        errors,
+        connection.institutionName,
+        connection.institutionCountry ?? null,
+        connection.institutionBic ?? null,
+        connection.institutionGroup ?? null
+      );
+    }
 
-      // Step 2: Internal transfer matching (separate pass after sync)
-      await matchInternalTransfers(userId);
+    // Step 2: Internal transfer matching (separate pass after sync)
+    await matchInternalTransfers(userId);
 
-      // Step 3: Batch categorisation of uncategorised transactions
+    // Step 3: Batch categorisation of uncategorised transactions
+    let categorisationWarning: string | undefined;
+    try {
       await categoriseUncategorised(userId);
+    } catch (error) {
+      categorisationWarning =
+        error instanceof Error
+          ? `Categorisation: ${error.message}`
+          : "Categorisation failed";
+    }
 
-      return {
-        error: errors.length > 0 ? errors.join("; ") : undefined,
-        success: errors.length === 0,
-      };
-    }),
+    return {
+      error: errors.length > 0 ? errors.join("; ") : undefined,
+      success: errors.length === 0,
+      warning: categorisationWarning,
+    };
+  }),
 
   /**
    * Update a transaction's category. Writes to the user's MerchantOverride

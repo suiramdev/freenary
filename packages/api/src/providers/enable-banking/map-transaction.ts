@@ -66,7 +66,6 @@ const deriveFingerprint = (tx: EBTransaction): string => {
     referenceNumber: tx.reference_number,
     referenceNumberSchema: tx.reference_number_schema,
     remittanceInformation: tx.remittance_information?.toSorted(),
-    status: tx.status,
     transactionAmount: tx.transaction_amount?.amount,
     transactionCurrency: tx.transaction_amount?.currency,
     transactionDate: tx.transaction_date,

@@ -10,6 +10,7 @@ import {
   encodeBankConnectionState,
   findInstitution,
   parseBankConnectionState,
+  verifyBankConnectionState,
 } from "./bank-connection-state";
 
 export const onboardingRouter = {
@@ -88,6 +89,18 @@ export const bankConnectionRouter = {
           message: "Invalid banking provider in connection state",
         });
       }
+      const userId = context.session.user.id;
+      if (
+        !verifyBankConnectionState(
+          connectionState,
+          userId,
+          env.BETTER_AUTH_SECRET
+        )
+      ) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Bank connection state does not belong to this session",
+        });
+      }
 
       const institutions = await provider.listInstitutions(
         connectionState.institution.country
@@ -106,8 +119,6 @@ export const bankConnectionRouter = {
       const result = await provider.completeConnection(input.code);
       const providerInstitutionName = result.institutionName.trim();
       const bankName = providerInstitutionName || institution.name;
-
-      const userId = context.session.user.id;
 
       const connection = await prisma.bankConnection.create({
         data: {
@@ -151,7 +162,7 @@ export const bankConnectionRouter = {
         state: z.string().optional(),
       })
     )
-    .handler(async ({ input }) => {
+    .handler(async ({ context, input }) => {
       const provider = getDefaultProvider();
       const institutions = await provider.listInstitutions(input.bankCountry);
       const institution = findInstitution(
@@ -169,6 +180,8 @@ export const bankConnectionRouter = {
       const encodedState = encodeBankConnectionState(
         provider.id,
         institution,
+        context.session.user.id,
+        env.BETTER_AUTH_SECRET,
         input.state
       );
       const result = await provider.startConnection({

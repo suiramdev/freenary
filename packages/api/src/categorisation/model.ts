@@ -34,6 +34,7 @@ const CONFIDENCE_THRESHOLD = 0.5;
 let loadedCategories: string[] | null = null;
 let loadedWeights: Float64Array[] | null = null;
 let loadedDimension = 0;
+let modelRefCount = 0;
 
 // ---------------------------------------------------------------------------
 // Math helpers
@@ -115,6 +116,10 @@ const deserialiseWeights = (
  * Call at batch start.
  */
 export const loadModel = async (): Promise<void> => {
+  modelRefCount++;
+  if (modelRefCount > 1 && loadedWeights) {
+    return;
+  }
   try {
     const raw = await readFile(WEIGHTS_PATH, "utf-8");
     // SAFETY: the JSON file is produced by train-model.ts with a known schema
@@ -143,9 +148,12 @@ export const loadModel = async (): Promise<void> => {
  * Release model memory. Call after batch completes.
  */
 export const unloadModel = (): void => {
-  loadedCategories = null;
-  loadedWeights = null;
-  loadedDimension = 0;
+  modelRefCount = Math.max(0, modelRefCount - 1);
+  if (modelRefCount === 0) {
+    loadedCategories = null;
+    loadedWeights = null;
+    loadedDimension = 0;
+  }
 };
 
 /**

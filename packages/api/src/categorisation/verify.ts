@@ -1,32 +1,32 @@
 import { verify } from "node:crypto";
 
 /**
- * Ed25519 public key for dictionary signature verification.
- * Replace this placeholder after running: bun run generate:key
+ * Read the Ed25519 public key from the environment.
+ * Returns null when the variable is absent or blank.
  */
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
------END PUBLIC KEY-----`;
+const getPublicKey = (): string | null => {
+  const key = process.env.DICTIONARY_PUBLIC_KEY;
+  return key && key.trim().length > 0 ? key.trim() : null;
+};
 
-/** Whether signature verification is configured (non-placeholder key). */
-export const isVerificationConfigured = (): boolean =>
-  !PUBLIC_KEY.includes("AAAAAAAAAA");
+/** Whether signature verification is configured (env var set). */
+export const isVerificationConfigured = (): boolean => getPublicKey() !== null;
 
 /**
  * Verify an Ed25519 signature over file contents.
  * Returns true when valid, false when invalid.
- * When no real public key is configured, returns true (allows unsigned
- * dictionaries during development).
+ * Fails closed: returns false when no key is configured.
  */
 export const verifySignature = (
   content: Buffer,
   signature: Buffer
 ): boolean => {
-  if (!isVerificationConfigured()) {
-    return true;
+  const publicKey = getPublicKey();
+  if (!publicKey) {
+    return false;
   }
   try {
-    return verify(null, content, PUBLIC_KEY, signature);
+    return verify(null, content, publicKey, signature);
   } catch {
     return false;
   }

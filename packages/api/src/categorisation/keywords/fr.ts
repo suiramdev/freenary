@@ -13,7 +13,7 @@ export const bankCodeKeywords: readonly [RegExp, SpendingCategory][] = [
   [/loyer|bail/u, "housing"],
   [/salaire|traitement/u, "income"],
   [/assurance|mutuelle/u, "insurance"],
-  [/impot|prelevement social/u, "taxes"],
+  [/imp[oô]t|pr[eé]l[eè]vement social/u, "taxes"],
   [/virement/u, "transfers"],
 ];
 

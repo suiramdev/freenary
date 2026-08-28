@@ -5,6 +5,7 @@ import {
   encodeBankConnectionState,
   findInstitution,
   parseBankConnectionState,
+  verifyBankConnectionState,
 } from "./bank-connection-state";
 
 const institution: ProviderInstitution = {
@@ -14,16 +15,48 @@ const institution: ProviderInstitution = {
 };
 
 describe("bank connection state", () => {
+  const userId = "user-123";
+  const secret = "test-secret-at-least-32-characters-long";
+
   test("encodes canonical institution data and preserves original state", () => {
     const state = parseBankConnectionState(
-      encodeBankConnectionState("enable-banking", institution, "csrf-state")
+      encodeBankConnectionState(
+        "enable-banking",
+        institution,
+        userId,
+        secret,
+        "csrf-state"
+      )
     );
 
-    expect(state).toEqual({
+    expect(state).toMatchObject({
       institution,
       original: "csrf-state",
       providerId: "enable-banking",
     });
+    expect(state.hmac).toBeString();
+  });
+
+  test("HMAC verifies for the same user", () => {
+    const encoded = encodeBankConnectionState(
+      "enable-banking",
+      institution,
+      userId,
+      secret
+    );
+    const state = parseBankConnectionState(encoded);
+    expect(verifyBankConnectionState(state, userId, secret)).toBe(true);
+  });
+
+  test("HMAC rejects a different user", () => {
+    const encoded = encodeBankConnectionState(
+      "enable-banking",
+      institution,
+      userId,
+      secret
+    );
+    const state = parseBankConnectionState(encoded);
+    expect(verifyBankConnectionState(state, "other-user", secret)).toBe(false);
   });
 
   test("only resolves an institution for the canonical id and country", () => {

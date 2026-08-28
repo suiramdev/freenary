@@ -1,8 +1,6 @@
+import { SUPPORTED_COUNTRIES } from '../../../supported-countries';
+import type { SupportedCountry } from '../../../supported-countries';
 import type { TransactionChannel } from "../../types";
-import {
-  SUPPORTED_COUNTRIES,
-  type SupportedCountry,
-} from "../../../supported-countries";
 import type { InstitutionDef } from "../definitions";
 import { fr } from "./fr";
 import type { CountryProfile } from "./types";

@@ -23,11 +23,11 @@ After seeding, sign in as that QA user and you have: the dev forge connected as 
 
 Two things the seed deliberately does **not** fake. It stores a model-provider key only when you supply a real one in `FREENARY_SEED_PROVIDER_API_KEY`, so seeded agents exist but are not dispatchable until a provider is connected — a placeholder key would look connected and fail at the provider. And it never invents repository metadata: every link is fetched from the forge, exactly as the link route does.
 
-Full walkthrough, including what each seeded record is for: [Local development](apps/docs/content/docs/self-hosting/local-development.mdx).
+Full walkthrough, including what each seeded record is for: [Local development](apps/fumadocs/content/docs/self-hosting/local-development.mdx).
 
 ## Documentation: Ship It With the Change
 
-[`apps/docs`](apps/docs) is the public documentation site. It is **part of the change, never a follow-up** — a PR that alters documented behavior and leaves the docs stale is incomplete, and reviewers should treat it as such.
+[`apps/fumadocs`](apps/fumadocs) is the public documentation site. It is **part of the change, never a follow-up** — a PR that alters documented behavior and leaves the docs stale is incomplete, and reviewers should treat it as such.
 
 **Update the docs when your change touches any of these:**
 
@@ -55,7 +55,7 @@ A fact lives in **exactly one** section; everywhere else links to it. Duplicated
 
 **Document what is true, not what is planned.** Read the code before writing the page, quote real names, and never describe a screen, flag, or endpoint that does not exist. If behavior is real in the API but the UI is still a stub, say exactly that in a `<Callout type="info">` and link the reader to what does work — no roadmaps, no dates, no "coming soon".
 
-**Verify it.** `bun run build` in `apps/docs` is the gate, but it is a partial one — measured, not assumed:
+**Verify it.** `bun run build` in `apps/fumadocs` is the gate, but it is a partial one — measured, not assumed:
 
 | Mistake | `bun run build` |
 | --- | --- |
@@ -64,14 +64,14 @@ A fact lives in **exactly one** section; everywhere else links to it. Duplicated
 | Frontmatter `icon` that is not a real lucide export | **Passes** — renders nothing |
 | MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing |
 
-A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/docs/AGENTS.md`](apps/docs/AGENTS.md), and the reader-facing version is [`apps/docs/content/docs/contributing/writing-docs.mdx`](apps/docs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change.
+A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`apps/fumadocs/content/docs/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change.
 
 ## Pull Request Descriptions: Complete, Then Brief
 
 - **Reviewers skim.** A description they have to scroll does not get read, so keep the whole body under ~400 words. Fill every section; pad none.
 - **Summary:** at most four sentences — what changed, and what to look at first.
 - **Motivation, Drawbacks, Prior art:** at most four short bullets each. Drawbacks and Prior art carry the honest costs and the rejected alternatives, not a sales pitch.
-- **Notes:** one line per fact — `Closes #n`, the visual change (or explicitly none), the tests added, the `apps/docs` pages updated (or explicitly none, and why), the short review summary `CONTRIBUTING.md` asks for, and any migration, breaking change, or merge-order constraint.
+- **Notes:** one line per fact — `Closes #n`, the visual change (or explicitly none), the tests added, the `apps/fumadocs` pages updated (or explicitly none, and why), the short review summary `CONTRIBUTING.md` asks for, and any migration, breaking change, or merge-order constraint.
 - Don't restate the issue, list changed files, narrate the implementation, or paste command output — reviewers open the diff and the linked issue for that.
 - Evidence a reviewer may want but need not read (verification logs, benchmark runs) belongs in a PR comment, not the description.
 - A section that needs a table or a code block is a smell: that detail belongs in the issue, the code, or a comment.

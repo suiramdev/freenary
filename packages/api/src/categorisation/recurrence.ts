@@ -52,12 +52,22 @@ const WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Frequency bands: [min days, max days, label, minimum occurrences]. */
-const FREQUENCY_BANDS: readonly (readonly [number, number, RecurringExpense["frequency"], number])[] = [
+const FREQUENCY_BANDS: readonly (readonly [
+  number,
+  number,
+  RecurringExpense["frequency"],
+  number,
+])[] = [
   [5, 9, "weekly", 4],
   [25, 35, "monthly", 3],
   [80, 100, "quarterly", 2],
   [340, 395, "annual", 2],
 ] as const;
+
+/** Guard constants for the `"irregular"` fallback. */
+const IRREGULAR_MIN_OCCURRENCES = 4;
+const IRREGULAR_MIN_DAYS = 10;
+const IRREGULAR_MAX_DAYS = 400;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -110,6 +120,14 @@ const classifyFrequency = (
 
       return label;
     }
+  }
+
+  if (
+    occurrences < IRREGULAR_MIN_OCCURRENCES ||
+    medianInterval < IRREGULAR_MIN_DAYS ||
+    medianInterval > IRREGULAR_MAX_DAYS
+  ) {
+    return null;
   }
 
   return "irregular";
@@ -247,7 +265,7 @@ export const detectRecurringExpenses = async (
       ) as SpendingCategory;
 
       // Currency from the most recent transaction
-      const {currency} = lastTx;
+      const { currency } = lastTx;
 
       // Next expected = last seen + median interval
       const nextExpected = new Date(

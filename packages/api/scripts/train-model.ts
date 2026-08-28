@@ -134,7 +134,7 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
       continue;
     }
 
-    const features = extractFeatures(normalised);
+    const features = extractFeatures(normalised, CONFIDENCE_DIMENSION);
     samples.push({ features, label });
   }
 
@@ -162,7 +162,10 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
       continue;
     }
 
-    const features = extractFeatures(tx.normalisedDescriptor);
+    const features = extractFeatures(
+      tx.normalisedDescriptor,
+      CONFIDENCE_DIMENSION
+    );
     samples.push({ features, label });
   }
 

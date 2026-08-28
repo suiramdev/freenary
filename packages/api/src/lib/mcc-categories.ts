@@ -379,8 +379,10 @@ export const deriveCategory = (tx: {
   counterpartyName?: string | null;
   amount: number;
 }): SpendingCategory => {
-  if (tx.resolvedCategory) {
-    // SAFETY: resolvedCategory is written only from a validated ResolutionResult.
+  if (
+    tx.resolvedCategory &&
+    SPENDING_CATEGORIES.includes(tx.resolvedCategory as SpendingCategory)
+  ) {
     return tx.resolvedCategory as SpendingCategory;
   }
 

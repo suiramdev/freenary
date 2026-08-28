@@ -10,16 +10,14 @@
  */
 
 import type { SpendingCategory } from "../../lib/mcc-categories";
-import {
-  SUPPORTED_COUNTRIES,
-  type SupportedCountry,
-} from "../supported-countries";
+import { SUPPORTED_COUNTRIES } from '../supported-countries';
+import type { SupportedCountry } from '../supported-countries';
 import * as fr from "./fr";
 
-type KeywordModule = {
+interface KeywordModule {
   readonly bankCodeKeywords: readonly [RegExp, SpendingCategory][];
   readonly counterpartyKeywords: readonly [RegExp, SpendingCategory][];
-};
+}
 
 /**
  * Registry of keyword modules keyed by country code.
