@@ -34,8 +34,8 @@ import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-d
 import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
-import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
 import { fetchSireneBatch } from "./lib/sirene-client";
+import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
 
 /**
  * Stub: place-token filtering will be wired into the build pipeline when the
@@ -613,10 +613,7 @@ const enrichWithSirene = async (
 
   const uniqueNames = [...byName.keys()];
 
-  const parseNafCode = (
-    raw: unknown,
-    queryName: string
-  ): string | null => {
+  const parseNafCode = (raw: unknown, queryName: string): string | null => {
     const data = raw as SireneResponse;
     const firstResult = data.results?.[0];
     if (!firstResult) {

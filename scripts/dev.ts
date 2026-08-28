@@ -76,7 +76,9 @@ const main = (): number => {
   // `reset` is our own verb: down -v (this worktree's volumes only), then rebuild up.
   if (rest[0] === "reset") {
     const down = compose([...base, "down", "-v"], env);
-    return down === 0 ? compose([...base, "up", "--build", "--watch"], env) : down;
+    return down === 0
+      ? compose([...base, "up", "--build", "--watch"], env)
+      : down;
   }
 
   return compose([...base, ...rest], env);

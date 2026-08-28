@@ -167,10 +167,7 @@ interface SireneApiResult {
   total_results: number;
 }
 
-const parseSireneResult = (
-  raw: unknown,
-  name: string
-): SireneResult | null => {
+const parseSireneResult = (raw: unknown, name: string): SireneResult | null => {
   const data = raw as SireneApiResult;
   if (!data.results?.length) {
     return null;
@@ -184,8 +181,7 @@ const parseSireneResult = (
     return null;
   }
   return {
-    denomination:
-      topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
+    denomination: topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
     nafCode: etab.activite_principale,
     siren: etab.siren,
     tradeName: etab.nom_commercial ?? null,
@@ -200,11 +196,15 @@ const fetchSireneForCuratedMerchants = async (): Promise<
     `Phase 0: querying SIRENE for ${names.length} curated merchants…`
   );
 
-  const results = await fetchSireneBatch(names, parseSireneResult, (done, total) => {
-    if (done % 20 === 0 || done === total) {
-      console.log(`  ${done}/${total} queried`);
+  const results = await fetchSireneBatch(
+    names,
+    parseSireneResult,
+    (done, total) => {
+      if (done % 20 === 0 || done === total) {
+        console.log(`  ${done}/${total} queried`);
+      }
     }
-  });
+  );
 
   const sireneMap = new Map<string, SireneResult>();
   for (const { query, data } of results) {

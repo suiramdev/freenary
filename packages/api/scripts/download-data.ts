@@ -77,9 +77,7 @@ const main = async (): Promise<void> => {
   }
 
   // Find the latest data-* release
-  console.log(
-    `Looking for latest ${RELEASE_TAG_PREFIX}* release in ${repo}…`
-  );
+  console.log(`Looking for latest ${RELEASE_TAG_PREFIX}* release in ${repo}…`);
   const releasesUrl = `https://api.github.com/repos/${repo}/releases?per_page=20`;
   const releasesRes = await fetch(releasesUrl, { headers });
 
@@ -103,9 +101,7 @@ const main = async (): Promise<void> => {
   const asset = release.assets.find((a) => a.name === ASSET_NAME);
 
   if (!asset) {
-    console.log(
-      `Release ${release.tag_name} has no ${ASSET_NAME} asset`
-    );
+    console.log(`Release ${release.tag_name} has no ${ASSET_NAME} asset`);
     process.exit(1);
   }
 

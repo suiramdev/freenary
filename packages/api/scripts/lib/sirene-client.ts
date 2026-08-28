@@ -121,7 +121,7 @@ const fetchSireneBatch = async <T>(
       // Check disk cache first.
       const cached = readCache(query);
       if (cached !== null) {
-        results[idx] = { query, data: parse(cached, query) };
+        results[idx] = { data: parse(cached, query), query };
         completed += 1;
         onProgress?.(completed, queries.length);
         continue;
@@ -137,15 +137,15 @@ const fetchSireneBatch = async <T>(
           signal: AbortSignal.timeout(10_000),
         });
 
-        if (!res.ok) {
-          results[idx] = { query, data: null };
-        } else {
+        if (res.ok) {
           const raw: unknown = await res.json();
           writeCache(query, raw);
           results[idx] = { query, data: parse(raw, query) };
+        } else {
+          results[idx] = { query, data: null };
         }
       } catch {
-        results[idx] = { query, data: null };
+        results[idx] = { data: null, query };
       }
 
       completed += 1;

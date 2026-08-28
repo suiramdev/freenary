@@ -10,8 +10,8 @@
  */
 
 import type { SpendingCategory } from "../../lib/mcc-categories";
-import { SUPPORTED_COUNTRIES } from '../supported-countries';
-import type { SupportedCountry } from '../supported-countries';
+import { SUPPORTED_COUNTRIES } from "../supported-countries";
+import type { SupportedCountry } from "../supported-countries";
 import * as fr from "./fr";
 
 interface KeywordModule {

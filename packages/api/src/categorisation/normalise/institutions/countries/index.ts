@@ -1,5 +1,5 @@
-import { SUPPORTED_COUNTRIES } from '../../../supported-countries';
-import type { SupportedCountry } from '../../../supported-countries';
+import { SUPPORTED_COUNTRIES } from "../../../supported-countries";
+import type { SupportedCountry } from "../../../supported-countries";
 import type { TransactionChannel } from "../../types";
 import type { InstitutionDef } from "../definitions";
 import { fr } from "./fr";
