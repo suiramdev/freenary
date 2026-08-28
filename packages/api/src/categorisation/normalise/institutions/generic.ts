@@ -230,7 +230,19 @@ const parseLines = (
     }
   }
 
-  // Promote creditorName/debtorName when regex extraction yielded nothing
+  // For direct debits the creditorName IS the merchant; remittance text
+  // describes the billing reason ("Loyer", "Internet fibre"), not the payee.
+  // Override the remittance-derived payee when a creditor name is available.
+  if (channel === "direct-debit") {
+    const counterparty =
+      input.amountMinor >= 0 ? input.debtorName : input.creditorName;
+    const name = counterparty?.trim();
+    if (name && name.length > 0) {
+      payee = name;
+    }
+  }
+
+  // Promote creditorName/debtorName when no payee was extracted at all
   if (!payee || payee.length === 0) {
     const preferredCounterparty =
       input.amountMinor >= 0 ? input.debtorName : input.creditorName;

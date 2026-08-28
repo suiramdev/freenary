@@ -17,6 +17,11 @@ export type SpendingCategory =
   | "travel"
   | "utilities";
 
+import {
+  allBankCodeKeywords,
+  allCounterpartyKeywords,
+} from "../categorisation/keywords";
+
 export const SPENDING_CATEGORIES = [
   "dining",
   "education",
@@ -400,12 +405,22 @@ export const deriveCategory = (tx: {
         return category;
       }
     }
+    for (const [pattern, category] of allBankCodeKeywords) {
+      if (pattern.test(desc)) {
+        return category;
+      }
+    }
   }
 
   // 4. Counterparty name heuristics
   if (tx.counterpartyName) {
     const name = tx.counterpartyName.toLowerCase();
     for (const [pattern, category] of COUNTERPARTY_KEYWORDS) {
+      if (pattern.test(name)) {
+        return category;
+      }
+    }
+    for (const [pattern, category] of allCounterpartyKeywords) {
       if (pattern.test(name)) {
         return category;
       }
