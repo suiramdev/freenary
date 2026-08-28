@@ -11,8 +11,9 @@ export const env = createEnv({
       .min(32)
       .default("dev_secret_change_me_at_least_32chars"),
     // Follows PORT so a second worktree's auth callbacks never point at the first.
-    // `||` not `??`: a declared-but-blank PORT= must fall through, matching
-    // this object's emptyStringAsUndefined contract.
+    // Safe to interpolate raw process.env.PORT: the PORT schema below only
+    // accepts decimal digits. `||` not `??`: a declared-but-blank PORT= must
+    // fall through, matching this object's emptyStringAsUndefined contract.
     BETTER_AUTH_URL: z
       .url()
       .default(`http://localhost:${process.env.PORT || 3000}`),
@@ -27,7 +28,14 @@ export const env = createEnv({
       .enum(["development", "production", "test"])
       .default("development"),
     /** Lets a second checkout or worktree run its own stack alongside the default. */
-    PORT: z.coerce.number().int().positive().default(3000),
+    // Digits only, so the raw value above can be interpolated into a valid URL
+    // before any coercion, and the bound keeps Bun.serve's RangeError away.
+    PORT: z
+      .string()
+      .regex(/^\d+$/u, "PORT must be a decimal number between 1 and 65535")
+      .transform(Number)
+      .pipe(z.number().int().positive().max(65_535))
+      .default(3000),
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });
