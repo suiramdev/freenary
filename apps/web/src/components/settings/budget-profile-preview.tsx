@@ -1,5 +1,11 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@freenary/ui/components/card";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -78,33 +84,42 @@ export const BudgetProfilePreview = ({
 
   if (profileLines.length === 0) {
     return (
-      <Empty className="border-none">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ChartDonutIcon />
-          </EmptyMedia>
-          <EmptyTitle>No budget yet</EmptyTitle>
-          <EmptyDescription>
-            Add a revenue below and the flow appears here as you type.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <Card>
+        <CardContent>
+          <Empty className="border-none">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ChartDonutIcon />
+              </EmptyMedia>
+              <EmptyTitle>No budget yet</EmptyTitle>
+              <EmptyDescription>
+                Add a revenue below and the flow appears here as you type.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div>
-      <SankeyChart
-        columns={flow.columns}
-        emphasizedId={flow.emphasizedId}
-        formatValue={formatCurrency}
-        label="Budgeting profile from revenues through the budget to each planned line"
-        links={flow.links}
-      />
-      <BudgetProfileSummary
-        totalAllocated={totals.totalAllocated}
-        totalRevenue={totals.totalRevenue}
-      />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xs font-medium">Budget Flow</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <SankeyChart
+          columns={flow.columns}
+          emphasizedId={flow.emphasizedId}
+          formatValue={formatCurrency}
+          label="Budgeting profile from revenues through the budget to each planned line"
+          links={flow.links}
+        />
+        <BudgetProfileSummary
+          totalAllocated={totals.totalAllocated}
+          totalRevenue={totals.totalRevenue}
+        />
+      </CardContent>
+    </Card>
   );
 };

@@ -1,9 +1,7 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
-import { Separator } from "@freenary/ui/components/separator";
 import { useState } from "react";
 
 import { BudgetLineGroup } from "@/components/settings/budget-line-group";
-import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { CustomCategorySheet } from "@/components/settings/custom-category-sheet";
 import { SettingsSection } from "@/components/settings/settings-section";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -67,27 +65,27 @@ export const BudgetingSection = ({
       description="Declare where your money comes from and where it goes each month. The flow updates as you type."
       title="Budgeting profile"
     >
-      <BudgetProfilePreview categories={categories} lines={lines} />
-
-      <Separator />
-
-      {GROUPS.map((group, index) => (
-        <BudgetLineGroup
-          addLabel={group.addLabel}
-          categories={categories}
-          description={group.description}
-          errors={errors}
-          key={group.kind}
-          kind={group.kind}
-          lines={lines.filter((line) => line.kind === group.kind)}
-          onAdd={addLine}
-          onCreateCategory={setCreatingForLineId}
-          onRemove={removeLine}
-          onUpdate={updateLine}
-          step={index + 1}
-          title={group.title}
-        />
-      ))}
+      {GROUPS.map((group, index) => {
+        const groupLines = lines.filter((line) => line.kind === group.kind);
+        return (
+          <BudgetLineGroup
+            addLabel={group.addLabel}
+            categories={categories}
+            defaultOpen={groupLines.length > 0 || index === 0}
+            description={group.description}
+            errors={errors}
+            key={group.kind}
+            kind={group.kind}
+            lines={groupLines}
+            onAdd={addLine}
+            onCreateCategory={setCreatingForLineId}
+            onRemove={removeLine}
+            onUpdate={updateLine}
+            step={index + 1}
+            title={group.title}
+          />
+        );
+      })}
 
       <CustomCategorySheet
         edited={null}

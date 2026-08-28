@@ -1,5 +1,10 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from "@freenary/ui/components/collapsible";
 import { PlusIcon } from "@phosphor-icons/react";
 
 import { BudgetLineRow } from "@/components/settings/budget-line-row";
@@ -9,6 +14,7 @@ import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
 interface BudgetLineGroupProps {
   addLabel: string;
   categories: CategoryEntry[];
+  defaultOpen?: boolean;
   description: string;
   errors: Map<string, string>;
   kind: BudgetLineKind;
@@ -24,6 +30,7 @@ interface BudgetLineGroupProps {
 export const BudgetLineGroup = ({
   addLabel,
   categories,
+  defaultOpen,
   description,
   errors,
   kind,
@@ -35,38 +42,46 @@ export const BudgetLineGroup = ({
   step,
   title,
 }: BudgetLineGroupProps) => (
-  <section className="flex flex-col gap-3">
-    <div className="flex flex-col gap-0.5">
-      <h3 className="text-xs font-medium">
-        {step}. {title}
-      </h3>
-      <p className="text-muted-foreground text-xs">{description}</p>
-    </div>
+  <Collapsible defaultOpen={defaultOpen}>
+    <section className="flex flex-col gap-3">
+      <CollapsibleTrigger>
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-xs font-medium">
+            {step}. {title}
+          </h3>
+          <p className="text-muted-foreground text-xs">{description}</p>
+        </div>
+      </CollapsibleTrigger>
 
-    {lines.length > 0 ? (
-      <div className="flex flex-col gap-2">
-        {lines.map((line) => (
-          <BudgetLineRow
-            categories={categories}
-            error={errors.get(line.id)}
-            key={line.id}
-            line={line}
-            onCreateCategory={onCreateCategory}
-            onRemove={onRemove}
-            onUpdate={onUpdate}
-          />
-        ))}
-      </div>
-    ) : null}
+      <CollapsiblePanel>
+        <div className="flex flex-col gap-3 pt-1">
+          {lines.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {lines.map((line) => (
+                <BudgetLineRow
+                  categories={categories}
+                  error={errors.get(line.id)}
+                  key={line.id}
+                  line={line}
+                  onCreateCategory={onCreateCategory}
+                  onRemove={onRemove}
+                  onUpdate={onUpdate}
+                />
+              ))}
+            </div>
+          ) : null}
 
-    <Button
-      className="self-start"
-      onClick={() => onAdd(kind)}
-      size="sm"
-      variant="ghost"
-    >
-      <PlusIcon data-icon="inline-start" />
-      {addLabel}
-    </Button>
-  </section>
+          <Button
+            className="self-start"
+            onClick={() => onAdd(kind)}
+            size="sm"
+            variant="ghost"
+          >
+            <PlusIcon data-icon="inline-start" />
+            {addLabel}
+          </Button>
+        </div>
+      </CollapsiblePanel>
+    </section>
+  </Collapsible>
 );

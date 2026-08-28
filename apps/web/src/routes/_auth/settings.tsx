@@ -3,6 +3,7 @@ import { Button } from "@freenary/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { BudgetingSection } from "@/components/settings/budgeting-section";
 import { CategoriesSection } from "@/components/settings/categories-section";
 import { SettingsPageSkeleton } from "@/components/settings/settings-page-skeleton";
@@ -21,6 +22,8 @@ const SettingsContent = ({ categories, serverLines }: SettingsContentProps) => {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 pb-20">
+      <BudgetProfilePreview categories={categories} lines={editor.lines} />
+
       <BudgetingSection
         addLine={editor.addLine}
         categories={categories}
