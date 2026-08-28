@@ -50,7 +50,7 @@ export const OnboardingWizard = ({
       <ShaderBackground />
     </div>
     <div className="relative z-10 flex items-center justify-end px-4 py-3">
-      <Button onClick={onSignOut} size="sm" type="button" variant="ghost">
+      <Button onClick={onSignOut} type="button" variant="ghost">
         Sign out
       </Button>
     </div>

@@ -59,7 +59,7 @@ export const CategoryRow = ({
             className="text-muted-foreground"
             disabled={isMoving}
             onClick={() => onMove({ direction: "up", id: customId })}
-            size="icon-xs"
+            size="icon-sm"
             variant="ghost"
           >
             <ArrowUpIcon className="size-3" />
@@ -69,7 +69,7 @@ export const CategoryRow = ({
             className="text-muted-foreground"
             disabled={isMoving}
             onClick={() => onMove({ direction: "down", id: customId })}
-            size="icon-xs"
+            size="icon-sm"
             variant="ghost"
           >
             <ArrowDownIcon className="size-3" />
@@ -78,7 +78,7 @@ export const CategoryRow = ({
           <Button
             className="text-muted-foreground"
             onClick={() => onEdit(entry)}
-            size="icon-xs"
+            size="icon-sm"
             variant="ghost"
           >
             <PencilSimpleIcon className="size-3" />

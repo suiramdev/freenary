@@ -35,15 +35,10 @@ export const UnsavedChangesBar = ({
         <span className="text-muted-foreground text-xs font-medium">
           {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
         </span>
-        <Button
-          disabled={isSaving}
-          onClick={onCancel}
-          size="sm"
-          variant="ghost"
-        >
+        <Button disabled={isSaving} onClick={onCancel} variant="ghost">
           Cancel
         </Button>
-        <Button disabled={isSaving || hasErrors} onClick={onSave} size="sm">
+        <Button disabled={isSaving || hasErrors} onClick={onSave}>
           {isSaving ? "Saving…" : "Save"}
         </Button>
       </motion.div>

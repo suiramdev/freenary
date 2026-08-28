@@ -87,14 +87,12 @@ export const TransactionList = ({
         </InputGroup>
         <Popover>
           <PopoverTrigger
-            render={
-              <Button variant="outline" size="sm" className="gap-1.5" />
-            }
+            render={<Button variant="outline" className="gap-1.5" />}
           >
             <FunnelIcon className="size-3.5" />
             Category
             {categories.length > 0 && (
-              <Badge variant="secondary" className="ml-0.5 px-1.5">
+              <Badge variant="secondary" className="ml-0.5">
                 {categories.length}
               </Badge>
             )}
@@ -129,7 +127,7 @@ export const TransactionList = ({
       {categories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {categories.map((cat) => (
-            <Badge key={cat} variant="outline" className="gap-1 pr-1">
+            <Badge key={cat} variant="outline" className="pr-1">
               <CategoryIcon
                 {...predefinedCategoryAppearance(cat)}
                 className="size-4 [&_svg]:size-2.5"
@@ -150,8 +148,8 @@ export const TransactionList = ({
           {categories.length >= 2 && (
             <Button
               variant="ghost"
-              size="sm"
-              className="text-muted-foreground h-auto px-1.5 py-0.5 text-xs"
+              size="xs"
+              className="text-muted-foreground"
               onClick={() => onCategoriesChange([])}
             >
               Clear all

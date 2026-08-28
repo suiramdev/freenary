@@ -40,7 +40,7 @@ const PeriodYearPicker = ({
   onSelectYear: (year: number) => void;
 }) => {
   const [pageStart, setPageStart] = useState(
-    selectedYear - (selectedYear % YEAR_PAGE_SIZE),
+    selectedYear - (selectedYear % YEAR_PAGE_SIZE)
   );
   const years = Array.from({ length: YEAR_PAGE_SIZE }, (_, i) => pageStart + i);
 
@@ -49,7 +49,7 @@ const PeriodYearPicker = ({
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
           aria-label="Previous years"
         >
@@ -60,7 +60,7 @@ const PeriodYearPicker = ({
         </span>
         <Button
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
           aria-label="Next years"
         >
@@ -76,7 +76,7 @@ const PeriodYearPicker = ({
             <Button
               key={year}
               variant={year === selectedYear ? "default" : "ghost"}
-              size="xs"
+              size="sm"
               disabled={disabled}
               onClick={() => onSelectYear(year)}
               className="tabular-nums"
@@ -124,18 +124,16 @@ export const PeriodNavigator = ({
 
   // Disable arrows when navigating would exceed the data bounds.
   const canGoBack =
-    !firstMonth ||
-    new Date(anchorYear, anchorMonth - step, 1) >= firstMonth;
+    !firstMonth || new Date(anchorYear, anchorMonth - step, 1) >= firstMonth;
   const canGoForward =
-    !lastMonth ||
-    new Date(anchorYear, anchorMonth + step, 1) <= lastMonth;
+    !lastMonth || new Date(anchorYear, anchorMonth + step, 1) <= lastMonth;
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           disabled={!canGoBack}
           onClick={() => navigate(-1)}
           aria-label="Previous period"
@@ -143,7 +141,7 @@ export const PeriodNavigator = ({
           <CaretLeft />
         </Button>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger render={<Button variant="ghost" size="sm" />}>
+          <PopoverTrigger render={<Button variant="ghost" />}>
             <span className="text-xs font-medium">
               {formatPeriodLabel(from, to, range)}
             </span>
@@ -165,12 +163,8 @@ export const PeriodNavigator = ({
                 defaultMonth={to}
                 selected={to}
                 disabled={[
-                  ...(firstMonth
-                    ? [{ before: firstMonth }]
-                    : []),
-                  ...(lastMonth
-                    ? [{ after: lastMonth }]
-                    : []),
+                  ...(firstMonth ? [{ before: firstMonth }] : []),
+                  ...(lastMonth ? [{ after: lastMonth }] : []),
                 ]}
                 onSelect={(date) => {
                   if (date) {
@@ -184,7 +178,7 @@ export const PeriodNavigator = ({
         </Popover>
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           disabled={!canGoForward}
           onClick={() => navigate(1)}
           aria-label="Next period"
@@ -195,20 +189,14 @@ export const PeriodNavigator = ({
       <div className="flex items-center gap-1">
         {isMultiMonth(range) && (
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="xs" className="gap-0.5" />
-              }
-            >
+            <DropdownMenuTrigger render={<Button variant="ghost" />}>
               <span>{AGGREGATION_LABELS[aggregation]}</span>
               <CaretUpDown className="text-muted-foreground size-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuRadioGroup
                 value={aggregation}
-                onValueChange={(v) =>
-                  onAggregationChange(v as AggregationMode)
-                }
+                onValueChange={(v) => onAggregationChange(v as AggregationMode)}
               >
                 {AGGREGATION_MODES.map((mode) => (
                   <DropdownMenuRadioItem key={mode} value={mode}>
@@ -223,7 +211,7 @@ export const PeriodNavigator = ({
           <Button
             key={r}
             variant={range === r ? "secondary" : "ghost"}
-            size="xs"
+            size="sm"
             onClick={() => onRangeChange(r)}
             className="tabular-nums"
           >

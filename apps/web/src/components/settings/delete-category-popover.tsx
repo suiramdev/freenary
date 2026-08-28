@@ -27,7 +27,7 @@ export const DeleteCategoryPopover = ({
       render={
         <Button
           className="text-muted-foreground"
-          size="icon-xs"
+          size="icon-sm"
           variant="ghost"
         />
       }
