@@ -19,9 +19,7 @@ import type { FeatureVector } from "../src/categorisation/features";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { SPENDING_CATEGORIES } from "../src/lib/mcc-categories";
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 const OUTPUT_PATH = path.resolve(
   import.meta.dirname,
@@ -33,9 +31,7 @@ const L2_LAMBDA = 0.001;
 const MIN_SAMPLES = 10;
 const CONFIDENCE_DIMENSION = 65_536;
 
-// ---------------------------------------------------------------------------
 // Math helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Sparse dot product between a dense weight vector and a sparse feature vector.
@@ -93,18 +89,14 @@ const shuffle = <T>(arr: T[]): T[] => {
   return arr;
 };
 
-// ---------------------------------------------------------------------------
 // Training sample
-// ---------------------------------------------------------------------------
 
 interface TrainingSample {
   features: FeatureVector;
   label: number;
 }
 
-// ---------------------------------------------------------------------------
 // Data loading
-// ---------------------------------------------------------------------------
 
 const buildCategoryIndex = (): Map<string, number> => {
   const index = new Map<string, number>();
@@ -172,9 +164,7 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
   return samples;
 };
 
-// ---------------------------------------------------------------------------
 // SGD logistic regression
-// ---------------------------------------------------------------------------
 
 interface TrainedModel {
   categories: string[];
@@ -237,9 +227,7 @@ const train = (
   return weights;
 };
 
-// ---------------------------------------------------------------------------
 // Serialisation — sparse format to keep the file small
-// ---------------------------------------------------------------------------
 
 const serialiseWeights = (
   weights: Float64Array[],
@@ -264,9 +252,7 @@ const serialiseWeights = (
   };
 };
 
-// ---------------------------------------------------------------------------
 // Main
-// ---------------------------------------------------------------------------
 
 const main = async (): Promise<void> => {
   console.log("Loading training data...");

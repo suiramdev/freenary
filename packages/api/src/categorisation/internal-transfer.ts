@@ -11,9 +11,7 @@ import prisma from "@freenary/db";
 
 import type { ResolutionStage } from "./types";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 const TRANSFER_CATEGORY = "transfers";
 const TRANSFER_STAGE: ResolutionStage = "channel";
@@ -22,9 +20,7 @@ const TRANSFER_CONFIDENCE = 0.95;
 /** Maximum milliseconds between two transaction dates to consider them a pair (1 day). */
 const DATE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
 // Implementation
-// ---------------------------------------------------------------------------
 
 const matchInternal = async (userId: string): Promise<number> => {
   // 1. Collect accounts across the user's bank connections

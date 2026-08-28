@@ -8,9 +8,7 @@ import type { SpendingCategory } from "../lib/mcc-categories";
 import type { DictionaryEntry } from "./types";
 import { isVerificationConfigured, verifySignature } from "./verify";
 
-// ---------------------------------------------------------------------------
 // Static dictionary loaded from gzipped JSONL
-// ---------------------------------------------------------------------------
 
 interface DictionaryMerchant {
   id: string;

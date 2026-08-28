@@ -10,9 +10,7 @@ export interface ModelPrediction {
   confidence: number;
 }
 
-// ---------------------------------------------------------------------------
 // Trained weights format (sparse JSON produced by train-model.ts)
-// ---------------------------------------------------------------------------
 
 interface TrainedWeights {
   categories: string[];
@@ -27,18 +25,14 @@ const WEIGHTS_PATH = path.resolve(
 
 const CONFIDENCE_THRESHOLD = 0.5;
 
-// ---------------------------------------------------------------------------
 // Module-level state
-// ---------------------------------------------------------------------------
 
 let loadedCategories: string[] | null = null;
 let loadedWeights: Float64Array[] | null = null;
 let loadedDimension = 0;
 let modelRefCount = 0;
 
-// ---------------------------------------------------------------------------
 // Math helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Sparse dot product between a dense weight vector and a sparse feature vector.
@@ -107,9 +101,7 @@ const deserialiseWeights = (
   return dense;
 };
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
 /**
  * Load the model into memory. Silently no-ops when no weights file exists.

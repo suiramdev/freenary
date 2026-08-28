@@ -14,9 +14,7 @@ import prisma from "@freenary/db";
 
 import type { SpendingCategory } from "../lib/mcc-categories";
 
-// ---------------------------------------------------------------------------
 // Public types
-// ---------------------------------------------------------------------------
 
 export interface RecurringExpense {
   /** The merchant key that recurs. */
@@ -41,9 +39,7 @@ export interface RecurringExpense {
   nextExpected: Date;
 }
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 /** Observation window: 12 months in milliseconds. */
 const WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
@@ -69,9 +65,7 @@ const IRREGULAR_MIN_OCCURRENCES = 4;
 const IRREGULAR_MIN_DAYS = 10;
 const IRREGULAR_MAX_DAYS = 400;
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Median of a pre-sorted numeric array. */
 const median = (sorted: number[]): number => {
@@ -133,9 +127,7 @@ const classifyFrequency = (
   return "irregular";
 };
 
-// ---------------------------------------------------------------------------
 // Core
-// ---------------------------------------------------------------------------
 
 interface RawTransaction {
   amount: number;

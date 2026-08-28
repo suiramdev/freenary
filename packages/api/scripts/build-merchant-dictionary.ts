@@ -42,9 +42,7 @@ import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
  */
 const isEntirelyPlaceName = (_normalisedName: string): boolean => false;
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 const NSI_VERSION = "8.0.20260729";
 const NSI_TARBALL_URL = `https://registry.npmjs.org/name-suggestion-index/-/name-suggestion-index-${NSI_VERSION}.tgz`;
@@ -85,9 +83,7 @@ const CATEGORY_PRIORITY = {
   utilities: 8,
 } as const satisfies Record<string, number>;
 
-// ---------------------------------------------------------------------------
 // NSI types (minimal, for extraction)
-// ---------------------------------------------------------------------------
 
 interface NsiItem {
   id?: string;
@@ -118,9 +114,7 @@ interface GenericWordsRoot {
   genericWords: string[];
 }
 
-// ---------------------------------------------------------------------------
 // Tarball helpers
-// ---------------------------------------------------------------------------
 
 const extractFromTarball = async (
   tarballBytes: ArrayBuffer,
@@ -151,9 +145,7 @@ const extractFromTarball = async (
   }
 };
 
-// ---------------------------------------------------------------------------
 // Category-path to OSM tag
-// ---------------------------------------------------------------------------
 
 /**
  * NSI category paths look like "brands/shop/supermarket" or "operators/amenity/fuel".
@@ -167,9 +159,7 @@ const categoryPathToOsmTag = (categoryPath: string): string | null => {
   return `${parts[1]}=${parts[2]}`;
 };
 
-// ---------------------------------------------------------------------------
 // Domain extraction
-// ---------------------------------------------------------------------------
 
 const extractDomain = (url: string): string | null => {
   try {
@@ -180,9 +170,7 @@ const extractDomain = (url: string): string | null => {
   }
 };
 
-// ---------------------------------------------------------------------------
 // Slugify for stable ids
-// ---------------------------------------------------------------------------
 
 const slugify = (text: string): string =>
   text
@@ -190,9 +178,7 @@ const slugify = (text: string): string =>
     .replaceAll(/[^a-z0-9]+/gu, "-")
     .replaceAll(/^-|-$/gu, "");
 
-// ---------------------------------------------------------------------------
 // Country partitioning — extract trailing 2-letter code from NSI ids
-// ---------------------------------------------------------------------------
 
 const extractCountryFromId = (id: string): string | null => {
   const match = id.match(/-(?<cc>[a-z]{2})$/iu);
@@ -229,9 +215,7 @@ const partitionByCountry = (
   return partitions;
 };
 
-// ---------------------------------------------------------------------------
 // Write gzipped JSONL artifact
-// ---------------------------------------------------------------------------
 
 const writeArtifact = async (
   outputPath: string,
@@ -256,9 +240,7 @@ const writeArtifact = async (
   return { gzippedBytes, rawBytes };
 };
 
-// ---------------------------------------------------------------------------
 // URL field narrowing — parse at the I/O boundary into typed values
-// ---------------------------------------------------------------------------
 
 const extractWebsites = (tags: NsiItem["tags"]): string[] => {
   const urls: string[] = [];
@@ -271,9 +253,7 @@ const extractWebsites = (tags: NsiItem["tags"]): string[] => {
   return urls;
 };
 
-// ---------------------------------------------------------------------------
 // Alias collection from NSI item tags
-// ---------------------------------------------------------------------------
 
 const collectRawAliases = (item: NsiItem): string[] => {
   const rawAliases: string[] = [];
@@ -299,9 +279,7 @@ const collectRawAliases = (item: NsiItem): string[] => {
   return rawAliases;
 };
 
-// ---------------------------------------------------------------------------
 // Normalise and deduplicate aliases
-// ---------------------------------------------------------------------------
 
 const buildAliases = (
   rawAliases: string[],
@@ -328,9 +306,7 @@ const buildAliases = (
   return aliases;
 };
 
-// ---------------------------------------------------------------------------
 // Extract domains from URL tags
-// ---------------------------------------------------------------------------
 
 const buildDomains = (websiteUrls: string[]): string[] => {
   const domains: string[] = [];
@@ -345,9 +321,7 @@ const buildDomains = (websiteUrls: string[]): string[] => {
   return domains;
 };
 
-// ---------------------------------------------------------------------------
 // Pass 1: collect raw NSI candidates from parsed data
-// ---------------------------------------------------------------------------
 
 interface Pass1Result {
   rawMerchants: DictionaryMerchant[];
@@ -422,9 +396,7 @@ const collectNsiCandidates = (
   return { rawMerchants, scannedCount };
 };
 
-// ---------------------------------------------------------------------------
 // Pass 3: resolve normalisedName collisions via category priority
-// ---------------------------------------------------------------------------
 
 const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
   let winningCategory = group[0].category;
@@ -484,9 +456,7 @@ const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
   };
 };
 
-// ---------------------------------------------------------------------------
 // Wikidata intermediate file types
-// ---------------------------------------------------------------------------
 
 interface WikidataBrand {
   aliases: string[];
@@ -501,9 +471,7 @@ interface WikidataBrand {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Pass 3b: merge Wikidata brands into NSI merchants
-// ---------------------------------------------------------------------------
 
 const mergeWikidataBrands = (
   merchants: DictionaryMerchant[],
@@ -592,9 +560,7 @@ const mergeWikidataBrands = (
   return { wikidataMatched, wikidataNew };
 };
 
-// ---------------------------------------------------------------------------
 // SIRENE enrichment types
-// ---------------------------------------------------------------------------
 
 interface SireneEntry {
   matching_etablissements: { activite_principale: string | null }[];
@@ -606,9 +572,7 @@ interface SireneResponse {
   results: SireneEntry[];
 }
 
-// ---------------------------------------------------------------------------
 // Pass 3c: enrich uncategorised merchants via the French SIRENE registry
-// ---------------------------------------------------------------------------
 
 const enrichWithSirene = async (
   merchants: DictionaryMerchant[]
@@ -701,9 +665,7 @@ const enrichWithSirene = async (
   return enriched;
 };
 
-// ---------------------------------------------------------------------------
 // Pass 4: merge curated supplement into NSI merchants
-// ---------------------------------------------------------------------------
 
 const mergeCuratedSupplement = (
   nsiMerchants: DictionaryMerchant[],
@@ -795,9 +757,7 @@ const mergeCuratedSupplement = (
   return { curatedAdded, curatedOverridden };
 };
 
-// ---------------------------------------------------------------------------
 // Main
-// ---------------------------------------------------------------------------
 
 const main = async (): Promise<void> => {
   console.log(`Fetching NSI v${NSI_VERSION} tarball…`);

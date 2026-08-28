@@ -91,9 +91,7 @@ export const CATEGORY_COLORS = {
   utilities: "grey",
 } as const satisfies Record<SpendingCategory, DitherColor>;
 
-// ---------------------------------------------------------------------------
 // MCC → SpendingCategory flat lookup (keys sorted lexicographically)
-// ---------------------------------------------------------------------------
 
 const MCC_TO_CATEGORY = {
   "1520": "housing",
@@ -321,9 +319,7 @@ const MCC_TO_CATEGORY = {
 
 export { MCC_TO_CATEGORY };
 
-// ---------------------------------------------------------------------------
 // MCC code → category (range checks first, then flat lookup)
-// ---------------------------------------------------------------------------
 
 const mccToCategory = (code: string): SpendingCategory => {
   const n = Math.trunc(Number(code));
@@ -339,9 +335,7 @@ const mccToCategory = (code: string): SpendingCategory => {
   return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? "other";
 };
 
-// ---------------------------------------------------------------------------
 // Keyword heuristic tables for deriveCategory
-// ---------------------------------------------------------------------------
 
 const BANK_CODE_KEYWORDS: [RegExp, SpendingCategory][] = [
   [/lön|salary|wage/u, "income"],
@@ -367,10 +361,8 @@ const COUNTERPARTY_KEYWORDS: [RegExp, SpendingCategory][] = [
   [/apotek|pharmacy|apotheke/u, "health"],
 ];
 
-// ---------------------------------------------------------------------------
 // Derive category from transaction data
 // Cascade: MCC → income-by-sign → bank code keywords → counterparty → "other"
-// ---------------------------------------------------------------------------
 
 export const deriveCategory = (tx: {
   resolvedCategory?: string | null;

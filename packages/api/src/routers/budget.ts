@@ -53,9 +53,7 @@ interface ConnectionWithAccounts {
   }[];
 }
 
-// ---------------------------------------------------------------------------
 // Provider → persistence field mapping (sync writes raw data, no categorisation)
-// ---------------------------------------------------------------------------
 
 const mapProviderFields = (tx: ProviderTransaction) => ({
   amount: tx.amountMinor,
@@ -90,9 +88,7 @@ const mapProviderFields = (tx: ProviderTransaction) => ({
   valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
 });
 
-// ---------------------------------------------------------------------------
 // Merchant key derivation for a provider transaction
-// ---------------------------------------------------------------------------
 
 const deriveKey = (
   tx: ProviderTransaction,
@@ -116,9 +112,7 @@ const deriveKey = (
     remittanceLines: tx.remittanceLines,
   });
 
-// ---------------------------------------------------------------------------
 // Transaction upsert (sync only — raw data + merchant key, no categorisation)
-// ---------------------------------------------------------------------------
 
 const upsertTransaction = async (
   accountId: string,
@@ -223,9 +217,7 @@ const syncConnection = async (
   }
 };
 
-// ---------------------------------------------------------------------------
 // Batch categorisation of uncategorised transactions
-// ---------------------------------------------------------------------------
 
 const categoriseUncategorised = async (userId: string): Promise<number> => {
   // Find transactions that need categorisation:
@@ -339,9 +331,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
   return updated;
 };
 
-// ---------------------------------------------------------------------------
 // Router
-// ---------------------------------------------------------------------------
 
 export const budgetRouter = {
   getAccounts: protectedProcedure.handler(async ({ context }) => {
