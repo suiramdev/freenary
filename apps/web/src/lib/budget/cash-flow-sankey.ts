@@ -79,24 +79,29 @@ export const toCashFlowSankey = ({
   ];
 
   return {
-    hub: {
-      color: "blue",
-      id: HUB_ID,
-      label: "Budget",
-      value: totalIncome,
-    },
+    columns: [
+      incomeNodes.map((node) => ({
+        color: incomeColor(node.name),
+        id: sourceId(node.name),
+        label: node.name,
+        value: node.value,
+      })),
+      [
+        {
+          color: "blue",
+          id: HUB_ID,
+          label: "Budget",
+          value: totalIncome,
+        },
+      ],
+      expenseNodes.map((node) => ({
+        color: CATEGORY_COLORS[node.category],
+        id: targetId(node.label),
+        label: node.label,
+        value: node.value,
+      })),
+    ],
+    emphasizedId: HUB_ID,
     links,
-    sources: incomeNodes.map((node) => ({
-      color: incomeColor(node.name),
-      id: sourceId(node.name),
-      label: node.name,
-      value: node.value,
-    })),
-    targets: expenseNodes.map((node) => ({
-      color: CATEGORY_COLORS[node.category],
-      id: targetId(node.label),
-      label: node.label,
-      value: node.value,
-    })),
   };
 };

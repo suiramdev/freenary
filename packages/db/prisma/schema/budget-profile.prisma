@@ -1,0 +1,60 @@
+/// A user-created spending category, offered alongside the application's predefined ones.
+model CustomCategory {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Display name; unique per user, case-insensitively (citext compares
+  /// case-insensitively, so the DB backs the API's insensitive conflict check).
+  label       String       @db.Citext
+  /// Palette color name, validated against CATEGORY_COLOR_VALUES.
+  color       String
+  /// Phosphor icon name, validated against CATEGORY_ICON_NAMES.
+  icon        String
+  /// Predefined category slug this one nests under; null = top level.
+  parentSlug  String?
+  /// Position among the user's custom categories sharing the same parent.
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  budgetLines BudgetLine[]
+
+  @@unique([userId, label])
+  @@index([userId, parentSlug, sortOrder])
+  @@map("custom_category")
+}
+
+/// One declared monthly revenue, investment or outgoing. A user's budget lines are their
+/// budgeting profile; there is no separate profile row because nothing hangs off one.
+model BudgetLine {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         BudgetLineKind
+  /// Display name, e.g. "Salary" or "Rent".
+  label        String
+  /// Planned amount per month in minor units; always positive.
+  amount       Int
+  /// Predefined category slug; null when categoryId is set.
+  categorySlug String?
+  /// Custom category; null when categorySlug is set. Restrict is safe because
+  /// deleteCustomCategory reassigns referencing lines before deleting.
+  categoryId   String?
+  category     CustomCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Position within the profile.
+  sortOrder    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([userId, kind, sortOrder])
+  @@index([categoryId])
+  @@map("budget_line")
+}
+
+/// Where a budget line sits in the revenues → investments → outgoings flow.
+/// Declaration order is load-bearing: Postgres orders the enum type by it, and
+/// getBudgetProfile relies on `orderBy: { kind: "asc" }` to return the flow order.
+enum BudgetLineKind {
+  REVENUE
+  INVESTMENT
+  OUTGOING
+}

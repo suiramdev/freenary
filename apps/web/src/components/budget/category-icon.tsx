@@ -1,4 +1,8 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import type {
+  CategoryAppearance,
+  CategoryIconName,
+} from "@freenary/api/lib/categories";
+import type { CategoryColor } from "@freenary/api/lib/mcc-categories";
 import { cn } from "@freenary/ui/lib/utils";
 import type { Icon } from "@phosphor-icons/react";
 import {
@@ -21,62 +25,46 @@ import {
   StorefrontIcon,
 } from "@phosphor-icons/react";
 
-const CATEGORY_ICONS = {
-  dining: ForkKnifeIcon,
-  education: GraduationCapIcon,
-  entertainment: FilmSlateIcon,
-  groceries: StorefrontIcon,
-  health: FirstAidIcon,
-  housing: HouseIcon,
-  income: BankIcon,
-  insurance: ShieldCheckIcon,
-  other: DotsThreeIcon,
-  savings: PiggyBankIcon,
-  shopping: ShoppingBagIcon,
-  subscriptions: RepeatIcon,
-  taxes: ReceiptIcon,
-  transfers: ArrowsLeftRightIcon,
-  transport: CarIcon,
-  travel: AirplaneIcon,
-  utilities: LightningIcon,
-} satisfies Record<SpendingCategory, Icon>;
+const ICON_BY_NAME = {
+  AirplaneIcon,
+  ArrowsLeftRightIcon,
+  BankIcon,
+  CarIcon,
+  DotsThreeIcon,
+  FilmSlateIcon,
+  FirstAidIcon,
+  ForkKnifeIcon,
+  GraduationCapIcon,
+  HouseIcon,
+  LightningIcon,
+  PiggyBankIcon,
+  ReceiptIcon,
+  RepeatIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+  StorefrontIcon,
+} satisfies Record<CategoryIconName, Icon>;
 
-const CATEGORY_BG = {
-  dining:
+/** Exported for the custom-category color picker. */
+export const SWATCH_BY_COLOR = {
+  blue: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+  green: "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400",
+  grey: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+  orange:
     "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400",
-  education:
-    "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400",
-  entertainment:
-    "bg-pink-100 text-pink-600 dark:bg-pink-950 dark:text-pink-400",
-  groceries:
-    "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400",
-  health: "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400",
-  housing:
+  pink: "bg-pink-100 text-pink-600 dark:bg-pink-950 dark:text-pink-400",
+  purple:
     "bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400",
-  income: "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400",
-  insurance: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-  other: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-  savings: "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400",
-  shopping:
-    "bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400",
-  subscriptions:
-    "bg-pink-100 text-pink-600 dark:bg-pink-950 dark:text-pink-400",
-  taxes: "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400",
-  transfers: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-  transport: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
-  travel: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
-  utilities: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-} satisfies Record<SpendingCategory, string>;
+  red: "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400",
+} satisfies Record<CategoryColor, string>;
 
 export const CategoryIcon = ({
-  category,
   className,
-}: {
-  category: SpendingCategory;
-  className?: string;
-}) => {
-  const IconComponent = CATEGORY_ICONS[category] ?? CATEGORY_ICONS.other;
-  const bg = CATEGORY_BG[category] ?? CATEGORY_BG.other;
+  color,
+  icon,
+}: CategoryAppearance & { className?: string }) => {
+  const IconComponent = ICON_BY_NAME[icon] ?? ICON_BY_NAME.DotsThreeIcon;
+  const bg = SWATCH_BY_COLOR[color] ?? SWATCH_BY_COLOR.grey;
 
   return (
     <div

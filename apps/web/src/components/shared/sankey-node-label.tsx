@@ -6,11 +6,16 @@ const TRUNCATED_CHARS = 20;
 
 interface SankeyNodeLabelProps {
   formatValue: (value: number) => string;
+  /** Draws the label above the node instead of inside it. */
+  isEmphasized: boolean;
+  isFirstColumn: boolean;
   node: NodeRect;
 }
 
 export const SankeyNodeLabel = ({
   formatValue,
+  isEmphasized,
+  isFirstColumn,
   node,
 }: SankeyNodeLabelProps) => {
   const cx = node.x + node.w / 2;
@@ -20,7 +25,7 @@ export const SankeyNodeLabel = ({
       ? `${node.label.slice(0, TRUNCATED_CHARS)}…`
       : node.label;
 
-  if (node.column === 1) {
+  if (isEmphasized) {
     return (
       <text
         x={cx}
@@ -59,12 +64,11 @@ export const SankeyNodeLabel = ({
   }
 
   // Too short for an inside label — set it beside the node instead.
-  const isSourceColumn = node.column === 0;
   return (
     <text
-      x={isSourceColumn ? node.x + node.w + 6 : node.x - 6}
+      x={isFirstColumn ? node.x + node.w + 6 : node.x - 6}
       y={cy}
-      textAnchor={isSourceColumn ? "start" : "end"}
+      textAnchor={isFirstColumn ? "start" : "end"}
       dominantBaseline="central"
       className="fill-muted-foreground pointer-events-none text-[9px]"
     >

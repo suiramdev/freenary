@@ -1,3 +1,4 @@
+import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import { cn } from "@freenary/ui/lib/utils";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -28,7 +29,7 @@ export const TransactionRow = ({
     onClick={onClick}
   >
     <CategoryIcon
-      category={transaction.category}
+      {...predefinedCategoryAppearance(transaction.category)}
       className="size-8 [&_svg]:size-4"
     />
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">

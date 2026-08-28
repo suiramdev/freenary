@@ -128,6 +128,8 @@ export const paintSankey = (
     paintDitherLink(ctx, link, fx, fy, dimOf(link.id));
   }
 
+  const lastColumn = layout.columnCount - 1;
+
   for (const node of layout.nodes) {
     const seed = seedOfColor(node.color);
     const dim = dimOf(node.id);
@@ -141,7 +143,7 @@ export const paintSankey = (
 
     // Accent bars mark where flow enters and leaves the node.
     const aw = Math.max(1, Math.round(ACCENT_W * fx));
-    if (node.column !== 2) {
+    if (node.column !== lastColumn) {
       paintAccent(ctx, bx0, by0, bx0 + aw, by1, seed, dim);
     }
     if (node.column !== 0) {

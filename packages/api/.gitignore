@@ -7,7 +7,9 @@ dist
 *.tgz
 
 
-# generated merchant dictionary (built at CI/docker build time)
+# generated data artifacts (downloaded from GitHub release or built locally)
+data/place-tokens.json
+data/wikidata-brands.json
 data/merchants.jsonl.gz
 data/merchants-*.jsonl.gz
 data/dictionary.key

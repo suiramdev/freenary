@@ -1,3 +1,4 @@
+import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import { Separator } from "@freenary/ui/components/separator";
 import {
   Sheet,
@@ -53,7 +54,7 @@ export const TransactionDetailSheet = ({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
           <div className="flex flex-col items-center gap-3 pt-2">
             <CategoryIcon
-              category={transaction.category}
+              {...predefinedCategoryAppearance(transaction.category)}
               className="size-12 [&_svg]:size-6"
             />
             <div className="flex flex-col items-center gap-1">
@@ -98,7 +99,7 @@ export const TransactionDetailSheet = ({
               label="Category"
               media={
                 <CategoryIcon
-                  category={transaction.category}
+                  {...predefinedCategoryAppearance(transaction.category)}
                   className="size-8 [&_svg]:size-4"
                 />
               }
