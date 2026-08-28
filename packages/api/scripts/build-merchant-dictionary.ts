@@ -845,17 +845,24 @@ const main = async (): Promise<void> => {
   );
 
   // Pass 3b: merge Wikidata brands (aliases + domains only; no category)
-  const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
-  // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
-  const wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
-  const { wikidataMatched, wikidataNew } = mergeWikidataBrands(
-    nsiMerchants,
-    wikidataBrands,
-    isGenericToken
-  );
-  console.log(
-    `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
-  );
+  let wikidataBrands: WikidataBrand[] = [];
+  try {
+    const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
+    // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
+    wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
+    const { wikidataMatched, wikidataNew } = mergeWikidataBrands(
+      nsiMerchants,
+      wikidataBrands,
+      isGenericToken
+    );
+    console.log(
+      `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
+    );
+  } catch {
+    console.log(
+      "Warning: wikidata-brands.json not found, skipping Wikidata enrichment (run fetch-wikidata-brands.ts to generate it)"
+    );
+  }
 
   // Pass 3c: enrich uncategorised merchants via French SIRENE registry
   try {

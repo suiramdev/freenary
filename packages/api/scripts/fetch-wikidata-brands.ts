@@ -487,8 +487,9 @@ const run = async (): Promise<void> => {
   try {
     await main();
   } catch (error) {
-    console.error("Fetch failed:", error);
-    process.exit(1);
+    console.warn(
+      `Warning: Wikidata brand fetch failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 };
 
