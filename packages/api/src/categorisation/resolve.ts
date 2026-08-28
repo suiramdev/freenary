@@ -168,14 +168,15 @@ export const categoriseTransaction = async (
  * @returns Array of results in the same order as inputs
  */
 export const categoriseBatch = async (
-  transactions: CategoriseInput[]
+  transactions: CategoriseInput[],
+  countries?: string[]
 ): Promise<ResolutionResult[]> => {
   if (transactions.length === 0) {
     return [];
   }
 
   // Load resources once for the batch
-  await Promise.all([loadDictionary(), loadModel()]);
+  await Promise.all([loadDictionary(countries), loadModel()]);
 
   try {
     const results: ResolutionResult[] = [];

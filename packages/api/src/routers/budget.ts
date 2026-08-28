@@ -5,6 +5,7 @@ import { z } from "zod";
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
 import { deriveMerchantKey } from "../categorisation/merchant-key";
 import type { TransactionChannel } from "../categorisation/normalise/types";
+import { detectRecurringExpenses } from "../categorisation/recurrence";
 import { categoriseBatch } from "../categorisation/resolve";
 import type { CategoriseInput, TransactionPath } from "../categorisation/types";
 import {
@@ -297,8 +298,17 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
     return 0;
   }
 
+  // Collect distinct institution countries for dictionary loading
+  const countries = [
+    ...new Set(
+      uncategorised
+        .map((tx) => tx.account.connection.institutionCountry)
+        .filter((c): c is string => c !== null)
+    ),
+  ];
+
   // Run batch categorisation
-  const results = await categoriseBatch(inputs);
+  const results = await categoriseBatch(inputs, countries);
 
   // Write results back
   let updated = 0;
@@ -438,6 +448,25 @@ export const budgetRouter = {
         })),
       };
     }),
+
+  getRecurringExpenses: protectedProcedure.handler(async ({ context }) => {
+    const userId = context.session.user.id;
+    const expenses = await detectRecurringExpenses(userId);
+    return {
+      expenses: expenses.map((e) => ({
+        category: e.category,
+        currency: e.currency,
+        frequency: e.frequency,
+        intervalDays: e.intervalDays,
+        lastSeen: e.lastSeen.toISOString(),
+        merchantKey: e.merchantKey,
+        merchantName: e.merchantName,
+        nextExpected: e.nextExpected.toISOString(),
+        occurrences: e.occurrences,
+        typicalAmountMinor: e.typicalAmountMinor,
+      })),
+    };
+  }),
 
   getSankeyData: protectedProcedure
     .input(

@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { createGunzip } from "node:zlib";
@@ -6,6 +6,7 @@ import { createGunzip } from "node:zlib";
 import { SPENDING_CATEGORIES } from "../lib/mcc-categories";
 import type { SpendingCategory } from "../lib/mcc-categories";
 import type { DictionaryEntry } from "./types";
+import { isVerificationConfigured, verifySignature } from "./verify";
 
 // ---------------------------------------------------------------------------
 // Static dictionary loaded from gzipped JSONL
@@ -44,6 +45,19 @@ const buildDictionaryFromFile = async (
       `[categorisation] Dictionary file not found: ${filePath} — skipping`
     );
     return target;
+  }
+
+  // Verify signature if configured
+  const sigPath = `${filePath}.sig`;
+  if (existsSync(sigPath) && isVerificationConfigured()) {
+    const content = readFileSync(filePath);
+    const sig = readFileSync(sigPath);
+    if (!verifySignature(content, sig)) {
+      console.warn(
+        `[categorisation] Dictionary signature invalid: ${filePath} — refusing to load`
+      );
+      return target;
+    }
   }
 
   const gunzip = createGunzip();

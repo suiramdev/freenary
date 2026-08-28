@@ -17,7 +17,13 @@
  * Usage: bun packages/api/scripts/build-merchant-dictionary.ts
  */
 
-import { createWriteStream } from "node:fs";
+import { sign } from "node:crypto";
+import {
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { access, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -913,6 +919,29 @@ const main = async (): Promise<void> => {
     OUTPUT_PATH,
     merchants
   );
+
+  // Sign the global dictionary artifact
+  const PRIVATE_KEY_PATH = path.resolve(
+    import.meta.dirname,
+    "../data/dictionary.key"
+  );
+  try {
+    if (existsSync(PRIVATE_KEY_PATH)) {
+      const privateKey = readFileSync(PRIVATE_KEY_PATH, "utf-8");
+      const artifactBytes = readFileSync(OUTPUT_PATH);
+      const sig = sign(null, artifactBytes, privateKey);
+      const sigPath = `${OUTPUT_PATH}.sig`;
+      writeFileSync(sigPath, sig);
+      console.log(`Dictionary signed: ${sigPath} (${sig.length} bytes)`);
+    } else {
+      console.log("No signing key found — dictionary is unsigned.");
+    }
+  } catch (error) {
+    console.warn(
+      "Signing failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 
   // Write per-country partitions
   const partitions = partitionByCountry(merchants);
