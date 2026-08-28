@@ -10,15 +10,19 @@ import { CashFlowSummary } from "@/components/budget/cash-flow-summary";
 import { SankeyChart } from "@/components/shared/sankey-chart";
 import { toCashFlowSankey } from "@/lib/budget/cash-flow-sankey";
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
+import { AGGREGATION_LABELS } from "@/lib/budget/period";
+import type { AggregationMode } from "@/lib/budget/period";
 import { formatCurrency } from "@/lib/budget/format-currency";
 
 interface CashFlowCardProps extends CashFlowData {
+  aggregation: AggregationMode;
   className?: string;
   totalExpenses: number;
 }
 
 /** Where a period's money came from and where it went. */
 export const CashFlowCard = ({
+  aggregation,
   className,
   expenseLinks,
   expenseNodes,
@@ -46,7 +50,15 @@ export const CashFlowCard = ({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-xs font-medium">Cash Flow</CardTitle>
+        <CardTitle className="text-xs font-medium">
+          Cash Flow
+          {aggregation !== "total" && (
+            <span className="text-muted-foreground font-normal">
+              {" "}
+              · {AGGREGATION_LABELS[aggregation]}
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <SankeyChart
@@ -57,6 +69,7 @@ export const CashFlowCard = ({
           links={flow.links}
         />
         <CashFlowSummary
+          aggregation={aggregation}
           totalExpenses={totalExpenses}
           totalIncome={totalIncome}
         />

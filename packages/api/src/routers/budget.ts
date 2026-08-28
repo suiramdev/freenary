@@ -37,6 +37,58 @@ const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   GROUP BY ${truncExpr}, ${labelExpr}
   ORDER BY ${truncExpr} ASC`;
 
+const aggregationSchema = z
+  .enum(["total", "average", "median"])
+  .default("total");
+
+/** YYYY-MM key for a date, used to group transactions by calendar month. */
+const monthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth()).padStart(2, "0")}`;
+
+/** All YYYY-MM keys spanning from..to inclusive. */
+const allMonthKeys = (from: Date, to: Date): string[] => {
+  const keys: string[] = [];
+  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+  while (cursor <= to) {
+    keys.push(monthKey(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return keys;
+};
+
+/** Median of a numeric array. Returns 0 for an empty array. */
+const median = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]!
+    : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+};
+
+/**
+ * Collapse per-group monthly series into a single representative value.
+ * Every group receives a value for each active month (zero-filled per group),
+ * so a category with no transactions in an otherwise active month counts as 0.
+ */
+const aggregateMonthly = <K>(
+  monthly: Map<K, Map<string, number>>,
+  months: string[],
+  mode: "average" | "median",
+): Map<K, number> => {
+  const result = new Map<K, number>();
+  for (const [key, monthValues] of monthly) {
+    const series = months.map((mk) => monthValues.get(mk) ?? 0);
+    result.set(
+      key,
+      mode === "average"
+        ? Math.round(series.reduce((s, v) => s + v, 0) / months.length)
+        : median(series),
+    );
+  }
+  return result;
+};
+
 interface ConnectionWithAccounts {
   id: string;
   provider: string;
@@ -429,13 +481,14 @@ export const budgetRouter = {
   getSankeyData: protectedProcedure
     .input(
       z.object({
+        aggregation: aggregationSchema,
         from: z.coerce.date(),
         to: z.coerce.date(),
       })
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { from, to } = input;
+      const { aggregation, from, to } = input;
 
       const transactions = await prisma.transaction.findMany({
         select: {
@@ -443,6 +496,7 @@ export const budgetRouter = {
           bankTransactionCode: true,
           category: true,
           counterpartyName: true,
+          date: true,
           merchantCategoryCode: true,
           resolvedCategory: true,
         },
@@ -452,26 +506,65 @@ export const budgetRouter = {
         },
       });
 
-      // Income side: group positive transactions by derived source label
-      const incomeSources = new Map<string, number>();
-      // Expense side: group negative transactions by spending category
-      const expenseCategories = new Map<SpendingCategory, number>();
+      let incomeSources: Map<string, number>;
+      let expenseCategories: Map<SpendingCategory, number>;
 
-      for (const tx of transactions) {
-        if (tx.amount > 0) {
-          const source = tx.counterpartyName ?? "Other Income";
-          incomeSources.set(
-            source,
-            (incomeSources.get(source) ?? 0) + tx.amount
-          );
-        } else {
-          const category = effectiveCategory(tx);
-          const abs = Math.abs(tx.amount);
-          expenseCategories.set(
-            category,
-            (expenseCategories.get(category) ?? 0) + abs
-          );
+      if (aggregation === "total") {
+        incomeSources = new Map();
+        expenseCategories = new Map();
+        for (const tx of transactions) {
+          if (tx.amount > 0) {
+            const source = tx.counterpartyName ?? "Other Income";
+            incomeSources.set(
+              source,
+              (incomeSources.get(source) ?? 0) + tx.amount,
+            );
+          } else {
+            const category = effectiveCategory(tx);
+            const abs = Math.abs(tx.amount);
+            expenseCategories.set(
+              category,
+              (expenseCategories.get(category) ?? 0) + abs,
+            );
+          }
         }
+      } else {
+        const months = allMonthKeys(from, to);
+        const activeMonthSet = new Set<string>();
+        const monthlyIncome = new Map<string, Map<string, number>>();
+        const monthlyExpense = new Map<SpendingCategory, Map<string, number>>();
+
+        for (const tx of transactions) {
+          const mk = monthKey(tx.date);
+          activeMonthSet.add(mk);
+          if (tx.amount > 0) {
+            const source = tx.counterpartyName ?? "Other Income";
+            if (!monthlyIncome.has(source)) {
+              monthlyIncome.set(source, new Map());
+            }
+            const srcMonths = monthlyIncome.get(source)!;
+            srcMonths.set(mk, (srcMonths.get(mk) ?? 0) + tx.amount);
+          } else {
+            const category = effectiveCategory(tx);
+            const abs = Math.abs(tx.amount);
+            if (!monthlyExpense.has(category)) {
+              monthlyExpense.set(category, new Map());
+            }
+            const catMonths = monthlyExpense.get(category)!;
+            catMonths.set(mk, (catMonths.get(mk) ?? 0) + abs);
+          }
+        }
+
+        // Only count months that have at least one transaction so that
+        // months before the bank was connected don't dilute the result.
+        const active = months.filter((mk) => activeMonthSet.has(mk));
+
+        incomeSources = aggregateMonthly(monthlyIncome, active, aggregation);
+        expenseCategories = aggregateMonthly(
+          monthlyExpense,
+          active,
+          aggregation,
+        );
       }
 
       // Build nodes: income sources → "Budget" hub → expense categories
@@ -531,13 +624,14 @@ export const budgetRouter = {
   getSpendingBreakdown: protectedProcedure
     .input(
       z.object({
+        aggregation: aggregationSchema,
         from: z.coerce.date(),
         to: z.coerce.date(),
       })
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { from, to } = input;
+      const { aggregation, from, to } = input;
 
       const transactions = await prisma.transaction.findMany({
         select: {
@@ -545,6 +639,7 @@ export const budgetRouter = {
           bankTransactionCode: true,
           category: true,
           counterpartyName: true,
+          date: true,
           merchantCategoryCode: true,
           resolvedCategory: true,
         },
@@ -555,14 +650,38 @@ export const budgetRouter = {
         },
       });
 
-      const totals = new Map<SpendingCategory, number>();
-      for (const tx of transactions) {
-        const category = effectiveCategory(tx);
-        const abs = Math.abs(tx.amount);
-        totals.set(category, (totals.get(category) ?? 0) + abs);
+      let categoryAmounts: Map<SpendingCategory, number>;
+
+      if (aggregation === "total") {
+        categoryAmounts = new Map();
+        for (const tx of transactions) {
+          const category = effectiveCategory(tx);
+          const abs = Math.abs(tx.amount);
+          categoryAmounts.set(
+            category,
+            (categoryAmounts.get(category) ?? 0) + abs,
+          );
+        }
+      } else {
+        const months = allMonthKeys(from, to);
+        const activeMonthSet = new Set<string>();
+        const monthly = new Map<SpendingCategory, Map<string, number>>();
+        for (const tx of transactions) {
+          const category = effectiveCategory(tx);
+          const abs = Math.abs(tx.amount);
+          const mk = monthKey(tx.date);
+          activeMonthSet.add(mk);
+          if (!monthly.has(category)) {
+            monthly.set(category, new Map());
+          }
+          const catMonths = monthly.get(category)!;
+          catMonths.set(mk, (catMonths.get(mk) ?? 0) + abs);
+        }
+        const active = months.filter((mk) => activeMonthSet.has(mk));
+        categoryAmounts = aggregateMonthly(monthly, active, aggregation);
       }
 
-      const categories = [...totals.entries()]
+      const categories = [...categoryAmounts.entries()]
         .map(([category, amount]) => ({
           amount,
           category,

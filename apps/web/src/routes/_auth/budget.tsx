@@ -20,7 +20,8 @@ import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { client, orpc } from "@/utils/orpc";
 
 const BudgetPage = () => {
-  const { from, to, range, setRange, setMonth } = useBudgetPeriod();
+  const { aggregation, from, to, range, setAggregation, setRange, setMonth } =
+    useBudgetPeriod();
   const [direction, setDirection] = useState<"incoming" | "outgoing">(
     "outgoing"
   );
@@ -34,14 +35,14 @@ const BudgetPage = () => {
 
   const breakdownQuery = useQuery({
     ...orpc.budget.getSpendingBreakdown.queryOptions({
-      input: { from, to },
+      input: { aggregation, from, to },
     }),
     placeholderData: keepPreviousData,
   });
 
   const sankeyQuery = useQuery({
     ...orpc.budget.getSankeyData.queryOptions({
-      input: { from, to },
+      input: { aggregation, from, to },
     }),
     placeholderData: keepPreviousData,
   });
@@ -104,8 +105,11 @@ const BudgetPage = () => {
   return (
     <div className="flex flex-1 flex-col gap-6 p-4">
       <PeriodNavigator
+        aggregation={aggregation}
         from={from}
+        to={to}
         range={range}
+        onAggregationChange={setAggregation}
         onRangeChange={setRange}
         onMonthChange={setMonth}
       />
@@ -115,6 +119,7 @@ const BudgetPage = () => {
         {sankeyQuery.isLoading && <Skeleton className="h-[280px]" />}
         {!sankeyQuery.isLoading && sankeyQuery.data && (
           <CashFlowCard
+            aggregation={aggregation}
             incomeNodes={sankeyQuery.data.incomeNodes}
             expenseNodes={sankeyQuery.data.expenseNodes}
             incomeLinks={sankeyQuery.data.incomeLinks}
@@ -125,7 +130,10 @@ const BudgetPage = () => {
         )}
         {breakdownQuery.isLoading && <Skeleton className="h-[320px]" />}
         {!breakdownQuery.isLoading && breakdownQuery.data?.categories.length ? (
-          <SpendingBreakdownChart data={breakdownQuery.data.categories} />
+          <SpendingBreakdownChart
+            aggregation={aggregation}
+            data={breakdownQuery.data.categories}
+          />
         ) : null}
       </div>
 

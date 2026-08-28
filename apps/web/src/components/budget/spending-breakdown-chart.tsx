@@ -15,6 +15,8 @@ import type { ChartConfig } from "@/components/dither-kit/chart-context";
 import { Pie } from "@/components/dither-kit/pie";
 import { PieChart } from "@/components/dither-kit/pie-chart";
 import { Tooltip } from "@/components/dither-kit/tooltip";
+import { AGGREGATION_LABELS } from "@/lib/budget/period";
+import type { AggregationMode } from "@/lib/budget/period";
 import { formatCurrency } from "@/lib/budget/format-currency";
 
 interface CategoryData {
@@ -24,6 +26,7 @@ interface CategoryData {
 }
 
 interface SpendingBreakdownChartProps {
+  aggregation: AggregationMode;
   data: CategoryData[];
   className?: string;
 }
@@ -40,6 +43,7 @@ const buildConfig = (data: CategoryData[]): ChartConfig => {
 };
 
 export const SpendingBreakdownChart = ({
+  aggregation,
   data,
   className,
 }: SpendingBreakdownChartProps) => {
@@ -56,6 +60,12 @@ export const SpendingBreakdownChart = ({
       <CardHeader>
         <CardTitle className="text-xs font-medium">
           Spending Breakdown
+          {aggregation !== "total" && (
+            <span className="text-muted-foreground font-normal">
+              {" "}
+              · {AGGREGATION_LABELS[aggregation]}
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
