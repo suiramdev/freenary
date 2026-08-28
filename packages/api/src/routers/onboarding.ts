@@ -1,14 +1,17 @@
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { getDefaultProvider } from "../providers/registry";
+import type { BankConnectionState } from "./bank-connection-state";
 import {
-  exchangeBankCode,
-  getAvailableBanks,
-  isEnableBankingConfigured,
-  startBankConnection,
-} from "../lib/enable-banking";
+  encodeBankConnectionState,
+  findInstitution,
+  parseBankConnectionState,
+  verifyBankConnectionState,
+} from "./bank-connection-state";
 
 export const onboardingRouter = {
   checkEmail: publicProcedure
@@ -38,12 +41,21 @@ export const onboardingRouter = {
   getAvailableBanks: protectedProcedure
     .input(z.object({ country: z.string() }))
     .handler(async ({ input }) => {
-      const banks = await getAvailableBanks(input.country);
-      return { banks };
+      const provider = getDefaultProvider();
+      const institutions = await provider.listInstitutions(input.country);
+      return {
+        banks: institutions.map((inst) => ({
+          bic: inst.bic ?? null,
+          country: inst.country,
+          id: inst.id,
+          logo: inst.logoUrl ?? null,
+          name: inst.name,
+        })),
+      };
     }),
 
   getEnableBankingAvailability: protectedProcedure.handler(() => ({
-    available: isEnableBankingConfigured(),
+    available: getDefaultProvider().isConfigured(),
   })),
 
   getStatus: protectedProcedure.handler(async ({ context }) => {
@@ -61,28 +73,62 @@ export const onboardingRouter = {
 
 export const bankConnectionRouter = {
   exchangeCode: protectedProcedure
-    .input(z.object({ code: z.string(), state: z.string().optional() }))
+    .input(z.object({ code: z.string(), state: z.string() }))
     .handler(async ({ context, input }) => {
-      const result = await exchangeBankCode(input.code);
-
-      let bankName = "Unknown";
-      if (input.state) {
-        try {
-          // SAFETY: input.state is a JSON string serialized by the client; parsed shape is validated by optional chaining
-          const parsed = JSON.parse(input.state) as { bankName?: string };
-          bankName = parsed.bankName ?? bankName;
-        } catch {
-          // state was not JSON — use as-is
-        }
+      const provider = getDefaultProvider();
+      let connectionState: BankConnectionState;
+      try {
+        connectionState = parseBankConnectionState(input.state);
+      } catch {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid bank connection state",
+        });
+      }
+      if (connectionState.providerId !== provider.id) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid banking provider in connection state",
+        });
+      }
+      const userId = context.session.user.id;
+      if (
+        !verifyBankConnectionState(
+          connectionState,
+          userId,
+          env.BETTER_AUTH_SECRET
+        )
+      ) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Bank connection state does not belong to this session",
+        });
       }
 
-      const userId = context.session.user.id;
+      const institutions = await provider.listInstitutions(
+        connectionState.institution.country
+      );
+      const institution = findInstitution(
+        institutions,
+        connectionState.institution.id,
+        connectionState.institution.country
+      );
+      if (!institution) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Bank institution is no longer available",
+        });
+      }
+
+      const result = await provider.completeConnection(input.code);
+      const providerInstitutionName = result.institutionName.trim();
+      const bankName = providerInstitutionName || institution.name;
 
       const connection = await prisma.bankConnection.create({
         data: {
+          institutionBic: institution.bic ?? null,
+          institutionCountry: institution.country,
+          institutionGroup:
+            result.institutionGroup ?? institution.group ?? null,
           institutionName: bankName,
-          provider: "enable-banking",
-          providerSessionId: result.sessionId,
+          provider: provider.id,
+          providerSessionId: result.providerSessionId,
           userId,
         },
       });
@@ -91,12 +137,20 @@ export const bankConnectionRouter = {
         data: result.accounts.map((account) => ({
           connectionId: connection.id,
           iban: account.iban ?? null,
+          identificationHash: account.identificationHash ?? null,
           name: account.name ?? null,
-          providerAccountId: account.uid,
+          providerAccountId: account.providerAccountId,
         })),
       });
 
-      return result;
+      return {
+        accounts: result.accounts.map((a) => ({
+          iban: a.iban,
+          name: a.name,
+          uid: a.providerAccountId,
+        })),
+        sessionId: result.providerSessionId,
+      };
     }),
 
   startConnection: protectedProcedure
@@ -104,18 +158,35 @@ export const bankConnectionRouter = {
       z.object({
         bankCountry: z.string(),
         bankName: z.string(),
+        institutionId: z.string(),
         state: z.string().optional(),
       })
     )
-    .handler(async ({ input }) => {
+    .handler(async ({ context, input }) => {
+      const provider = getDefaultProvider();
+      const institutions = await provider.listInstitutions(input.bankCountry);
+      const institution = findInstitution(
+        institutions,
+        input.institutionId,
+        input.bankCountry
+      );
+      if (!institution) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Unknown bank institution",
+        });
+      }
+
       const redirectUrl = `${env.CORS_ORIGIN}/callback/enable-banking`;
-      const stateObj = input.state
-        ? { bankName: input.bankName, original: input.state }
-        : { bankName: input.bankName };
-      const encodedState = JSON.stringify(stateObj);
-      const result = await startBankConnection({
-        bankCountry: input.bankCountry,
-        bankName: input.bankName,
+      const encodedState = encodeBankConnectionState(
+        provider.id,
+        institution,
+        context.session.user.id,
+        env.BETTER_AUTH_SECRET,
+        input.state
+      );
+      const result = await provider.startConnection({
+        country: input.bankCountry,
+        institutionId: institution.id,
         redirectUrl,
         state: encodedState,
       });

@@ -56,7 +56,7 @@ services:
   bootstrap:
     build: *app-build
     working_dir: /app/packages/db
-    command: bun x prisma db push
+    command: bun x prisma migrate deploy
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-freenary}
     depends_on:

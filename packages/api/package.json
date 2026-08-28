@@ -9,7 +9,12 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build:data": "bun scripts/generate-place-tokens.ts && bun scripts/build-merchant-dictionary.ts",
+    "build:places": "bun scripts/generate-place-tokens.ts",
+    "generate:key": "bun scripts/generate-signing-key.ts",
+    "train:model": "bun scripts/train-model.ts"
+  },
   "dependencies": {
     "@freenary/auth": "workspace:*",
     "@freenary/db": "workspace:*",

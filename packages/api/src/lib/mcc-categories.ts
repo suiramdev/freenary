@@ -17,6 +17,11 @@ export type SpendingCategory =
   | "travel"
   | "utilities";
 
+import {
+  allBankCodeKeywords,
+  allCounterpartyKeywords,
+} from "../categorisation/keywords";
+
 export const SPENDING_CATEGORIES = [
   "dining",
   "education",
@@ -86,9 +91,7 @@ export const CATEGORY_COLORS = {
   utilities: "grey",
 } as const satisfies Record<SpendingCategory, DitherColor>;
 
-// ---------------------------------------------------------------------------
 // MCC → SpendingCategory flat lookup (keys sorted lexicographically)
-// ---------------------------------------------------------------------------
 
 const MCC_TO_CATEGORY = {
   "1520": "housing",
@@ -316,9 +319,7 @@ const MCC_TO_CATEGORY = {
 
 export { MCC_TO_CATEGORY };
 
-// ---------------------------------------------------------------------------
 // MCC code → category (range checks first, then flat lookup)
-// ---------------------------------------------------------------------------
 
 const mccToCategory = (code: string): SpendingCategory => {
   const n = Math.trunc(Number(code));
@@ -334,9 +335,7 @@ const mccToCategory = (code: string): SpendingCategory => {
   return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? "other";
 };
 
-// ---------------------------------------------------------------------------
 // Keyword heuristic tables for deriveCategory
-// ---------------------------------------------------------------------------
 
 const BANK_CODE_KEYWORDS: [RegExp, SpendingCategory][] = [
   [/lön|salary|wage/u, "income"],
@@ -362,17 +361,23 @@ const COUNTERPARTY_KEYWORDS: [RegExp, SpendingCategory][] = [
   [/apotek|pharmacy|apotheke/u, "health"],
 ];
 
-// ---------------------------------------------------------------------------
 // Derive category from transaction data
 // Cascade: MCC → income-by-sign → bank code keywords → counterparty → "other"
-// ---------------------------------------------------------------------------
 
 export const deriveCategory = (tx: {
+  resolvedCategory?: string | null;
   merchantCategoryCode?: string | null;
   bankTransactionCode?: string | null;
   counterpartyName?: string | null;
   amount: number;
 }): SpendingCategory => {
+  if (
+    tx.resolvedCategory &&
+    SPENDING_CATEGORIES.includes(tx.resolvedCategory as SpendingCategory)
+  ) {
+    return tx.resolvedCategory as SpendingCategory;
+  }
+
   // 1. MCC lookup
   if (tx.merchantCategoryCode) {
     const cat = mccToCategory(tx.merchantCategoryCode);
@@ -394,12 +399,22 @@ export const deriveCategory = (tx: {
         return category;
       }
     }
+    for (const [pattern, category] of allBankCodeKeywords) {
+      if (pattern.test(desc)) {
+        return category;
+      }
+    }
   }
 
   // 4. Counterparty name heuristics
   if (tx.counterpartyName) {
     const name = tx.counterpartyName.toLowerCase();
     for (const [pattern, category] of COUNTERPARTY_KEYWORDS) {
+      if (pattern.test(name)) {
+        return category;
+      }
+    }
+    for (const [pattern, category] of allCounterpartyKeywords) {
       if (pattern.test(name)) {
         return category;
       }
@@ -415,6 +430,7 @@ export const deriveCategory = (tx: {
  */
 export const effectiveCategory = (tx: {
   category?: string | null;
+  resolvedCategory?: string | null;
   merchantCategoryCode?: string | null;
   bankTransactionCode?: string | null;
   counterpartyName?: string | null;

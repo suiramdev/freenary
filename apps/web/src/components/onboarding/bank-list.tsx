@@ -14,7 +14,7 @@ interface BankListProps {
   hasSearch: boolean;
   isError: boolean;
   isPending: boolean;
-  onConnect: (bankName: string) => void;
+  onConnect: (institutionId: string, bankName: string) => void;
 }
 
 export const BankList = ({
@@ -51,13 +51,13 @@ export const BankList = ({
       )}
       {banks.map((bank) => (
         <BankCard
-          key={bank.name}
+          key={bank.id}
           bic={bank.bic}
           connected={connected.has(bank.name)}
-          connecting={connecting === bank.name}
+          connecting={connecting === bank.id}
           logo={bank.logo}
           name={bank.name}
-          onConnect={() => onConnect(bank.name)}
+          onConnect={() => onConnect(bank.id, bank.name)}
         />
       ))}
     </div>

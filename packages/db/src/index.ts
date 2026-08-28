@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../prisma/generated/client";
 
-export type { Prisma } from "../prisma/generated/client";
+export { Prisma } from "../prisma/generated/client";
 
 export const createPrismaClient = () => {
   const adapter = new PrismaPg({
