@@ -18,7 +18,6 @@ export const env = createEnv({
       .default("postgresql://postgres:password@localhost:5432/freenary"),
     ENABLE_BANKING_APP_ID: z.string().optional(),
     ENABLE_BANKING_PRIVATE_KEY: z.string().optional(),
-    LOGO_DEV_API_KEY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

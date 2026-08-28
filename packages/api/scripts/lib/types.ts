@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "../../lib/mcc-categories";
+import type { SpendingCategory } from "../../src/lib/mcc-categories";
 
 export interface DictionaryAlias {
   alias: string;
@@ -9,7 +9,7 @@ export interface DictionaryMerchant {
   /** Stable id, e.g. "nsi:carrefour" or "wd:Q217599". */
   id: string;
   name: string;
-  /** normaliseDescriptor(name) — the trigram match key. */
+  /** normaliseDescriptor(name) — the match key. */
   normalisedName: string;
   /** Alternative spellings; each already normalised at build time. */
   aliases: DictionaryAlias[];
@@ -21,4 +21,9 @@ export interface DictionaryMerchant {
   source: string;
   /** The originating OSM tag, e.g. "shop=supermarket". Kept for auditability. */
   osmTag: string | null;
+}
+
+export interface CuratedEntry {
+  name: string;
+  category: SpendingCategory;
 }

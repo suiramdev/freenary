@@ -13,6 +13,8 @@ export interface InstitutionDef {
   readonly bics: readonly string[];
   /** Lowercase name substrings that identify this institution. */
   readonly names: readonly string[];
+  /** Banking group identifiers that share this definition (e.g. "Credit Agricole"). */
+  readonly groups?: readonly string[];
   /** Ordered pattern rules for structured extraction. */
   readonly patterns: readonly PatternRule[];
   /** Lines matching any of these regexes are dropped as noise before parsing. */

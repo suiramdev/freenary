@@ -11,9 +11,8 @@
   },
   "scripts": {
     "build:data": "bun scripts/generate-place-tokens.ts && bun scripts/build-merchant-dictionary.ts",
-    "build:merchants": "bun scripts/build-merchant-dictionary.ts",
     "build:places": "bun scripts/generate-place-tokens.ts",
-    "seed:merchants": "bun scripts/seed-merchant-dictionary.ts"
+    "train:model": "bun scripts/train-model.ts"
   },
   "dependencies": {
     "@freenary/auth": "workspace:*",

@@ -16,6 +16,8 @@ export interface DescriptorParseInput {
   /** Institution display name, e.g. "Boursorama". */
   institutionName: string;
   institutionBic?: string | null;
+  /** Banking group identifier from the provider (e.g. "Credit Agricole"). */
+  institutionGroup?: string | null;
   /** ISO 3166-1 alpha-2 country code of the institution when available. */
   country?: string | null;
   /** ISO 20022 bank transaction family code (e.g. "RCDT", "RDDT"). */

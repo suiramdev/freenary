@@ -126,7 +126,7 @@ const COMBINING_MARKS = /[\u0300-\u036F]/gu;
 const foldAccents = (s: string): string =>
   s.normalize("NFD").replaceAll(COMBINING_MARKS, "").toLowerCase();
 
-/** Check if an input matches an institution definition by BIC or name. */
+/** Check if an input matches an institution definition by BIC, name, or group. */
 const matchesDef = (
   input: DescriptorParseInput,
   def: InstitutionDef
@@ -135,6 +135,14 @@ const matchesDef = (
     const upper = input.institutionBic.toUpperCase();
     for (const bic of def.bics) {
       if (upper.startsWith(bic)) {
+        return true;
+      }
+    }
+  }
+  if (input.institutionGroup && def.groups) {
+    const groupLower = foldAccents(input.institutionGroup);
+    for (const group of def.groups) {
+      if (groupLower.includes(foldAccents(group))) {
         return true;
       }
     }

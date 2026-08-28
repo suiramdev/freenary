@@ -1,11 +1,7 @@
-import type { SpendingCategory } from "../../lib/mcc-categories";
+import type { SpendingCategory } from "../../src/lib/mcc-categories";
 
 /**
  * Maps high-frequency OSM `key=value` tags to the closest SpendingCategory.
- * Keys sorted lexicographically. Tags not listed here produce `null` — a wrong
- * category is worse than none. Education maps only driving_school (consumer spend);
- * school/university/kindergarten/college are administrative. ATM/bank are handled
- * upstream by channel short-circuit. Transfers maps only bureau_de_change.
  */
 export const OSM_TAG_TO_CATEGORY = {
   "amenity=bar": "dining",
@@ -82,16 +78,12 @@ export const OSM_TAG_TO_CATEGORY = {
   "tourism=theme_park": "entertainment",
 } as const satisfies Record<string, SpendingCategory>;
 
-/**
- * Look up an OSM tag and return the mapped SpendingCategory, or null
- * when there is no confident mapping.
- */
 export const mapOsmTagToCategory = (
   tag: string | null
 ): SpendingCategory | null => {
   if (tag === null) {
     return null;
   }
-  // SAFETY: tag is an arbitrary string; the assertion only narrows for the const lookup
+  // SAFETY: tag is an arbitrary string; the assertion narrows for the const lookup
   return OSM_TAG_TO_CATEGORY[tag as keyof typeof OSM_TAG_TO_CATEGORY] ?? null;
 };

@@ -23,14 +23,17 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 
-import { mapOsmTagToCategory } from "../src/categorisation/dictionary/category-map";
-import { CURATED_MERCHANTS } from "../src/categorisation/dictionary/curated-merchants";
-import type {
-  DictionaryAlias,
-  DictionaryMerchant,
-} from "../src/categorisation/dictionary/types";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
-import { isEntirelyPlaceName } from "../src/categorisation/place-tokens";
+import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
+import { mapOsmTagToCategory } from "./lib/category-map";
+import { CURATED_MERCHANTS } from "./lib/curated-merchants";
+import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
+
+/**
+ * Stub: place-token filtering will be wired into the build pipeline when the
+ * GeoNames place-token generator is ready. Until then, no names are filtered.
+ */
+const isEntirelyPlaceName = (_normalisedName: string): boolean => false;
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -171,6 +174,72 @@ const slugify = (text: string): string =>
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/gu, "-")
     .replaceAll(/^-|-$/gu, "");
+
+// ---------------------------------------------------------------------------
+// Country partitioning — extract trailing 2-letter code from NSI ids
+// ---------------------------------------------------------------------------
+
+const extractCountryFromId = (id: string): string | null => {
+  const match = id.match(/-(?<cc>[a-z]{2})$/iu);
+  return match?.groups?.["cc"]?.toUpperCase() ?? null;
+};
+
+const partitionByCountry = (
+  merchants: DictionaryMerchant[]
+): Map<string, DictionaryMerchant[]> => {
+  const partitions = new Map<string, DictionaryMerchant[]>();
+  const globalEntries: DictionaryMerchant[] = [];
+
+  for (const m of merchants) {
+    const country = m.source === "nsi" ? extractCountryFromId(m.id) : null;
+    if (country) {
+      const bucket = partitions.get(country) ?? [];
+      bucket.push(m);
+      partitions.set(country, bucket);
+    } else {
+      globalEntries.push(m);
+    }
+  }
+
+  // Merge global entries into each country partition
+  for (const [cc, bucket] of partitions) {
+    partitions.set(cc, [...bucket, ...globalEntries]);
+  }
+
+  // If no country partitions exist, create a single global one
+  if (partitions.size === 0 && globalEntries.length > 0) {
+    partitions.set("GLOBAL", globalEntries);
+  }
+
+  return partitions;
+};
+
+// ---------------------------------------------------------------------------
+// Write gzipped JSONL artifact
+// ---------------------------------------------------------------------------
+
+const writeArtifact = async (
+  outputPath: string,
+  merchants: DictionaryMerchant[]
+): Promise<{ rawBytes: number; gzippedBytes: number }> => {
+  await mkdir(path.dirname(outputPath), { recursive: true });
+
+  const rawLines: string[] = [];
+  for (const merchant of merchants) {
+    rawLines.push(JSON.stringify(merchant));
+  }
+  const rawContent = `${rawLines.join("\n")}\n`;
+  const rawBytes = Buffer.byteLength(rawContent, "utf-8");
+
+  const gzip = createGzip({ level: 9 });
+  const fileStream = createWriteStream(outputPath);
+  gzip.end(rawContent);
+  await pipeline(gzip, fileStream);
+
+  const { size: gzippedBytes } = await Bun.file(outputPath).stat();
+
+  return { gzippedBytes, rawBytes };
+};
 
 // ---------------------------------------------------------------------------
 // URL field narrowing — parse at the I/O boundary into typed values
@@ -509,6 +578,102 @@ const mergeWikidataBrands = (
 };
 
 // ---------------------------------------------------------------------------
+// SIRENE enrichment types
+// ---------------------------------------------------------------------------
+
+interface SireneEntry {
+  matching_etablissements: { activite_principale: string | null }[];
+  nom_complet: string;
+  siren: string;
+}
+
+interface SireneResponse {
+  results: SireneEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Pass 3c: enrich uncategorised merchants via the French SIRENE registry
+// ---------------------------------------------------------------------------
+
+const enrichWithSirene = async (
+  merchants: DictionaryMerchant[]
+): Promise<number> => {
+  const candidates = merchants.filter((m) => {
+    if (m.name.length < 3) {
+      return false;
+    }
+    if (m.category === null) {
+      return true;
+    }
+    if (
+      m.source === "nsi" &&
+      (m.category === "other" || m.category === "shopping")
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  if (candidates.length === 0) {
+    return 0;
+  }
+
+  console.log(`SIRENE: ${candidates.length} candidates to enrich`);
+
+  let enriched = 0;
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const merchant = candidates[i];
+
+    if (i > 0) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, 200);
+      await promise;
+    }
+
+    if ((i + 1) % 50 === 0) {
+      console.log(
+        `SIRENE: processed ${i + 1}/${candidates.length} (${enriched} enriched)`
+      );
+    }
+
+    try {
+      const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(merchant.name)}&page=1&per_page=1`;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        continue;
+      }
+
+      // SAFETY: the API returns a known JSON shape documented by api.gouv.fr
+      const data = (await res.json()) as SireneResponse;
+      const nafCode =
+        data.results?.[0]?.matching_etablissements?.[0]?.activite_principale ??
+        null;
+
+      if (nafCode === null) {
+        continue;
+      }
+
+      const category = mapNafToCategory(nafCode);
+
+      if (category !== null) {
+        merchant.category = category;
+        enriched += 1;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  console.log(
+    `SIRENE: processed ${candidates.length}/${candidates.length} (${enriched} enriched)`
+  );
+
+  return enriched;
+};
+
+// ---------------------------------------------------------------------------
 // Pass 4: merge curated supplement into NSI merchants
 // ---------------------------------------------------------------------------
 
@@ -704,6 +869,16 @@ const main = async (): Promise<void> => {
     `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
   );
 
+  // Pass 3c: enrich uncategorised merchants via French SIRENE registry
+  try {
+    const sireneEnriched = await enrichWithSirene(nsiMerchants);
+    console.log(`SIRENE enrichment: ${sireneEnriched} merchants categorised`);
+  } catch (error) {
+    console.log(
+      `Warning: SIRENE enrichment failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+
   // Pass 4: merge curated supplement (aliases/domains from Wikidata data)
   const { curatedAdded, curatedOverridden } = mergeCuratedSupplement(
     nsiMerchants,
@@ -733,24 +908,25 @@ const main = async (): Promise<void> => {
 
   const distinctCategories = new Set(merchants.map((m) => m.category));
 
-  // Write gzipped JSONL
-  await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
+  // Write global gzipped JSONL (backward compatible)
+  const { gzippedBytes, rawBytes } = await writeArtifact(
+    OUTPUT_PATH,
+    merchants
+  );
 
-  const rawLines: string[] = [];
-  for (const merchant of merchants) {
-    rawLines.push(JSON.stringify(merchant));
+  // Write per-country partitions
+  const partitions = partitionByCountry(merchants);
+  console.log(`\nCountry partitions: ${partitions.size}`);
+  for (const [cc, entries] of partitions) {
+    const countryPath = path.resolve(
+      import.meta.dirname,
+      `../data/merchants-${cc}.jsonl.gz`
+    );
+    await writeArtifact(countryPath, entries);
+    console.log(`  ${cc}: ${entries.length} merchants`);
   }
-  const rawContent = `${rawLines.join("\n")}\n`;
-  const rawBytes = Buffer.byteLength(rawContent, "utf-8");
 
-  const gzip = createGzip({ level: 9 });
-  const fileStream = createWriteStream(OUTPUT_PATH);
-  gzip.end(rawContent);
-  await pipeline(gzip, fileStream);
-
-  const { size: gzippedBytes } = await Bun.file(OUTPUT_PATH).stat();
-
-  console.log("─── Build Summary ───");
+  console.log("\n─── Build Summary ───");
   console.log(`NSI version:        ${NSI_VERSION}`);
   console.log(`Items scanned:      ${scannedCount}`);
   console.log(`Raw NSI candidates: ${rawMerchants.length}`);

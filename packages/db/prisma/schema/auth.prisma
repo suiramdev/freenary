@@ -11,7 +11,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   bankConnections       BankConnection[]
-  descriptorMemos     DescriptorMemo[]
+  merchantOverrides     MerchantOverride[]
 
   @@unique([email])
   @@map("user")

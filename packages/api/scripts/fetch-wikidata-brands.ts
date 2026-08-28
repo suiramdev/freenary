@@ -19,7 +19,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { CURATED_MERCHANTS } from "../src/categorisation/dictionary/curated-merchants";
+import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const OUTPUT_PATH = path.resolve(

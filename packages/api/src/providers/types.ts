@@ -4,6 +4,7 @@ export interface ProviderInstitution {
   country: string;
   logoUrl?: string;
   bic?: string;
+  group?: string;
 }
 
 export interface ProviderCreditorIdentification {
@@ -63,9 +64,11 @@ export interface StartConnectionRequest {
 export interface CompletedConnection {
   providerSessionId: string;
   institutionName: string;
+  institutionGroup?: string;
   accounts: {
     providerAccountId: string;
     iban?: string;
+    identificationHash?: string;
     name?: string;
   }[];
 }

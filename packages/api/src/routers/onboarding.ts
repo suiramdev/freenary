@@ -113,6 +113,8 @@ export const bankConnectionRouter = {
         data: {
           institutionBic: institution.bic ?? null,
           institutionCountry: institution.country,
+          institutionGroup:
+            result.institutionGroup ?? institution.group ?? null,
           institutionName: bankName,
           provider: provider.id,
           providerSessionId: result.providerSessionId,
@@ -124,6 +126,7 @@ export const bankConnectionRouter = {
         data: result.accounts.map((account) => ({
           connectionId: connection.id,
           iban: account.iban ?? null,
+          identificationHash: account.identificationHash ?? null,
           name: account.name ?? null,
           providerAccountId: account.providerAccountId,
         })),

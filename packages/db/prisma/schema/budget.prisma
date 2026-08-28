@@ -14,6 +14,8 @@ model BankConnection {
   institutionCountry String?
   /// SWIFT/BIC of the institution when available from the provider.
   institutionBic    String?
+  /// Banking group identifier from the provider (e.g. "Credit Agricole" for regional caisses).
+  institutionGroup  String?
   /// Status of the connection — active connections can sync transactions.
   status            BankConnectionStatus @default(ACTIVE)
   /// Last time transactions were successfully synchronized.
@@ -41,7 +43,8 @@ model BankAccount {
   providerAccountId  String
   /// IBAN when available (EU accounts).
   iban               String?
-  /// Display name from the provider.
+  /// Provider-assigned opaque account hash for cross-account matching.
+  identificationHash String?
   name               String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -91,14 +94,16 @@ model Transaction {
   referenceNumber       String?
   /// Foreign exchange rate as a string.
   exchangeRate          String?
-  /// User-selected or memo-propagated category; null = use automatic resolution.
+  /// User-selected category; null = use automatic resolution.
   category              String?
   /// True only when this transaction was edited directly by the user.
   categoryOverride      Boolean     @default(false)
-  /// Category produced by the categorisation cascade.
+  /// Category produced by the categorisation pipeline.
   resolvedCategory      String?
-  /// Canonical normalised descriptor — the categorisation match key.
+  /// Canonical normalised descriptor for card-path transactions.
   normalisedDescriptor String?
+  /// Derived lookup key: creditor IBAN for IBAN-path, normalised label for card-path.
+  merchantKey          String?
   /// Raw remittance lines as provided by the bank; order is not guaranteed.
   remittanceLines      String[]
   /// ISO 20022 family code for the transaction; the domain is not exposed upstream.
@@ -115,23 +120,43 @@ model Transaction {
   referenceNumberScheme String?
   /// The account holder's own note, where the bank exposes it.
   psuNote              String?
-  /// Resolved merchant, when identification succeeded.
-  merchantId           String?
-  merchant             Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
-  /// Detected payment intermediary when the descriptor masks the real merchant.
-  intermediaryId       String?
-  intermediary         Intermediary? @relation(fields: [intermediaryId], references: [id], onDelete: SetNull)
-  /// Cascade stage that produced the resolution: memo | intermediary | dictionary | mcc | none.
+  /// Detected payment intermediary name; null when no intermediary.
+  intermediaryName     String?
+  /// Detected transaction channel: card, transfer, direct-debit, atm, fee, cheque, loan, unknown.
+  channel              String?
+  /// Transaction path: "iban" (direct debits, transfers) or "card".
+  transactionPath      String?
+  /// Pipeline stage that produced the resolution.
   resolutionStage      String?
   /// Confidence of the resolution in the range 0..1.
   resolutionConfidence Float?
+  /// True when this transaction is one leg of a movement between the user's own accounts.
+  isInternalTransfer   Boolean     @default(false)
   createdAt         DateTime    @default(now())
 
   @@unique([accountId, providerTransactionId])
   @@index([accountId, date])
   @@index([accountId, amount])
-  @@index([accountId, merchantCategoryCode])
-  @@index([normalisedDescriptor])
-  @@index([merchantId])
+  @@index([merchantKey])
   @@map("transaction")
+}
+
+/// A user's category override for a merchant key. The user wins over every
+/// other layer permanently, with no reconciliation prompt.
+model MerchantOverride {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Lookup key: creditor IBAN or normalised descriptor.
+  merchantKey String
+  /// The category the user assigned.
+  category    String
+  /// User-friendly merchant name when known.
+  merchantName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, merchantKey])
+  @@index([userId])
+  @@map("merchant_override")
 }

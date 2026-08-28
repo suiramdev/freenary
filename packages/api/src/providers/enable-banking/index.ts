@@ -64,6 +64,7 @@ export const enableBankingProvider: BankingProvider = {
         aspsps: {
           bic?: string | null;
           country: string;
+          group?: string | null;
           logo?: string | null;
           name: string;
         }[];
@@ -72,6 +73,7 @@ export const enableBankingProvider: BankingProvider = {
       return data.aspsps.map((aspsp) => ({
         bic: aspsp.bic ?? undefined,
         country: aspsp.country,
+        group: aspsp.group ?? undefined,
         id: aspsp.name,
         logoUrl: aspsp.logo ?? undefined,
         name: aspsp.name,

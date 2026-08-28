@@ -1,6 +1,3 @@
--- Enable pg_trgm for trigram similarity indexes
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
 -- CreateEnum
 CREATE TYPE "BankConnectionStatus" AS ENUM ('ACTIVE', 'EXPIRED', 'ERROR');
 
@@ -74,6 +71,7 @@ CREATE TABLE "bank_connection" (
     "institutionName" TEXT NOT NULL,
     "institutionCountry" TEXT,
     "institutionBic" TEXT,
+    "institutionGroup" TEXT,
     "status" "BankConnectionStatus" NOT NULL DEFAULT 'ACTIVE',
     "lastSyncedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -88,6 +86,7 @@ CREATE TABLE "bank_account" (
     "connectionId" TEXT NOT NULL,
     "providerAccountId" TEXT NOT NULL,
     "iban" TEXT,
+    "identificationHash" TEXT,
     "name" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -120,6 +119,7 @@ CREATE TABLE "transaction" (
     "categoryOverride" BOOLEAN NOT NULL DEFAULT false,
     "resolvedCategory" TEXT,
     "normalisedDescriptor" TEXT,
+    "merchantKey" TEXT,
     "remittanceLines" TEXT[],
     "bankTransactionFamilyCode" TEXT,
     "creditorAgentBic" TEXT,
@@ -128,61 +128,28 @@ CREATE TABLE "transaction" (
     "creditorIdentifications" JSONB,
     "referenceNumberScheme" TEXT,
     "psuNote" TEXT,
-    "merchantId" TEXT,
-    "intermediaryId" TEXT,
+    "intermediaryName" TEXT,
+    "channel" TEXT,
+    "transactionPath" TEXT,
     "resolutionStage" TEXT,
     "resolutionConfidence" DOUBLE PRECISION,
+    "isInternalTransfer" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "transaction_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "merchant" (
+CREATE TABLE "merchant_override" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "normalisedName" TEXT NOT NULL,
-    "category" TEXT,
-    "domains" TEXT[],
-    "source" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "merchant_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "merchant_alias" (
-    "id" TEXT NOT NULL,
-    "merchantId" TEXT NOT NULL,
-    "alias" TEXT NOT NULL,
-    "normalisedAlias" TEXT NOT NULL,
-
-    CONSTRAINT "merchant_alias_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "intermediary" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "ibans" TEXT[],
-
-    CONSTRAINT "intermediary_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "descriptor_memo" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT,
-    "normalisedDescriptor" TEXT NOT NULL,
-    "merchantId" TEXT,
-    "intermediaryId" TEXT,
-    "category" TEXT,
-    "hitCount" INTEGER NOT NULL DEFAULT 1,
-    "source" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "merchantKey" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "merchantName" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "descriptor_memo_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "merchant_override_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -219,40 +186,16 @@ CREATE INDEX "transaction_accountId_date_idx" ON "transaction"("accountId", "dat
 CREATE INDEX "transaction_accountId_amount_idx" ON "transaction"("accountId", "amount");
 
 -- CreateIndex
-CREATE INDEX "transaction_accountId_merchantCategoryCode_idx" ON "transaction"("accountId", "merchantCategoryCode");
-
--- CreateIndex
-CREATE INDEX "transaction_normalisedDescriptor_idx" ON "transaction"("normalisedDescriptor");
-
--- CreateIndex
-CREATE INDEX "transaction_merchantId_idx" ON "transaction"("merchantId");
+CREATE INDEX "transaction_merchantKey_idx" ON "transaction"("merchantKey");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "transaction_accountId_providerTransactionId_key" ON "transaction"("accountId", "providerTransactionId");
 
 -- CreateIndex
-CREATE INDEX "merchant_normalisedName_idx" ON "merchant"("normalisedName");
+CREATE INDEX "merchant_override_userId_idx" ON "merchant_override"("userId");
 
 -- CreateIndex
-CREATE INDEX "merchant_normalisedName_trgm_idx" ON "merchant" USING GIST ("normalisedName" gist_trgm_ops);
-
--- CreateIndex
-CREATE INDEX "merchant_alias_normalisedAlias_idx" ON "merchant_alias"("normalisedAlias");
-
--- CreateIndex
-CREATE INDEX "merchant_alias_normalisedAlias_trgm_idx" ON "merchant_alias" USING GIST ("normalisedAlias" gist_trgm_ops);
-
--- CreateIndex
-CREATE UNIQUE INDEX "merchant_alias_merchantId_normalisedAlias_key" ON "merchant_alias"("merchantId", "normalisedAlias");
-
--- CreateIndex
-CREATE INDEX "descriptor_memo_normalisedDescriptor_idx" ON "descriptor_memo"("normalisedDescriptor");
-
--- CreateIndex
-CREATE INDEX "descriptor_memo_normalisedDescriptor_trgm_idx" ON "descriptor_memo" USING GIST ("normalisedDescriptor" gist_trgm_ops);
-
--- CreateIndex
-CREATE UNIQUE INDEX "descriptor_memo_userId_normalisedDescriptor_key" ON "descriptor_memo"("userId", "normalisedDescriptor") NULLS NOT DISTINCT;
+CREATE UNIQUE INDEX "merchant_override_userId_merchantKey_key" ON "merchant_override"("userId", "merchantKey");
 
 -- AddForeignKey
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -270,19 +213,4 @@ ALTER TABLE "bank_account" ADD CONSTRAINT "bank_account_connectionId_fkey" FOREI
 ALTER TABLE "transaction" ADD CONSTRAINT "transaction_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "bank_account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "transaction" ADD CONSTRAINT "transaction_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "merchant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "transaction" ADD CONSTRAINT "transaction_intermediaryId_fkey" FOREIGN KEY ("intermediaryId") REFERENCES "intermediary"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "merchant_alias" ADD CONSTRAINT "merchant_alias_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "descriptor_memo" ADD CONSTRAINT "descriptor_memo_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "descriptor_memo" ADD CONSTRAINT "descriptor_memo_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "merchant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "descriptor_memo" ADD CONSTRAINT "descriptor_memo_intermediaryId_fkey" FOREIGN KEY ("intermediaryId") REFERENCES "intermediary"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "merchant_override" ADD CONSTRAINT "merchant_override_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
