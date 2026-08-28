@@ -1,12 +1,47 @@
+import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
-import { Separator } from "@freenary/ui/components/separator";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { BudgetingSection } from "@/components/settings/budgeting-section";
 import { CategoriesSection } from "@/components/settings/categories-section";
 import { SettingsPageSkeleton } from "@/components/settings/settings-page-skeleton";
+import { UnsavedChangesBar } from "@/components/settings/unsaved-changes-bar";
+import { useBudgetProfileEditor } from "@/hooks/settings/use-budget-profile-editor";
+import type { ServerBudgetLine } from "@/hooks/settings/use-budget-profile-editor";
 import { orpc } from "@/utils/orpc";
+
+interface SettingsContentProps {
+  categories: CategoryEntry[];
+  serverLines: ServerBudgetLine[];
+}
+
+const SettingsContent = ({ categories, serverLines }: SettingsContentProps) => {
+  const editor = useBudgetProfileEditor(serverLines, categories);
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-4 pb-20">
+      <BudgetingSection
+        addLine={editor.addLine}
+        categories={categories}
+        errors={editor.errors}
+        lines={editor.lines}
+        removeLine={editor.removeLine}
+        updateLine={editor.updateLine}
+      />
+
+      <CategoriesSection categories={categories} />
+
+      <UnsavedChangesBar
+        changeCount={editor.changeCount}
+        hasErrors={editor.errors.size > 0}
+        isSaving={editor.isSaving}
+        onCancel={() => editor.reset()}
+        onSave={() => editor.save()}
+      />
+    </div>
+  );
+};
 
 const SettingsPage = () => {
   const categoriesQuery = useQuery(orpc.settings.listCategories.queryOptions());
@@ -40,16 +75,10 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-4">
-      <BudgetingSection
-        categories={categoriesQuery.data.categories}
-        serverLines={profileQuery.data.lines}
-      />
-
-      <Separator />
-
-      <CategoriesSection categories={categoriesQuery.data.categories} />
-    </div>
+    <SettingsContent
+      categories={categoriesQuery.data.categories}
+      serverLines={profileQuery.data.lines}
+    />
   );
 };
 

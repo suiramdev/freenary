@@ -1,20 +1,12 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
-import { Button } from "@freenary/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@freenary/ui/components/card";
 import { Separator } from "@freenary/ui/components/separator";
 import { useState } from "react";
 
 import { BudgetLineGroup } from "@/components/settings/budget-line-group";
 import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { CustomCategorySheet } from "@/components/settings/custom-category-sheet";
-import { useBudgetProfileEditor } from "@/hooks/settings/use-budget-profile-editor";
-import type { ServerBudgetLine } from "@/hooks/settings/use-budget-profile-editor";
+import { SettingsSection } from "@/components/settings/settings-section";
+import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
 import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
 
 interface GroupDefinition {
@@ -49,71 +41,53 @@ const GROUPS: GroupDefinition[] = [
 ];
 
 interface BudgetingSectionProps {
+  addLine: (kind: BudgetLineKind) => void;
   categories: CategoryEntry[];
-  serverLines: ServerBudgetLine[];
+  errors: Map<string, string>;
+  lines: EditorLine[];
+  removeLine: (id: string) => void;
+  updateLine: (id: string, patch: Partial<EditorLine>) => void;
 }
 
 export const BudgetingSection = ({
+  addLine,
   categories,
-  serverLines,
+  errors,
+  lines,
+  removeLine,
+  updateLine,
 }: BudgetingSectionProps) => {
-  const {
-    addLine,
-    errors,
-    isDirty,
-    isSaving,
-    lines,
-    removeLine,
-    save,
-    updateLine,
-  } = useBudgetProfileEditor(serverLines, categories);
-
   // The row that asked for a new category, so the created one lands back on it.
   const [creatingForLineId, setCreatingForLineId] = useState<string | null>(
     null
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xs font-medium">Budgeting profile</CardTitle>
-        <CardDescription>
-          Declare where your money comes from and where it goes each month. The
-          flow updates as you type.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <BudgetProfilePreview categories={categories} lines={lines} />
+    <SettingsSection
+      description="Declare where your money comes from and where it goes each month. The flow updates as you type."
+      title="Budgeting profile"
+    >
+      <BudgetProfilePreview categories={categories} lines={lines} />
 
-        <Separator />
+      <Separator />
 
-        {GROUPS.map((group, index) => (
-          <BudgetLineGroup
-            addLabel={group.addLabel}
-            categories={categories}
-            description={group.description}
-            errors={errors}
-            key={group.kind}
-            kind={group.kind}
-            lines={lines.filter((line) => line.kind === group.kind)}
-            onAdd={addLine}
-            onCreateCategory={setCreatingForLineId}
-            onRemove={removeLine}
-            onUpdate={updateLine}
-            step={index + 1}
-            title={group.title}
-          />
-        ))}
-
-        <div className="flex justify-end">
-          <Button
-            disabled={!isDirty || isSaving || errors.size > 0}
-            onClick={() => save()}
-          >
-            {isSaving ? "Saving…" : "Save budgeting profile"}
-          </Button>
-        </div>
-      </CardContent>
+      {GROUPS.map((group, index) => (
+        <BudgetLineGroup
+          addLabel={group.addLabel}
+          categories={categories}
+          description={group.description}
+          errors={errors}
+          key={group.kind}
+          kind={group.kind}
+          lines={lines.filter((line) => line.kind === group.kind)}
+          onAdd={addLine}
+          onCreateCategory={setCreatingForLineId}
+          onRemove={removeLine}
+          onUpdate={updateLine}
+          step={index + 1}
+          title={group.title}
+        />
+      ))}
 
       <CustomCategorySheet
         edited={null}
@@ -130,6 +104,6 @@ export const BudgetingSection = ({
         }}
         open={creatingForLineId !== null}
       />
-    </Card>
+    </SettingsSection>
   );
 };

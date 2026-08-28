@@ -133,6 +133,33 @@ export const useBudgetProfileEditor = (
     return found;
   }, [categories, lines]);
 
+  const changeCount = useMemo(() => {
+    const original = toEditorLines(serverLines ?? []);
+    const originalById = new Map(original.map((line) => [line.id, line]));
+    let count = 0;
+    const seen = new Set<string>();
+    for (const line of lines) {
+      seen.add(line.id);
+      const prev = originalById.get(line.id);
+      if (!prev) {
+        count += 1;
+      } else if (
+        prev.label !== line.label ||
+        prev.amountInput !== line.amountInput ||
+        prev.categoryKey !== line.categoryKey ||
+        prev.kind !== line.kind
+      ) {
+        count += 1;
+      }
+    }
+    for (const id of originalById.keys()) {
+      if (!seen.has(id)) {
+        count += 1;
+      }
+    }
+    return count;
+  }, [lines, serverLines]);
+
   const saveMutation = useMutation({
     mutationFn: (submitted: EditorLine[]) =>
       client.settings.saveBudgetProfile({ lines: submitted.map(toPayload) }),
@@ -188,17 +215,25 @@ export const useBudgetProfileEditor = (
     );
   }, []);
 
+  const reset = useCallback(() => {
+    editCount.current = 0;
+    setIsDirty(false);
+    setLines(toEditorLines(serverLines ?? []));
+  }, [serverLines]);
+
   const save = useCallback(() => {
     saveMutation.mutate(lines);
   }, [lines, saveMutation]);
 
   return {
     addLine,
+    changeCount,
     errors,
     isDirty,
     isSaving: saveMutation.isPending,
     lines,
     removeLine,
+    reset,
     save,
     updateLine,
   };
