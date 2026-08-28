@@ -704,6 +704,7 @@ export const budgetRouter = {
   getTransactions: protectedProcedure
     .input(
       z.object({
+        categories: z.array(z.enum(SPENDING_CATEGORIES)).optional(),
         cursor: z.string().optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),
         from: z.coerce.date(),
@@ -714,7 +715,7 @@ export const budgetRouter = {
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { cursor, direction, from, limit, search, to } = input;
+      const { categories, cursor, direction, from, limit, search, to } = input;
 
       const dateFilter = { gte: from, lte: to };
       let directionFilter: { gt: number } | { lt: number } | undefined;
@@ -724,30 +725,41 @@ export const budgetRouter = {
         directionFilter = { lt: 0 };
       }
 
-      const searchFilter = search
-        ? {
-            OR: [
-              {
-                description: {
-                  contains: search,
-                  mode: "insensitive" as const,
-                },
+      const conditions: Prisma.TransactionWhereInput[] = [];
+
+      if (search) {
+        conditions.push({
+          OR: [
+            {
+              description: {
+                contains: search,
+                mode: "insensitive" as const,
               },
-              {
-                counterpartyName: {
-                  contains: search,
-                  mode: "insensitive" as const,
-                },
+            },
+            {
+              counterpartyName: {
+                contains: search,
+                mode: "insensitive" as const,
               },
-            ],
-          }
-        : {};
+            },
+          ],
+        });
+      }
+
+      if (categories?.length) {
+        conditions.push({
+          OR: [
+            { category: { in: categories } },
+            { category: null, resolvedCategory: { in: categories } },
+          ],
+        });
+      }
 
       const baseWhere: Prisma.TransactionWhereInput = {
         account: { connection: { userId } },
         amount: directionFilter,
         date: dateFilter,
-        ...searchFilter,
+        ...(conditions.length > 0 ? { AND: conditions } : {}),
       };
 
       const findManyOpts: Prisma.TransactionFindManyArgs = {

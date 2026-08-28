@@ -1,3 +1,4 @@
+import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
   keepPreviousData,
@@ -44,6 +45,7 @@ const BudgetPage = () => {
   );
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
+  const [categories, setCategories] = useState<SpendingCategory[]>([]);
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
@@ -71,6 +73,7 @@ const BudgetPage = () => {
         to: to.toISOString(),
         direction,
         search: debouncedSearch,
+        categories,
       },
     ],
     queryFn: ({ pageParam }) =>
@@ -79,6 +82,7 @@ const BudgetPage = () => {
         to,
         direction,
         search: debouncedSearch || undefined,
+        categories: categories.length > 0 ? categories : undefined,
         cursor: pageParam,
         limit: 50,
       }),
@@ -98,6 +102,17 @@ const BudgetPage = () => {
       transactionsQuery.fetchNextPage();
     }
   }, [transactionsQuery]);
+
+  const handleCategoryClick = useCallback(
+    (category: SpendingCategory | null) => {
+      setCategories((prev) => {
+        if (category === null) return [];
+        if (prev.length === 1 && prev[0] === category) return [];
+        return [category];
+      });
+    },
+    []
+  );
 
   if (accountsQuery.isLoading) {
     return <BudgetPageSkeleton />;
@@ -143,6 +158,7 @@ const BudgetPage = () => {
             expenseLinks={sankeyQuery.data.expenseLinks}
             totalIncome={sankeyQuery.data.totalIncome}
             totalExpenses={sankeyQuery.data.totalExpenses}
+            onCategoryClick={handleCategoryClick}
           />
         )}
         {breakdownQuery.isLoading && <Skeleton className="h-[320px]" />}
@@ -150,6 +166,7 @@ const BudgetPage = () => {
           <SpendingBreakdownChart
             aggregation={aggregation}
             data={breakdownQuery.data.categories}
+            onCategoryClick={handleCategoryClick}
           />
         ) : null}
       </div>
@@ -161,6 +178,8 @@ const BudgetPage = () => {
         onDirectionChange={setDirection}
         search={search}
         onSearchChange={setSearch}
+        categories={categories}
+        onCategoriesChange={setCategories}
         hasMore={transactionsQuery.hasNextPage}
         onLoadMore={handleLoadMore}
         isLoading={
