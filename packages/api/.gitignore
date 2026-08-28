@@ -7,7 +7,9 @@ dist
 *.tgz
 
 
-# generated merchant dictionary (built at CI/docker build time)
+# generated data artifacts (downloaded from GitHub release or built locally)
+data/place-tokens.json
+data/wikidata-brands.json
 data/merchants.jsonl.gz
 data/merchants-*.jsonl.gz
 data/dictionary.key
@@ -38,4 +40,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
-data/place-tokens.json

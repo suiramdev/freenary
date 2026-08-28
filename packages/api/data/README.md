@@ -14,19 +14,26 @@ NSI indexes OSM points of interest — retail shops, restaurants, fuel stations 
 
 Wikidata broadens brand coverage to online-only and service businesses that lack OSM presence. When a Wikidata brand matches an existing NSI entry by normalised name, its aliases and domains are merged in. Unmatched Wikidata brands are added as new entries only if they carry at least one domain (evidence of being a real commercial entity). Because Wikidata has no OSM tags, these entries carry `category: null` — the resolver uses them for name matching only, and downstream stages (e.g. Sirene NAF) handle category assignment.
 
-## Regeneration
+## How data is supplied
+
+Data artifacts are built in CI (`.github/workflows/generate-data.yml`) and published as a GitHub Release tagged `data-YYYY-MM-DD`. The workflow runs weekly and on push to `main` when the generation scripts change.
 
 ```bash
-# Fetch Wikidata brands + SIRENE enrichment (run manually; writes wikidata-brands.json)
-bun packages/api/scripts/fetch-wikidata-brands.ts
+# Default: download pre-built artifacts from the latest GitHub data release,
+# falling back to local generation when no release is available.
+bun run build:data
 
-# Build the dictionary (merges NSI + Wikidata + curated)
-bun packages/api/scripts/build-merchant-dictionary.ts
+# Force local generation (skips the download, runs the full pipeline).
+bun run build:data:generate
 ```
 
-`fetch-wikidata-brands.ts` runs three phases: Phase 0 queries the SIRENE API (`recherche-entreprises.api.gouv.fr`) for each curated merchant to obtain SIREN identifiers and NAF codes. Phase 1 collects entities from Wikidata SPARQL by type, then Phase 1b searches Wikidata for curated merchant names by label. Phase 2 fetches aliases in batches. The intermediate `wikidata-brands.json` must be present for the build — the build fails if it is missing.
+The full generation pipeline runs three scripts in sequence:
 
-The build script fetches the pinned NSI tarball from npm, reads the Wikidata intermediate file, applies the curated supplement (looking up each curated merchant's aliases and domains from the Wikidata data), normalises all names, and writes sorted gzipped JSONL.
+1. `generate-place-tokens.ts` — downloads the GeoNames cities15000 dataset and writes `place-tokens.json`.
+2. `fetch-wikidata-brands.ts` — queries Wikidata SPARQL and the SIRENE API, writes `wikidata-brands.json`.
+3. `build-merchant-dictionary.ts` — fetches the pinned NSI tarball, merges NSI + Wikidata + curated supplement, enriches via SIRENE, and writes `merchants.jsonl.gz`.
+
+Each step degrades gracefully when its upstream API is unreachable.
 
 ## Runtime enrichment
 
@@ -35,7 +42,7 @@ Transactions that no dictionary, learned, or SIRENE stage can resolve are sent t
 ## Pinned versions
 
 - NSI **v8.0.20260729** (BSD-3-Clause).
-- Wikidata brands: fetched from WDQS, intermediate committed as `wikidata-brands.json`.
+- Wikidata brands: fetched from WDQS, written to `wikidata-brands.json` at build time.
 - SIRENE: `recherche-entreprises.api.gouv.fr` (free, no key required).
 
 ## Licence and attribution
