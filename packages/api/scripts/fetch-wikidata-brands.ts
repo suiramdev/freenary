@@ -20,6 +20,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
+import { fetchSireneBatch } from "./lib/sirene-client";
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const OUTPUT_PATH = path.resolve(
@@ -30,7 +31,6 @@ const OUTPUT_PATH = path.resolve(
 const USER_AGENT = "freenary-merchant-build/1.0 (https://freenary.com)";
 const DELAY_MS = 1500;
 
-const SIRENE_SEARCH_URL = "https://recherche-entreprises.api.gouv.fr/search";
 const CURATED_WIKIDATA_BATCH_SIZE = 10;
 
 /**
@@ -167,67 +167,53 @@ interface SireneApiResult {
   total_results: number;
 }
 
-const fetchSireneForMerchant = async (
+const parseSireneResult = (
+  raw: unknown,
   name: string
-): Promise<SireneResult | null> => {
-  const url = `${SIRENE_SEARCH_URL}?q=${encodeURIComponent(name)}&page=1&per_page=1`;
-  try {
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-    });
-    if (!response.ok) {
-      console.log(`  SIRENE HTTP ${response.status} for "${name}"`);
-      return null;
-    }
-    // SAFETY: recherche-entreprises.api.gouv.fr returns a known JSON shape
-    const data = (await response.json()) as SireneApiResult;
-    if (data.total_results === 0 || data.results.length === 0) {
-      return null;
-    }
-    const topResult = data.results[0];
-    if (!topResult) {
-      return null;
-    }
-    const etab = topResult.matching_etablissements?.[0];
-    if (!etab) {
-      return null;
-    }
-    return {
-      denomination:
-        topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
-      nafCode: etab.activite_principale,
-      siren: etab.siren,
-      tradeName: etab.nom_commercial ?? null,
-    };
-  } catch (error) {
-    console.log(
-      `  SIRENE error for "${name}": ${error instanceof Error ? error.message : String(error)}`
-    );
+): SireneResult | null => {
+  const data = raw as SireneApiResult;
+  if (!data.results?.length) {
     return null;
   }
+  const topResult = data.results[0];
+  if (!topResult) {
+    return null;
+  }
+  const etab = topResult.matching_etablissements?.[0];
+  if (!etab) {
+    return null;
+  }
+  return {
+    denomination:
+      topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
+    nafCode: etab.activite_principale,
+    siren: etab.siren,
+    tradeName: etab.nom_commercial ?? null,
+  };
 };
 
 const fetchSireneForCuratedMerchants = async (): Promise<
   Map<string, SireneResult>
 > => {
-  const sireneMap = new Map<string, SireneResult>();
+  const names = CURATED_MERCHANTS.map((m) => m.name);
   console.log(
-    `Phase 0: querying SIRENE for ${CURATED_MERCHANTS.length} curated merchants…`
+    `Phase 0: querying SIRENE for ${names.length} curated merchants…`
   );
-  for (const [i, { name }] of CURATED_MERCHANTS.entries()) {
-    const result = await fetchSireneForMerchant(name);
-    if (result) {
-      sireneMap.set(name, result);
+
+  const results = await fetchSireneBatch(names, parseSireneResult, (done, total) => {
+    if (done % 20 === 0 || done === total) {
+      console.log(`  ${done}/${total} queried`);
     }
-    if ((i + 1) % 20 === 0 || i === CURATED_MERCHANTS.length - 1) {
-      console.log(
-        `  ${i + 1}/${CURATED_MERCHANTS.length}: ${sireneMap.size} matched`
-      );
-    }
-    if (i < CURATED_MERCHANTS.length - 1) {
-      await sleep(DELAY_MS);
+  });
+
+  const sireneMap = new Map<string, SireneResult>();
+  for (const { query, data } of results) {
+    if (data) {
+      sireneMap.set(query, data);
     }
   }
+
+  console.log(`  ${sireneMap.size}/${names.length} matched`);
   return sireneMap;
 };
 

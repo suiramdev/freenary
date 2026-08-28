@@ -35,6 +35,7 @@ import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
+import { fetchSireneBatch } from "./lib/sirene-client";
 
 /**
  * Stub: place-token filtering will be wired into the build pipeline when the
@@ -599,69 +600,74 @@ const enrichWithSirene = async (
 
   console.log(`SIRENE: ${candidates.length} candidates to enrich`);
 
-  let enriched = 0;
-
-  for (let i = 0; i < candidates.length; i += 1) {
-    const merchant = candidates[i];
-
-    if (i > 0) {
-      const { promise, resolve } = Promise.withResolvers<void>();
-      setTimeout(resolve, 200);
-      await promise;
-    }
-
-    if ((i + 1) % 50 === 0) {
-      console.log(
-        `SIRENE: processed ${i + 1}/${candidates.length} (${enriched} enriched)`
-      );
-    }
-
-    try {
-      const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(merchant.name)}&page=1&per_page=1`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-
-      if (!res.ok) {
-        continue;
-      }
-
-      // SAFETY: the API returns a known JSON shape documented by api.gouv.fr
-      const data = (await res.json()) as SireneResponse;
-      const firstResult = data.results?.[0];
-      if (!firstResult) {
-        continue;
-      }
-
-      const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
-      const merchantNameLower = merchant.name.toLowerCase().trim();
-      if (
-        !resultName.includes(merchantNameLower) &&
-        !merchantNameLower.includes(resultName)
-      ) {
-        continue;
-      }
-
-      const nafCode =
-        firstResult.matching_etablissements?.[0]?.activite_principale ?? null;
-
-      if (nafCode === null) {
-        continue;
-      }
-
-      const category = mapNafToCategory(nafCode);
-
-      if (category !== null) {
-        merchant.category = category;
-        enriched += 1;
-      }
-    } catch {
-      continue;
+  // Build a name→merchant index so we can apply results back.
+  const byName = new Map<string, DictionaryMerchant[]>();
+  for (const m of candidates) {
+    const existing = byName.get(m.name);
+    if (existing) {
+      existing.push(m);
+    } else {
+      byName.set(m.name, [m]);
     }
   }
 
-  console.log(
-    `SIRENE: processed ${candidates.length}/${candidates.length} (${enriched} enriched)`
+  const uniqueNames = [...byName.keys()];
+
+  const parseNafCode = (
+    raw: unknown,
+    queryName: string
+  ): string | null => {
+    const data = raw as SireneResponse;
+    const firstResult = data.results?.[0];
+    if (!firstResult) {
+      return null;
+    }
+
+    // Name-match guard: the result must overlap with the query.
+    const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
+    const merchantNameLower = queryName.toLowerCase().trim();
+    if (
+      !resultName.includes(merchantNameLower) &&
+      !merchantNameLower.includes(resultName)
+    ) {
+      return null;
+    }
+
+    return (
+      firstResult.matching_etablissements?.[0]?.activite_principale ?? null
+    );
+  };
+
+  const results = await fetchSireneBatch(
+    uniqueNames,
+    parseNafCode,
+    (done, total) => {
+      if (done % 50 === 0 || done === total) {
+        console.log(`SIRENE: processed ${done}/${total}`);
+      }
+    }
   );
 
+  let enriched = 0;
+  for (const { query, data: nafCode } of results) {
+    if (nafCode === null) {
+      continue;
+    }
+    const category = mapNafToCategory(nafCode);
+    if (category === null) {
+      continue;
+    }
+    const merchants_for_name = byName.get(query);
+    if (!merchants_for_name) {
+      continue;
+    }
+    for (const m of merchants_for_name) {
+      m.category = category;
+      enriched += 1;
+    }
+  }
+
+  console.log(`SIRENE: ${enriched} merchants enriched`);
   return enriched;
 };
 
