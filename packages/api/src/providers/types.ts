@@ -81,6 +81,11 @@ export interface BankingProvider {
     request: StartConnectionRequest
   ) => Promise<{ url: string }>;
   completeConnection: (code: string) => Promise<CompletedConnection>;
+  /**
+   * Revokes the provider session so the bank-side consent stops as well.
+   * Resolves when the session is already gone upstream.
+   */
+  closeConnection: (providerSessionId: string) => Promise<void>;
   fetchTransactions: (
     request: FetchTransactionsRequest
   ) => Promise<ProviderTransaction[]>;

@@ -8,6 +8,8 @@ model BankConnection {
   provider          String
   /// Provider-level session identifier used to refresh data.
   providerSessionId String
+  /// Provider-level institution identifier this connection was opened against.
+  institutionId     String?
   /// Human-readable institution name shown in the UI.
   institutionName   String
   /// ISO 3166-1 alpha-2 country code of the institution (e.g. "FR", "DE").

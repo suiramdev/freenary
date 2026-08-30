@@ -5,19 +5,19 @@ import {
 } from "@freenary/ui/components/input-group";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 
-interface OnboardingSearchInputProps {
+interface SearchInputProps {
   onChange: (value: string) => void;
   placeholder: string;
   value: string;
 }
 
-export const OnboardingSearchInput = ({
+export const SearchInput = ({
   onChange,
   placeholder,
   value,
-}: OnboardingSearchInputProps) => (
-  // Opaque: the wizard sits on the animated shader, which shows through the
-  // control's default translucent fill.
+}: SearchInputProps) => (
+  // Opaque: the onboarding wizard sits on the animated shader, which shows
+  // through the control's default translucent fill.
   <InputGroup className="bg-background">
     <InputGroupAddon>
       <MagnifyingGlassIcon />

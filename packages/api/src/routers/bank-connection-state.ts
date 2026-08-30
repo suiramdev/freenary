@@ -4,6 +4,12 @@ import { z } from "zod";
 
 import type { ProviderInstitution } from "../providers/types";
 
+/** Where the web app resumes the flow after the provider redirects back. */
+export const BANK_CONNECTION_RETURN_TARGETS = [
+  "onboarding",
+  "settings",
+] as const;
+
 const bankConnectionStateSchema = z.object({
   hmac: z.string(),
   institution: z.object({
@@ -13,9 +19,13 @@ const bankConnectionStateSchema = z.object({
   }),
   original: z.string().optional(),
   providerId: z.string(),
+  returnTo: z.enum(BANK_CONNECTION_RETURN_TARGETS),
 });
 
 export type BankConnectionState = z.infer<typeof bankConnectionStateSchema>;
+
+export type BankConnectionReturnTarget =
+  (typeof BANK_CONNECTION_RETURN_TARGETS)[number];
 
 const computeHmac = (payload: string, userId: string, secret: string): string =>
   createHmac("sha256", secret).update(`${userId}:${payload}`).digest("hex");
@@ -25,6 +35,7 @@ export const encodeBankConnectionState = (
   institution: ProviderInstitution,
   userId: string,
   secret: string,
+  returnTo: BankConnectionReturnTarget,
   original?: string
 ): string => {
   const payload = {
@@ -35,6 +46,7 @@ export const encodeBankConnectionState = (
     },
     original,
     providerId,
+    returnTo,
   };
   const hmac = computeHmac(JSON.stringify(payload), userId, secret);
   return JSON.stringify({ ...payload, hmac });

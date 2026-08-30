@@ -1,4 +1,3 @@
-import type { AppRouter } from "@freenary/api/routers/index";
 import {
   Empty,
   EmptyDescription,
@@ -6,28 +5,26 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import type { InferRouterOutputs } from "@orpc/server";
 import { BankIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
-import { BankCard } from "@/components/onboarding/bank-card";
-import { BankListSkeleton } from "@/components/onboarding/bank-list-skeleton";
-
-export type OnboardingBank =
-  InferRouterOutputs<AppRouter>["onboarding"]["getAvailableBanks"]["banks"][number];
+import { BankCard } from "@/components/bank/bank-card";
+import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
+import type { BankInstitution } from "@/hooks/bank/use-bank-connections";
 
 interface BankListProps {
-  banks: OnboardingBank[];
-  connected: ReadonlySet<string>;
+  banks: BankInstitution[];
+  /** Institutions with a linked connection — a badge instead of a button. */
+  connectedIds: ReadonlySet<string>;
   connecting: string | null;
   hasSearch: boolean;
   isError: boolean;
   isPending: boolean;
-  onConnect: (institutionId: string, bankName: string) => void;
+  onConnect: (bank: BankInstitution) => void;
 }
 
 export const BankList = ({
   banks,
-  connected,
+  connectedIds,
   connecting,
   hasSearch,
   isError,
@@ -55,9 +52,7 @@ export const BankList = ({
             <WarningCircleIcon />
           </EmptyMedia>
           <EmptyTitle>Could not load banks</EmptyTitle>
-          <EmptyDescription>
-            You can skip this step and connect later.
-          </EmptyDescription>
+          <EmptyDescription>Reload the page to try again.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -86,11 +81,11 @@ export const BankList = ({
         <BankCard
           key={bank.id}
           bic={bank.bic}
-          connected={connected.has(bank.name)}
+          connected={connectedIds.has(bank.id)}
           connecting={connecting === bank.id}
           logo={bank.logo}
           name={bank.name}
-          onConnect={() => onConnect(bank.id, bank.name)}
+          onConnect={() => onConnect(bank)}
         />
       ))}
     </ul>

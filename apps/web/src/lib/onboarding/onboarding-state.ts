@@ -1,6 +1,5 @@
 export interface OnboardingState {
   country: string;
-  connectedBanks: string[];
 }
 
 const STORAGE_KEY = "freenary:onboarding";
