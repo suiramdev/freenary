@@ -74,7 +74,6 @@ export const BudgetLineGroup = ({
           <Button
             className="self-start"
             onClick={() => onAdd(kind)}
-            size="sm"
             variant="ghost"
           >
             <PlusIcon data-icon="inline-start" />

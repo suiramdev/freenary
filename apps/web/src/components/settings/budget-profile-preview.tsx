@@ -12,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
+import { Skeleton } from "@freenary/ui/components/skeleton";
 import { ChartDonutIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
@@ -34,21 +35,28 @@ const FALLBACK_ENTRY: Pick<CategoryEntry, "color" | "label"> = {
 
 interface BudgetProfilePreviewProps {
   categories: CategoryEntry[];
+  isPending: boolean;
   lines: EditorLine[];
 }
 
 export const BudgetProfilePreview = ({
   categories,
+  isPending,
   lines,
 }: BudgetProfilePreviewProps) => {
-  const debouncedLines = useDebouncedValue(lines, PREVIEW_DELAY_MS);
+  // Debouncing the pending flag alongside the lines keeps the trailing empty
+  // draft from reading as "no budget" for one debounce window after load.
+  const debouncedLines = useDebouncedValue(
+    isPending ? null : lines,
+    PREVIEW_DELAY_MS
+  );
 
   const profileLines = useMemo<BudgetProfileLine[]>(() => {
     const entryByKey = new Map(
       categories.map((entry) => [entry.key, entry] as const)
     );
 
-    return debouncedLines.map((line) => {
+    return (debouncedLines ?? []).map((line) => {
       const entry = entryByKey.get(line.categoryKey) ?? FALLBACK_ENTRY;
       const amount = amountOf(line.amountInput);
 
@@ -81,6 +89,20 @@ export const BudgetProfilePreview = ({
     }
     return { totalAllocated, totalRevenue };
   }, [profileLines]);
+
+  if (debouncedLines === null) {
+    return (
+      <Card aria-busy="true">
+        <CardHeader>
+          <CardTitle>Budget Flow</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <output className="sr-only">Loading budget flow</output>
+          <Skeleton aria-hidden="true" className="h-[200px]" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (profileLines.length === 0) {
     return (

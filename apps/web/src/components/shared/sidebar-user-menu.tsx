@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import { CaretUpDownIcon, SignOutIcon } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { UserIdentity } from "@/components/shared/user-identity";
@@ -21,14 +22,22 @@ import { authClient } from "@/lib/auth-client";
 
 export const SidebarUserMenu = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isMobile } = useSidebar();
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending, refetch } = authClient.useSession();
 
   const handleSignOut = () => {
     authClient.signOut({
       fetchOptions: {
-        onSuccess: () => {
-          navigate({ to: "/login" });
+        onSuccess: async () => {
+          // signOut settles before better-auth updates its session atom, and
+          // AuthGate routes on that atom — leaving now bounces off /login.
+          await refetch();
+          await navigate({ to: "/login" });
+          // Only once the authenticated tree is gone: its queries would
+          // otherwise refetch on a dead cookie, and the next user would be
+          // gated on this one's cached onboarding status.
+          queryClient.clear();
         },
       },
     });
@@ -41,6 +50,8 @@ export const SidebarUserMenu = () => {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
+              // The identity row is two lines tall: a default-height sidebar
+              // row clips the avatar and the email.
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"

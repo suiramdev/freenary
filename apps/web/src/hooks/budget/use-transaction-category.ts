@@ -9,7 +9,7 @@ const isBudgetQuery = ({ queryKey: [key] }: { queryKey: readonly unknown[] }) =>
   key === "budget" || (Array.isArray(key) && key[0] === "budget");
 
 /** Overrides a transaction's category, patching every cached page optimistically. */
-export const useTransactionCategory = (transaction: Transaction | null) => {
+export const useTransactionCategory = (transaction: Transaction) => {
   const queryClient = useQueryClient();
 
   const patchCategory = (txId: string, category: SpendingCategory) => {
@@ -47,7 +47,7 @@ export const useTransactionCategory = (transaction: Transaction | null) => {
     mutationFn: (category: SpendingCategory | null) =>
       client.budget.updateTransactionCategory({
         category,
-        transactionId: transaction?.id ?? "",
+        transactionId: transaction.id,
       }),
     onError: (_err, _vars, context) => {
       if (context) {
@@ -56,18 +56,12 @@ export const useTransactionCategory = (transaction: Transaction | null) => {
       toast.error("Failed to update category");
     },
     onMutate: async (newCategory) => {
-      // The dropdown is only rendered when transaction is non-null
-      const tx = transaction;
-      if (!tx) {
-        throw new Error("Missing transaction");
-      }
-
       await queryClient.cancelQueries({ predicate: isBudgetQuery });
 
-      const previousCategory = tx.category;
-      patchCategory(tx.id, newCategory ?? tx.derivedCategory);
+      const previousCategory = transaction.category;
+      patchCategory(transaction.id, newCategory ?? transaction.derivedCategory);
 
-      return { previousCategory, txId: tx.id };
+      return { previousCategory, txId: transaction.id };
     },
     onSettled: () => {
       queryClient.invalidateQueries({ predicate: isBudgetQuery });

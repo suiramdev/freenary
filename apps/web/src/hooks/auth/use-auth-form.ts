@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +36,8 @@ interface EmailCheck {
 
 export const useAuthForm = () => {
   const navigate = useNavigate();
+  const { refetch: refetchSession } = authClient.useSession();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [emailCheck, setEmailCheck] = useState<EmailCheck | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,8 +80,15 @@ export const useAuthForm = () => {
             onError: (error) => {
               toast.error(error.error.message || error.error.statusText);
             },
-            onSuccess: () => {
-              navigate({ to: "/" });
+            // signIn settles before better-auth updates its session atom, and
+            // AuthGate routes on that atom — leaving now bounces off /login.
+            onSuccess: async () => {
+              // A session can also end without the Sign out button (expiry, or
+              // another tab), so the incoming user is cleared of the previous
+              // one's cached onboarding status and data here too.
+              queryClient.clear();
+              await refetchSession();
+              await navigate({ to: "/" });
               toast.success("Signed in successfully");
             },
           }
@@ -95,8 +104,10 @@ export const useAuthForm = () => {
             onError: (error) => {
               toast.error(error.error.message || error.error.statusText);
             },
-            onSuccess: () => {
-              navigate({ to: "/" });
+            onSuccess: async () => {
+              queryClient.clear();
+              await refetchSession();
+              await navigate({ to: "/" });
               toast.success("Account created successfully");
             },
           }

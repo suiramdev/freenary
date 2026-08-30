@@ -25,6 +25,22 @@ const callbackSearchSchema = z.object({
   }, z.string().optional()),
 });
 
+const ConnectingBank = () => (
+  <div
+    aria-busy="true"
+    className="flex min-h-svh flex-col items-center justify-center gap-4"
+  >
+    <output className="sr-only">Finishing bank connection</output>
+    <div aria-hidden="true" className="flex flex-col items-center gap-4">
+      <Skeleton className="size-10 rounded-full" />
+      <div className="flex flex-col gap-2 text-center">
+        <Skeleton className="mx-auto h-4 w-52" />
+        <Skeleton className="mx-auto h-3 w-36" />
+      </div>
+    </div>
+  </div>
+);
+
 const EnableBankingCallback = () => {
   const navigate = useNavigate();
   const { exchangeResult } = useRouteContext({
@@ -47,25 +63,14 @@ const EnableBankingCallback = () => {
     navigate({ to: "/onboarding" });
   }, [exchangeResult, navigate]);
 
-  return (
-    <div
-      aria-busy="true"
-      className="flex min-h-svh flex-col items-center justify-center gap-4"
-    >
-      <output className="sr-only">Finishing bank connection</output>
-      <div aria-hidden="true" className="flex flex-col items-center gap-4">
-        <Skeleton className="size-10 rounded-full" />
-        <div className="flex flex-col gap-2 text-center">
-          <Skeleton className="mx-auto h-4 w-52" />
-          <Skeleton className="mx-auto h-3 w-36" />
-        </div>
-      </div>
-    </div>
-  );
+  return <ConnectingBank />;
 };
 
 export const Route = createFileRoute("/callback/enable-banking")({
+  // Exchanging the authorization code needs the session cookie, which only the
+  // browser holds — this route cannot run on the server.
   ssr: false,
+  pendingComponent: ConnectingBank,
   validateSearch: callbackSearchSchema,
   beforeLoad: async ({ search }) => {
     const session = await authClient.getSession();

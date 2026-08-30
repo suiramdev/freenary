@@ -25,7 +25,7 @@ import {
 } from "@freenary/ui/components/toggle-group";
 import { cn } from "@freenary/ui/lib/utils";
 import { CheckIcon } from "@phosphor-icons/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import {
   CategoryIcon,
@@ -51,8 +51,15 @@ export const CustomCategoryDrawer = ({
   onOpenChange,
   open,
 }: CustomCategoryDrawerProps) => {
+  // Held so the title and fields keep the edited category while the drawer
+  // animates closed, instead of snapping to the empty "new" state.
+  const [shown, setShown] = useState(edited);
+  if (open && edited !== shown) {
+    setShown(edited);
+  }
+
   const { form, isSaving } = useCustomCategoryForm({
-    edited,
+    edited: shown,
     onCreated,
     onDone: () => onOpenChange(false),
   });
@@ -64,11 +71,12 @@ export const CustomCategoryDrawer = ({
       form.reset();
     }
   }, [form, open]);
+
   return (
     <Drawer onOpenChange={onOpenChange} open={open} swipeDirection="right">
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>{edited ? "Edit category" : "New category"}</DrawerTitle>
+          <DrawerTitle>{shown ? "Edit category" : "New category"}</DrawerTitle>
           <DrawerDescription>
             Custom categories can be assigned to any revenue, investment or
             outgoing in your budgeting profile.
@@ -209,7 +217,7 @@ export const CustomCategoryDrawer = ({
                 Cancel
               </Button>
               <Button disabled={isSaving} type="submit">
-                {edited ? "Save changes" : "Create category"}
+                {shown ? "Save changes" : "Create category"}
               </Button>
             </Field>
           </FieldGroup>

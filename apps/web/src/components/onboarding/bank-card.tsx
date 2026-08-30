@@ -55,7 +55,6 @@ export const BankCard = ({
         <Button
           disabled={connecting}
           onClick={onConnect}
-          size="sm"
           type="button"
           variant="secondary"
         >

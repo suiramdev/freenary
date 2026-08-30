@@ -4,7 +4,7 @@ import {
 } from "@freenary/api/lib/budget-profile";
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -105,16 +105,18 @@ export const useBudgetProfileEditor = (
   const [lines, setLines] = useState<EditorLine[]>(() =>
     toEditorLines(serverLines ?? [])
   );
-  const hydratedSignature = useRef(signatureOf(serverLines));
+  const [hydratedSignature, setHydratedSignature] = useState(() =>
+    signatureOf(serverLines)
+  );
 
+  // Hydrated during render, not in an effect: the sections that read `lines`
+  // mount on the same commit the profile arrives, and would otherwise lay
+  // themselves out against an empty draft.
   const signature = signatureOf(serverLines);
-  useEffect(() => {
-    if (isDirty || signature === hydratedSignature.current) {
-      return;
-    }
-    hydratedSignature.current = signature;
+  if (!isDirty && signature !== hydratedSignature) {
+    setHydratedSignature(signature);
     setLines(toEditorLines(serverLines ?? []));
-  }, [isDirty, serverLines, signature]);
+  }
 
   const errors = useMemo(() => {
     const knownKeys = new Set(categories.map((entry) => entry.key));

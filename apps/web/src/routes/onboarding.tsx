@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
+import { AuthGate } from "@/components/auth/auth-gate";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { useOnboardingWizard } from "@/hooks/onboarding/use-onboarding-wizard";
-import { authClient } from "@/lib/auth-client";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 
 const OnboardingPage = () => {
   const availability = useQuery(
@@ -44,18 +44,12 @@ const OnboardingPage = () => {
   );
 };
 
-export const Route = createFileRoute("/onboarding")({
-  ssr: false,
-  beforeLoad: async () => {
-    const session = await authClient.getSession();
-    if (!session.data) {
-      throw redirect({ to: "/login" });
-    }
+const OnboardingRoute = () => (
+  <AuthGate audience="onboarding">
+    <OnboardingPage />
+  </AuthGate>
+);
 
-    const status = await client.onboarding.getStatus();
-    if (status.completed) {
-      throw redirect({ to: "/" });
-    }
-  },
-  component: OnboardingPage,
+export const Route = createFileRoute("/onboarding")({
+  component: OnboardingRoute,
 });

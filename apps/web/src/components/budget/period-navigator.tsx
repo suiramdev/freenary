@@ -54,7 +54,6 @@ const PeriodYearPicker = ({
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          size="icon-sm"
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
           aria-label="Previous years"
         >
@@ -65,7 +64,6 @@ const PeriodYearPicker = ({
         </span>
         <Button
           variant="ghost"
-          size="icon-sm"
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
           aria-label="Next years"
         >
@@ -81,7 +79,6 @@ const PeriodYearPicker = ({
             <Button
               key={year}
               variant={year === selectedYear ? "default" : "ghost"}
-              size="sm"
               disabled={disabled}
               onClick={() => onSelectYear(year)}
               className="tabular-nums"
@@ -138,7 +135,6 @@ export const PeriodNavigator = ({
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
-          size="icon"
           disabled={!canGoBack}
           onClick={() => navigate(-1)}
           aria-label="Previous period"
@@ -181,7 +177,6 @@ export const PeriodNavigator = ({
         </Popover>
         <Button
           variant="ghost"
-          size="icon"
           disabled={!canGoForward}
           onClick={() => navigate(1)}
           aria-label="Next period"
@@ -200,7 +195,7 @@ export const PeriodNavigator = ({
               }
             }}
           >
-            <SelectTrigger size="sm">
+            <SelectTrigger>
               <SelectValue>{() => AGGREGATION_LABELS[aggregation]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -215,7 +210,6 @@ export const PeriodNavigator = ({
           </Select>
         )}
         <ToggleGroup
-          size="sm"
           value={[range]}
           onValueChange={([next]) => {
             const timeRange = TIME_RANGES.find((r) => r === next);

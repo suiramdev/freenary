@@ -49,7 +49,7 @@ export const SpendingCategorySelect = ({
       onValueChange(slug ?? null);
     }}
   >
-    <SelectTrigger id={id} size="sm">
+    <SelectTrigger id={id}>
       <SelectValue>
         {(selected) => {
           const category = SPENDING_CATEGORIES.find((cat) => cat === selected);

@@ -27,7 +27,7 @@ export const NotFound = () => (
         back.
       </p>
       <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both mt-2 delay-150">
-        <Button render={<Link to="/" />} size="lg">
+        <Button render={<Link to="/" />}>
           <ArrowLeft data-icon="inline-start" aria-hidden="true" />
           Back to home
         </Button>

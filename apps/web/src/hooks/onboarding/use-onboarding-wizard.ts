@@ -18,6 +18,7 @@ export const useOnboardingWizard = ({
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { refetch: refetchSession } = authClient.useSession();
   const [step, setStep] = useState(() => (loadOnboardingState() ? 1 : 0));
   const [country, setCountry] = useState<string | null>(
     () => loadOnboardingState()?.country ?? null
@@ -83,7 +84,15 @@ export const useOnboardingWizard = ({
     clearOnboardingState();
     authClient.signOut({
       fetchOptions: {
-        onSuccess: () => navigate({ to: "/login" }),
+        onSuccess: async () => {
+          // signOut settles before better-auth updates its session atom, and
+          // AuthGate routes on that atom — leaving now bounces off /login.
+          await refetchSession();
+          await navigate({ to: "/login" });
+          // Only once this page is gone: the next user would otherwise be
+          // gated on this one's cached onboarding status.
+          queryClient.clear();
+        },
       },
     });
   };

@@ -69,7 +69,6 @@ export const CategoryRow = ({
             <Button
               disabled={isMoving}
               onClick={() => onMove({ direction: "up", id: customId })}
-              size="icon-sm"
               variant="ghost"
             >
               <ArrowUpIcon />
@@ -78,17 +77,12 @@ export const CategoryRow = ({
             <Button
               disabled={isMoving}
               onClick={() => onMove({ direction: "down", id: customId })}
-              size="icon-sm"
               variant="ghost"
             >
               <ArrowDownIcon />
               <span className="sr-only">Move {entry.label} down</span>
             </Button>
-            <Button
-              onClick={() => onEdit(entry)}
-              size="icon-sm"
-              variant="ghost"
-            >
+            <Button onClick={() => onEdit(entry)} variant="ghost">
               <PencilSimpleIcon />
               <span className="sr-only">Edit {entry.label}</span>
             </Button>

@@ -32,7 +32,7 @@ export const DeleteCategoryDialog = ({
   // Left open on confirm: a successful delete unmounts the row, and a failed
   // one keeps the dialog available to retry.
   <AlertDialog>
-    <AlertDialogTrigger render={<Button size="icon-sm" variant="ghost" />}>
+    <AlertDialogTrigger render={<Button variant="ghost" />}>
       <TrashIcon />
       <span className="sr-only">Delete {label}</span>
     </AlertDialogTrigger>

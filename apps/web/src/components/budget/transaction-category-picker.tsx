@@ -27,7 +27,7 @@ export const TransactionCategoryPicker = ({
     />
 
     {isOverridden ? (
-      <Button onClick={onReset} size="icon-xs" variant="ghost">
+      <Button onClick={onReset} variant="ghost">
         <ArrowCounterClockwiseIcon />
         <span className="sr-only">Reset to auto-detected category</span>
       </Button>

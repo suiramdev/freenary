@@ -79,7 +79,6 @@ export const CountrySelectionStep = ({
         <Button
           disabled={!selected || isCompleting}
           onClick={onContinue}
-          size="lg"
           type="button"
         >
           Continue

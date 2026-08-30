@@ -15,7 +15,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { BudgetingSection } from "@/components/settings/budgeting-section";
 import { CategoriesSection } from "@/components/settings/categories-section";
-import { SettingsPageSkeleton } from "@/components/settings/settings-page-skeleton";
 import { UnsavedChangesBar } from "@/components/settings/unsaved-changes-bar";
 import { useBudgetProfileEditor } from "@/hooks/settings/use-budget-profile-editor";
 import type { ServerBudgetLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -23,26 +22,42 @@ import { orpc } from "@/utils/orpc";
 
 interface SettingsContentProps {
   categories: CategoryEntry[];
-  serverLines: ServerBudgetLine[];
+  /** The categories list alone; the other sections also need the profile. */
+  isCategoriesPending: boolean;
+  isPending: boolean;
+  serverLines: ServerBudgetLine[] | undefined;
 }
 
-const SettingsContent = ({ categories, serverLines }: SettingsContentProps) => {
+const SettingsContent = ({
+  categories,
+  isCategoriesPending,
+  isPending,
+  serverLines,
+}: SettingsContentProps) => {
   const editor = useBudgetProfileEditor(serverLines, categories);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 pb-20">
-      <BudgetProfilePreview categories={categories} lines={editor.lines} />
+      <BudgetProfilePreview
+        categories={categories}
+        isPending={isPending}
+        lines={editor.lines}
+      />
 
       <BudgetingSection
         addLine={editor.addLine}
         categories={categories}
         errors={editor.errors}
+        isPending={isPending}
         lines={editor.lines}
         removeLine={editor.removeLine}
         updateLine={editor.updateLine}
       />
 
-      <CategoriesSection categories={categories} />
+      <CategoriesSection
+        categories={categories}
+        isPending={isCategoriesPending}
+      />
 
       <UnsavedChangesBar
         changeCount={editor.changeCount}
@@ -77,7 +92,6 @@ const SettingsPage = () => {
               void categoriesQuery.refetch();
               void profileQuery.refetch();
             }}
-            size="sm"
             variant="outline"
           >
             {isRetrying && <Spinner data-icon="inline-start" />}
@@ -88,14 +102,12 @@ const SettingsPage = () => {
     );
   }
 
-  if (!(categoriesQuery.data && profileQuery.data)) {
-    return <SettingsPageSkeleton />;
-  }
-
   return (
     <SettingsContent
-      categories={categoriesQuery.data.categories}
-      serverLines={profileQuery.data.lines}
+      categories={categoriesQuery.data?.categories ?? []}
+      isCategoriesPending={categoriesQuery.isPending}
+      isPending={categoriesQuery.isPending || profileQuery.isPending}
+      serverLines={profileQuery.data?.lines}
     />
   );
 };

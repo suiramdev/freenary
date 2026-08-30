@@ -38,7 +38,7 @@ export const AppSidebar = () => (
                   <span>{title}</span>
                 </SidebarMenuButton>
                 {planned && (
-                  <SidebarMenuBadge className="text-muted-foreground/60 text-[0.625rem]">
+                  <SidebarMenuBadge className="text-muted-foreground/60">
                     Planned
                   </SidebarMenuBadge>
                 )}

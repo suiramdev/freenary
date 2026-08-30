@@ -75,11 +75,7 @@ export const BudgetLineRow = ({
           value={line.categoryKey}
         />
 
-        <Button
-          onClick={() => onRemove(line.id)}
-          size="icon-xs"
-          variant="ghost"
-        >
+        <Button onClick={() => onRemove(line.id)} variant="ghost">
           <TrashIcon />
           <span className="sr-only">Remove {line.label || "line"}</span>
         </Button>

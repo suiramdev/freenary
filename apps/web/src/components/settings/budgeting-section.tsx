@@ -1,4 +1,5 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
+import { Skeleton } from "@freenary/ui/components/skeleton";
 import { useState } from "react";
 
 import { BudgetLineGroup } from "@/components/settings/budget-line-group";
@@ -42,6 +43,7 @@ interface BudgetingSectionProps {
   addLine: (kind: BudgetLineKind) => void;
   categories: CategoryEntry[];
   errors: Map<string, string>;
+  isPending: boolean;
   lines: EditorLine[];
   removeLine: (id: string) => void;
   updateLine: (id: string, patch: Partial<EditorLine>) => void;
@@ -51,6 +53,7 @@ export const BudgetingSection = ({
   addLine,
   categories,
   errors,
+  isPending,
   lines,
   removeLine,
   updateLine,
@@ -65,31 +68,37 @@ export const BudgetingSection = ({
       description="Declare where your money comes from and where it goes each month. The flow updates as you type."
       title="Budgeting profile"
     >
-      {GROUPS.map((group, index) => {
-        const groupLines = lines.filter((line) => line.kind === group.kind);
-        return (
-          <BudgetLineGroup
-            addLabel={group.addLabel}
-            categories={categories}
-            defaultOpen={groupLines.length > 0 || index === 0}
-            description={group.description}
-            errors={errors}
-            key={group.kind}
-            kind={group.kind}
-            lines={groupLines}
-            onAdd={addLine}
-            onCreateCategory={setCreatingForLineId}
-            onRemove={removeLine}
-            onUpdate={updateLine}
-            step={index + 1}
-            title={group.title}
-          />
-        );
-      })}
+      {isPending ? (
+        <div aria-busy="true">
+          <output className="sr-only">Loading your budgeting profile</output>
+          <Skeleton aria-hidden="true" className="h-[120px]" />
+        </div>
+      ) : (
+        GROUPS.map((group, index) => {
+          const groupLines = lines.filter((line) => line.kind === group.kind);
+          return (
+            <BudgetLineGroup
+              addLabel={group.addLabel}
+              categories={categories}
+              defaultOpen={groupLines.length > 0 || index === 0}
+              description={group.description}
+              errors={errors}
+              key={group.kind}
+              kind={group.kind}
+              lines={groupLines}
+              onAdd={addLine}
+              onCreateCategory={setCreatingForLineId}
+              onRemove={removeLine}
+              onUpdate={updateLine}
+              step={index + 1}
+              title={group.title}
+            />
+          );
+        })
+      )}
 
       <CustomCategoryDrawer
         edited={null}
-        key={creatingForLineId ?? "closed"}
         onCreated={(key) => {
           if (creatingForLineId) {
             updateLine(creatingForLineId, { categoryKey: key });

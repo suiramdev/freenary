@@ -1,5 +1,4 @@
 import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
-import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -8,17 +7,24 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 
-import { BudgetPageSkeleton } from "@/components/budget/budget-page-skeleton";
-import { CashFlowCard } from "@/components/budget/cash-flow-card";
+import { BudgetCharts } from "@/components/budget/budget-charts";
 import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
-import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
 import { TransactionDetailDrawer } from "@/components/budget/transaction-detail-drawer";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { useAccountSync } from "@/hooks/budget/use-account-sync";
 import { useBudgetPeriod } from "@/hooks/budget/use-budget-period";
 import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { client, orpc } from "@/utils/orpc";
+
+/** Clicking a chart slice filters on it; clicking the active one clears it. */
+const toggleCategoryFilter = (
+  current: SpendingCategory[],
+  clicked: SpendingCategory | null
+): SpendingCategory[] => {
+  const isActive = current.length === 1 && current[0] === clicked;
+  return clicked === null || isActive ? [] : [clicked];
+};
 
 const BudgetPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
@@ -104,22 +110,16 @@ const BudgetPage = () => {
   }, [transactionsQuery]);
 
   const handleCategoryClick = useCallback(
-    (category: SpendingCategory | null) => {
-      setCategories((prev) => {
-        if (category === null) {
-          return [];
-        }
-        if (prev.length === 1 && prev[0] === category) {
-          return [];
-        }
-        return [category];
-      });
-    },
+    (category: SpendingCategory | null) =>
+      setCategories((prev) => toggleCategoryFilter(prev, category)),
     []
   );
 
-  if (accountsQuery.isLoading) {
-    return <BudgetPageSkeleton />;
+  // Until the account list lands there is no telling whether this is the
+  // budget or the empty state, and painting one only to swap it is worse than
+  // the shell standing alone for a beat.
+  if (accountsQuery.isPending) {
+    return null;
   }
 
   if (!accountsQuery.data?.hasAccounts) {
@@ -150,30 +150,14 @@ const BudgetPage = () => {
         onMonthChange={setMonth}
       />
 
-      {/* Charts group — side by side on wider viewports */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
-        {sankeyQuery.isLoading && <Skeleton className="h-[280px]" />}
-        {!sankeyQuery.isLoading && sankeyQuery.data && (
-          <CashFlowCard
-            aggregation={aggregation}
-            incomeNodes={sankeyQuery.data.incomeNodes}
-            expenseNodes={sankeyQuery.data.expenseNodes}
-            incomeLinks={sankeyQuery.data.incomeLinks}
-            expenseLinks={sankeyQuery.data.expenseLinks}
-            totalIncome={sankeyQuery.data.totalIncome}
-            totalExpenses={sankeyQuery.data.totalExpenses}
-            onCategoryClick={handleCategoryClick}
-          />
-        )}
-        {breakdownQuery.isLoading && <Skeleton className="h-[320px]" />}
-        {!breakdownQuery.isLoading && breakdownQuery.data?.categories.length ? (
-          <SpendingBreakdownChart
-            aggregation={aggregation}
-            data={breakdownQuery.data.categories}
-            onCategoryClick={handleCategoryClick}
-          />
-        ) : null}
-      </div>
+      <BudgetCharts
+        aggregation={aggregation}
+        breakdown={breakdownQuery.data?.categories}
+        cashFlow={sankeyQuery.data}
+        isBreakdownPending={breakdownQuery.isLoading}
+        isCashFlowPending={sankeyQuery.isLoading}
+        onCategoryClick={handleCategoryClick}
+      />
 
       <TransactionList
         transactions={allTransactions}

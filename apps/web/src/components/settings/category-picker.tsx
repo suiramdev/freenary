@@ -39,11 +39,7 @@ export const CategoryPicker = ({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            className="w-40 shrink-0 justify-between"
-            size="sm"
-            variant="outline"
-          />
+          <Button className="w-40 shrink-0 justify-between" variant="outline" />
         }
       >
         <span className="truncate">{selected?.label ?? "Pick a category"}</span>

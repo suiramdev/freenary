@@ -59,6 +59,14 @@ Atomic design's remaining stages map onto existing structure rather than compone
 
 When building UI, still decompose top-down into these levels: split out the smallest practical, reusable units and compose sections from them. But avoid unnecessary fragmentation — don't extract a component that has exactly one caller and no reuse prospect, and never let the taxonomy leak into file paths, filenames, or component names.
 
+### Rendering
+
+**Routes render on the server.** The only route that opts out is `callback/enable-banking`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
+
+The session lives on the API's own origin, so it is unreadable during SSR. Access rules therefore run in `AuthGate` (`@/components/auth/auth-gate.tsx`), never in a route's `beforeLoad`: a `beforeLoad` that awaits the session forces the whole subtree client-only and blanks the shell with it. Give the gate an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects.
+
+There is no router-level pending component. A route that swaps its whole page for a placeholder is a bug — see “Loading states”.
+
 ### Data fetching
 
 Section-level (organism-scale) components are presentation-focused and must **not** fetch their own data. `useQuery` calls belong at the page level — the route files in `src/routes/` — with results passed down as props (including `isPending` flags when the component renders loading states).
@@ -70,7 +78,9 @@ Exceptions that may keep queries local:
 
 ### Loading states
 
-**Data that is loading is a skeleton, never a spinner.** Anything whose content arrives from a query — a section on first paint, a list, a field filled from the server — renders a skeleton the same shape and size as the thing it stands in for, so what arrives lands where the placeholder was instead of shoving the page down. A spinner is a different size from the content that replaces it, which is exactly the jump a skeleton exists to prevent — and it is worst on first load, where the whole screen is the placeholder.
+**Data that is loading is a skeleton, never a spinner.** Anything whose content arrives from a query — a section on first paint, a list, a field filled from the server — renders a skeleton the same shape and size as the thing it stands in for, so what arrives lands where the placeholder was instead of shoving the page down. A spinner is a different size from the content that replaces it, which is exactly the jump a skeleton exists to prevent.
+
+**A skeleton stands in for one component, never for a page.** Only the parts actually waiting on a query get one; the section around them — card, title, description, header action — renders for real from the first byte. A page-shaped skeleton throws away everything the server already rendered and makes a settled layout look like it is still arriving.
 
 `RandomSpinner` is for the other kind of waiting: a control that is busy because somebody pressed it. A Save or Create button, a Connect flow, a dialog's confirm — the layout is already settled there, and the spinner belongs inside the control that was pressed.
 

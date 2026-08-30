@@ -138,11 +138,7 @@ export const TransactionList = ({
             </Badge>
           ))}
           {categories.length >= 2 && (
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => onCategoriesChange([])}
-            >
+            <Button variant="ghost" onClick={() => onCategoriesChange([])}>
               Clear all
             </Button>
           )}
