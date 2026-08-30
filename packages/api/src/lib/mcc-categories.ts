@@ -1,3 +1,8 @@
+import {
+  allBankCodeKeywords,
+  allCounterpartyKeywords,
+} from "../categorisation/keywords";
+
 export type SpendingCategory =
   | "dining"
   | "education"
@@ -16,11 +21,6 @@ export type SpendingCategory =
   | "transport"
   | "travel"
   | "utilities";
-
-import {
-  allBankCodeKeywords,
-  allCounterpartyKeywords,
-} from "../categorisation/keywords";
 
 export const SPENDING_CATEGORIES = [
   "dining",
@@ -70,6 +70,11 @@ export const CATEGORY_LABELS = {
   travel: "Travel",
   utilities: "Utilities",
 } as const satisfies Record<SpendingCategory, string>;
+
+// CATEGORY_LABELS is keyed by exactly the SpendingCategory union, so its own
+// keys are the authoritative membership test.
+const isSpendingCategory = (value: string): value is SpendingCategory =>
+  Object.hasOwn(CATEGORY_LABELS, value);
 
 export const CATEGORY_COLORS = {
   dining: "orange",
@@ -371,11 +376,8 @@ export const deriveCategory = (tx: {
   counterpartyName?: string | null;
   amount: number;
 }): SpendingCategory => {
-  if (
-    tx.resolvedCategory &&
-    SPENDING_CATEGORIES.includes(tx.resolvedCategory as SpendingCategory)
-  ) {
-    return tx.resolvedCategory as SpendingCategory;
+  if (tx.resolvedCategory && isSpendingCategory(tx.resolvedCategory)) {
+    return tx.resolvedCategory;
   }
 
   // 1. MCC lookup

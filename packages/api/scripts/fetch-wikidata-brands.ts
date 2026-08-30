@@ -21,6 +21,7 @@ import path from "node:path";
 
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 import { fetchSireneBatch } from "./lib/sirene-client";
+import type { SireneSearchResponse } from "./lib/sirene-client";
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const OUTPUT_PATH = path.resolve(
@@ -53,8 +54,9 @@ const ENTITY_TYPES = {
   Q891723: "public company",
 } as const satisfies Record<string, string>;
 
+// No `siren`: the SIRENE API returns it on the result, not the establishment
+// this is built from, so the field was never populated and nothing reads it.
 interface SireneResult {
-  siren: string;
   nafCode: string;
   denomination: string;
   tradeName: string | null;
@@ -148,42 +150,21 @@ const runQuery = async (
 
 // ── Phase 0: SIRENE enrichment for curated merchants ─────────────────────
 
-interface SireneApiEtablissement {
-  siren: string;
-  activite_principale: string;
-  nom_complet?: string;
-  nom_raison_sociale?: string;
-  nom_commercial?: string | null;
-}
-
-interface SireneApiResult {
-  results: {
-    matching_etablissements: SireneApiEtablissement[];
-    nom_complet?: string;
-    nom_raison_sociale?: string;
-    siren?: string;
-    activite_principale?: string;
-  }[];
-  total_results: number;
-}
-
-const parseSireneResult = (raw: unknown, name: string): SireneResult | null => {
-  const data = raw as SireneApiResult;
-  if (!data.results?.length) {
-    return null;
-  }
-  const topResult = data.results[0];
+const parseSireneResult = (
+  data: SireneSearchResponse,
+  name: string
+): SireneResult | null => {
+  const [topResult] = data.results;
   if (!topResult) {
     return null;
   }
-  const etab = topResult.matching_etablissements?.[0];
-  if (!etab) {
+  const [etab] = topResult.matching_etablissements;
+  if (!etab?.activite_principale) {
     return null;
   }
   return {
     denomination: topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
     nafCode: etab.activite_principale,
-    siren: etab.siren,
     tradeName: etab.nom_commercial ?? null,
   };
 };

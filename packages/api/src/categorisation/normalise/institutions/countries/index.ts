@@ -12,7 +12,7 @@ export type { CountryProfile } from "./types";
  * Must stay in sync with SUPPORTED_COUNTRIES — the type-level check
  * below enforces this at compile time.
  */
-const registry: Record<SupportedCountry, CountryProfile> = {
+const registry = {
   FR: fr,
 } satisfies Record<SupportedCountry, CountryProfile>;
 

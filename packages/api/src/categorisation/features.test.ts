@@ -12,15 +12,19 @@ describe("extractFeatures", () => {
 
   it("returns sorted indices", () => {
     const result = extractFeatures("boulangerie paul");
-    for (let i = 1; i < result.indices.length; i += 1) {
-      expect(result.indices[i]).toBeGreaterThan(result.indices[i - 1]!);
+    let previous: number | null = null;
+    for (const index of result.indices) {
+      if (previous !== null) {
+        expect(index).toBeGreaterThan(previous);
+      }
+      previous = index;
     }
   });
 
   it("returns all positive values", () => {
     const result = extractFeatures("sncf");
-    for (let i = 0; i < result.values.length; i += 1) {
-      expect(result.values[i]).toBeGreaterThan(0);
+    for (const value of result.values) {
+      expect(value).toBeGreaterThan(0);
     }
   });
 

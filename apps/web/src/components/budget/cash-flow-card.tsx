@@ -1,4 +1,7 @@
-import { CATEGORY_LABELS } from "@freenary/api/lib/mcc-categories";
+import {
+  CATEGORY_LABELS,
+  SPENDING_CATEGORIES,
+} from "@freenary/api/lib/mcc-categories";
 import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import {
   Card,
@@ -17,8 +20,11 @@ import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
 
 const LABEL_TO_CATEGORY: Record<string, SpendingCategory> = Object.fromEntries(
-  Object.entries(CATEGORY_LABELS).map(([slug, label]) => [label, slug])
-) as Record<string, SpendingCategory>;
+  SPENDING_CATEGORIES.map((category): [string, SpendingCategory] => [
+    CATEGORY_LABELS[category],
+    category,
+  ])
+);
 
 interface CashFlowCardProps extends CashFlowData {
   aggregation: AggregationMode;

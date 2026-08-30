@@ -122,6 +122,18 @@ const ensureLoaded = async (): Promise<void> => {
   await loadingPromise;
 };
 
+// Existing shard paths, yielded lazily in the caller's country order.
+const existingShardPaths = async function* existingShardPaths(
+  countries: string[]
+): AsyncGenerator<string, void, void> {
+  for (const country of countries) {
+    const filePath = countryDataPath(country);
+    if (existsSync(filePath)) {
+      yield filePath;
+    }
+  }
+};
+
 const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
   if (dictionary) {
     return;
@@ -130,12 +142,11 @@ const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
   const map = new Map<string, DictionaryEntry>();
   let anyCountryFileFound = false;
 
-  for (const country of countries) {
-    const filePath = countryDataPath(country);
-    if (existsSync(filePath)) {
-      await buildDictionaryFromFile(filePath, map);
-      anyCountryFileFound = true;
-    }
+  // Shards must merge one at a time: aliases are first-wins, so concurrent merges
+  // into the shared map would let stream interleaving decide the winner.
+  for await (const filePath of existingShardPaths(countries)) {
+    await buildDictionaryFromFile(filePath, map);
+    anyCountryFileFound = true;
   }
 
   // Fall back to global file if no country-specific files were found
@@ -148,16 +159,14 @@ const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
 
 /** Eagerly load the dictionary into memory. Call once at batch start. */
 export const loadDictionary = async (countries?: string[]): Promise<void> => {
-  refCount++;
+  refCount += 1;
   if (refCount > 1 && dictionary) {
     return;
   }
   try {
-    if (countries && countries.length > 0) {
-      await ensureLoadedForCountries(countries);
-    } else {
-      await ensureLoaded();
-    }
+    await (countries && countries.length > 0
+      ? ensureLoadedForCountries(countries)
+      : ensureLoaded());
   } catch {
     // Never throw — treat as empty dictionary
     dictionary = new Map();

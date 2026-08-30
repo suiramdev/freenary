@@ -1,6 +1,6 @@
 import type { TransactionChannel } from "../../types";
+import { capture } from "../capture-groups";
 import type { InstitutionDef } from "../definitions";
-import { capture } from "../generic";
 import type { CountryProfile } from "./types";
 
 // ── Date parsers ─────────────────────────────────────────────────────────

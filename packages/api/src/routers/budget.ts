@@ -48,24 +48,26 @@ const monthKey = (date: Date) =>
 /** All YYYY-MM keys spanning from..to inclusive. */
 const allMonthKeys = (from: Date, to: Date): string[] => {
   const keys: string[] = [];
-  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+  let cursor = new Date(from.getFullYear(), from.getMonth(), 1);
   while (cursor <= to) {
     keys.push(monthKey(cursor));
-    cursor.setMonth(cursor.getMonth() + 1);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
   return keys;
 };
 
 /** Median of a numeric array. Returns 0 for an empty array. */
 const median = (values: number[]): number => {
-  if (values.length === 0) {
+  const sorted = values.toSorted((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const upper = sorted[mid];
+  if (upper === undefined) {
     return 0;
   }
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2)
-    : sorted[mid]!;
+  const lower = sorted[mid - 1];
+  return lower !== undefined && sorted.length % 2 === 0
+    ? Math.round((lower + upper) / 2)
+    : upper;
 };
 
 /**
@@ -550,18 +552,20 @@ export const budgetRouter = {
           activeMonthSet.add(mk);
           if (tx.amount > 0) {
             const source = tx.counterpartyName ?? "Other Income";
-            if (!monthlyIncome.has(source)) {
-              monthlyIncome.set(source, new Map());
+            let srcMonths = monthlyIncome.get(source);
+            if (!srcMonths) {
+              srcMonths = new Map();
+              monthlyIncome.set(source, srcMonths);
             }
-            const srcMonths = monthlyIncome.get(source)!;
             srcMonths.set(mk, (srcMonths.get(mk) ?? 0) + tx.amount);
           } else {
             const category = effectiveCategory(tx);
             const abs = Math.abs(tx.amount);
-            if (!monthlyExpense.has(category)) {
-              monthlyExpense.set(category, new Map());
+            let catMonths = monthlyExpense.get(category);
+            if (!catMonths) {
+              catMonths = new Map();
+              monthlyExpense.set(category, catMonths);
             }
-            const catMonths = monthlyExpense.get(category)!;
             catMonths.set(mk, (catMonths.get(mk) ?? 0) + abs);
           }
         }
@@ -682,10 +686,11 @@ export const budgetRouter = {
           const abs = Math.abs(tx.amount);
           const mk = monthKey(tx.date);
           activeMonthSet.add(mk);
-          if (!monthly.has(category)) {
-            monthly.set(category, new Map());
+          let catMonths = monthly.get(category);
+          if (!catMonths) {
+            catMonths = new Map();
+            monthly.set(category, catMonths);
           }
-          const catMonths = monthly.get(category)!;
           catMonths.set(mk, (catMonths.get(mk) ?? 0) + abs);
         }
         const active = months.filter((mk) => activeMonthSet.has(mk));
@@ -761,8 +766,10 @@ export const budgetRouter = {
         account: { connection: { userId } },
         amount: directionFilter,
         date: dateFilter,
-        ...(conditions.length > 0 ? { AND: conditions } : {}),
       };
+      if (conditions.length > 0) {
+        baseWhere.AND = conditions;
+      }
 
       const findManyOpts: Prisma.TransactionFindManyArgs = {
         orderBy: [{ date: "desc" }, { id: "desc" }],

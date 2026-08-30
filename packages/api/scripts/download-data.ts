@@ -41,9 +41,12 @@ const resolveRepo = (): string => {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
-    const match = url.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/u);
-    if (match?.[1]) {
-      return match[1];
+    const match = url.match(
+      /github\.com[:/](?<slug>[^/]+\/[^/]+?)(?:\.git)?$/u
+    );
+    const slug = match?.groups?.slug;
+    if (slug) {
+      return slug;
     }
   } catch {
     // git not available (e.g. inside Docker without .git)
@@ -65,16 +68,16 @@ interface Release {
 const main = async (): Promise<void> => {
   const repo = resolveRepo();
 
-  const headers: Record<string, string> = {
+  const baseHeaders = {
     Accept: "application/vnd.github+json",
     "User-Agent": "freenary-data-download",
     "X-GitHub-Api-Version": "2022-11-28",
-  };
+  } satisfies Record<string, string>;
 
   const token = process.env.GITHUB_TOKEN;
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const headers = token
+    ? { ...baseHeaders, Authorization: `Bearer ${token}` }
+    : baseHeaders;
 
   // Find the latest data-* release
   console.log(`Looking for latest ${RELEASE_TAG_PREFIX}* release in ${repo}…`);
@@ -88,6 +91,8 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  // SAFETY: the releases endpoint returned 2xx, checked above, so GitHub's
+  // documented release list shape holds
   const releases = (await releasesRes.json()) as Release[];
   const release = releases.find((r) =>
     r.tag_name.startsWith(RELEASE_TAG_PREFIX)
@@ -145,9 +150,11 @@ const main = async (): Promise<void> => {
   console.log(`Using merchant data from release ${release.tag_name}`);
 };
 
-main().catch((error: unknown) => {
+try {
+  await main();
+} catch (error) {
   console.log(
     `Data download failed: ${error instanceof Error ? error.message : String(error)}`
   );
   process.exit(1);
-});
+}

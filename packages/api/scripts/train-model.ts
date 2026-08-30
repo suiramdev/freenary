@@ -42,9 +42,19 @@ const dotSparse = (
   values: Float32Array
 ): number => {
   let sum = 0;
-  for (let i = 0; i < indices.length; i += 1) {
-    // SAFETY: indices[i] and values[i] are always within bounds for valid FeatureVectors
-    sum += weights[indices[i]!]! * values[i]!;
+  let i = 0;
+  for (const index of indices) {
+    const weight = weights[index];
+    const value = values[i];
+    // Unreachable: extractFeatures hashes buckets mod dimension and sizes
+    // indices/values in lockstep, so both reads are always in range.
+    if (weight === undefined || value === undefined) {
+      throw new Error(
+        `Feature vector out of range at position ${i} (bucket ${index})`
+      );
+    }
+    sum += weight * value;
+    i += 1;
   }
   return sum;
 };
@@ -55,21 +65,27 @@ const dotSparse = (
  */
 const softmax = (logits: Float64Array): Float64Array => {
   let maxLogit = -Infinity;
-  for (let i = 0; i < logits.length; i += 1) {
-    if (logits[i]! > maxLogit) {
-      maxLogit = logits[i]!;
+  for (const logit of logits) {
+    if (logit > maxLogit) {
+      maxLogit = logit;
     }
   }
 
+  // Each pass only writes the slot the iterator has already yielded, so
+  // rewriting in place cannot disturb the remaining reads.
   let sumExp = 0;
-  for (let i = 0; i < logits.length; i += 1) {
-    const exp = Math.exp(Math.max(-500, Math.min(500, logits[i]! - maxLogit)));
+  let i = 0;
+  for (const logit of logits) {
+    const exp = Math.exp(Math.max(-500, Math.min(500, logit - maxLogit)));
     logits[i] = exp;
     sumExp += exp;
+    i += 1;
   }
 
-  for (let i = 0; i < logits.length; i += 1) {
-    logits[i] = logits[i]! / sumExp;
+  i = 0;
+  for (const exp of logits) {
+    logits[i] = exp / sumExp;
+    i += 1;
   }
 
   return logits;
@@ -78,13 +94,17 @@ const softmax = (logits: Float64Array): Float64Array => {
 /**
  * Fisher–Yates shuffle (in-place).
  */
-const shuffle = <T>(arr: T[]): T[] => {
+const shuffle = <T extends NonNullable<unknown>>(arr: T[]): T[] => {
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    // SAFETY: i and j are within bounds
-    const tmp = arr[i]!;
-    arr[i] = arr[j]!;
-    arr[j] = tmp;
+    const current = arr[i];
+    const picked = arr[j];
+    // Both offsets are in range for a dense array; a hole would corrupt the swap.
+    if (current === undefined || picked === undefined) {
+      throw new Error(`Cannot shuffle an array with a hole at ${i} or ${j}`);
+    }
+    arr[i] = picked;
+    arr[j] = current;
   }
   return arr;
 };
@@ -100,8 +120,8 @@ interface TrainingSample {
 
 const buildCategoryIndex = (): Map<string, number> => {
   const index = new Map<string, number>();
-  for (let i = 0; i < SPENDING_CATEGORIES.length; i += 1) {
-    index.set(SPENDING_CATEGORIES[i]!, i);
+  for (const [i, category] of SPENDING_CATEGORIES.entries()) {
+    index.set(category, i);
   }
   return index;
 };
@@ -178,10 +198,10 @@ const train = (
   dimension: number
 ): Float64Array[] => {
   // Weight matrix: one Float64Array per category
-  const weights: Float64Array[] = [];
-  for (let c = 0; c < numCategories; c += 1) {
-    weights.push(new Float64Array(dimension));
-  }
+  const weights = Array.from(
+    { length: numCategories },
+    () => new Float64Array(dimension)
+  );
 
   const logits = new Float64Array(numCategories);
 
@@ -194,27 +214,46 @@ const train = (
       const { indices, values } = features;
 
       // Forward: compute logits and softmax probabilities
-      for (let c = 0; c < numCategories; c += 1) {
-        logits[c] = dotSparse(weights[c]!, indices, values);
+      let c = 0;
+      for (const w of weights) {
+        logits[c] = dotSparse(w, indices, values);
+        c += 1;
       }
       softmax(logits);
 
       // Cross-entropy loss for logging
-      const prob = logits[label]!;
+      const prob = logits[label];
+      if (prob === undefined) {
+        throw new Error(
+          `Sample label ${label} outside 0..${numCategories - 1}`
+        );
+      }
       totalLoss += -Math.log(Math.max(prob, 1e-15));
 
       // Backward: gradient update
-      for (let c = 0; c < numCategories; c += 1) {
-        // gradient = (p_c - y_c) where y_c = 1 if c === label else 0
-        const grad = logits[c]! - (c === label ? 1 : 0);
-        const w = weights[c]!;
-
-        for (let i = 0; i < indices.length; i += 1) {
-          const idx = indices[i]!;
-          // SGD step with L2 regularization
-          w[idx] =
-            w[idx]! - LEARNING_RATE * (grad * values[i]! + L2_LAMBDA * w[idx]!);
+      c = 0;
+      for (const w of weights) {
+        const logit = logits[c];
+        if (logit === undefined) {
+          throw new Error(`Missing logit for category ${c}`);
         }
+        // gradient = (p_c - y_c) where y_c = 1 if c === label else 0
+        const grad = logit - (c === label ? 1 : 0);
+
+        let i = 0;
+        for (const idx of indices) {
+          const weight = w[idx];
+          const value = values[i];
+          if (weight === undefined || value === undefined) {
+            throw new Error(
+              `Feature vector out of range at position ${i} (bucket ${idx})`
+            );
+          }
+          // SGD step with L2 regularization
+          w[idx] = weight - LEARNING_RATE * (grad * value + L2_LAMBDA * weight);
+          i += 1;
+        }
+        c += 1;
       }
     }
 
@@ -237,10 +276,12 @@ const serialiseWeights = (
 
   for (const w of weights) {
     const sparse: Record<string, number> = {};
-    for (let i = 0; i < w.length; i += 1) {
-      if (w[i] !== 0) {
-        sparse[String(i)] = w[i]!;
+    let i = 0;
+    for (const value of w) {
+      if (value !== 0) {
+        sparse[String(i)] = value;
       }
+      i += 1;
     }
     sparseWeights.push(sparse);
   }

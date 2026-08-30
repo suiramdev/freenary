@@ -102,6 +102,8 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
     const columns = line.split("\t");
     const countryCode = columns[8] ?? "";
 
+    // SAFETY: countryCode is an arbitrary column value; the assertion only
+    // narrows for the const lookup, and a miss is !== true
     if (
       EUROPEAN_COUNTRIES[countryCode as keyof typeof EUROPEAN_COUNTRIES] !==
       true
@@ -136,7 +138,7 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
     }
   }
 
-  return [...tokens].sort();
+  return [...tokens].toSorted();
 };
 
 const main = async (): Promise<void> => {
@@ -162,7 +164,9 @@ const main = async (): Promise<void> => {
   }
 };
 
-main().catch((error: unknown) => {
+try {
+  await main();
+} catch (error) {
   console.error(error);
   process.exit(1);
-});
+}

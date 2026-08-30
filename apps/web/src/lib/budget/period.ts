@@ -8,11 +8,11 @@ export const AGGREGATION_MODES: AggregationMode[] = [
   "median",
 ];
 
-export const AGGREGATION_LABELS: Record<AggregationMode, string> = {
+export const AGGREGATION_LABELS = {
   average: "Monthly avg.",
   median: "Monthly median",
   total: "Total",
-};
+} satisfies Record<AggregationMode, string>;
 
 /** True when the selected range spans more than a single month. */
 export const isMultiMonth = (range: TimeRange) => range !== "1M";
@@ -31,6 +31,9 @@ export const rangeMonths = (range: TimeRange): number => {
     }
   }
 };
+
+export const formatMonthYear = (date: Date): string =>
+  date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
 /**
  * Human-readable period label.
@@ -94,6 +97,3 @@ export const computeDateRange = (
   const to = new Date(year, month + 1, 0, 23, 59, 59, 999);
   return { from, to };
 };
-
-export const formatMonthYear = (date: Date): string =>
-  date.toLocaleDateString(undefined, { month: "long", year: "numeric" });

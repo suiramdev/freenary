@@ -86,8 +86,8 @@ const mode = <T>(values: T[]): T => {
     counts.set(v, (counts.get(v) ?? 0) + 1);
   }
 
-  let best = values[0];
-  // SAFETY: values always has at least one element when called
+  // SAFETY (below): callers only pass non-empty arrays, so best is a real element
+  let [best] = values;
   let bestCount = 0;
 
   for (const [value, count] of counts) {
@@ -219,12 +219,14 @@ export const detectRecurringExpenses = async (
       // Compute intervals between consecutive transactions (in days)
       const intervals: number[] = [];
 
-      for (let i = 1; i < txs.length; i += 1) {
-        // SAFETY: txs[i] and txs[i-1] exist within loop bounds
-        const prev = txs[i - 1] as RawTransaction;
-        const curr = txs[i] as RawTransaction;
-        const diffMs = curr.date.getTime() - prev.date.getTime();
-        intervals.push(Math.round(diffMs / MS_PER_DAY));
+      let prev: RawTransaction | undefined;
+
+      for (const curr of txs) {
+        if (prev) {
+          const diffMs = curr.date.getTime() - prev.date.getTime();
+          intervals.push(Math.round(diffMs / MS_PER_DAY));
+        }
+        prev = curr;
       }
 
       intervals.sort((a, b) => a - b);

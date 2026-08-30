@@ -11,41 +11,42 @@ export const useBudgetPeriod = (dateBounds?: {
   first: Date | null;
   last: Date | null;
 }) => {
+  const lastDataDate = dateBounds?.last;
   const now = new Date();
   const [anchor, setAnchor] = useState({
     month: now.getMonth(),
     year: now.getFullYear(),
   });
-  const [range, setRangeRaw] = useState<TimeRange>("1M");
+  const [range, setRange] = useState<TimeRange>("1M");
   const [aggregation, setAggregation] = useState<AggregationMode>("total");
 
   // Once we know the last transaction date, snap the anchor to it (once).
   const snapped = useRef(false);
   useEffect(() => {
-    if (snapped.current || !dateBounds?.last) {
+    if (snapped.current || !lastDataDate) {
       return;
     }
     snapped.current = true;
     setAnchor({
-      month: dateBounds.last.getMonth(),
-      year: dateBounds.last.getFullYear(),
+      month: lastDataDate.getMonth(),
+      year: lastDataDate.getFullYear(),
     });
-  }, [dateBounds?.last]);
+  }, [lastDataDate]);
 
-  const setRange = useCallback(
+  const changeRange = useCallback(
     (next: TimeRange) => {
-      setRangeRaw(next);
+      setRange(next);
       if (!isMultiMonth(next)) {
         setAggregation("total");
       }
       if (next === "1Y") {
         setAnchor((prev) => ({ ...prev, month: 11 }));
-      } else if (dateBounds?.last) {
+      } else if (lastDataDate) {
         // Switching to a shorter range: clamp anchor to last month with data
         // so we don't land on future months without transactions
         // (e.g. after "1Y" forced anchor.month to December).
-        const lastMonth = dateBounds.last.getMonth();
-        const lastYear = dateBounds.last.getFullYear();
+        const lastMonth = lastDataDate.getMonth();
+        const lastYear = lastDataDate.getFullYear();
         setAnchor((prev) => {
           if (
             prev.year > lastYear ||
@@ -57,7 +58,7 @@ export const useBudgetPeriod = (dateBounds?: {
         });
       }
     },
-    [dateBounds?.last]
+    [lastDataDate]
   );
 
   const { from, to } = useMemo(
@@ -79,7 +80,7 @@ export const useBudgetPeriod = (dateBounds?: {
     range,
     setAggregation,
     setMonth: (year: number, month: number) => setAnchor({ month, year }),
-    setRange,
+    setRange: changeRange,
     to,
   };
 };

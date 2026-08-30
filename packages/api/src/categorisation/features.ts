@@ -23,12 +23,18 @@ const DEFAULT_NGRAM_RANGE: [number, number] = [3, 5];
 const FNV_OFFSET = 0x81_1c_9d_c5;
 const FNV_PRIME = 0x01_00_01_93;
 
+// Bucket ids must stay bit-for-bit stable: any change here shifts every feature
+// away from the weights in the trained model file.
 const fnv1a32 = (str: string): number => {
   let hash = FNV_OFFSET;
   for (let i = 0; i < str.length; i += 1) {
-    hash ^= str.charCodeAt(i);
+    // eslint-disable-next-line unicorn/prefer-code-point -- code points would change the hash for astral characters
+    const code = str.charCodeAt(i);
+    // eslint-disable-next-line no-bitwise -- FNV-1a's mixing step is a XOR by definition
+    hash ^= code;
     hash = Math.imul(hash, FNV_PRIME);
   }
+  // eslint-disable-next-line no-bitwise -- coerces Math.imul's int32 result back to uint32
   return hash >>> 0;
 };
 
@@ -81,7 +87,7 @@ export const extractFeatures = (
       }
     }
 
-    const sortedBuckets = [...bucketCounts.keys()].sort((a, b) => a - b);
+    const sortedBuckets = [...bucketCounts.keys()].toSorted((a, b) => a - b);
     const indices = new Uint32Array(sortedBuckets.length);
     const values = new Float32Array(sortedBuckets.length);
 

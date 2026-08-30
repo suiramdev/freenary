@@ -1,7 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import { scrubForContribution } from "./scrub";
-import type { ScrubInput } from "./scrub";
+import type { ScrubbedPayload, ScrubInput } from "./scrub";
+
+const scrubbed = (input: ScrubInput): ScrubbedPayload => {
+  const result = scrubForContribution(input);
+  if (result === null) {
+    throw new Error("expected a scrubbed payload, got null");
+  }
+  return result;
+};
 
 describe("scrubForContribution", () => {
   const validInput: ScrubInput = {
@@ -15,14 +23,13 @@ describe("scrubForContribution", () => {
   };
 
   it("produces a scrubbed payload with bucketed amount", () => {
-    const result = scrubForContribution(validInput);
-    expect(result).not.toBeNull();
-    expect(result!.normalisedDescriptor).toBe("carrefour market");
-    expect(result!.amountBucket).toBe("small");
-    expect(result!.currency).toBe("EUR");
-    expect(result!.country).toBe("FR");
-    expect(result!.category).toBe("groceries");
-    expect(result!.transactionType).toBe("card");
+    const result = scrubbed(validInput);
+    expect(result.normalisedDescriptor).toBe("carrefour market");
+    expect(result.amountBucket).toBe("small");
+    expect(result.currency).toBe("EUR");
+    expect(result.country).toBe("FR");
+    expect(result.category).toBe("groceries");
+    expect(result.transactionType).toBe("card");
   });
 
   it("returns null when descriptor is missing", () => {
@@ -39,30 +46,22 @@ describe("scrubForContribution", () => {
   });
 
   it("buckets micro amounts (<10€)", () => {
-    const result = scrubForContribution({ ...validInput, amountMinor: -350 });
-    expect(result!.amountBucket).toBe("micro");
+    const result = scrubbed({ ...validInput, amountMinor: -350 });
+    expect(result.amountBucket).toBe("micro");
   });
 
   it("buckets medium amounts (<200€)", () => {
-    const result = scrubForContribution({
-      ...validInput,
-      amountMinor: -15_000,
-    });
-    expect(result!.amountBucket).toBe("medium");
+    const result = scrubbed({ ...validInput, amountMinor: -15_000 });
+    expect(result.amountBucket).toBe("medium");
   });
 
   it("buckets large amounts (≥200€)", () => {
-    const result = scrubForContribution({
-      ...validInput,
-      amountMinor: -50_000,
-    });
-    expect(result!.amountBucket).toBe("large");
+    const result = scrubbed({ ...validInput, amountMinor: -50_000 });
+    expect(result.amountBucket).toBe("large");
   });
 
   it("does not leak exact amount, date, or account info", () => {
-    const result = scrubForContribution(validInput);
-    expect(result).not.toBeNull();
-    const keys = Object.keys(result!);
+    const keys = Object.keys(scrubbed(validInput));
     expect(keys).not.toContain("amountMinor");
     expect(keys).not.toContain("date");
     expect(keys).not.toContain("accountId");

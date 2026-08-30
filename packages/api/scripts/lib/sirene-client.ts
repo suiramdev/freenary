@@ -11,17 +11,40 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { z } from "zod";
+
 const SIRENE_BASE = "https://recherche-entreprises.api.gouv.fr/search";
 const USER_AGENT = "freenary-merchant-build/1.0 (https://freenary.com)";
 
-/** API allows 7 req/s; minimum gap between request starts. */
-const MIN_INTERVAL_MS = Math.ceil(1000 / 7); // 143ms
+/** API allows 7 req/s; 143ms is the minimum gap between request starts. */
+const MIN_INTERVAL_MS = Math.ceil(1000 / 7);
 
 /** Max concurrent in-flight HTTP requests. */
 const MAX_CONCURRENCY = 5;
 
 /** Disk cache directory (gitignored). */
 const CACHE_DIR = path.resolve(import.meta.dirname, "../../.cache/sirene");
+
+// ── Response schema ──────────────────────────────────────────────────────
+
+// Only `results` is required: the SIRENE payload varies per establishment, and
+// a stricter schema silently drops real matches instead of failing loudly.
+const sireneEtablissementSchema = z.object({
+  activite_principale: z.string().nullish(),
+  nom_commercial: z.string().nullish(),
+});
+
+const sireneEntrySchema = z.object({
+  matching_etablissements: z.array(sireneEtablissementSchema).default([]),
+  nom_complet: z.string().nullish(),
+  nom_raison_sociale: z.string().nullish(),
+});
+
+const sireneSearchResponseSchema = z.object({
+  results: z.array(sireneEntrySchema).default([]),
+});
+
+type SireneSearchResponse = z.infer<typeof sireneSearchResponseSchema>;
 
 const ensureCacheDir = (): void => {
   if (!existsSync(CACHE_DIR)) {
@@ -37,28 +60,38 @@ const cacheKey = (query: string): string => {
   return path.join(CACHE_DIR, `${hash}.json`);
 };
 
-const readCache = (query: string): unknown | null => {
+/** A cached body that no longer matches the schema still counts as answered. */
+interface CacheHit {
+  response: SireneSearchResponse | null;
+}
+
+const readCache = (query: string): CacheHit | null => {
   const file = cacheKey(query);
   if (!existsSync(file)) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(file, "utf-8")) as unknown;
+    const parsed = sireneSearchResponseSchema.safeParse(
+      JSON.parse(readFileSync(file, "utf-8"))
+    );
+    return { response: parsed.success ? parsed.data : null };
   } catch {
     return null;
   }
 };
 
-const writeCache = (query: string, data: unknown): void => {
+/** Stores the response body verbatim, so a cache hit reparses what the API sent. */
+const writeCache = (query: string, body: string): void => {
   try {
-    writeFileSync(cacheKey(query), JSON.stringify(data));
+    writeFileSync(cacheKey(query), body);
   } catch {
     // Non-fatal: cache miss on next run is acceptable.
   }
 };
 
 const sleep = (ms: number): Promise<void> => {
-  const { promise, resolve } = Promise.withResolvers<void>();
+  const { promise, resolve }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
   setTimeout(resolve, ms);
   return promise;
 };
@@ -70,6 +103,10 @@ interface SireneResult<T> {
   data: T | null;
 }
 
+interface IndexedResult<T> extends SireneResult<T> {
+  idx: number;
+}
+
 /**
  * Fetches SIRENE search results for many queries concurrently, respecting
  * the 7 req/s rate limit and caching every response to disk.
@@ -79,17 +116,17 @@ interface SireneResult<T> {
  * when multiple resume in the same microtask batch.
  *
  * @param queries  The merchant names to search.
- * @param parse    Extracts a typed result from the raw JSON (return null to skip).
+ * @param parse    Extracts a typed result from the response (return null to skip).
  * @param onProgress  Optional callback after each completed query.
  */
 const fetchSireneBatch = async <T>(
   queries: string[],
-  parse: (data: unknown, query: string) => T | null,
+  parse: (data: SireneSearchResponse, query: string) => T | null,
   onProgress?: (done: number, total: number) => void
 ): Promise<SireneResult<T>[]> => {
   ensureCacheDir();
 
-  const results: SireneResult<T>[] = new Array(queries.length);
+  const results: SireneResult<T>[] = Array.from({ length: queries.length });
   let nextIndex = 0;
   let completed = 0;
 
@@ -108,7 +145,48 @@ const fetchSireneBatch = async <T>(
     }
   };
 
-  const processOne = async (): Promise<void> => {
+  const fetchOne = async (query: string): Promise<T | null> => {
+    // Claim a rate-limit slot (synchronously reserves, then awaits).
+    await claimSlot();
+
+    try {
+      const url = `${SIRENE_BASE}?q=${encodeURIComponent(query)}&page=1&per_page=1`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const body = await res.text();
+      writeCache(query, body);
+      const parsed = sireneSearchResponseSchema.safeParse(JSON.parse(body));
+      return parsed.success ? parse(parsed.data, query) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const processQuery = async (
+    idx: number,
+    query: string
+  ): Promise<IndexedResult<T>> => {
+    const cached = readCache(query);
+    if (cached !== null) {
+      const data =
+        cached.response === null ? null : parse(cached.response, query);
+      return { data, idx, query };
+    }
+    return { data: await fetchOne(query), idx, query };
+  };
+
+  // Claims queries lazily: the consumer awaits each yielded promise before
+  // pulling the next, so a worker keeps exactly one request in flight.
+  const claimQueries = function* claimQueries(): Generator<
+    Promise<IndexedResult<T>>
+  > {
     while (nextIndex < queries.length) {
       const idx = nextIndex;
       nextIndex += 1;
@@ -118,36 +196,13 @@ const fetchSireneBatch = async <T>(
         break;
       }
 
-      // Check disk cache first.
-      const cached = readCache(query);
-      if (cached !== null) {
-        results[idx] = { data: parse(cached, query), query };
-        completed += 1;
-        onProgress?.(completed, queries.length);
-        continue;
-      }
+      yield processQuery(idx, query);
+    }
+  };
 
-      // Claim a rate-limit slot (synchronously reserves, then awaits).
-      await claimSlot();
-
-      try {
-        const url = `${SIRENE_BASE}?q=${encodeURIComponent(query)}&page=1&per_page=1`;
-        const res = await fetch(url, {
-          headers: { "User-Agent": USER_AGENT },
-          signal: AbortSignal.timeout(10_000),
-        });
-
-        if (res.ok) {
-          const raw: unknown = await res.json();
-          writeCache(query, raw);
-          results[idx] = { data: parse(raw, query), query };
-        } else {
-          results[idx] = { data: null, query };
-        }
-      } catch {
-        results[idx] = { data: null, query };
-      }
-
+  const runWorker = async (): Promise<void> => {
+    for await (const outcome of claimQueries()) {
+      results[outcome.idx] = { data: outcome.data, query: outcome.query };
       completed += 1;
       onProgress?.(completed, queries.length);
     }
@@ -156,11 +211,11 @@ const fetchSireneBatch = async <T>(
   // Launch workers up to MAX_CONCURRENCY.
   const workers = Array.from(
     { length: Math.min(MAX_CONCURRENCY, queries.length) },
-    () => processOne()
+    () => runWorker()
   );
   await Promise.all(workers);
 
   return results;
 };
 
-export { fetchSireneBatch, type SireneResult };
+export { fetchSireneBatch, type SireneResult, type SireneSearchResponse };

@@ -36,6 +36,28 @@ const stripTrailingPlaces = (tokens: string[]): string[] => {
   return end === tokens.length ? tokens : tokens.slice(0, end);
 };
 
+/**
+ * IBAN path: a creditor IBAN plus either a transfer family code, or no family
+ * code at all on a descriptor that does not look like a card transaction.
+ */
+const usesIbanPath = (
+  iban: string | null | undefined,
+  familyCode: string | null | undefined,
+  rawDescriptor: string
+): iban is string => {
+  if (iban === null || iban === undefined || iban.trim().length === 0) {
+    return false;
+  }
+  if (familyCode === null || familyCode === undefined) {
+    return !looksLikeCardDescriptor(rawDescriptor);
+  }
+  // SAFETY: a plain membership test on a closed const table — a non-member code
+  // reads undefined, which fails the === true comparison.
+  return (
+    IBAN_FAMILY_CODES[familyCode as keyof typeof IBAN_FAMILY_CODES] === true
+  );
+};
+
 const FALLBACK_RESULT: MerchantKeyResult = {
   channel: "unknown",
   intermediaryName: null,
@@ -95,30 +117,7 @@ export const deriveMerchantKey = (
       rawDescriptor,
     });
 
-    // --- Path determination ---
-    const isIbanPath =
-      creditorIban !== null &&
-      creditorIban !== undefined &&
-      creditorIban.trim().length > 0 &&
-      bankTransactionFamilyCode !== null &&
-      bankTransactionFamilyCode !== undefined &&
-      // SAFETY: bankTransactionFamilyCode is null-checked above; assertion narrows for const lookup
-      IBAN_FAMILY_CODES[
-        bankTransactionFamilyCode as keyof typeof IBAN_FAMILY_CODES
-      ] === true;
-
-    // Fallback: IBAN path when family code is absent but creditor IBAN is present
-    // and the descriptor doesn't look like a card transaction.
-    const isIbanFallback =
-      !isIbanPath &&
-      creditorIban !== null &&
-      creditorIban !== undefined &&
-      creditorIban.trim().length > 0 &&
-      (bankTransactionFamilyCode === null ||
-        bankTransactionFamilyCode === undefined) &&
-      !looksLikeCardDescriptor(rawDescriptor);
-
-    if (isIbanPath || isIbanFallback) {
+    if (usesIbanPath(creditorIban, bankTransactionFamilyCode, rawDescriptor)) {
       return {
         channel: parsed.channel,
         intermediaryName: intermediary?.intermediaryName ?? null,

@@ -24,7 +24,7 @@ interface KeywordModule {
  * Must stay in sync with SUPPORTED_COUNTRIES — the type-level check
  * below enforces this at compile time.
  */
-const registry: Record<SupportedCountry, KeywordModule> = {
+const registry = {
   FR: fr,
 } satisfies Record<SupportedCountry, KeywordModule>;
 

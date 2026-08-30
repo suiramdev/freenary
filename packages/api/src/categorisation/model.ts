@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { z } from "zod";
+
 import type { SpendingCategory } from "../lib/mcc-categories";
 import type { FeatureVector } from "./features";
 import { extractFeatures } from "./features";
@@ -12,11 +14,11 @@ export interface ModelPrediction {
 
 // Trained weights format (sparse JSON produced by train-model.ts)
 
-interface TrainedWeights {
-  categories: string[];
-  dimension: number;
-  weights: Record<string, number>[];
-}
+const trainedWeightsSchema = z.object({
+  categories: z.array(z.string()),
+  dimension: z.number(),
+  weights: z.array(z.record(z.string(), z.number())),
+});
 
 const WEIGHTS_PATH = path.resolve(
   import.meta.dirname,
@@ -43,10 +45,20 @@ const dotSparse = (
   values: Float32Array
 ): number => {
   let sum = 0;
-  for (let i = 0; i < indices.length; i += 1) {
-    // SAFETY: indices[i] and values[i] are within bounds for valid FeatureVectors
-    sum += weights[indices[i]!]! * values[i]!;
+  let i = 0;
+
+  for (const index of indices) {
+    const weight = weights[index];
+    const value = values[i];
+    // Unreachable: extractFeatures hashes buckets mod the model's dimension and
+    // sizes indices/values in lockstep, so both reads are always in range.
+    if (weight === undefined || value === undefined) {
+      throw new Error(`Feature index ${index} is out of range for the model`);
+    }
+    sum += weight * value;
+    i += 1;
   }
+
   return sum;
 };
 
@@ -57,22 +69,22 @@ const softmax = (logits: Float64Array): Float64Array => {
   const probs = new Float64Array(logits.length);
 
   let maxLogit = -Infinity;
-  for (let i = 0; i < logits.length; i += 1) {
-    if (logits[i]! > maxLogit) {
-      maxLogit = logits[i]!;
+  for (const logit of logits) {
+    if (logit > maxLogit) {
+      maxLogit = logit;
     }
   }
 
   let sumExp = 0;
-  for (let i = 0; i < logits.length; i += 1) {
-    const clamped = Math.max(-500, Math.min(500, logits[i]! - maxLogit));
+  for (const [i, logit] of logits.entries()) {
+    const clamped = Math.max(-500, Math.min(500, logit - maxLogit));
     const exp = Math.exp(clamped);
     probs[i] = exp;
     sumExp += exp;
   }
 
-  for (let i = 0; i < probs.length; i += 1) {
-    probs[i] = probs[i]! / sumExp;
+  for (const [i, prob] of probs.entries()) {
+    probs[i] = prob / sumExp;
   }
 
   return probs;
@@ -108,26 +120,24 @@ const deserialiseWeights = (
  * Call at batch start.
  */
 export const loadModel = async (): Promise<void> => {
-  modelRefCount++;
+  modelRefCount += 1;
   if (modelRefCount > 1 && loadedWeights) {
     return;
   }
   try {
     const raw = await readFile(WEIGHTS_PATH, "utf-8");
-    // SAFETY: the JSON file is produced by train-model.ts with a known schema
-    const data = JSON.parse(raw) as TrainedWeights;
+    const parsed = trainedWeightsSchema.safeParse(JSON.parse(raw));
 
-    if (
-      !Array.isArray(data.categories) ||
-      !Array.isArray(data.weights) ||
-      typeof data.dimension !== "number"
-    ) {
+    if (!parsed.success) {
       return;
     }
 
-    loadedCategories = data.categories;
-    loadedDimension = data.dimension;
-    loadedWeights = deserialiseWeights(data.weights, data.dimension);
+    loadedCategories = parsed.data.categories;
+    loadedDimension = parsed.data.dimension;
+    loadedWeights = deserialiseWeights(
+      parsed.data.weights,
+      parsed.data.dimension
+    );
   } catch {
     // No weights file or malformed — run without model predictions.
     loadedCategories = null;
@@ -172,11 +182,11 @@ export const predict = (
   }
 
   const { indices, values } = features;
-  const numCategories = loadedCategories.length;
-  const logits = new Float64Array(numCategories);
+  // train-model.ts writes one weight vector per category, in category order.
+  const logits = new Float64Array(loadedWeights.length);
 
-  for (let c = 0; c < numCategories; c += 1) {
-    logits[c] = dotSparse(loadedWeights[c]!, indices, values);
+  for (const [c, weightVector] of loadedWeights.entries()) {
+    logits[c] = dotSparse(weightVector, indices, values);
   }
 
   const probs = softmax(logits);
@@ -184,9 +194,9 @@ export const predict = (
   // Find highest-probability category
   let bestIdx = 0;
   let bestProb = 0;
-  for (let i = 0; i < probs.length; i += 1) {
-    if (probs[i]! > bestProb) {
-      bestProb = probs[i]!;
+  for (const [i, prob] of probs.entries()) {
+    if (prob > bestProb) {
+      bestProb = prob;
       bestIdx = i;
     }
   }

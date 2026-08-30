@@ -35,6 +35,7 @@ import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 import { fetchSireneBatch } from "./lib/sirene-client";
+import type { SireneSearchResponse } from "./lib/sirene-client";
 import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
 
 /**
@@ -142,7 +143,11 @@ const extractFromTarball = async (
     }
     return await readFile(path.join(tmpDir, firstMatch), "utf-8");
   } finally {
-    await rm(tmpDir, { force: true, recursive: true }).catch(() => {});
+    try {
+      await rm(tmpDir, { force: true, recursive: true });
+    } catch {
+      // Best-effort cleanup: a leftover temp dir must not mask the real result.
+    }
   }
 };
 
@@ -239,6 +244,28 @@ const writeArtifact = async (
   const { size: gzippedBytes } = await Bun.file(outputPath).stat();
 
   return { gzippedBytes, rawBytes };
+};
+
+const writeCountryPartition = async (
+  cc: string,
+  entries: DictionaryMerchant[]
+): Promise<string> => {
+  const countryPath = path.resolve(
+    import.meta.dirname,
+    `../data/merchants-${cc}.jsonl.gz`
+  );
+  await writeArtifact(countryPath, entries);
+  return `  ${cc}: ${entries.length} merchants`;
+};
+
+// Yields lazily so the consumer gzips one partition at a time: every partition
+// carries the whole global slice, so writing them at once multiplies peak memory.
+const countryPartitionWrites = function* countryPartitionWrites(
+  partitions: Map<string, DictionaryMerchant[]>
+): Generator<Promise<string>> {
+  for (const [cc, entries] of partitions) {
+    yield writeCountryPartition(cc, entries);
+  }
 };
 
 // URL field narrowing — parse at the I/O boundary into typed values
@@ -465,7 +492,6 @@ interface WikidataBrand {
   id: string;
   label: string;
   sirene?: {
-    siren: string;
     nafCode: string;
     denomination: string;
     tradeName: string | null;
@@ -561,17 +587,27 @@ const mergeWikidataBrands = (
   return { wikidataMatched, wikidataNew };
 };
 
-// SIRENE enrichment types
+const parseNafCode = (
+  data: SireneSearchResponse,
+  queryName: string
+): string | null => {
+  const [firstResult] = data.results;
+  if (!firstResult) {
+    return null;
+  }
 
-interface SireneEntry {
-  matching_etablissements: { activite_principale: string | null }[];
-  nom_complet: string;
-  siren: string;
-}
+  // Name-match guard: the result must overlap with the query.
+  const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
+  const merchantNameLower = queryName.toLowerCase().trim();
+  if (
+    !resultName.includes(merchantNameLower) &&
+    !merchantNameLower.includes(resultName)
+  ) {
+    return null;
+  }
 
-interface SireneResponse {
-  results: SireneEntry[];
-}
+  return firstResult.matching_etablissements[0]?.activite_principale ?? null;
+};
 
 // Pass 3c: enrich uncategorised merchants via the French SIRENE registry
 
@@ -612,28 +648,6 @@ const enrichWithSirene = async (
   }
 
   const uniqueNames = [...byName.keys()];
-
-  const parseNafCode = (raw: unknown, queryName: string): string | null => {
-    const data = raw as SireneResponse;
-    const firstResult = data.results?.[0];
-    if (!firstResult) {
-      return null;
-    }
-
-    // Name-match guard: the result must overlap with the query.
-    const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
-    const merchantNameLower = queryName.toLowerCase().trim();
-    if (
-      !resultName.includes(merchantNameLower) &&
-      !merchantNameLower.includes(resultName)
-    ) {
-      return null;
-    }
-
-    return (
-      firstResult.matching_etablissements?.[0]?.activite_principale ?? null
-    );
-  };
 
   const results = await fetchSireneBatch(
     uniqueNames,
@@ -938,13 +952,8 @@ const main = async (): Promise<void> => {
   // Write per-country partitions
   const partitions = partitionByCountry(merchants);
   console.log(`\nCountry partitions: ${partitions.size}`);
-  for (const [cc, entries] of partitions) {
-    const countryPath = path.resolve(
-      import.meta.dirname,
-      `../data/merchants-${cc}.jsonl.gz`
-    );
-    await writeArtifact(countryPath, entries);
-    console.log(`  ${cc}: ${entries.length} merchants`);
+  for await (const summary of countryPartitionWrites(partitions)) {
+    console.log(summary);
   }
 
   console.log("\n─── Build Summary ───");

@@ -9,30 +9,35 @@ import type { TransactionChannel } from "../types";
  *
  * Reference: ISO 20022 External Code Sets — ExternalBankTransactionFamily.
  */
-const FAMILY_CODE_MAP: Readonly<Record<string, TransactionChannel>> = {
-  // Received credit transfers
-  RCDT: "transfer",
-  // Issued credit transfers
-  ICDT: "transfer",
-  // Received direct debits
-  RDDT: "direct-debit",
-  // Issued direct debits
-  IDDT: "direct-debit",
-  // Received cheques
-  RCHQ: "cheque",
-  // Issued cheques
-  ICHQ: "cheque",
+const FAMILY_CODE_MAP = {
   // Card payments (counter transactions)
   CCRD: "card",
-  // Card payments (customer transactions)
-  MCRD: "card",
-  // Cash (ATM, counter withdrawals)
-  CNTR: "atm",
   // Charges, fees and interest
   CHRG: "fee",
+  // Cash (ATM, counter withdrawals)
+  CNTR: "atm",
+  // Issued credit transfers
+  ICDT: "transfer",
+  // Issued cheques
+  ICHQ: "cheque",
+  // Issued direct debits
+  IDDT: "direct-debit",
   // Loans and deposits
   LDAS: "loan",
-};
+  // Card payments (customer transactions)
+  MCRD: "card",
+  // Received credit transfers
+  RCDT: "transfer",
+  // Received cheques
+  RCHQ: "cheque",
+  // Received direct debits
+  RDDT: "direct-debit",
+} satisfies Record<string, TransactionChannel>;
+
+type FamilyCode = keyof typeof FAMILY_CODE_MAP;
+
+const isFamilyCode = (code: string): code is FamilyCode =>
+  Object.hasOwn(FAMILY_CODE_MAP, code);
 
 /**
  * Resolve a TransactionChannel from an ISO 20022 family code.
@@ -44,5 +49,6 @@ export const channelFromFamilyCode = (
   if (!familyCode) {
     return undefined;
   }
-  return FAMILY_CODE_MAP[familyCode.toUpperCase()];
+  const code = familyCode.toUpperCase();
+  return isFamilyCode(code) ? FAMILY_CODE_MAP[code] : undefined;
 };

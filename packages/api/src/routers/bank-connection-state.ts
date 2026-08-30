@@ -17,6 +17,9 @@ const bankConnectionStateSchema = z.object({
 
 export type BankConnectionState = z.infer<typeof bankConnectionStateSchema>;
 
+const computeHmac = (payload: string, userId: string, secret: string): string =>
+  createHmac("sha256", secret).update(`${userId}:${payload}`).digest("hex");
+
 export const encodeBankConnectionState = (
   providerId: string,
   institution: ProviderInstitution,
@@ -49,9 +52,6 @@ export const findInstitution = (
     (institution) =>
       institution.id === institutionId && institution.country === country
   );
-
-const computeHmac = (payload: string, userId: string, secret: string): string =>
-  createHmac("sha256", secret).update(`${userId}:${payload}`).digest("hex");
 
 export const verifyBankConnectionState = (
   state: BankConnectionState,

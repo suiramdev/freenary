@@ -5,6 +5,7 @@ import type {
   InstitutionParser,
   TransactionChannel,
 } from "../types";
+import { capture } from "./capture-groups";
 import {
   allInstitutions,
   allTrailingNoise,
@@ -65,18 +66,6 @@ export const cleanTrailingNoise = (text: string): string => {
 };
 
 /**
- * Read a named capture group, returning the trimmed value or undefined when
- * the group is absent or blank.
- */
-export const capture = (
-  groups: Record<string, string>,
-  name: string
-): string | undefined => {
-  const val = groups[name]?.trim();
-  return val && val.length > 0 ? val : undefined;
-};
-
-/**
  * Try each pattern rule against a line in order, returning the first
  * successful extraction or null.
  */
@@ -85,12 +74,11 @@ export const matchPatterns = (
   rules: readonly PatternRule[]
 ): LineMatch | null => {
   for (const rule of rules) {
-    const m = rule.re.exec(line);
-    if (!m?.groups) {
+    const groups = rule.re.exec(line)?.groups;
+    if (!groups) {
       continue;
     }
 
-    const groups = m.groups as Record<string, string>;
     const payeeRaw = rule.extractPayee
       ? rule.extractPayee(groups)
       : capture(groups, "payee");
@@ -158,6 +146,122 @@ const matchesDef = (
 
 // ── Unified parse logic ──────────────────────────────────────────────────
 
+type PayeeCleaner = (text: string) => string;
+
+const keepPayee: PayeeCleaner = (text) => text;
+
+/** Mutable accumulator threaded through the remittance-line loop. */
+interface ParseState {
+  payee: string | null;
+  channel: TransactionChannel;
+  cardLast4: string | undefined;
+  labelDate: string | undefined;
+  droppedLines: string[];
+}
+
+/** Blank lines and institution-declared noise never reach payee extraction. */
+const isDroppedLine = (line: string, def: InstitutionDef | null): boolean =>
+  line.length === 0 || (def?.noiseLines?.some((re) => re.test(line)) ?? false);
+
+/** An institution pattern hit is authoritative: it replaces the payee. */
+const applyPatternMatch = (
+  state: ParseState,
+  match: LineMatch,
+  clean: PayeeCleaner
+): void => {
+  const { cardLast4, channel, labelDate, payee } = match;
+  state.payee = clean(payee);
+  if (state.channel === "unknown" && channel !== "unknown") {
+    state.channel = channel;
+  }
+  state.cardLast4 = cardLast4;
+  state.labelDate = labelDate;
+};
+
+/** A recognised channel verb yields the payee only if none was found yet. */
+const applyVerbLine = (
+  state: ParseState,
+  line: string,
+  verbChannel: TransactionChannel,
+  cleaned: string
+): void => {
+  if (state.channel === "unknown") {
+    state.channel = verbChannel;
+  }
+  if (cleaned.length > 0 && !state.payee) {
+    state.payee = cleaned;
+  } else {
+    state.droppedLines.push(line);
+  }
+};
+
+const consumeLine = (
+  state: ParseState,
+  line: string,
+  def: InstitutionDef | null,
+  clean: PayeeCleaner
+): void => {
+  if (def) {
+    const match = matchPatterns(line, def.patterns);
+    if (match) {
+      applyPatternMatch(state, match, clean);
+      return;
+    }
+  }
+
+  const { channel: verbChannel, text: stripped } = stripVerbPrefix(line);
+  if (verbChannel !== "unknown") {
+    applyVerbLine(
+      state,
+      line,
+      verbChannel,
+      clean(cleanTrailingNoise(stripped))
+    );
+    return;
+  }
+
+  if (def) {
+    // Institution parser: unknown lines after the payee are noise
+    if (state.payee) {
+      state.droppedLines.push(line);
+    } else {
+      state.payee = clean(line);
+    }
+    return;
+  }
+
+  // Generic parser: pick the longest cleaned line
+  const cleaned = clean(cleanTrailingNoise(line));
+  if (cleaned.length > (state.payee?.length ?? 0)) {
+    state.payee = cleaned;
+  }
+};
+
+/**
+ * For direct debits the counterparty name IS the merchant; remittance text
+ * describes the billing reason ("Loyer", "Internet fibre"), not the payee.
+ * Also promotes the counterparty when no payee was extracted at all.
+ */
+const applyCounterparty = (
+  state: ParseState,
+  input: DescriptorParseInput
+): void => {
+  const incoming = input.amountMinor >= 0;
+  const preferred = incoming ? input.debtorName : input.creditorName;
+  const fallback = incoming ? input.creditorName : input.debtorName;
+
+  if (state.channel === "direct-debit") {
+    const name = preferred?.trim();
+    if (name && name.length > 0) {
+      state.payee = name;
+    }
+  }
+
+  if (!state.payee || state.payee.length === 0) {
+    state.payee = preferred?.trim() || fallback?.trim() || null;
+  }
+};
+
 /**
  * Parse remittance lines using an optional institution definition.
  * When def is null, runs the generic fallback (verb detection only).
@@ -166,108 +270,36 @@ const parseLines = (
   input: DescriptorParseInput,
   def: InstitutionDef | null
 ): DescriptorParseResult => {
-  const parserId = def?.id ?? "generic";
-  const droppedLines: string[] = [];
-  let payee: string | null = null;
-  let channel: TransactionChannel = "unknown";
-  let cardLast4: string | undefined;
-  let labelDate: string | undefined;
-
-  // Primary channel signal: ISO 20022 family code from the provider
-  const structuredChannel = channelFromFamilyCode(
-    input.bankTransactionFamilyCode
-  );
-  if (structuredChannel) {
-    channel = structuredChannel;
-  }
-
-  const clean = def?.cleanPayee ?? ((t: string) => t);
+  const state: ParseState = {
+    cardLast4: undefined,
+    // Primary channel signal: ISO 20022 family code from the provider
+    channel:
+      channelFromFamilyCode(input.bankTransactionFamilyCode) ?? "unknown",
+    droppedLines: [],
+    labelDate: undefined,
+    payee: null,
+  };
+  const clean = def?.cleanPayee ?? keepPayee;
 
   for (const raw of input.remittanceLines.toSorted()) {
     const line = raw.trim();
-    if (line.length === 0) {
-      droppedLines.push(line);
+    if (isDroppedLine(line, def)) {
+      state.droppedLines.push(line);
       continue;
     }
-
-    // Drop institution-specific noise lines
-    if (def?.noiseLines?.some((re) => re.test(line))) {
-      droppedLines.push(line);
-      continue;
-    }
-
-    // Try institution-specific patterns first
-    if (def) {
-      const match = matchPatterns(line, def.patterns);
-      if (match) {
-        payee = clean(match.payee);
-        if (channel === "unknown" && match.channel !== "unknown") {
-          channel = match.channel;
-        }
-        cardLast4 = match.cardLast4;
-        labelDate = match.labelDate;
-        continue;
-      }
-    }
-
-    // Fall back to generic verb detection
-    const { channel: verbChannel, text: stripped } = stripVerbPrefix(line);
-    if (verbChannel !== "unknown") {
-      if (channel === "unknown") {
-        channel = verbChannel;
-      }
-      const cleaned = clean(cleanTrailingNoise(stripped));
-      if (cleaned.length > 0 && !payee) {
-        payee = cleaned;
-      } else {
-        droppedLines.push(line);
-      }
-    } else if (def) {
-      // Institution parser: unknown lines after payee are noise
-      if (payee) {
-        droppedLines.push(line);
-      } else {
-        payee = clean(line);
-      }
-    } else {
-      // Generic parser: pick the longest cleaned line
-      const cleaned = clean(cleanTrailingNoise(line));
-      if (cleaned.length > (payee?.length ?? 0)) {
-        payee = cleaned;
-      }
-    }
+    consumeLine(state, line, def, clean);
   }
 
-  // For direct debits the creditorName IS the merchant; remittance text
-  // describes the billing reason ("Loyer", "Internet fibre"), not the payee.
-  // Override the remittance-derived payee when a creditor name is available.
-  if (channel === "direct-debit") {
-    const counterparty =
-      input.amountMinor >= 0 ? input.debtorName : input.creditorName;
-    const name = counterparty?.trim();
-    if (name && name.length > 0) {
-      payee = name;
-    }
-  }
-
-  // Promote creditorName/debtorName when no payee was extracted at all
-  if (!payee || payee.length === 0) {
-    const preferredCounterparty =
-      input.amountMinor >= 0 ? input.debtorName : input.creditorName;
-    const fallbackCounterparty =
-      input.amountMinor >= 0 ? input.creditorName : input.debtorName;
-    payee =
-      preferredCounterparty?.trim() || fallbackCounterparty?.trim() || null;
-  }
+  applyCounterparty(state, input);
 
   return {
-    cardLast4,
-    channel,
-    droppedLines,
-    labelDate,
-    normalisedDescriptor: payee ? normaliseDescriptor(payee) : "",
-    parserId,
-    payeeText: payee,
+    cardLast4: state.cardLast4,
+    channel: state.channel,
+    droppedLines: state.droppedLines,
+    labelDate: state.labelDate,
+    normalisedDescriptor: state.payee ? normaliseDescriptor(state.payee) : "",
+    parserId: def?.id ?? "generic",
+    payeeText: state.payee,
   };
 };
 

@@ -1,11 +1,11 @@
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { AggregationMode } from "@/lib/budget/period";
 
-const SUMMARY_PREFIX: Record<AggregationMode, string> = {
+const SUMMARY_PREFIX = {
   average: "Avg. ",
   median: "Med. ",
   total: "",
-};
+} satisfies Record<AggregationMode, string>;
 
 interface CashFlowSummaryProps {
   aggregation: AggregationMode;

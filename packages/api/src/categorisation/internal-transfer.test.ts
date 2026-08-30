@@ -5,7 +5,6 @@ import { matchInternalTransfers } from "./internal-transfer";
 describe("matchInternalTransfers", () => {
   it("returns 0 for non-existent user", async () => {
     const result = await matchInternalTransfers("nonexistent-user-id");
-    expect(typeof result).toBe("number");
     expect(result).toBe(0);
   });
 
