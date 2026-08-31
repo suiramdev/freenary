@@ -55,9 +55,9 @@ export const BankAccountsSection = () => {
       );
     }
 
-    // A failed availability check is not a missing provider: saying the
-    // instance has none would send the user to fix the wrong thing.
-    if (availability.isError) {
+    // A failed check is not a missing provider — saying so sends the user to
+    // fix the wrong thing — and a failed refetch must not wipe a good answer.
+    if (availability.isError && availability.data === undefined) {
       return (
         <Empty>
           <EmptyHeader>
