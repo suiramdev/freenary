@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 
 export interface Transaction {
   id: string;

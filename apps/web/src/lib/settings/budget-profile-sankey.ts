@@ -1,4 +1,5 @@
 import type { DitherColor } from "@/components/dither-kit/palette";
+import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
 
 export type BudgetLineKind = "INVESTMENT" | "OUTGOING" | "REVENUE";
@@ -6,18 +7,18 @@ export type BudgetLineKind = "INVESTMENT" | "OUTGOING" | "REVENUE";
 export interface BudgetProfileLine {
   /** Planned amount per month in minor units. */
   amount: number;
-  categoryColor: DitherColor;
-  categoryKey: string;
-  categoryLabel: string;
+  groupColor: DitherColor;
+  /** Group slug, or the custom category's key when it is a group of its own. */
+  groupKey: string;
+  groupLabel: string;
   id: string;
   kind: BudgetLineKind;
   label: string;
 }
 
-const BUDGET_ID = "budget";
-const UNALLOCATED_ID = "unallocated";
+const MONEY_LEFT_ID = "money-left";
 
-interface CategoryGroup {
+interface LineGroup {
   color: DitherColor;
   label: string;
   lines: BudgetProfileLine[];
@@ -25,9 +26,12 @@ interface CategoryGroup {
 }
 
 /**
- * Maps a budgeting profile onto revenues → budget → category → line.
- * Investments are grouped ahead of outgoings so the allocation side reads
- * in the order the profile is entered.
+ * Maps a budgeting profile onto the three levels of the hierarchy:
+ * revenues → category group → line.
+ *
+ * Grouping by group rather than by category is what makes this chart read the
+ * same as the cash-flow one. Investments are grouped ahead of outgoings so the
+ * allocation side follows the order the profile is entered.
  */
 export const toBudgetProfileSankey = (
   lines: BudgetProfileLine[]
@@ -45,16 +49,16 @@ export const toBudgetProfileSankey = (
   );
 
   // Insertion order is the column order, so a group sits where its first line appeared.
-  const groups = new Map<string, CategoryGroup>();
+  const groups = new Map<string, LineGroup>();
   for (const line of allocations) {
-    const group = groups.get(line.categoryKey);
+    const group = groups.get(line.groupKey);
     if (group) {
       group.lines.push(line);
       group.value += line.amount;
     } else {
-      groups.set(line.categoryKey, {
-        color: line.categoryColor,
-        label: line.categoryLabel,
+      groups.set(line.groupKey, {
+        color: line.groupColor,
+        label: line.groupLabel,
         lines: [line],
         value: line.amount,
       });
@@ -63,27 +67,22 @@ export const toBudgetProfileSankey = (
 
   const groupNodes: SankeyNode[] = [];
   const lineNodes: SankeyNode[] = [];
-  const links: SankeyLink[] = revenues.map((line) => ({
-    source: `revenue:${line.id}`,
-    target: BUDGET_ID,
-    value: line.amount,
-  }));
+  const links: SankeyLink[] = [];
 
-  for (const [categoryKey, group] of groups) {
-    const groupId = `group:${categoryKey}`;
+  for (const [groupKey, group] of groups) {
+    const groupId = `group:${groupKey}`;
     groupNodes.push({
       color: group.color,
       id: groupId,
       label: group.label,
       value: group.value,
     });
-    links.push({ source: BUDGET_ID, target: groupId, value: group.value });
 
     // Emitting a group's lines right after the group keeps ribbons from crossing.
     for (const line of group.lines) {
       const lineId = `line:${line.id}`;
       lineNodes.push({
-        color: line.categoryColor,
+        color: group.color,
         id: lineId,
         label: line.label,
         value: line.amount,
@@ -92,43 +91,32 @@ export const toBudgetProfileSankey = (
     }
   }
 
-  const unallocated = totalRevenue - totalAllocated;
-  if (unallocated > 0) {
+  const moneyLeft = totalRevenue - totalAllocated;
+  if (moneyLeft > 0) {
     groupNodes.push({
       color: "grey",
-      id: UNALLOCATED_ID,
-      label: "Unallocated",
-      value: unallocated,
-    });
-    links.push({
-      source: BUDGET_ID,
-      target: UNALLOCATED_ID,
-      value: unallocated,
+      id: MONEY_LEFT_ID,
+      label: "Money left",
+      value: moneyLeft,
     });
   }
+
+  const sources = revenues.map((line) => ({
+    id: `revenue:${line.id}`,
+    value: line.amount,
+  }));
 
   return {
     columns: [
       revenues.map((line) => ({
-        color: line.categoryColor,
+        color: line.groupColor,
         id: `revenue:${line.id}`,
         label: line.label,
         value: line.amount,
       })),
-      [
-        {
-          color: "blue",
-          id: BUDGET_ID,
-          label: "Budget",
-          // Over-allocating pushes more through the hub than comes in; sizing it by
-          // the larger side keeps the outgoing ribbons anchored to the node.
-          value: Math.max(totalRevenue, totalAllocated),
-        },
-      ],
       groupNodes,
       lineNodes,
     ],
-    emphasizedId: BUDGET_ID,
-    links,
+    links: [...apportion(sources, groupNodes), ...links],
   };
 };

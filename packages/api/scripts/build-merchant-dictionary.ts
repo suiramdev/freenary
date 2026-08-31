@@ -33,6 +33,7 @@ import { createGzip } from "node:zlib";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
+import { categoryPriority } from "./lib/category-priority";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 import { fetchSireneBatch } from "./lib/sirene-client";
 import type { SireneSearchResponse } from "./lib/sirene-client";
@@ -56,34 +57,6 @@ const WIKIDATA_PATH = path.resolve(
   import.meta.dirname,
   "../data/wikidata-brands.json"
 );
-
-/**
- * When a brand spans multiple categories (e.g. Carrefour has supermarket + fuel
- * entries), pick the highest-priority category present — never the most frequent.
- *
- * `transport` and `shopping` are the most incidental tags: chains bolt on fuel
- * pumps, charging bays and gift shops. They must lose to a more specific consumer
- * intent. A brand that ONLY has fuel entries (Esso, Shell) keeps transport.
- */
-const CATEGORY_PRIORITY = {
-  dining: 7,
-  education: 5,
-  entertainment: 3,
-  groceries: 10,
-  health: 9,
-  housing: 0,
-  income: 0,
-  insurance: 4,
-  other: 0,
-  savings: 0,
-  shopping: 2,
-  subscriptions: 0,
-  taxes: 0,
-  transfers: 0,
-  transport: 1,
-  travel: 6,
-  utilities: 8,
-} as const satisfies Record<string, number>;
 
 // NSI types (minimal, for extraction)
 
@@ -430,9 +403,7 @@ const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
   let winningCategory = group[0].category;
   let bestPriority = -1;
   for (const m of group) {
-    // SAFETY: category is a SpendingCategory; the assertion only narrows for the const lookup
-    const p =
-      CATEGORY_PRIORITY[m.category as keyof typeof CATEGORY_PRIORITY] ?? 0;
+    const p = m.category ? categoryPriority(m.category) : 0;
     if (p > bestPriority) {
       bestPriority = p;
       winningCategory = m.category;
@@ -621,9 +592,11 @@ const enrichWithSirene = async (
     if (m.category === null) {
       return true;
     }
+    // `uncategorised` and `other-shopping` are the weak NSI outcomes worth a
+    // second look: both mean "no consumer intent identified".
     if (
       m.source === "nsi" &&
-      (m.category === "other" || m.category === "shopping")
+      (m.category === "uncategorised" || m.category === "other-shopping")
     ) {
       return true;
     }

@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/taxonomy";
 import type { TransactionChannel } from "./normalise/types";
 
 /**

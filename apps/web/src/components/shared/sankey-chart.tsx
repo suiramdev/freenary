@@ -23,22 +23,17 @@ interface SankeyChartProps extends SankeyFlow {
 export const SankeyChart = ({
   className,
   columns,
-  emphasizedId,
   formatValue,
   label,
   links,
   onNodeClick,
 }: SankeyChartProps) => {
   const layout = useMemo(
-    () => computeSankeyLayout({ columns, emphasizedId, links }),
-    [columns, emphasizedId, links]
+    () => computeSankeyLayout({ columns, links }),
+    [columns, links]
   );
 
   const { canvasRef, setHovered } = useSankeyCanvas(layout);
-
-  // A ribbon highlights the node at its far end from the emphasized node.
-  const pairedNodeOf = (band: { sourceId: string; targetId: string }) =>
-    band.sourceId === layout.emphasizedId ? band.targetId : band.sourceId;
 
   return (
     <div
@@ -60,12 +55,15 @@ export const SankeyChart = ({
         aria-label={label}
       >
         <title>{label}</title>
+        {/* Hovering a ribbon lights the node it flows into — the specific
+            category behind a group, the group behind an income source. Lighting
+            the upstream end would only repeat what hovering that node shows. */}
         {layout.links.map((band) => (
           <path
             key={`hit-${band.id}`}
             d={svgLinkPath(band)}
             fill="transparent"
-            onPointerEnter={() => setHovered(pairedNodeOf(band))}
+            onPointerEnter={() => setHovered(band.targetId)}
             onPointerLeave={() => setHovered(null)}
           />
         ))}
@@ -89,7 +87,6 @@ export const SankeyChart = ({
           <SankeyNodeLabel
             key={`label-${node.id}`}
             formatValue={formatValue}
-            isEmphasized={node.id === layout.emphasizedId}
             isFirstColumn={node.column === 0}
             node={node}
           />

@@ -1,8 +1,8 @@
+import type { CategoryAppearance } from "@freenary/api/lib/categories";
 import type {
-  CategoryAppearance,
+  CategoryColor,
   CategoryIconName,
-} from "@freenary/api/lib/categories";
-import type { CategoryColor } from "@freenary/api/lib/mcc-categories";
+} from "@freenary/api/lib/taxonomy";
 import { cn } from "@freenary/ui/lib/utils";
 import type { Icon } from "@phosphor-icons/react";
 import {
@@ -10,6 +10,7 @@ import {
   ArrowsLeftRightIcon,
   BankIcon,
   CarIcon,
+  CoinsIcon,
   DotsThreeIcon,
   FilmSlateIcon,
   FirstAidIcon,
@@ -30,6 +31,7 @@ const ICON_BY_NAME = {
   ArrowsLeftRightIcon,
   BankIcon,
   CarIcon,
+  CoinsIcon,
   DotsThreeIcon,
   FilmSlateIcon,
   FirstAidIcon,

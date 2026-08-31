@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 

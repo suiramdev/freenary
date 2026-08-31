@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 

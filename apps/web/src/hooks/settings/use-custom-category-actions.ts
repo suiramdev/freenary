@@ -1,7 +1,7 @@
 import {
+  resolveCategorySlug,
   CATEGORY_LABELS,
-  SPENDING_CATEGORIES,
-} from "@freenary/api/lib/mcc-categories";
+} from "@freenary/api/lib/taxonomy";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -38,12 +38,9 @@ export const useCustomCategoryActions = () => {
         }),
       ]);
 
-      const fallbackSlugName = SPENDING_CATEGORIES.find(
-        (slug) => slug === fallbackSlug
-      );
-      const fallbackLabel = fallbackSlugName
-        ? CATEGORY_LABELS[fallbackSlugName]
-        : "Other";
+      // The server reassigns to a category, so the toast names that category.
+      const fallback = resolveCategorySlug(fallbackSlug);
+      const fallbackLabel = fallback ? CATEGORY_LABELS[fallback] : "Other";
 
       toast.success(
         reassignedLines === 0

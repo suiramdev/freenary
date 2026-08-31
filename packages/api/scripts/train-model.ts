@@ -17,7 +17,7 @@ import prisma from "@freenary/db";
 import { extractFeatures } from "../src/categorisation/features";
 import type { FeatureVector } from "../src/categorisation/features";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
-import { SPENDING_CATEGORIES } from "../src/lib/mcc-categories";
+import { SPENDING_CATEGORIES } from "../src/lib/taxonomy";
 
 // Configuration
 

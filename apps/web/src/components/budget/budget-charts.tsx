@@ -1,9 +1,9 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import type { ComponentProps } from "react";
 
 import { CashFlowCard } from "@/components/budget/cash-flow-card";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
+import type { CategorySelection } from "@/lib/budget/category-selection";
 import type { AggregationMode } from "@/lib/budget/period";
 
 interface BudgetChartsProps {
@@ -14,7 +14,7 @@ interface BudgetChartsProps {
     | undefined;
   isBreakdownPending: boolean;
   isCashFlowPending: boolean;
-  onCategoryClick: (category: SpendingCategory | null) => void;
+  onSelect: (selection: CategorySelection | null) => void;
 }
 
 /**
@@ -28,7 +28,7 @@ export const BudgetCharts = ({
   cashFlow,
   isBreakdownPending,
   isCashFlowPending,
-  onCategoryClick,
+  onSelect,
 }: BudgetChartsProps) => (
   <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
     {isCashFlowPending ? (
@@ -42,7 +42,7 @@ export const BudgetCharts = ({
       <CashFlowCard
         {...cashFlow}
         aggregation={aggregation}
-        onCategoryClick={onCategoryClick}
+        onSelect={onSelect}
       />
     ) : null}
 
@@ -58,7 +58,7 @@ export const BudgetCharts = ({
       <SpendingBreakdownChart
         aggregation={aggregation}
         data={breakdown}
-        onCategoryClick={onCategoryClick}
+        onSelect={onSelect}
       />
     ) : null}
   </div>

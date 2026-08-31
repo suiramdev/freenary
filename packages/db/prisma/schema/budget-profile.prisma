@@ -10,7 +10,7 @@ model CustomCategory {
   color       String
   /// Phosphor icon name, validated against CATEGORY_ICON_NAMES.
   icon        String
-  /// Predefined category slug this one nests under; null = top level.
+  /// Category group slug this one nests under; null = it is a group of its own.
   parentSlug  String?
   /// Position among the user's custom categories sharing the same parent.
   sortOrder   Int          @default(0)
@@ -34,7 +34,8 @@ model BudgetLine {
   label        String
   /// Planned amount per month in minor units; always positive.
   amount       Int
-  /// Predefined category slug; null when categoryId is set.
+  /// Predefined category slug (a leaf of the hierarchy, never a group);
+  /// null when categoryId is set.
   categorySlug String?
   /// Custom category; null when categorySlug is set. Restrict is safe because
   /// deleteCustomCategory reassigns referencing lines before deleting.

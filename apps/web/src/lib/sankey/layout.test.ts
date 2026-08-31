@@ -22,7 +22,6 @@ const cashFlow = () =>
       [node("hub", 2500)],
       [node("rent", 1500), node("food", 1000)],
     ],
-    emphasizedId: "hub",
     links: [
       { source: "salary", target: "hub", value: 2000 },
       { source: "dividends", target: "hub", value: 500 },
@@ -89,7 +88,6 @@ describe("computeSankeyLayout", () => {
         [node("housing", 620), node("unallocated", 1880)],
         [node("rent", 500), node("charges", 120)],
       ],
-      emphasizedId: "budget",
       links: [
         { source: "salary", target: "budget", value: 2500 },
         { source: "budget", target: "housing", value: 620 },
@@ -125,7 +123,6 @@ describe("computeSankeyLayout", () => {
   test("produces finite geometry for a zero-valued node", () => {
     const layout = computeSankeyLayout({
       columns: [[node("empty", 0)], [node("hub", 0)]],
-      emphasizedId: "hub",
       links: [{ source: "empty", target: "hub", value: 0 }],
     });
 
@@ -149,7 +146,6 @@ describe("computeSankeyLayout", () => {
         [node("hub", 100)],
         [node("rent", 100), node("food", 0), node("extra", 0)],
       ],
-      emphasizedId: "hub",
       links: [
         { source: "salary", target: "hub", value: 100 },
         { source: "hub", target: "rent", value: 100 },

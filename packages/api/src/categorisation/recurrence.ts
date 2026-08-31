@@ -12,7 +12,8 @@
 
 import prisma from "@freenary/db";
 
-import type { SpendingCategory } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/taxonomy";
+import { resolveCategorySlug } from "../lib/taxonomy";
 
 // Public types
 
@@ -253,10 +254,12 @@ export const detectRecurringExpenses = async (
         .map((tx) => tx.category ?? tx.resolvedCategory)
         .filter((c): c is string => c !== null);
 
-      // SAFETY: category values come from the pipeline's validated set
-      const category = (
-        categories.length > 0 ? mode(categories) : "other"
-      ) as SpendingCategory;
+      // SAFETY: a stored value may predate the hierarchy, so decode it; an
+      // unresolvable one falls back to "uncategorised"
+      const modalCategory =
+        categories.length > 0 ? mode(categories) : "uncategorised";
+      const category: SpendingCategory =
+        resolveCategorySlug(modalCategory) ?? "uncategorised";
 
       // Currency from the most recent transaction
       const { currency } = lastTx;

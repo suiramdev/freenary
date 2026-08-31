@@ -5,7 +5,7 @@ import type { RecurringExpense } from "./recurrence";
 describe("RecurringExpense", () => {
   it("defines the expected shape", () => {
     const expense: RecurringExpense = {
-      category: "utilities",
+      category: "energy",
       currency: "EUR",
       frequency: "monthly",
       intervalDays: 30,

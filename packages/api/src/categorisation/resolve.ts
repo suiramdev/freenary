@@ -14,8 +14,8 @@
  * Steps 1–3 are hash lookups. Steps 4–5 load/unload resources.
  */
 
-import type { SpendingCategory } from "../lib/mcc-categories";
 import { MCC_TO_CATEGORY } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/taxonomy";
 import {
   loadDictionary,
   lookupDictionary,
@@ -26,9 +26,9 @@ import type { CategoriseInput, ResolutionResult } from "./types";
 import { lookupUserOverride } from "./user-override";
 
 const CHANNEL_CATEGORY = {
-  atm: "transfers",
-  cheque: "other",
-  fee: "other",
+  atm: "cash-withdrawal",
+  cheque: "uncategorised",
+  fee: "bank-fees",
 } as const satisfies Record<string, SpendingCategory>;
 
 const UNKNOWN_RESULT: ResolutionResult = {
@@ -44,7 +44,10 @@ const UNKNOWN_RESULT: ResolutionResult = {
 const categoryFromMcc = (mcc: string): SpendingCategory | null => {
   const n = Math.trunc(Number(mcc));
   if (!Number.isNaN(n) && n >= 3000 && n <= 3999) {
-    return "travel";
+    if (n <= 3299) {
+      return "flights";
+    }
+    return n <= 3499 ? "other-travel" : "accommodation";
   }
   // SAFETY: mcc is a string key from the provider; the assertion narrows for the const lookup
   return (

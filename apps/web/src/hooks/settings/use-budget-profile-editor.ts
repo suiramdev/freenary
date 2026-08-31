@@ -31,10 +31,11 @@ export interface ServerBudgetLine {
 
 const MINOR_UNITS_PER_MAJOR = 100;
 
+// Leaves, not groups: a group is a heading, so the server would reject it.
 const DEFAULT_CATEGORY_KEY = {
   INVESTMENT: "savings",
-  OUTGOING: "other",
-  REVENUE: "income",
+  OUTGOING: "uncategorised",
+  REVENUE: "salary",
 } satisfies Record<BudgetLineKind, string>;
 
 /** Mirrors saveBudgetProfile's line schema so the row error matches the server's rule. */

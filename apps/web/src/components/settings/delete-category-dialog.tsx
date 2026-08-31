@@ -14,7 +14,7 @@ import { Spinner } from "@freenary/ui/components/spinner";
 import { TrashIcon } from "@phosphor-icons/react";
 
 interface DeleteCategoryDialogProps {
-  /** Where referencing budget lines land — the parent category, or "Other". */
+  /** Where referencing budget lines land — the parent group's catch-all category, or "Uncategorised". */
   fallbackLabel: string;
   isDeleting: boolean;
   label: string;

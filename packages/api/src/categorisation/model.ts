@@ -3,7 +3,8 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type { SpendingCategory } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/taxonomy";
+import { resolveCategorySlug } from "../lib/taxonomy";
 import type { FeatureVector } from "./features";
 import { extractFeatures } from "./features";
 
@@ -205,8 +206,13 @@ export const predict = (
     return Promise.resolve(null);
   }
 
-  // SAFETY: loadedCategories[bestIdx] is a valid SpendingCategory stored by train-model.ts
-  const category = loadedCategories[bestIdx] as SpendingCategory;
+  // The weights file stores category names, so a name written before the
+  // hierarchy is decoded; one that no longer resolves has no prediction to make.
+  const storedCategory = loadedCategories[bestIdx];
+  const category = storedCategory ? resolveCategorySlug(storedCategory) : null;
+  if (category === null) {
+    return Promise.resolve(null);
+  }
 
   return Promise.resolve({ category, confidence: bestProb });
 };

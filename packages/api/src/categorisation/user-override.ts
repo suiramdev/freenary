@@ -1,7 +1,7 @@
 import prisma from "@freenary/db";
 import type { Prisma } from "@freenary/db";
 
-import type { SpendingCategory } from "../lib/mcc-categories";
+import type { SpendingCategory } from "../lib/taxonomy";
 
 type TransactionClient = Prisma.TransactionClient;
 

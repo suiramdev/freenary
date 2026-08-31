@@ -9,22 +9,27 @@ import {
   MAX_BUDGET_LINES,
 } from "../lib/budget-profile";
 import {
-  CATEGORY_COLOR_VALUES,
-  CATEGORY_ICON_NAMES,
   customCategoryKey,
   parseCategoryKey,
-  predefinedCategoryEntries,
+  predefinedCategoryGroups,
 } from "../lib/categories";
-import type { CategoryEntry, CategoryIconName } from "../lib/categories";
-import { SPENDING_CATEGORIES } from "../lib/mcc-categories";
-import type { CategoryColor } from "../lib/mcc-categories";
+import type { CategoryEntry } from "../lib/categories";
+import {
+  CATEGORY_COLOR_VALUES,
+  CATEGORY_GROUP_FALLBACKS,
+  CATEGORY_GROUPS,
+  CATEGORY_ICON_NAMES,
+  isCategoryGroup,
+} from "../lib/taxonomy";
+import type { CategoryColor, CategoryIconName } from "../lib/taxonomy";
 
 /** Shared by createCustomCategory and updateCustomCategory. */
 const customCategoryFields = {
   color: z.enum(CATEGORY_COLOR_VALUES),
   icon: z.enum(CATEGORY_ICON_NAMES),
   label: z.string().trim().min(1).max(40),
-  parentSlug: z.enum(SPENDING_CATEGORIES).nullable(),
+  // A custom category nests under a group, never under another category.
+  parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
 };
 
 const CATEGORY_SELECT = {
@@ -48,7 +53,11 @@ const toCategoryEntry = (custom: {
   color: custom.color as CategoryColor,
   // SAFETY: color and icon are only ever written through the zod-validated mutations in this file
   icon: custom.icon as CategoryIconName,
+  isAssignable: true,
   isCustom: true,
+  // A top-level custom category is a group of the user's own, and stays
+  // assignable because it holds no categories to pick instead.
+  isGroup: custom.parentSlug === null,
   key: customCategoryKey(custom.id),
   label: custom.label,
   parentKey: custom.parentSlug,
@@ -111,7 +120,12 @@ export const settingsRouter = {
         throw new ORPCError("NOT_FOUND", { message: "Category not found" });
       }
 
-      const fallbackSlug = category.parentSlug ?? "other";
+      // A budget line must land on a category, and the parent is a group, so
+      // reassignment goes to that group's catch-all.
+      const fallbackSlug =
+        category.parentSlug && isCategoryGroup(category.parentSlug)
+          ? CATEGORY_GROUP_FALLBACKS[category.parentSlug]
+          : "uncategorised";
 
       // Reassigning before the delete is what keeps `onDelete: Restrict` satisfied,
       // so a budget line can never silently lose its category.
@@ -147,7 +161,7 @@ export const settingsRouter = {
         amount: line.amount,
         categoryKey: line.categoryId
           ? customCategoryKey(line.categoryId)
-          : (line.categorySlug ?? "other"),
+          : (line.categorySlug ?? "uncategorised"),
         id: line.id,
         kind: line.kind,
         label: line.label,
@@ -164,15 +178,19 @@ export const settingsRouter = {
 
     const categories: CategoryEntry[] = [];
 
-    for (const predefined of predefinedCategoryEntries()) {
-      categories.push(predefined);
+    for (const {
+      categories: predefined,
+      group,
+    } of predefinedCategoryGroups()) {
+      categories.push(group, ...predefined);
       for (const custom of customs) {
-        if (custom.parentSlug === predefined.key) {
+        if (custom.parentSlug === group.key) {
           categories.push(toCategoryEntry(custom));
         }
       }
     }
 
+    // Groups of the user's own close the list, after every predefined group.
     for (const custom of customs) {
       if (custom.parentSlug === null) {
         categories.push(toCategoryEntry(custom));

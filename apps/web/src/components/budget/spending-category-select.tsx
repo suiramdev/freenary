@@ -1,21 +1,25 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import {
+  CATEGORY_GROUP_LABELS,
+  CATEGORY_GROUPS,
   CATEGORY_LABELS,
-  SPENDING_CATEGORIES,
-} from "@freenary/api/lib/mcc-categories";
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+  categoriesInGroup,
+  isSpendingCategory,
+} from "@freenary/api/lib/taxonomy";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import {
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@freenary/ui/components/select";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 
-const NO_PARENT = "none";
+const NONE_VALUE = "none";
 
 interface SpendingCategorySelectProps {
   /** Allow deselecting (renders a "None" option). */
@@ -30,9 +34,8 @@ interface SpendingCategorySelectProps {
 }
 
 /**
- * Select of predefined spending categories with icons.
- * Used wherever a SpendingCategory needs to be picked — transaction details,
- * custom-category "Nested under", etc.
+ * Select of predefined categories, headed by the group each belongs to. With 75
+ * categories the group headings are what makes the list navigable.
  */
 export const SpendingCategorySelect = ({
   allowNone = false,
@@ -43,28 +46,28 @@ export const SpendingCategorySelect = ({
   value,
 }: SpendingCategorySelectProps) => (
   <Select
-    value={value ?? NO_PARENT}
-    onValueChange={(next) => {
-      const slug = SPENDING_CATEGORIES.find((cat) => cat === next);
-      onValueChange(slug ?? null);
+    value={value ?? NONE_VALUE}
+    // Base UI types the selected value as `any`; naming the contract here is
+    // what lets the guard below decide, rather than a shape check.
+    onValueChange={(next: string | null) => {
+      onValueChange(next !== null && isSpendingCategory(next) ? next : null);
     }}
   >
     <SelectTrigger id={id}>
       <SelectValue>
-        {(selected) => {
-          const category = SPENDING_CATEGORIES.find((cat) => cat === selected);
-          if (!category) {
+        {(selected: string | null) => {
+          if (selected === null || !isSpendingCategory(selected)) {
             return noneLabel;
           }
           return (
             <>
               {showTriggerIcon && (
                 <CategoryIcon
-                  {...predefinedCategoryAppearance(category)}
+                  {...predefinedCategoryAppearance(selected)}
                   className="size-5 [&_svg]:size-3"
                 />
               )}
-              {CATEGORY_LABELS[category]}
+              {CATEGORY_LABELS[selected]}
             </>
           );
         }}
@@ -72,18 +75,25 @@ export const SpendingCategorySelect = ({
     </SelectTrigger>
     {/* The trigger is w-fit, so the popup needs its own floor for long labels. */}
     <SelectContent className="min-w-56">
-      <SelectGroup>
-        {allowNone && <SelectItem value={NO_PARENT}>{noneLabel}</SelectItem>}
-        {SPENDING_CATEGORIES.map((cat) => (
-          <SelectItem key={cat} value={cat}>
-            <CategoryIcon
-              {...predefinedCategoryAppearance(cat)}
-              className="size-5 [&_svg]:size-3"
-            />
-            {CATEGORY_LABELS[cat]}
-          </SelectItem>
-        ))}
-      </SelectGroup>
+      {allowNone && (
+        <SelectGroup>
+          <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
+        </SelectGroup>
+      )}
+      {CATEGORY_GROUPS.map((group) => (
+        <SelectGroup key={group}>
+          <SelectLabel>{CATEGORY_GROUP_LABELS[group]}</SelectLabel>
+          {categoriesInGroup(group).map((category) => (
+            <SelectItem key={category} value={category}>
+              <CategoryIcon
+                {...predefinedCategoryAppearance(category)}
+                className="size-5 [&_svg]:size-3"
+              />
+              {CATEGORY_LABELS[category]}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
     </SelectContent>
   </Select>
 );

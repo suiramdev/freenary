@@ -1,9 +1,4 @@
 import {
-  CATEGORY_LABELS,
-  SPENDING_CATEGORIES,
-} from "@freenary/api/lib/mcc-categories";
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
-import {
   Card,
   CardContent,
   CardHeader,
@@ -13,23 +8,20 @@ import { useCallback, useMemo } from "react";
 
 import { CashFlowSummary } from "@/components/budget/cash-flow-summary";
 import { SankeyChart } from "@/components/shared/sankey-chart";
-import { toCashFlowSankey } from "@/lib/budget/cash-flow-sankey";
+import {
+  selectionOfNodeId,
+  toCashFlowSankey,
+} from "@/lib/budget/cash-flow-sankey";
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
+import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
 
-const LABEL_TO_CATEGORY: Record<string, SpendingCategory> = Object.fromEntries(
-  SPENDING_CATEGORIES.map((category): [string, SpendingCategory] => [
-    CATEGORY_LABELS[category],
-    category,
-  ])
-);
-
 interface CashFlowCardProps extends CashFlowData {
   aggregation: AggregationMode;
   className?: string;
-  onCategoryClick?: (category: SpendingCategory) => void;
+  onSelect?: (selection: CategorySelection) => void;
   totalExpenses: number;
 }
 
@@ -37,41 +29,29 @@ interface CashFlowCardProps extends CashFlowData {
 export const CashFlowCard = ({
   aggregation,
   className,
-  expenseLinks,
-  expenseNodes,
-  incomeLinks,
+  groups,
   incomeNodes,
-  onCategoryClick,
+  moneyLeft,
+  onSelect,
   totalExpenses,
   totalIncome,
 }: CashFlowCardProps) => {
   const flow = useMemo(
-    () =>
-      toCashFlowSankey({
-        expenseLinks,
-        expenseNodes,
-        incomeLinks,
-        incomeNodes,
-        totalIncome,
-      }),
-    [expenseLinks, expenseNodes, incomeLinks, incomeNodes, totalIncome]
+    () => toCashFlowSankey({ groups, incomeNodes, moneyLeft, totalIncome }),
+    [groups, incomeNodes, moneyLeft, totalIncome]
   );
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
-      if (!onCategoryClick || !nodeId.startsWith("expense:")) {
-        return;
-      }
-      const label = nodeId.slice("expense:".length);
-      const category = LABEL_TO_CATEGORY[label];
-      if (category) {
-        onCategoryClick(category);
+      const selection = selectionOfNodeId(nodeId);
+      if (selection && onSelect) {
+        onSelect(selection);
       }
     },
-    [onCategoryClick]
+    [onSelect]
   );
 
-  if (incomeNodes.length === 0 && expenseNodes.length === 0) {
+  if (incomeNodes.length === 0 && groups.length === 0) {
     return null;
   }
 
@@ -91,11 +71,10 @@ export const CashFlowCard = ({
       <CardContent>
         <SankeyChart
           columns={flow.columns}
-          emphasizedId={flow.emphasizedId}
           formatValue={formatCurrency}
-          label="Cash flow from income sources through the budget to spending categories"
+          label="Cash flow from income sources to category groups and their categories"
           links={flow.links}
-          onNodeClick={onCategoryClick ? handleNodeClick : undefined}
+          onNodeClick={onSelect ? handleNodeClick : undefined}
         />
         <CashFlowSummary
           aggregation={aggregation}

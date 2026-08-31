@@ -1,7 +1,7 @@
 import {
   CATEGORY_COLOR_VALUES,
   CATEGORY_ICON_NAMES,
-} from "@freenary/api/lib/categories";
+} from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import {
   Drawer,
@@ -27,11 +27,11 @@ import { cn } from "@freenary/ui/lib/utils";
 import { CheckIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
+import { CategoryGroupSelect } from "@/components/budget/category-group-select";
 import {
   CategoryIcon,
   SWATCH_BY_COLOR,
 } from "@/components/budget/category-icon";
-import { SpendingCategorySelect } from "@/components/budget/spending-category-select";
 import { useCustomCategoryForm } from "@/hooks/settings/use-custom-category-form";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
 
@@ -197,8 +197,7 @@ export const CustomCategoryDrawer = ({
                   <FieldLabel htmlFor="custom-category-parent">
                     Nested under
                   </FieldLabel>
-                  <SpendingCategorySelect
-                    allowNone
+                  <CategoryGroupSelect
                     id="custom-category-parent"
                     noneLabel="No parent"
                     onValueChange={(v) => field.handleChange(v)}

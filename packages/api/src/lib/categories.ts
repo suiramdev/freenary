@@ -1,74 +1,42 @@
 import {
-  CATEGORY_COLORS,
+  CATEGORY_GROUP_COLORS,
+  CATEGORY_GROUP_ICONS,
+  CATEGORY_GROUP_LABELS,
+  CATEGORY_GROUPS,
   CATEGORY_LABELS,
-  SPENDING_CATEGORIES,
-} from "./mcc-categories";
-import type { CategoryColor, SpendingCategory } from "./mcc-categories";
-
-export const CATEGORY_COLOR_VALUES = [
-  "blue",
-  "green",
-  "grey",
-  "orange",
-  "pink",
-  "purple",
-  "red",
-] as const satisfies readonly CategoryColor[];
-
-/** Phosphor icon exports a category may use; the web name→component map covers exactly these. */
-export const CATEGORY_ICON_NAMES = [
-  "AirplaneIcon",
-  "ArrowsLeftRightIcon",
-  "BankIcon",
-  "CarIcon",
-  "DotsThreeIcon",
-  "FilmSlateIcon",
-  "FirstAidIcon",
-  "ForkKnifeIcon",
-  "GraduationCapIcon",
-  "HouseIcon",
-  "LightningIcon",
-  "PiggyBankIcon",
-  "ReceiptIcon",
-  "RepeatIcon",
-  "ShieldCheckIcon",
-  "ShoppingBagIcon",
-  "StorefrontIcon",
-] as const;
-
-export type CategoryIconName = (typeof CATEGORY_ICON_NAMES)[number];
-
-export const PREDEFINED_CATEGORY_ICONS = {
-  dining: "ForkKnifeIcon",
-  education: "GraduationCapIcon",
-  entertainment: "FilmSlateIcon",
-  groceries: "StorefrontIcon",
-  health: "FirstAidIcon",
-  housing: "HouseIcon",
-  income: "BankIcon",
-  insurance: "ShieldCheckIcon",
-  other: "DotsThreeIcon",
-  savings: "PiggyBankIcon",
-  shopping: "ShoppingBagIcon",
-  subscriptions: "RepeatIcon",
-  taxes: "ReceiptIcon",
-  transfers: "ArrowsLeftRightIcon",
-  transport: "CarIcon",
-  travel: "AirplaneIcon",
-  utilities: "LightningIcon",
-} as const satisfies Record<SpendingCategory, CategoryIconName>;
+  categoriesInGroup,
+  categoryColor,
+  categoryIcon,
+  isSpendingCategory,
+} from "./taxonomy";
+import type {
+  CategoryColor,
+  CategoryGroup,
+  CategoryIconName,
+  SpendingCategory,
+} from "./taxonomy";
 
 export const CUSTOM_CATEGORY_PREFIX = "custom:";
 
-/** A category as the UI consumes it: predefined slugs and custom ids share one key space. */
+/**
+ * A node of the hierarchy as the UI consumes it: groups, predefined categories
+ * and custom categories share one key space, flattened into display order.
+ */
 export interface CategoryEntry {
   color: CategoryColor;
   icon: CategoryIconName;
   isCustom: boolean;
+  /**
+   * A level-2 group. Predefined groups are headers only; a custom group is
+   * assignable because it has no categories of its own to pick instead.
+   */
+  isGroup: boolean;
+  /** Whether a budget line may reference this entry. */
+  isAssignable: boolean;
   /** Predefined slug, or `custom:<cuid>`. */
   key: string;
   label: string;
-  /** Predefined slug this entry nests under; null for predefined and top-level custom entries. */
+  /** Group slug this entry sits in; null for a group itself. */
   parentKey: string | null;
   /** Budget lines assigned to this entry; always 0 for predefined entries. */
   usageCount: number;
@@ -89,8 +57,8 @@ export const parseCategoryKey = (
     return customId ? { customId, slug: null } : null;
   }
 
-  const slug = SPENDING_CATEGORIES.find((candidate) => candidate === key);
-  return slug ? { customId: null, slug } : null;
+  // A group is a header, not a value a budget line may carry.
+  return isSpendingCategory(key) ? { customId: null, slug: key } : null;
 };
 
 /** Everything needed to render a category's glyph, whether predefined or custom. */
@@ -102,17 +70,54 @@ export interface CategoryAppearance {
 export const predefinedCategoryAppearance = (
   category: SpendingCategory
 ): CategoryAppearance => ({
-  color: CATEGORY_COLORS[category],
-  icon: PREDEFINED_CATEGORY_ICONS[category],
+  color: categoryColor(category),
+  icon: categoryIcon(category),
 });
 
-export const predefinedCategoryEntries = (): CategoryEntry[] =>
-  SPENDING_CATEGORIES.map((slug) => ({
-    color: CATEGORY_COLORS[slug],
-    icon: PREDEFINED_CATEGORY_ICONS[slug],
-    isCustom: false,
-    key: slug,
-    label: CATEGORY_LABELS[slug],
-    parentKey: null,
-    usageCount: 0,
+export const categoryGroupAppearance = (
+  group: CategoryGroup
+): CategoryAppearance => ({
+  color: CATEGORY_GROUP_COLORS[group],
+  icon: CATEGORY_GROUP_ICONS[group],
+});
+
+const groupEntry = (group: CategoryGroup): CategoryEntry => ({
+  color: CATEGORY_GROUP_COLORS[group],
+  icon: CATEGORY_GROUP_ICONS[group],
+  isAssignable: false,
+  isCustom: false,
+  isGroup: true,
+  key: group,
+  label: CATEGORY_GROUP_LABELS[group],
+  parentKey: null,
+  usageCount: 0,
+});
+
+const categoryEntry = (
+  category: SpendingCategory,
+  group: CategoryGroup
+): CategoryEntry => ({
+  color: categoryColor(category),
+  icon: categoryIcon(category),
+  isAssignable: true,
+  isCustom: false,
+  isGroup: false,
+  key: category,
+  label: CATEGORY_LABELS[category],
+  parentKey: group,
+  usageCount: 0,
+});
+
+export interface PredefinedCategoryGroup {
+  categories: CategoryEntry[];
+  group: CategoryEntry;
+}
+
+/** The predefined hierarchy: every group with the categories it holds. */
+export const predefinedCategoryGroups = (): PredefinedCategoryGroup[] =>
+  CATEGORY_GROUPS.map((group) => ({
+    categories: categoriesInGroup(group).map((category) =>
+      categoryEntry(category, group)
+    ),
+    group: groupEntry(group),
   }));

@@ -28,8 +28,9 @@ import type { BudgetProfileLine } from "@/lib/settings/budget-profile-sankey";
 /** Repainting the dithered canvas is per-pixel work, so typing settles first. */
 const PREVIEW_DELAY_MS = 200;
 
-const FALLBACK_ENTRY: Pick<CategoryEntry, "color" | "label"> = {
+const FALLBACK_GROUP: Pick<CategoryEntry, "color" | "key" | "label"> = {
   color: "grey",
+  key: "other",
   label: "Other",
 };
 
@@ -56,15 +57,28 @@ export const BudgetProfilePreview = ({
       categories.map((entry) => [entry.key, entry] as const)
     );
 
+    // A line names a category; the chart's middle column is its group. A
+    // top-level custom category is its own group, so it stands in for itself.
+    const groupOf = (categoryKey: string) => {
+      const entry = entryByKey.get(categoryKey);
+      if (!entry) {
+        return FALLBACK_GROUP;
+      }
+      const parent = entry.parentKey
+        ? entryByKey.get(entry.parentKey)
+        : undefined;
+      return parent ?? entry;
+    };
+
     return (debouncedLines ?? []).map((line) => {
-      const entry = entryByKey.get(line.categoryKey) ?? FALLBACK_ENTRY;
+      const group = groupOf(line.categoryKey);
       const amount = amountOf(line.amountInput);
 
       return {
         amount: Number.isNaN(amount) ? 0 : amount,
-        categoryColor: entry.color,
-        categoryKey: line.categoryKey,
-        categoryLabel: entry.label,
+        groupColor: group.color,
+        groupKey: group.key,
+        groupLabel: group.label,
         id: line.id,
         kind: line.kind,
         label: line.label.trim() || "Untitled",
@@ -132,9 +146,8 @@ export const BudgetProfilePreview = ({
       <CardContent>
         <SankeyChart
           columns={flow.columns}
-          emphasizedId={flow.emphasizedId}
           formatValue={formatCurrency}
-          label="Budgeting profile from revenues through the budget to each planned line"
+          label="Budgeting profile from revenues through category groups to each planned line"
           links={flow.links}
         />
         <BudgetProfileSummary

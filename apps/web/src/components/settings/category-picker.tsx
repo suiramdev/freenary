@@ -5,15 +5,30 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@freenary/ui/components/dropdown-menu";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@freenary/ui/components/input-group";
 import { cn } from "@freenary/ui/lib/utils";
-import { CaretUpDownIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  CaretUpDownIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
+import { toCategorySections } from "@/lib/settings/category-sections";
+
+/** Keys the search field must keep; everything else belongs to the menu. */
+const EDITING_KEYS = new Set(["Backspace", "Delete", "End", "Home"]);
 
 interface CategoryPickerProps {
   categories: CategoryEntry[];
@@ -33,10 +48,17 @@ export const CategoryPicker = ({
   onSelect,
   value,
 }: CategoryPickerProps) => {
+  const [query, setQuery] = useState("");
   const selected = categories.find((entry) => entry.key === value);
 
+  // Ninety-odd entries are too many to scan, so typing narrows them.
+  const sections = useMemo(
+    () => toCategorySections(categories, query),
+    [categories, query]
+  );
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={() => setQuery("")}>
       <DropdownMenuTrigger
         render={
           <Button className="w-40 shrink-0 justify-between" variant="outline" />
@@ -45,21 +67,55 @@ export const CategoryPicker = ({
         <span className="truncate">{selected?.label ?? "Pick a category"}</span>
         <CaretUpDownIcon data-icon="inline-end" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 w-64 overflow-y-auto"
+      >
+        <div className="p-1">
+          <InputGroup>
+            <InputGroupAddon>
+              <MagnifyingGlassIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              onChange={(e) => setQuery(e.target.value)}
+              // The menu's typeahead preventDefaults every printable key and
+              // its list navigation does the same for Home/End, which would
+              // swallow the keystroke before the field sees it. Arrows, Enter,
+              // Tab and Escape still reach the menu.
+              onKeyDown={(event) => {
+                if (event.key.length === 1 || EDITING_KEYS.has(event.key)) {
+                  event.stopPropagation();
+                }
+              }}
+              placeholder="Search categories..."
+              type="search"
+              value={query}
+            />
+          </InputGroup>
+        </div>
         <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
-          {categories.map((entry) => (
-            <DropdownMenuRadioItem
-              key={entry.key}
-              value={entry.key}
-              className={cn(entry.parentKey && "pl-8")}
-            >
-              <CategoryIcon
-                color={entry.color}
-                icon={entry.icon}
-                className="size-5 [&_svg]:size-3"
-              />
-              {entry.label}
-            </DropdownMenuRadioItem>
+          {sections.map((section) => (
+            <DropdownMenuGroup key={section.key}>
+              {/* A group is a heading; a line is assigned a category. Each
+                  heading labels its own section, not the whole radio group. */}
+              {section.heading && (
+                <DropdownMenuLabel>{section.heading.label}</DropdownMenuLabel>
+              )}
+              {section.items.map((entry) => (
+                <DropdownMenuRadioItem
+                  key={entry.key}
+                  value={entry.key}
+                  className={cn(section.heading && "pl-8")}
+                >
+                  <CategoryIcon
+                    color={entry.color}
+                    icon={entry.icon}
+                    className="size-5 [&_svg]:size-3"
+                  />
+                  {entry.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuGroup>
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />

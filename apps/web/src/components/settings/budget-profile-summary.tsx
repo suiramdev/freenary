@@ -24,7 +24,8 @@ export const BudgetProfileSummary = ({
         </span>
       </span>
       <span className="text-muted-foreground">
-        {remaining >= 0 ? "Unallocated: " : "Over-allocated: "}
+        {/* Same name as the chart's band, so one concept reads one way. */}
+        {remaining >= 0 ? "Money left: " : "Over-allocated: "}
         <span className={remaining >= 0 ? "text-success" : "text-destructive"}>
           {formatCurrency(Math.abs(remaining))}
         </span>

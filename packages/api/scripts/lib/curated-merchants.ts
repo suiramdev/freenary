@@ -9,76 +9,79 @@ import type { CuratedEntry } from "./types";
 
 export const CURATED_MERCHANTS: CuratedEntry[] = [
   // ── Energy ──
-  { category: "utilities", name: "EDF" },
-  { category: "utilities", name: "Engie" },
-  { category: "utilities", name: "TotalEnergies" },
-  { category: "utilities", name: "Enercoop" },
+  { category: "energy", name: "EDF" },
+  { category: "energy", name: "Engie" },
+  { category: "energy", name: "TotalEnergies" },
+  { category: "energy", name: "Enercoop" },
 
   // ── Water ──
-  { category: "utilities", name: "Veolia" },
-  { category: "utilities", name: "Suez" },
-  { category: "utilities", name: "Saur" },
+  { category: "water", name: "Veolia" },
+  { category: "water", name: "Suez" },
+  { category: "water", name: "Saur" },
 
   // ── Telecom / ISP ──
-  { category: "utilities", name: "Orange" },
-  { category: "utilities", name: "SFR" },
-  { category: "utilities", name: "Free" },
-  { category: "utilities", name: "Bouygues Telecom" },
-  { category: "utilities", name: "Sosh" },
-  { category: "utilities", name: "Red by SFR" },
+  { category: "telecom", name: "Orange" },
+  { category: "telecom", name: "SFR" },
+  { category: "telecom", name: "Free" },
+  { category: "telecom", name: "Bouygues Telecom" },
+  { category: "telecom", name: "Sosh" },
+  { category: "telecom", name: "Red by SFR" },
 
   // ── Transport / Rail ──
-  { category: "transport", name: "SNCF" },
-  { category: "transport", name: "Trainline" },
-  { category: "transport", name: "RATP" },
-  { category: "transport", name: "Île-de-France Mobilités" },
-  { category: "transport", name: "BlaBlaCar" },
-  { category: "transport", name: "Uber" },
-  { category: "dining", name: "Uber Eats" },
-  { category: "transport", name: "Bolt" },
+  { category: "public-transport", name: "SNCF" },
+  { category: "public-transport", name: "Trainline" },
+  { category: "public-transport", name: "RATP" },
+  { category: "public-transport", name: "Île-de-France Mobilités" },
+  { category: "public-transport", name: "BlaBlaCar" },
+  { category: "taxi", name: "Uber" },
+  { category: "takeaway", name: "Uber Eats" },
+  { category: "taxi", name: "Bolt" },
 
   // ── Insurance ──
-  { category: "insurance", name: "AXA" },
-  { category: "insurance", name: "MAIF" },
-  { category: "insurance", name: "MACIF" },
-  { category: "insurance", name: "MAAF" },
-  { category: "insurance", name: "Matmut" },
-  { category: "insurance", name: "Groupama" },
-  { category: "insurance", name: "Allianz" },
-  { category: "insurance", name: "April" },
+  // A multi-line insurer covers home, vehicle and health alike, so none of the
+  // three specific leaves can be claimed from the brand name.
+  { category: "other-insurance", name: "AXA" },
+  { category: "other-insurance", name: "MAIF" },
+  { category: "other-insurance", name: "MACIF" },
+  { category: "other-insurance", name: "MAAF" },
+  { category: "other-insurance", name: "Matmut" },
+  { category: "other-insurance", name: "Groupama" },
+  { category: "other-insurance", name: "Allianz" },
+  { category: "health-insurance", name: "April" },
 
   // ── Streaming / Subscriptions ──
-  { category: "subscriptions", name: "Netflix" },
-  { category: "subscriptions", name: "Spotify" },
-  { category: "subscriptions", name: "Disney+" },
-  { category: "subscriptions", name: "Canal+" },
-  { category: "subscriptions", name: "Deezer" },
-  { category: "subscriptions", name: "Amazon Prime" },
-  { category: "subscriptions", name: "YouTube Premium" },
-  { category: "subscriptions", name: "Apple" },
-  { category: "subscriptions", name: "Google" },
-  { category: "subscriptions", name: "Microsoft" },
-  { category: "subscriptions", name: "Adobe" },
-  { category: "subscriptions", name: "OVH" },
-  { category: "subscriptions", name: "Scaleway" },
+  { category: "streaming", name: "Netflix" },
+  { category: "streaming", name: "Spotify" },
+  { category: "streaming", name: "Disney+" },
+  { category: "streaming", name: "Canal+" },
+  { category: "streaming", name: "Deezer" },
+  { category: "streaming", name: "Amazon Prime" },
+  { category: "streaming", name: "YouTube Premium" },
+  // Storefronts that bill for apps and cloud rather than media.
+  { category: "software", name: "Apple" },
+  { category: "software", name: "Google" },
+  { category: "software", name: "Microsoft" },
+  { category: "software", name: "Adobe" },
+  { category: "software", name: "OVH" },
+  { category: "software", name: "Scaleway" },
 
   // ── Health ──
-  { category: "health", name: "Doctolib" },
-  { category: "health", name: "Ameli" },
+  { category: "medical", name: "Doctolib" },
+  { category: "medical", name: "Ameli" },
 
   // ── E-commerce NSI lacks ──
-  { category: "shopping", name: "Cdiscount" },
-  { category: "shopping", name: "Vinted" },
-  { category: "shopping", name: "Leboncoin" },
-  { category: "shopping", name: "Back Market" },
-  { category: "shopping", name: "ManoMano" },
-  { category: "shopping", name: "Veepee" },
+  { category: "other-shopping", name: "Cdiscount" },
+  { category: "clothing", name: "Vinted" },
+  { category: "other-shopping", name: "Leboncoin" },
+  { category: "electronics", name: "Back Market" },
+  { category: "home-maintenance", name: "ManoMano" },
+  { category: "other-shopping", name: "Veepee" },
 
   // ── Supermarkets with country-qualified NSI names ──
   { category: "groceries", name: "Monoprix" },
   { category: "groceries", name: "Carrefour" },
 
-  // ── Fuel brands whose NSI convenience-store tag incorrectly overrides transport ──
-  { category: "transport", name: "Esso" },
-  { category: "transport", name: "Shell" },
+  // ── Fuel brands whose NSI convenience-store tag incorrectly overrides fuel ──
+  { category: "fuel", name: "Esso" },
+  { category: "fuel", name: "Shell" },
 ];

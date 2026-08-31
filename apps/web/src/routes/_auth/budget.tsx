@@ -1,4 +1,3 @@
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -15,16 +14,15 @@ import { TransactionList } from "@/components/budget/transaction-list";
 import { useAccountSync } from "@/hooks/budget/use-account-sync";
 import { useBudgetPeriod } from "@/hooks/budget/use-budget-period";
 import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
+import {
+  EMPTY_CATEGORY_FILTER,
+  toggleCategoryFilter,
+} from "@/lib/budget/category-selection";
+import type {
+  CategoryFilter,
+  CategorySelection,
+} from "@/lib/budget/category-selection";
 import { client, orpc } from "@/utils/orpc";
-
-/** Clicking a chart slice filters on it; clicking the active one clears it. */
-const toggleCategoryFilter = (
-  current: SpendingCategory[],
-  clicked: SpendingCategory | null
-): SpendingCategory[] => {
-  const isActive = current.length === 1 && current[0] === clicked;
-  return clicked === null || isActive ? [] : [clicked];
-};
 
 const BudgetPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
@@ -51,7 +49,7 @@ const BudgetPage = () => {
   );
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
-  const [categories, setCategories] = useState<SpendingCategory[]>([]);
+  const [filter, setFilter] = useState<CategoryFilter>(EMPTY_CATEGORY_FILTER);
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
@@ -79,7 +77,7 @@ const BudgetPage = () => {
         to: to.toISOString(),
         direction,
         search: debouncedSearch,
-        categories,
+        filter,
       },
     ],
     queryFn: ({ pageParam }) =>
@@ -88,7 +86,9 @@ const BudgetPage = () => {
         to,
         direction,
         search: debouncedSearch || undefined,
-        categories: categories.length > 0 ? categories : undefined,
+        categories:
+          filter.categories.length > 0 ? filter.categories : undefined,
+        groups: filter.groups.length > 0 ? filter.groups : undefined,
         cursor: pageParam,
         limit: 50,
       }),
@@ -109,9 +109,9 @@ const BudgetPage = () => {
     }
   }, [transactionsQuery]);
 
-  const handleCategoryClick = useCallback(
-    (category: SpendingCategory | null) =>
-      setCategories((prev) => toggleCategoryFilter(prev, category)),
+  const handleSelect = useCallback(
+    (selection: CategorySelection | null) =>
+      setFilter((prev) => toggleCategoryFilter(prev, selection)),
     []
   );
 
@@ -152,11 +152,11 @@ const BudgetPage = () => {
 
       <BudgetCharts
         aggregation={aggregation}
-        breakdown={breakdownQuery.data?.categories}
+        breakdown={breakdownQuery.data?.groups}
         cashFlow={sankeyQuery.data}
         isBreakdownPending={breakdownQuery.isLoading}
         isCashFlowPending={sankeyQuery.isLoading}
-        onCategoryClick={handleCategoryClick}
+        onSelect={handleSelect}
       />
 
       <TransactionList
@@ -166,8 +166,8 @@ const BudgetPage = () => {
         onDirectionChange={setDirection}
         search={search}
         onSearchChange={setSearch}
-        categories={categories}
-        onCategoriesChange={setCategories}
+        filter={filter}
+        onFilterChange={setFilter}
         hasMore={transactionsQuery.hasNextPage}
         onLoadMore={handleLoadMore}
         isLoading={

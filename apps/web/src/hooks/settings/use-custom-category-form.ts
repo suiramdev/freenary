@@ -1,8 +1,8 @@
 import {
   CATEGORY_COLOR_VALUES,
+  CATEGORY_GROUPS,
   CATEGORY_ICON_NAMES,
-} from "@freenary/api/lib/categories";
-import { SPENDING_CATEGORIES } from "@freenary/api/lib/mcc-categories";
+} from "@freenary/api/lib/taxonomy";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,7 +23,8 @@ const categorySchema = z.object({
       MAX_LABEL_LENGTH,
       `Name must be at most ${MAX_LABEL_LENGTH} characters`
     ),
-  parentSlug: z.enum(SPENDING_CATEGORIES).nullable(),
+  // A custom category nests under a group, never under another category.
+  parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
 });
 
 export type CustomCategoryValues = z.infer<typeof categorySchema>;

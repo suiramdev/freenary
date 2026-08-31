@@ -7,9 +7,13 @@ Budget answers: **"What is happening to my money?"** Portfolio represents accumu
 
 ## Categorization
 
-Transactions imported from connected accounts are automatically analyzed and assigned to categories — housing, groceries, restaurants, transport, subscriptions, travel, healthcare, taxes and more. Income is divided into salary, investment income, reimbursements and other sources.
+Transactions imported from connected accounts are automatically analyzed and assigned to a category. Categories are organized in two levels: sixteen **groups** — Housing, Daily living, Transport, Subscriptions, Health, Taxes and the rest — each holding the categories that belong to it, so Rent, Mortgage and Home insurance all sit under Housing. Income uses the same vocabulary, split into Salary, Self-employment, Investment income, Refunds and other sources.
 
-Users can correct automatic classifications and create their own categories and subcategories. Custom categories are managed in [Settings](/docs/settings). The system learns from these corrections: repeatedly categorizing a merchant the same way makes that preference apply automatically in the future.
+Every group also carries a catch-all category — Other housing, Other transport — for the cases where a bank's data identifies the group but nothing narrower. Guessing a specific category from a signal that does not support one would read as precision that is not there.
+
+A **cash-flow diagram** draws the whole picture in one pass: income sources on the left, then the groups, then the categories inside each group. Clicking a group filters the transaction list to everything it holds; clicking a single category narrows to just that one. Income the period did not spend sits beside the groups as a grey **Money left** band — it holds no categories and is not clickable, since there are no transactions behind it.
+
+Users can correct automatic classifications and create their own categories and groups. Custom categories are managed in [Settings](/docs/settings). The system learns from these corrections: repeatedly categorizing a merchant the same way makes that preference apply automatically in the future.
 
 A **rules engine** complements this with predictable automation — e.g. "every transaction containing this merchant name is groceries" or "exclude this transfer from spending calculations". Rules handle what can be expressed statically; AI handles the rest.
 

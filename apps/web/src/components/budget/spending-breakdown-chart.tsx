@@ -1,8 +1,8 @@
 import {
-  CATEGORY_COLORS,
-  CATEGORY_LABELS,
-} from "@freenary/api/lib/mcc-categories";
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+  CATEGORY_GROUP_COLORS,
+  CATEGORY_GROUP_LABELS,
+} from "@freenary/api/lib/taxonomy";
+import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
 import {
   Card,
   CardContent,
@@ -16,39 +16,45 @@ import type { ChartConfig } from "@/components/dither-kit/chart-context";
 import { Pie } from "@/components/dither-kit/pie";
 import { PieChart } from "@/components/dither-kit/pie-chart";
 import { Tooltip } from "@/components/dither-kit/tooltip";
+import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { AGGREGATION_LABELS } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
 
-interface CategoryData {
+/** One slice: a category group's spending for the period. */
+interface GroupData {
   amount: number;
-  category: SpendingCategory;
+  group: CategoryGroup;
   label: string;
 }
 
 interface SpendingBreakdownChartProps {
   aggregation: AggregationMode;
-  data: CategoryData[];
+  data: GroupData[];
   className?: string;
-  onCategoryClick?: (category: SpendingCategory | null) => void;
+  onSelect?: (selection: CategorySelection | null) => void;
 }
 
-const buildConfig = (data: CategoryData[]): ChartConfig => {
+const buildConfig = (data: GroupData[]): ChartConfig => {
   const config: ChartConfig = {};
   for (const d of data) {
     config[d.label] = {
-      color: CATEGORY_COLORS[d.category],
-      label: CATEGORY_LABELS[d.category],
+      color: CATEGORY_GROUP_COLORS[d.group],
+      label: CATEGORY_GROUP_LABELS[d.group],
     };
   }
   return config;
 };
 
+/**
+ * The spending split by group. Groups, not categories: seventy-five slices
+ * would carry less than the sixteen do, and the Sankey already shows detail.
+ */
 export const SpendingBreakdownChart = ({
   aggregation,
   data,
   className,
-  onCategoryClick,
+  onSelect,
 }: SpendingBreakdownChartProps) => {
   const config = buildConfig(data);
 
@@ -58,31 +64,21 @@ export const SpendingBreakdownChart = ({
     values[d.label] = d.amount;
   }
 
-  const handleSelectionChange = useCallback(
-    (key: string | null) => {
-      if (!onCategoryClick) {
+  const selectByLabel = useCallback(
+    (label: string | null) => {
+      if (!onSelect) {
         return;
       }
-      if (!key) {
-        onCategoryClick(null);
+      if (!label) {
+        onSelect(null);
         return;
       }
-      const entry = data.find((d) => d.label === key);
+      const entry = data.find((d) => d.label === label);
       if (entry) {
-        onCategoryClick(entry.category);
+        onSelect({ group: entry.group, kind: "group" });
       }
     },
-    [data, onCategoryClick]
-  );
-
-  const handleLegendClick = useCallback(
-    (name: string) => {
-      const entry = data.find((d) => d.label === name);
-      if (entry && onCategoryClick) {
-        onCategoryClick(entry.category);
-      }
-    },
-    [data, onCategoryClick]
+    [data, onSelect]
   );
 
   return (
@@ -106,7 +102,7 @@ export const SpendingBreakdownChart = ({
           nameKey="label"
           innerRadius={0.55}
           className="mx-auto aspect-square h-auto w-full max-w-[200px]"
-          onSelectionChange={handleSelectionChange}
+          onSelectionChange={selectByLabel}
         >
           <Pie variant="gradient" />
           <Tooltip
@@ -120,7 +116,7 @@ export const SpendingBreakdownChart = ({
           values={values}
           valueFormatter={(v) => formatCurrency(v)}
           align="start"
-          onItemClick={onCategoryClick ? handleLegendClick : undefined}
+          onItemClick={onSelect ? selectByLabel : undefined}
         />
       </CardContent>
     </Card>

@@ -1,8 +1,18 @@
-import { CATEGORY_COLORS } from "@freenary/api/lib/mcc-categories";
-import type { SpendingCategory } from "@freenary/api/lib/mcc-categories";
+import {
+  CATEGORY_GROUP_COLORS,
+  categoryColor,
+  isCategoryGroup,
+  isSpendingCategory,
+} from "@freenary/api/lib/taxonomy";
+import type {
+  CategoryGroup,
+  SpendingCategory,
+} from "@freenary/api/lib/taxonomy";
 
 import type { DitherColor } from "@/components/dither-kit/palette";
-import type { SankeyFlow, SankeyLink } from "@/lib/sankey/layout";
+import type { CategorySelection } from "@/lib/budget/category-selection";
+import { apportion } from "@/lib/sankey/apportion";
+import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
 
 export interface IncomeSource {
   name: string;
@@ -15,28 +25,31 @@ export interface ExpenseCategory {
   value: number;
 }
 
-/** `getSankeyData` addresses nodes by label, so both sides come in by name. */
-export interface CashFlowLink {
-  source: string;
-  target: string;
+export interface ExpenseGroup {
+  categories: ExpenseCategory[];
+  group: CategoryGroup;
+  label: string;
   value: number;
 }
 
 export interface CashFlowData {
-  expenseLinks: CashFlowLink[];
-  expenseNodes: ExpenseCategory[];
-  incomeLinks: CashFlowLink[];
+  groups: ExpenseGroup[];
   incomeNodes: IncomeSource[];
+  /** Income the period did not spend; drawn as a group with no categories. */
+  moneyLeft: number;
   totalIncome: number;
 }
 
-const HUB_ID = "hub:budget";
+const GROUP_PREFIX = "group:";
+const CATEGORY_PREFIX = "category:";
+const MONEY_LEFT_ID = `${GROUP_PREFIX}money-left`;
+
 const SALARY = /salary|lön|wage|payroll/u;
 const DIVIDEND = /dividend|divi/u;
 const INTEREST = /interest|ränta/u;
 const REFUND = /refund|return/u;
 
-/** Income has no category enum, so its color is read off the source name. */
+/** An income source is a counterparty name, not a category, so read its colour off the name. */
 const incomeColor = (name: string): DitherColor => {
   const lower = name.toLowerCase();
   if (DIVIDEND.test(lower)) {
@@ -54,54 +67,91 @@ const incomeColor = (name: string): DitherColor => {
   return "green";
 };
 
-const sourceId = (name: string) => `income:${name}`;
-const targetId = (label: string) => `expense:${label}`;
+const incomeNodeId = (name: string) => `income:${name}`;
+const groupNodeId = (group: CategoryGroup) => `${GROUP_PREFIX}${group}`;
+const categoryNodeId = (category: SpendingCategory) =>
+  `${CATEGORY_PREFIX}${category}`;
 
-/** Maps a budget period's cash flow onto the generic sankey flow shape. */
+/**
+ * Reads a clicked node back into a selection. Ids carry the slug, so this never
+ * matches on labels — two categories may share one once custom ones are in play.
+ */
+export const selectionOfNodeId = (nodeId: string): CategorySelection | null => {
+  if (nodeId.startsWith(GROUP_PREFIX)) {
+    const group = nodeId.slice(GROUP_PREFIX.length);
+    return isCategoryGroup(group) ? { group, kind: "group" } : null;
+  }
+  if (nodeId.startsWith(CATEGORY_PREFIX)) {
+    const category = nodeId.slice(CATEGORY_PREFIX.length);
+    return isSpendingCategory(category) ? { category, kind: "category" } : null;
+  }
+  return null;
+};
+
+/**
+ * Maps a period's cash flow onto the three levels of the hierarchy:
+ * income sources → category group → category.
+ */
 export const toCashFlowSankey = ({
-  expenseLinks,
-  expenseNodes,
-  incomeLinks,
+  groups,
   incomeNodes,
-  totalIncome,
+  moneyLeft,
 }: CashFlowData): SankeyFlow => {
-  const links: SankeyLink[] = [
-    ...incomeLinks.map((link) => ({
-      source: sourceId(link.source),
-      target: HUB_ID,
-      value: link.value,
-    })),
-    ...expenseLinks.map((link) => ({
-      source: HUB_ID,
-      target: targetId(link.target),
-      value: link.value,
-    })),
-  ];
+  const links: SankeyLink[] = [];
+
+  const groupNodes: SankeyNode[] = [];
+  const categoryNodes: SankeyNode[] = [];
+
+  for (const group of groups) {
+    const id = groupNodeId(group.group);
+    groupNodes.push({
+      color: CATEGORY_GROUP_COLORS[group.group],
+      id,
+      label: group.label,
+      value: group.value,
+    });
+
+    // Emitting a group's categories right after the group keeps ribbons from crossing.
+    for (const category of group.categories) {
+      categoryNodes.push({
+        color: categoryColor(category.category),
+        id: categoryNodeId(category.category),
+        label: category.label,
+        value: category.value,
+      });
+      links.push({
+        source: id,
+        target: categoryNodeId(category.category),
+        value: category.value,
+      });
+    }
+  }
+
+  if (moneyLeft > 0) {
+    groupNodes.push({
+      color: "grey",
+      id: MONEY_LEFT_ID,
+      label: "Money left",
+      value: moneyLeft,
+    });
+  }
+
+  const sources = incomeNodes.map((node) => ({
+    id: incomeNodeId(node.name),
+    value: node.value,
+  }));
 
   return {
     columns: [
       incomeNodes.map((node) => ({
         color: incomeColor(node.name),
-        id: sourceId(node.name),
+        id: incomeNodeId(node.name),
         label: node.name,
         value: node.value,
       })),
-      [
-        {
-          color: "blue",
-          id: HUB_ID,
-          label: "Budget",
-          value: totalIncome,
-        },
-      ],
-      expenseNodes.map((node) => ({
-        color: CATEGORY_COLORS[node.category],
-        id: targetId(node.label),
-        label: node.label,
-        value: node.value,
-      })),
+      groupNodes,
+      categoryNodes,
     ],
-    emphasizedId: HUB_ID,
-    links,
+    links: [...apportion(sources, groupNodes), ...links],
   };
 };

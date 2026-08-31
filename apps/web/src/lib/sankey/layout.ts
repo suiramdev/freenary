@@ -1,6 +1,6 @@
 import type { DitherColor } from "@/components/dither-kit/palette";
 
-/** One node of a flow: sources feed a hub, the hub feeds targets. */
+/** One node of a flow: each column feeds the next. */
 export interface SankeyNode {
   color: DitherColor;
   id: string;
@@ -18,8 +18,6 @@ export interface SankeyLink {
 export interface SankeyFlow {
   /** Node columns, left to right. Links may only join adjacent columns. */
   columns: SankeyNode[][];
-  /** Node whose label is drawn above it instead of inside, e.g. the budget hub. */
-  emphasizedId?: string;
   links: SankeyLink[];
 }
 
@@ -30,6 +28,8 @@ export interface NodeRect {
   h: number;
   id: string;
   label: string;
+  /** Width a side label may use, once any contested gap has been split. */
+  labelBudget: number;
   value: number;
   w: number;
   x: number;
@@ -52,7 +52,6 @@ export interface LinkBand {
 
 export interface SankeyLayout {
   columnCount: number;
-  emphasizedId?: string;
   height: number;
   links: LinkBand[];
   nodes: NodeRect[];
@@ -65,10 +64,13 @@ export const CELL = 3;
 export const ACCENT_W = 3;
 /** Below this node height the label no longer fits inside the node. */
 export const LABEL_MIN_H = 28;
+/** Breathing room between a node and a label set beside it. */
+export const LABEL_INSET = 6;
 
 const PAD = { bottom: 16, left: 12, right: 12, top: 20 };
-/** Column width and inter-column gap as fractions of the usable width. A three-column
- *  flow fills it exactly, which is why the existing cash-flow chart does not move. */
+/** Column width and inter-column gap as fractions of the usable width. Any
+ *  column count is normalised to fill that width, so a four-column flow simply
+ *  gets proportionally narrower columns and gaps. */
 const COL_FRAC = 0.22;
 const GAP_FRAC = 0.17;
 const NODE_GAP = 6;
@@ -101,7 +103,7 @@ const stackColumn = (
   let y = PAD.top;
   for (const node of nodes) {
     const h = Math.max(MIN_NODE_H, (node.value / maxValue) * MAX_COL_H);
-    rects.push({ ...node, column, h, w, x, y });
+    rects.push({ ...node, column, h, labelBudget: 0, w, x, y });
     y += h + NODE_GAP;
   }
   return { bottom: y, rects };
@@ -113,13 +115,18 @@ const sliceOf = (value: number, node: NodeRect) =>
     ? Math.max(MIN_BAND_H, (value / node.value) * node.h)
     : MIN_BAND_H;
 
+/** A node too short to hold its label inside sets it beside itself instead. */
+const isShort = (rect: NodeRect) => rect.h < LABEL_MIN_H;
+
+const sharesRows = (a: NodeRect, b: NodeRect) =>
+  a.y < b.y + b.h && b.y < a.y + a.h;
+
 /**
  * Lays out a left-to-right column flow in user units.
  * Values drive heights; nothing here knows what the values mean.
  */
 export const computeSankeyLayout = ({
   columns,
-  emphasizedId,
   links,
 }: SankeyFlow): SankeyLayout => {
   const usable = CHART_WIDTH - PAD.left - PAD.right;
@@ -143,6 +150,31 @@ export const computeSankeyLayout = ({
     );
     nodes.push(...stacked.rects);
     bottom = Math.max(bottom, stacked.bottom);
+  }
+
+  // A short node writes its label into the gap beside it: column 0 rightwards,
+  // every other column leftwards. Only columns 0 and 1 can therefore aim at the
+  // same gap, and only where their labels also share rows — the one case that
+  // has to give up half the width.
+  const rightWriters = nodes.filter(
+    (rect) => rect.column === 0 && isShort(rect)
+  );
+  const leftWriters = nodes.filter(
+    (rect) => rect.column === 1 && isShort(rect)
+  );
+  for (const rect of nodes) {
+    let rivals: NodeRect[] = [];
+    if (rect.column === 0) {
+      rivals = leftWriters;
+    } else if (rect.column === 1) {
+      rivals = rightWriters;
+    }
+    const contested = rivals.some((rival) => sharesRows(rect, rival));
+    const share = contested ? gapW / 2 : gapW;
+    // Writing rightwards, the canvas edge binds too when no column follows.
+    const room =
+      rect.column === 0 ? CHART_WIDTH - PAD.right - (rect.x + rect.w) : share;
+    rect.labelBudget = Math.max(0, Math.min(share, room) - LABEL_INSET);
   }
 
   const nodeById = new Map(nodes.map((rect) => [rect.id, rect]));
@@ -199,7 +231,6 @@ export const computeSankeyLayout = ({
 
   return {
     columnCount,
-    emphasizedId,
     height: bottom + PAD.bottom,
     links: bands,
     nodes,

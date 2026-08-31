@@ -13,13 +13,16 @@ import {
   upsertUserOverride,
 } from "../categorisation/user-override";
 import { protectedProcedure } from "../index";
+import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
+  CATEGORY_GROUP_LABELS,
+  CATEGORY_GROUP_OF,
+  CATEGORY_GROUPS,
   CATEGORY_LABELS,
   SPENDING_CATEGORIES,
-  deriveCategory,
-  effectiveCategory,
-} from "../lib/mcc-categories";
-import type { SpendingCategory } from "../lib/mcc-categories";
+  categoriesInGroup,
+} from "../lib/taxonomy";
+import type { CategoryGroup, SpendingCategory } from "../lib/taxonomy";
 import { getProvider } from "../providers/registry";
 import type { ProviderTransaction } from "../providers/types";
 
@@ -582,7 +585,6 @@ export const budgetRouter = {
         );
       }
 
-      // Build nodes: income sources → "Budget" hub → expense categories
       const incomeNodes = [...incomeSources.entries()]
         .toSorted((a, b) => b[1] - a[1])
         .slice(0, 10)
@@ -602,35 +604,50 @@ export const budgetRouter = {
         }
       }
 
-      const expenseNodes = [...expenseCategories.entries()]
-        .map(([category, value]) => ({
-          category,
-          label: CATEGORY_LABELS[category],
-          value,
-        }))
-        .toSorted((a, b) => b.value - a.value);
+      // Level 3 folded into level 2. A group's value is the sum of its
+      // categories even under median, because every ribbon out of a group node
+      // must add up to the node itself — a median of medians would not.
+      const byGroup = new Map<
+        CategoryGroup,
+        { category: SpendingCategory; label: string; value: number }[]
+      >();
+      for (const [category, value] of expenseCategories) {
+        if (value <= 0) {
+          continue;
+        }
+        const group = CATEGORY_GROUP_OF[category];
+        const leaves = byGroup.get(group);
+        const leaf = { category, label: CATEGORY_LABELS[category], value };
+        if (leaves) {
+          leaves.push(leaf);
+        } else {
+          byGroup.set(group, [leaf]);
+        }
+      }
+
+      // Groups keep taxonomy order so the column reads the same in every
+      // period; categories within a group lead with the largest.
+      const groups = CATEGORY_GROUPS.filter((group) => byGroup.has(group)).map(
+        (group) => {
+          const categories = (byGroup.get(group) ?? []).toSorted(
+            (a, b) => b.value - a.value
+          );
+          return {
+            categories,
+            group,
+            label: CATEGORY_GROUP_LABELS[group],
+            value: categories.reduce((sum, leaf) => sum + leaf.value, 0),
+          };
+        }
+      );
 
       const totalIncome = incomeNodes.reduce((s, n) => s + n.value, 0);
-      const totalExpenses = expenseNodes.reduce((s, n) => s + n.value, 0);
-
-      // Links: income → budget, budget → expenses
-      const incomeLinks = incomeNodes.map((n) => ({
-        source: n.name,
-        target: "Budget",
-        value: n.value,
-      }));
-
-      const expenseLinks = expenseNodes.map((n) => ({
-        source: "Budget",
-        target: n.label,
-        value: n.value,
-      }));
+      const totalExpenses = groups.reduce((s, g) => s + g.value, 0);
 
       return {
-        expenseLinks,
-        expenseNodes,
-        incomeLinks,
+        groups,
         incomeNodes,
+        moneyLeft: Math.max(0, totalIncome - totalExpenses),
         totalExpenses,
         totalIncome,
       };
@@ -697,15 +714,23 @@ export const budgetRouter = {
         categoryAmounts = aggregateMonthly(monthly, active, aggregation);
       }
 
-      const categories = [...categoryAmounts.entries()]
-        .map(([category, amount]) => ({
+      // A 75-slice pie is unreadable, so the breakdown answers "which part of
+      // life" at group level; the Sankey is where per-category detail lives.
+      const groupAmounts = new Map<CategoryGroup, number>();
+      for (const [category, amount] of categoryAmounts) {
+        const group = CATEGORY_GROUP_OF[category];
+        groupAmounts.set(group, (groupAmounts.get(group) ?? 0) + amount);
+      }
+
+      const groups = [...groupAmounts.entries()]
+        .map(([group, amount]) => ({
           amount,
-          category,
-          label: CATEGORY_LABELS[category],
+          group,
+          label: CATEGORY_GROUP_LABELS[group],
         }))
         .toSorted((a, b) => b.amount - a.amount);
 
-      return { categories };
+      return { groups };
     }),
 
   getTransactions: protectedProcedure
@@ -715,6 +740,8 @@ export const budgetRouter = {
         cursor: z.string().optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),
         from: z.coerce.date(),
+        // Clicking a group node filters on everything it holds.
+        groups: z.array(z.enum(CATEGORY_GROUPS)).optional(),
         limit: z.number().min(1).max(100).default(50),
         search: z.string().optional(),
         to: z.coerce.date(),
@@ -722,7 +749,8 @@ export const budgetRouter = {
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { categories, cursor, direction, from, limit, search, to } = input;
+      const { categories, cursor, direction, from, groups, limit, search, to } =
+        input;
 
       const dateFilter = { gte: from, lte: to };
       let directionFilter: { gt: number } | { lt: number } | undefined;
@@ -753,11 +781,19 @@ export const budgetRouter = {
         });
       }
 
-      if (categories?.length) {
+      const selected = new Set<SpendingCategory>(categories);
+      for (const group of groups ?? []) {
+        for (const category of categoriesInGroup(group)) {
+          selected.add(category);
+        }
+      }
+
+      if (selected.size > 0) {
+        const wanted = [...selected];
         conditions.push({
           OR: [
-            { category: { in: categories } },
-            { category: null, resolvedCategory: { in: categories } },
+            { category: { in: wanted } },
+            { category: null, resolvedCategory: { in: wanted } },
           ],
         });
       }

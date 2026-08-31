@@ -15,33 +15,33 @@ const baseInput: CategoriseInput = {
 
 describe("categoriseTransaction", () => {
   describe("channel short-circuit", () => {
-    it("returns transfers for ATM channel", async () => {
+    it("returns cash-withdrawal for ATM channel", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
         channel: "atm",
       });
       expect(result.stage).toBe("channel");
-      expect(result.category).toBe("transfers");
+      expect(result.category).toBe("cash-withdrawal");
       expect(result.band).toBe("auto");
       expect(result.confidence).toBe(0.9);
     });
 
-    it("returns other for fee channel", async () => {
+    it("returns bank-fees for fee channel", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
         channel: "fee",
       });
       expect(result.stage).toBe("channel");
-      expect(result.category).toBe("other");
+      expect(result.category).toBe("bank-fees");
     });
 
-    it("returns other for cheque channel", async () => {
+    it("returns uncategorised for cheque channel", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
         channel: "cheque",
       });
       expect(result.stage).toBe("channel");
-      expect(result.category).toBe("other");
+      expect(result.category).toBe("uncategorised");
     });
   });
 
@@ -72,7 +72,7 @@ describe("categoriseTransaction", () => {
       expect(result.band).toBe("suggest");
     });
 
-    it("uses travel for MCC in 3000-3999 range", async () => {
+    it("uses accommodation for MCC in the 3500-3999 range", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
         merchantCategoryCode: "3501",
@@ -80,7 +80,29 @@ describe("categoriseTransaction", () => {
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
       expect(result.stage).toBe("mcc");
-      expect(result.category).toBe("travel");
+      expect(result.category).toBe("accommodation");
+    });
+
+    it("uses flights for MCC in the 3000-3299 range", async () => {
+      const result = await categoriseTransaction({
+        ...baseInput,
+        merchantCategoryCode: "3001",
+        merchantKey: "unknown-merchant-xyz-abc",
+        normalisedDescriptor: "unknown-merchant-xyz-abc",
+      });
+      expect(result.stage).toBe("mcc");
+      expect(result.category).toBe("flights");
+    });
+
+    it("uses other-travel for MCC in the 3300-3499 range", async () => {
+      const result = await categoriseTransaction({
+        ...baseInput,
+        merchantCategoryCode: "3351",
+        merchantKey: "unknown-merchant-xyz-abc",
+        normalisedDescriptor: "unknown-merchant-xyz-abc",
+      });
+      expect(result.stage).toBe("mcc");
+      expect(result.category).toBe("other-travel");
     });
   });
 

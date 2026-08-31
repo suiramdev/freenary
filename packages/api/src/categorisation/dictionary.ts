@@ -3,8 +3,7 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { createGunzip } from "node:zlib";
 
-import { SPENDING_CATEGORIES } from "../lib/mcc-categories";
-import type { SpendingCategory } from "../lib/mcc-categories";
+import { resolveCategorySlug } from "../lib/taxonomy";
 import type { DictionaryEntry } from "./types";
 import { isVerificationConfigured, verifySignature } from "./verify";
 
@@ -19,11 +18,6 @@ interface DictionaryMerchant {
   source: string;
   aliases: { alias: string; normalisedAlias: string }[];
 }
-
-const VALID_CATEGORIES = new Set<string>(SPENDING_CATEGORIES);
-
-const isSpendingCategory = (value: string): value is SpendingCategory =>
-  VALID_CATEGORIES.has(value);
 
 const DATA_DIR = path.resolve(import.meta.dirname, "../../../data");
 const DATA_PATH = path.resolve(DATA_DIR, "merchants.jsonl.gz");
@@ -83,12 +77,15 @@ const buildDictionaryFromFile = async (
       if (merchant.category === null || merchant.category === undefined) {
         continue;
       }
-      if (!isSpendingCategory(merchant.category)) {
+      // A dictionary artifact built before the hierarchy still spells its
+      // categories the old way, so decode instead of rejecting the entry.
+      const category = resolveCategorySlug(merchant.category);
+      if (category === null) {
         continue;
       }
 
       const entry: DictionaryEntry = {
-        category: merchant.category,
+        category,
         name: merchant.name,
       };
 

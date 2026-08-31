@@ -13,7 +13,7 @@ import type { ResolutionStage } from "./types";
 
 // Constants
 
-const TRANSFER_CATEGORY = "transfers";
+const TRANSFER_CATEGORY = "internal-transfer";
 const TRANSFER_STAGE: ResolutionStage = "channel";
 const TRANSFER_CONFIDENCE = 0.95;
 

@@ -9,7 +9,7 @@
  * chain to avoid circular dependencies.
  */
 
-import type { SpendingCategory } from "../../lib/mcc-categories";
+import type { SpendingCategory } from "../../lib/taxonomy";
 import { SUPPORTED_COUNTRIES } from "../supported-countries";
 import type { SupportedCountry } from "../supported-countries";
 import * as fr from "./fr";

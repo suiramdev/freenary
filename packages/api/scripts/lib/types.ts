@@ -1,4 +1,4 @@
-import type { SpendingCategory } from "../../src/lib/mcc-categories";
+import type { SpendingCategory } from "../../src/lib/taxonomy";
 
 export interface DictionaryAlias {
   alias: string;

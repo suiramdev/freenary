@@ -1,20 +1,20 @@
-import { LABEL_MIN_H } from "@/lib/sankey/layout";
+import { LABEL_INSET, LABEL_MIN_H } from "@/lib/sankey/layout";
 import type { NodeRect } from "@/lib/sankey/layout";
+import { fitSideLabel } from "@/lib/sankey/side-label";
 
 const MAX_LABEL_CHARS = 22;
 const TRUNCATED_CHARS = 20;
+/** Rough width of one character at the 9px side-label size, in user units. */
+const CHAR_W = 4.6;
 
 interface SankeyNodeLabelProps {
   formatValue: (value: number) => string;
-  /** Draws the label above the node instead of inside it. */
-  isEmphasized: boolean;
   isFirstColumn: boolean;
   node: NodeRect;
 }
 
 export const SankeyNodeLabel = ({
   formatValue,
-  isEmphasized,
   isFirstColumn,
   node,
 }: SankeyNodeLabelProps) => {
@@ -24,19 +24,6 @@ export const SankeyNodeLabel = ({
     node.label.length > MAX_LABEL_CHARS
       ? `${node.label.slice(0, TRUNCATED_CHARS)}…`
       : node.label;
-
-  if (isEmphasized) {
-    return (
-      <text
-        x={cx}
-        y={node.y - 6}
-        textAnchor="middle"
-        className="fill-foreground pointer-events-none text-[10px] font-medium"
-      >
-        {node.label}: {formatValue(node.value)}
-      </text>
-    );
-  }
 
   if (node.h >= LABEL_MIN_H) {
     return (
@@ -63,16 +50,27 @@ export const SankeyNodeLabel = ({
     );
   }
 
-  // Too short for an inside label — set it beside the node instead.
+  // Too short for an inside label — set it beside the node instead. The layout
+  // has already narrowed the budget where a neighbouring column aims a label at
+  // the same gap and rows, so fitting to it cannot overlap.
+  const fitted = fitSideLabel(
+    node.label,
+    formatValue(node.value),
+    Math.floor(node.labelBudget / CHAR_W)
+  );
+  if (fitted === null) {
+    return null;
+  }
+
   return (
     <text
-      x={isFirstColumn ? node.x + node.w + 6 : node.x - 6}
+      x={isFirstColumn ? node.x + node.w + LABEL_INSET : node.x - LABEL_INSET}
       y={cy}
       textAnchor={isFirstColumn ? "start" : "end"}
       dominantBaseline="central"
       className="fill-muted-foreground pointer-events-none text-[9px]"
     >
-      {labelText}: {formatValue(node.value)}
+      {fitted}
     </text>
   );
 };

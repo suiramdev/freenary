@@ -1,0 +1,48 @@
+import type { CategoryEntry } from "@freenary/api/lib/categories";
+
+/** A group heading with the categories under it; `heading` is null for a custom group. */
+export interface CategorySection {
+  heading: CategoryEntry | null;
+  items: CategoryEntry[];
+  /**
+   * Unique per section. A heading-less section takes its own entry's key,
+   * because several top-level custom categories can coexist.
+   */
+  key: string;
+}
+
+/**
+ * Groups the flat `listCategories` list into pickable sections, keeping only
+ * entries matching `query`. Sections exist so each heading names its own items
+ * rather than the whole radio group, and empty ones are dropped so a heading
+ * never survives without something under it.
+ */
+export const toCategorySections = (
+  categories: CategoryEntry[],
+  query: string
+): CategorySection[] => {
+  const needle = query.trim().toLowerCase();
+  const sections: CategorySection[] = [];
+
+  for (const entry of categories) {
+    if (entry.isGroup && !entry.isCustom) {
+      sections.push({ heading: entry, items: [], key: entry.key });
+      continue;
+    }
+    const matches =
+      !needle ||
+      (entry.isAssignable && entry.label.toLowerCase().includes(needle));
+    if (!matches) {
+      continue;
+    }
+    // A custom top-level category is its own group, so it opens a new section.
+    const open = entry.isGroup ? null : sections.at(-1);
+    if (open) {
+      open.items.push(entry);
+    } else {
+      sections.push({ heading: null, items: [entry], key: entry.key });
+    }
+  }
+
+  return sections.filter((section) => section.items.length > 0);
+};
