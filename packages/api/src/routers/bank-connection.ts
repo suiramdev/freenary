@@ -47,6 +47,45 @@ const readConnectionState = (
 };
 
 export const bankConnectionRouter = {
+  disconnect: protectedProcedure
+    .input(z.object({ connectionId: z.string() }))
+    .handler(async ({ context, input }) => {
+      const connection = await prisma.bankConnection.findFirst({
+        select: {
+          _count: { select: { accounts: true } },
+          id: true,
+          institutionName: true,
+          provider: true,
+          providerSessionId: true,
+        },
+        where: { id: input.connectionId, userId: context.session.user.id },
+      });
+      if (!connection) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Bank connection not found",
+        });
+      }
+
+      // Ask the provider to revoke first so the bank-side consent stops too,
+      // but never let a failure there block the user from deleting their data.
+      const provider = getProvider(connection.provider);
+      const revocationRequested = provider.isConfigured()
+        ? await provider
+            .closeConnection(connection.providerSessionId)
+            .then(() => true)
+            .catch(() => false)
+        : false;
+
+      // Accounts and their transactions go with it through the FK cascade.
+      await prisma.bankConnection.delete({ where: { id: connection.id } });
+
+      return {
+        accountsRemoved: connection._count.accounts,
+        institutionName: connection.institutionName,
+        revocationRequested,
+      };
+    }),
+
   exchangeCode: protectedProcedure
     .input(z.object({ code: z.string(), state: z.string() }))
     .handler(async ({ context, input }) => {
@@ -219,44 +258,5 @@ export const bankConnectionRouter = {
         state: encodedState,
       });
       return result;
-    }),
-
-  unlinkConnection: protectedProcedure
-    .input(z.object({ connectionId: z.string() }))
-    .handler(async ({ context, input }) => {
-      const connection = await prisma.bankConnection.findFirst({
-        select: {
-          _count: { select: { accounts: true } },
-          id: true,
-          institutionName: true,
-          provider: true,
-          providerSessionId: true,
-        },
-        where: { id: input.connectionId, userId: context.session.user.id },
-      });
-      if (!connection) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Bank connection not found",
-        });
-      }
-
-      // Ask the provider to revoke first so the bank-side consent stops too,
-      // but never let a failure there block the user from deleting their data.
-      const provider = getProvider(connection.provider);
-      const revocationRequested = provider.isConfigured()
-        ? await provider
-            .closeConnection(connection.providerSessionId)
-            .then(() => true)
-            .catch(() => false)
-        : false;
-
-      // Accounts and their transactions go with it through the FK cascade.
-      await prisma.bankConnection.delete({ where: { id: connection.id } });
-
-      return {
-        accountsRemoved: connection._count.accounts,
-        institutionName: connection.institutionName,
-        revocationRequested,
-      };
     }),
 };

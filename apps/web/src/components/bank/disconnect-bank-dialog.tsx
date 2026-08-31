@@ -11,31 +11,29 @@ import {
 } from "@freenary/ui/components/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { LinkBreakIcon } from "@phosphor-icons/react";
 
-interface UnlinkBankDialogProps {
+interface DisconnectBankDialogProps {
   accountCount: number;
   institutionName: string;
-  isUnlinking: boolean;
+  isDisconnecting: boolean;
   onConfirm: () => void;
 }
 
-export const UnlinkBankDialog = ({
+export const DisconnectBankDialog = ({
   accountCount,
   institutionName,
-  isUnlinking,
+  isDisconnecting,
   onConfirm,
-}: UnlinkBankDialogProps) => (
-  // Left open on confirm: a successful unlink unmounts the row, and a failed
-  // one keeps the dialog available to retry.
+}: DisconnectBankDialogProps) => (
+  // Left open on confirm: a successful disconnect unmounts the row, and a
+  // failed one keeps the dialog available to retry.
   <AlertDialog>
-    <AlertDialogTrigger render={<Button variant="ghost" />}>
-      <LinkBreakIcon />
-      <span className="sr-only">Unlink {institutionName}</span>
+    <AlertDialogTrigger render={<Button variant="outline" />}>
+      Disconnect
     </AlertDialogTrigger>
     <AlertDialogContent>
       <AlertDialogHeader>
-        <AlertDialogTitle>Unlink {institutionName}?</AlertDialogTitle>
+        <AlertDialogTitle>Disconnect {institutionName}?</AlertDialogTitle>
         <AlertDialogDescription>
           {accountCount === 0
             ? "This asks your bank to revoke freenary's access. No account is linked, so no transaction is removed."
@@ -45,12 +43,12 @@ export const UnlinkBankDialog = ({
       <AlertDialogFooter>
         <AlertDialogCancel>Cancel</AlertDialogCancel>
         <AlertDialogAction
-          disabled={isUnlinking}
+          disabled={isDisconnecting}
           variant="destructive"
           onClick={onConfirm}
         >
-          {isUnlinking && <Spinner data-icon="inline-start" />}
-          Unlink bank
+          {isDisconnecting && <Spinner data-icon="inline-start" />}
+          Disconnect bank
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

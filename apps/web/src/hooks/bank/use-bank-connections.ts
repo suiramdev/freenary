@@ -1,7 +1,7 @@
 import type { AppRouter } from "@freenary/api/routers/index";
 import type { InferRouterOutputs } from "@orpc/server";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { invalidateBudgetData } from "@/lib/budget/stale-queries";
@@ -16,6 +16,9 @@ export type BankInstitution =
 /** Where the provider callback sends the user once the exchange is done. */
 export type BankConnectionReturnTo = "onboarding" | "settings";
 
+/** One reference, so the row memo does not recompute before the query lands. */
+const EMPTY_CONNECTIONS: BankConnection[] = [];
+
 export const useBankConnections = ({
   returnTo,
 }: {
@@ -28,9 +31,9 @@ export const useBankConnections = ({
     orpc.bankConnection.listConnections.queryOptions()
   );
 
-  const unlinkMutation = useMutation({
+  const disconnectMutation = useMutation({
     mutationFn: (connectionId: string) =>
-      client.bankConnection.unlinkConnection({ connectionId }),
+      client.bankConnection.disconnect({ connectionId }),
     onError: (error) => {
       toast.error(error.message);
     },
@@ -49,14 +52,14 @@ export const useBankConnections = ({
 
       if (!revocationRequested) {
         toast.warning(
-          `${institutionName} removed, but freenary could not ask your bank to revoke access. Revoke it from your bank to be sure.`
+          `${institutionName} disconnected, but freenary could not ask your bank to revoke access. Revoke it from your bank to be sure.`
         );
         return;
       }
       toast.success(
         accountsRemoved === 0
-          ? `${institutionName} unlinked`
-          : `${institutionName} unlinked — ${accountsRemoved} account${accountsRemoved === 1 ? "" : "s"} removed`
+          ? `${institutionName} disconnected`
+          : `${institutionName} disconnected — ${accountsRemoved} account${accountsRemoved === 1 ? "" : "s"} removed`
       );
     },
   });
@@ -84,28 +87,17 @@ export const useBankConnections = ({
     setConnecting(null);
   };
 
-  const connections = connectionsQuery.data?.connections;
-
-  const connected = useMemo(() => {
-    const rows = connections ?? [];
-    return {
-      connectedIds: new Set(
-        rows
-          .map((connection) => connection.institutionId)
-          .filter((id): id is string => id !== null)
-      ),
-      connections: rows,
-    };
-  }, [connections]);
+  const connections = connectionsQuery.data?.connections ?? EMPTY_CONNECTIONS;
 
   return {
-    ...connected,
     connect,
     connecting,
+    connections,
+    disconnect: disconnectMutation.mutate,
+    disconnectingId: disconnectMutation.isPending
+      ? disconnectMutation.variables
+      : null,
     isConnectionsError: connectionsQuery.isError,
     isConnectionsPending: connectionsQuery.isPending,
-    isUnlinking: unlinkMutation.isPending,
-    unlink: unlinkMutation.mutate,
-    unlinkingId: unlinkMutation.isPending ? unlinkMutation.variables : null,
   };
 };

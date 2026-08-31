@@ -101,7 +101,7 @@ export const BankAccountsSection = () => {
   return (
     <div id={BANK_ACCOUNTS_ANCHOR} ref={sectionRef}>
       <SettingsSection
-        description="Link the banks you want freenary to import transactions and balances from. Unlinking removes its imported data and asks the bank to revoke the access."
+        description="Connect the banks you want freenary to import transactions and balances from. Disconnecting removes a bank's imported data and asks it to revoke the access."
         title="Bank accounts"
       >
         {renderPanel()}

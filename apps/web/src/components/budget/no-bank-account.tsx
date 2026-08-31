@@ -20,13 +20,13 @@ export const NoBankAccount = () => (
         </EmptyMedia>
         <EmptyTitle>Connect a bank account</EmptyTitle>
         <EmptyDescription>
-          Link a bank account to see where your money comes from and where it
+          Connect a bank account to see where your money comes from and where it
           goes. Your transactions will appear here automatically.
         </EmptyDescription>
       </EmptyHeader>
-      {/* Onboarding is unreachable once completed — linking lives in Settings. */}
+      {/* Onboarding is unreachable once completed — banks live in Settings. */}
       <Button render={<Link hash={BANK_ACCOUNTS_ANCHOR} to="/settings" />}>
-        Link a bank
+        Connect a bank
       </Button>
     </Empty>
   </div>

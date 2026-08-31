@@ -1,4 +1,3 @@
-import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
   Item,
@@ -9,28 +8,29 @@ import {
   ItemTitle,
 } from "@freenary/ui/components/item";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { BankIcon, CheckIcon } from "@phosphor-icons/react";
+import { BankIcon } from "@phosphor-icons/react";
+
+import { DisconnectBankDialog } from "@/components/bank/disconnect-bank-dialog";
+import type { BankRow } from "@/lib/bank/bank-rows";
 
 interface BankCardProps {
-  bic: string | null;
-  connected: boolean;
-  connecting?: boolean;
-  logo: string | null;
-  name: string;
+  connecting: boolean;
+  disconnecting: boolean;
   onConnect: () => void;
+  onDisconnect: () => void;
+  row: BankRow;
 }
 
 export const BankCard = ({
-  bic,
-  connected,
   connecting,
-  logo,
-  name,
+  disconnecting,
   onConnect,
+  onDisconnect,
+  row,
 }: BankCardProps) => (
   <Item
     render={<li />}
-    className={connected ? "border-primary bg-secondary" : undefined}
+    className={row.connection ? "border-primary bg-secondary" : undefined}
     size="sm"
     variant="outline"
   >
@@ -39,18 +39,22 @@ export const BankCard = ({
       className="text-muted-foreground [&_img]:object-contain [&_svg]:size-5"
       variant="image"
     >
-      {logo ? <img alt="" src={logo} /> : <BankIcon />}
+      {row.logo ? <img alt="" src={row.logo} /> : <BankIcon />}
     </ItemMedia>
     <ItemContent className="min-w-0">
-      <ItemTitle className="block w-full truncate">{name}</ItemTitle>
-      {bic ? <ItemDescription>{bic}</ItemDescription> : null}
+      <ItemTitle className="block w-full truncate">{row.name}</ItemTitle>
+      {row.description ? (
+        <ItemDescription>{row.description}</ItemDescription>
+      ) : null}
     </ItemContent>
     <ItemActions>
-      {connected ? (
-        <Badge variant="secondary">
-          <CheckIcon data-icon="inline-start" weight="bold" />
-          Connected
-        </Badge>
+      {row.connection ? (
+        <DisconnectBankDialog
+          accountCount={row.connection.accounts.length}
+          institutionName={row.name}
+          isDisconnecting={disconnecting}
+          onConfirm={onDisconnect}
+        />
       ) : (
         <Button
           disabled={connecting}
