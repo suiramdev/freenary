@@ -32,7 +32,11 @@ export const OnboardingStepper = ({
                   "bg-background text-muted-foreground ring-border"
               )}
             >
-              {isComplete ? <Check className="size-3.5" /> : index + 1}
+              {isComplete ? (
+                <Check className="animate-in fade-in zoom-in-75 size-3.5 duration-200 ease-out motion-reduce:animate-none" />
+              ) : (
+                index + 1
+              )}
             </span>
             <span
               className={cn(
@@ -46,11 +50,17 @@ export const OnboardingStepper = ({
           {index < steps.length - 1 && (
             <span
               aria-hidden="true"
-              className={cn(
-                "mx-3 h-px w-8 transition-colors sm:w-12",
-                isComplete ? "bg-primary" : "bg-border"
-              )}
-            />
+              className="bg-border mx-3 h-px w-8 overflow-hidden sm:w-12"
+            >
+              {/* Fills toward the step it leads to, rather than recolouring
+                  the whole connector at once. */}
+              <span
+                className={cn(
+                  "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+                  isComplete ? "scale-x-100" : "scale-x-0"
+                )}
+              />
+            </span>
           )}
         </Fragment>
       );

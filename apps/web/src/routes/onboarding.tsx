@@ -34,6 +34,7 @@ const OnboardingPage = () => {
       banks={banksQuery.data?.banks ?? []}
       connectedCount={connectionsQuery.data?.connections.length ?? 0}
       country={wizard.country}
+      direction={wizard.direction}
       hasBankStep={hasBankStep}
       isBanksError={banksQuery.isError}
       isBanksPending={banksQuery.isPending}

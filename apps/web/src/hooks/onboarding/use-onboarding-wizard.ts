@@ -20,6 +20,8 @@ export const useOnboardingWizard = ({
   const queryClient = useQueryClient();
   const { refetch: refetchSession } = authClient.useSession();
   const [step, setStep] = useState(() => (loadOnboardingState() ? 1 : 0));
+  // Which way the step body should travel on the next swap.
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [country, setCountry] = useState<string | null>(
     () => loadOnboardingState()?.country ?? null
   );
@@ -47,11 +49,17 @@ export const useOnboardingWizard = ({
     setIsCompleting(false);
   };
 
+  const handleBack = () => {
+    setDirection(-1);
+    setStep(0);
+  };
+
   const handleCountryContinue = () => {
     if (hasBankStep) {
       if (country) {
         persistOnboardingState({ country });
       }
+      setDirection(1);
       setStep(1);
       return;
     }
@@ -83,7 +91,8 @@ export const useOnboardingWizard = ({
 
   return {
     country,
-    handleBack: () => setStep(0),
+    direction,
+    handleBack,
     handleCountryContinue,
     handleCountrySelect: setCountry,
     handleFinish,
