@@ -44,9 +44,9 @@ export const BankList = ({
     );
   }
 
-  // Only when there is nothing to fall back on: a refetch failure must not
-  // wipe the institutions already on screen.
-  if (isError && rows.length === 0) {
+  // Connected rows alone are not the list: a bank to connect can only come
+  // from an institution, so their absence is the failure worth reporting.
+  if (isError && !rows.some((row) => row.institution)) {
     return (
       <Empty>
         <EmptyHeader>
