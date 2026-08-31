@@ -16,6 +16,7 @@ interface BankListProps {
   /** The connection currently being disconnected, if any. */
   disconnectingId: string | null;
   hasSearch: boolean;
+  /** The institutions could not be loaded and none are cached. */
   isError: boolean;
   isPending: boolean;
   onConnect: (row: BankRow) => void;
@@ -44,9 +45,7 @@ export const BankList = ({
     );
   }
 
-  // Connected rows alone are not the list: a bank to connect can only come
-  // from an institution, so their absence is the failure worth reporting.
-  if (isError && !rows.some((row) => row.institution)) {
+  if (isError) {
     return (
       <Empty>
         <EmptyHeader>

@@ -90,7 +90,9 @@ export const BankConnectionPanel = ({
         connecting={connecting}
         disconnectingId={disconnectingId}
         hasSearch={search.length > 0}
-        isError={isBanksError}
+        // Judged on the unfiltered institutions: a refetch failure must not
+        // wipe the ones on screen, and a search that matches none is not one.
+        isError={isBanksError && banks.length === 0}
         isPending={isBanksPending || isConnectionsPending}
         onConnect={(row) => {
           if (row.institution) {
