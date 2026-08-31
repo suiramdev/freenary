@@ -28,7 +28,14 @@ export const DisconnectBankDialog = ({
   // Left open on confirm: a successful disconnect unmounts the row, and a
   // failed one keeps the dialog available to retry.
   <AlertDialog>
-    <AlertDialogTrigger render={<Button variant="outline" />}>
+    <AlertDialogTrigger
+      render={
+        <Button
+          aria-label={`Disconnect ${institutionName}`}
+          variant="outline"
+        />
+      }
+    >
       Disconnect
     </AlertDialogTrigger>
     <AlertDialogContent>

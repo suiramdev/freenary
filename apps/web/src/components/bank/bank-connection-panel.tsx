@@ -42,7 +42,7 @@ export const BankConnectionPanel = ({
     connections,
     disconnect,
     disconnectingId,
-    isConnectionsError,
+    isConnectionsMissing,
     isConnectionsPending,
   } = useBankConnections({ returnTo });
 
@@ -65,7 +65,7 @@ export const BankConnectionPanel = ({
 
   // Without the connections there is no telling which banks are already
   // connected, and offering one a second consent is worse than no list.
-  if (isConnectionsError) {
+  if (isConnectionsMissing) {
     return (
       <Empty>
         <EmptyHeader>

@@ -97,7 +97,9 @@ export const useBankConnections = ({
     disconnectingId: disconnectMutation.isPending
       ? disconnectMutation.variables
       : null,
-    isConnectionsError: connectionsQuery.isError,
+    // Only when nothing is cached: a failed refetch must not wipe a good answer.
+    isConnectionsMissing:
+      connectionsQuery.isError && connectionsQuery.data === undefined,
     isConnectionsPending: connectionsQuery.isPending,
   };
 };
