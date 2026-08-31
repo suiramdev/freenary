@@ -34,7 +34,11 @@ export const useBankConnections = ({
     onError: (error) => {
       toast.error(error.message);
     },
-    onSuccess: async ({ accountsRemoved, institutionName, revoked }) => {
+    onSuccess: async ({
+      accountsRemoved,
+      institutionName,
+      revocationRequested,
+    }) => {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.bankConnection.listConnections.queryOptions().queryKey,
@@ -43,9 +47,9 @@ export const useBankConnections = ({
         invalidateBudgetData(queryClient),
       ]);
 
-      if (!revoked) {
+      if (!revocationRequested) {
         toast.warning(
-          `${institutionName} removed, but access at the bank was not revoked. Revoke it from your bank to be sure.`
+          `${institutionName} removed, but freenary could not ask your bank to revoke access. Revoke it from your bank to be sure.`
         );
         return;
       }

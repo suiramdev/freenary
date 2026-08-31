@@ -18,7 +18,8 @@ export const enableBankingProvider: BankingProvider = {
       { method: "DELETE" }
     );
 
-    // A session the bank already dropped is the state we are asking for.
+    // Enable Banking closes the bank consent only "if possible", so a deleted
+    // session — or one already gone (404) — is a request, not a confirmation.
     if (response.ok || response.status === 404) {
       return;
     }

@@ -38,8 +38,8 @@ export const UnlinkBankDialog = ({
         <AlertDialogTitle>Unlink {institutionName}?</AlertDialogTitle>
         <AlertDialogDescription>
           {accountCount === 0
-            ? "This revokes access at your bank. No account is linked, so no transaction is removed."
-            : `This revokes access at your bank and removes ${accountCount} linked account${accountCount === 1 ? "" : "s"} with the transactions imported from ${accountCount === 1 ? "it" : "them"}. Reconnect any time to import them again.`}
+            ? "This asks your bank to revoke freenary's access. No account is linked, so no transaction is removed."
+            : `This removes ${accountCount} linked account${accountCount === 1 ? "" : "s"} with the transactions imported from ${accountCount === 1 ? "it" : "them"}, and asks your bank to revoke freenary's access. Reconnect any time to import them again.`}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>

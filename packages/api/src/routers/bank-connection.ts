@@ -76,28 +76,34 @@ export const bankConnectionRouter = {
       const providerInstitutionName = result.institutionName.trim();
       const bankName = providerInstitutionName || institution.name;
 
-      const connection = await prisma.bankConnection.create({
-        data: {
-          institutionBic: institution.bic ?? null,
-          institutionCountry: institution.country,
-          institutionGroup:
-            result.institutionGroup ?? institution.group ?? null,
-          institutionId: institution.id,
-          institutionName: bankName,
-          provider: provider.id,
-          providerSessionId: result.providerSessionId,
-          userId,
-        },
-      });
+      // One transaction: a connection whose accounts failed to write would
+      // still list as linked, with nothing under it.
+      const connection = await prisma.$transaction(async (db) => {
+        const created = await db.bankConnection.create({
+          data: {
+            institutionBic: institution.bic ?? null,
+            institutionCountry: institution.country,
+            institutionGroup:
+              result.institutionGroup ?? institution.group ?? null,
+            institutionId: institution.id,
+            institutionName: bankName,
+            provider: provider.id,
+            providerSessionId: result.providerSessionId,
+            userId,
+          },
+        });
 
-      await prisma.bankAccount.createMany({
-        data: result.accounts.map((account) => ({
-          connectionId: connection.id,
-          iban: account.iban ?? null,
-          identificationHash: account.identificationHash ?? null,
-          name: account.name ?? null,
-          providerAccountId: account.providerAccountId,
-        })),
+        await db.bankAccount.createMany({
+          data: result.accounts.map((account) => ({
+            connectionId: created.id,
+            iban: account.iban ?? null,
+            identificationHash: account.identificationHash ?? null,
+            name: account.name ?? null,
+            providerAccountId: account.providerAccountId,
+          })),
+        });
+
+        return created;
       });
 
       return {
@@ -234,10 +240,10 @@ export const bankConnectionRouter = {
         });
       }
 
-      // Revoke first so the bank-side consent stops too, but never let a
-      // failure there block the user from deleting their own data.
+      // Ask the provider to revoke first so the bank-side consent stops too,
+      // but never let a failure there block the user from deleting their data.
       const provider = getProvider(connection.provider);
-      const revoked = provider.isConfigured()
+      const revocationRequested = provider.isConfigured()
         ? await provider
             .closeConnection(connection.providerSessionId)
             .then(() => true)
@@ -250,7 +256,7 @@ export const bankConnectionRouter = {
       return {
         accountsRemoved: connection._count.accounts,
         institutionName: connection.institutionName,
-        revoked,
+        revocationRequested,
       };
     }),
 };

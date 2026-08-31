@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { PlugsIcon } from "@phosphor-icons/react";
+import { PlugsIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
@@ -55,6 +55,22 @@ export const BankAccountsSection = () => {
       );
     }
 
+    // A failed availability check is not a missing provider: saying the
+    // instance has none would send the user to fix the wrong thing.
+    if (availability.isError) {
+      return (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <WarningCircleIcon />
+            </EmptyMedia>
+            <EmptyTitle>Could not check bank linking</EmptyTitle>
+            <EmptyDescription>Reload the page to try again.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      );
+    }
+
     if (!isAvailable) {
       return (
         <Empty>
@@ -85,7 +101,7 @@ export const BankAccountsSection = () => {
   return (
     <div id={BANK_ACCOUNTS_ANCHOR} ref={sectionRef}>
       <SettingsSection
-        description="Link the banks you want freenary to import transactions and balances from. Unlinking revokes access at the bank and removes its imported data."
+        description="Link the banks you want freenary to import transactions and balances from. Unlinking removes its imported data and asks the bank to revoke the access."
         title="Bank accounts"
       >
         {renderPanel()}
