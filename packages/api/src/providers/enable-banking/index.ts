@@ -12,6 +12,24 @@ import { mapEBCompletedConnection } from "./map-connection";
 import { mapEBTransactions } from "./map-transaction";
 
 export const enableBankingProvider: BankingProvider = {
+  async closeConnection(providerSessionId: string): Promise<void> {
+    const response = await ebFetch(
+      `/sessions/${encodeURIComponent(providerSessionId)}`,
+      { method: "DELETE" }
+    );
+
+    // Enable Banking closes the bank consent only "if possible", so a deleted
+    // session — or one already gone (404) — is a request, not a confirmation.
+    if (response.ok || response.status === 404) {
+      return;
+    }
+
+    const text = await response.text();
+    throw new Error(
+      `Enable Banking session deletion failed: ${response.status} ${text}`
+    );
+  },
+
   async completeConnection(code: string): Promise<CompletedConnection> {
     const response = await ebFetch("/sessions", {
       body: JSON.stringify({ code }),

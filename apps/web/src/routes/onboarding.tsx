@@ -8,25 +8,31 @@ import { orpc } from "@/utils/orpc";
 
 const OnboardingPage = () => {
   const availability = useQuery(
-    orpc.onboarding.getEnableBankingAvailability.queryOptions()
+    orpc.bankConnection.getProviderAvailability.queryOptions()
   );
   const hasBankStep = availability.data?.available ?? false;
 
   const wizard = useOnboardingWizard({ hasBankStep });
 
   const banksQuery = useQuery(
-    orpc.onboarding.getAvailableBanks.queryOptions({
+    orpc.bankConnection.listInstitutions.queryOptions({
       // Prefetch once a country is picked; the `step === 1` arm covers a flow
       // resumed into the bank step after Enable Banking went unavailable.
       enabled: wizard.country !== null && (hasBankStep || wizard.step === 1),
-      input: { country: wizard.country ?? "" },
+      input: { country: wizard.country ?? undefined },
     })
+  );
+
+  // Shares its cache entry with the panel's own query; the count only drives
+  // the Finish label, and it counts banks the callback actually linked.
+  const connectionsQuery = useQuery(
+    orpc.bankConnection.listConnections.queryOptions()
   );
 
   return (
     <OnboardingWizard
       banks={banksQuery.data?.banks ?? []}
-      connectedBanks={wizard.connectedBanks}
+      connectedCount={connectionsQuery.data?.connections.length ?? 0}
       country={wizard.country}
       hasBankStep={hasBankStep}
       isBanksError={banksQuery.isError}
@@ -34,7 +40,6 @@ const OnboardingPage = () => {
       isCompleting={wizard.isCompleting}
       isPending={availability.isLoading}
       onBack={wizard.handleBack}
-      onBankConnected={wizard.handleBankConnected}
       onCountryContinue={wizard.handleCountryContinue}
       onCountrySelect={wizard.handleCountrySelect}
       onFinish={wizard.handleFinish}

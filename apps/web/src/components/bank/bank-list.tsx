@@ -1,4 +1,3 @@
-import type { AppRouter } from "@freenary/api/routers/index";
 import {
   Empty,
   EmptyDescription,
@@ -6,33 +5,34 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import type { InferRouterOutputs } from "@orpc/server";
 import { BankIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
-import { BankCard } from "@/components/onboarding/bank-card";
-import { BankListSkeleton } from "@/components/onboarding/bank-list-skeleton";
-
-export type OnboardingBank =
-  InferRouterOutputs<AppRouter>["onboarding"]["getAvailableBanks"]["banks"][number];
+import { BankCard } from "@/components/bank/bank-card";
+import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
+import type { BankRow } from "@/lib/bank/bank-rows";
 
 interface BankListProps {
-  banks: OnboardingBank[];
-  connected: ReadonlySet<string>;
   connecting: string | null;
+  /** The connection currently being disconnected, if any. */
+  disconnectingId: string | null;
   hasSearch: boolean;
+  /** The institutions could not be loaded and none are cached. */
   isError: boolean;
   isPending: boolean;
-  onConnect: (institutionId: string, bankName: string) => void;
+  onConnect: (row: BankRow) => void;
+  onDisconnect: (connectionId: string) => void;
+  rows: BankRow[];
 }
 
 export const BankList = ({
-  banks,
-  connected,
   connecting,
+  disconnectingId,
   hasSearch,
   isError,
   isPending,
   onConnect,
+  onDisconnect,
+  rows,
 }: BankListProps) => {
   if (isPending) {
     return (
@@ -45,9 +45,7 @@ export const BankList = ({
     );
   }
 
-  // Only when there is nothing to fall back on: a refetch failure must not
-  // wipe the institutions already on screen.
-  if (isError && banks.length === 0) {
+  if (isError) {
     return (
       <Empty>
         <EmptyHeader>
@@ -55,15 +53,13 @@ export const BankList = ({
             <WarningCircleIcon />
           </EmptyMedia>
           <EmptyTitle>Could not load banks</EmptyTitle>
-          <EmptyDescription>
-            You can skip this step and connect later.
-          </EmptyDescription>
+          <EmptyDescription>Reload the page to try again.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
   }
 
-  if (banks.length === 0) {
+  if (rows.length === 0) {
     return (
       <Empty>
         <EmptyHeader>
@@ -82,15 +78,18 @@ export const BankList = ({
     // A real list rather than ItemGroup: its `div[role=list]` cannot hold the
     // `<li>` rows without tripping HTML's content model.
     <ul className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
-      {banks.map((bank) => (
+      {rows.map((row) => (
         <BankCard
-          key={bank.id}
-          bic={bank.bic}
-          connected={connected.has(bank.name)}
-          connecting={connecting === bank.id}
-          logo={bank.logo}
-          name={bank.name}
-          onConnect={() => onConnect(bank.id, bank.name)}
+          key={row.id}
+          connecting={connecting === row.institution?.id}
+          disconnecting={disconnectingId === row.connection?.id}
+          onConnect={() => onConnect(row)}
+          onDisconnect={() => {
+            if (row.connection) {
+              onDisconnect(row.connection.id);
+            }
+          }}
+          row={row}
         />
       ))}
     </ul>

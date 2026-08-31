@@ -12,6 +12,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { BankAccountsSection } from "@/components/settings/bank-accounts-section";
 import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { BudgetingSection } from "@/components/settings/budgeting-section";
 import { CategoriesSection } from "@/components/settings/categories-section";
@@ -38,6 +39,8 @@ const SettingsContent = ({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 pb-20">
+      <BankAccountsSection />
+
       <BudgetProfilePreview
         categories={categories}
         isPending={isPending}

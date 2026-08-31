@@ -10,8 +10,8 @@ import { ArrowRightIcon, GlobeHemisphereWestIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { CountryOption } from "@/components/onboarding/country-option";
-import { OnboardingSearchInput } from "@/components/onboarding/onboarding-search-input";
 import { OnboardingStepHeader } from "@/components/onboarding/onboarding-step-header";
+import { SearchInput } from "@/components/shared/search-input";
 import { GITHUB_REPO_URL } from "@/lib/constants";
 import { filterCountries } from "@/lib/onboarding/countries";
 
@@ -38,7 +38,7 @@ export const CountrySelectionStep = ({
         description="Select your country to personalize your experience."
         title="Where are you based?"
       />
-      <OnboardingSearchInput
+      <SearchInput
         onChange={setSearch}
         placeholder="Search countries..."
         value={search}

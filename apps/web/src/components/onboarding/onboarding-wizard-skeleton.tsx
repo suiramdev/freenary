@@ -1,6 +1,6 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 
-import { BankListSkeleton } from "@/components/onboarding/bank-list-skeleton";
+import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
 
 export const OnboardingWizardSkeleton = () => (
   <div aria-busy="true">

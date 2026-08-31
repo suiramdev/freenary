@@ -25,6 +25,7 @@ describe("bank connection state", () => {
         institution,
         userId,
         secret,
+        "settings",
         "csrf-state"
       )
     );
@@ -33,6 +34,7 @@ describe("bank connection state", () => {
       institution,
       original: "csrf-state",
       providerId: "enable-banking",
+      returnTo: "settings",
     });
     expect(state.hmac).toBeString();
   });
@@ -42,7 +44,8 @@ describe("bank connection state", () => {
       "enable-banking",
       institution,
       userId,
-      secret
+      secret,
+      "onboarding"
     );
     const state = parseBankConnectionState(encoded);
     expect(verifyBankConnectionState(state, userId, secret)).toBe(true);
@@ -53,10 +56,42 @@ describe("bank connection state", () => {
       "enable-banking",
       institution,
       userId,
-      secret
+      secret,
+      "onboarding"
     );
     const state = parseBankConnectionState(encoded);
     expect(verifyBankConnectionState(state, "other-user", secret)).toBe(false);
+  });
+
+  test("HMAC rejects a tampered return target", () => {
+    const state = parseBankConnectionState(
+      encodeBankConnectionState(
+        "enable-banking",
+        institution,
+        userId,
+        secret,
+        "onboarding"
+      )
+    );
+    expect(
+      verifyBankConnectionState(
+        { ...state, returnTo: "settings" },
+        userId,
+        secret
+      )
+    ).toBe(false);
+  });
+
+  test("rejects state without a return target", () => {
+    expect(() =>
+      parseBankConnectionState(
+        JSON.stringify({
+          hmac: "deadbeef",
+          institution,
+          providerId: "enable-banking",
+        })
+      )
+    ).toThrow();
   });
 
   test("only resolves an institution for the canonical id and country", () => {

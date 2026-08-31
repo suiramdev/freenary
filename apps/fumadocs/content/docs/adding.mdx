@@ -9,6 +9,21 @@ Freenary supports both synchronization and manual entry. Automatic synchronizati
 
 When synchronizing, the user chooses a bank or financial institution and establishes a connection through [Enable Banking](https://enablebanking.com) or another configured provider. After authorization, available accounts, balances and transactions are imported. The internal provider layer hides technical differences between providers so the workflow stays consistent regardless of the underlying connector.
 
+Banks are connected in two places, each showing one searchable list of banks with the ones already connected at the top: the **Connect your bank** step during onboarding, and the **Bank accounts** section of [Settings](/docs/settings). Skipping the onboarding step costs nothing — Settings offers the same list afterwards.
+
+A bank counts as connected only once you have authorized it at the bank and been redirected back. Leaving the bank's consent screen without finishing connects nothing.
+
+## Disconnecting a bank
+
+A connected bank offers **Disconnect** in place of the Connect button, wherever banks are listed. It removes that bank's accounts along with the transactions imported from them, and asks your bank to revoke freenary's access; your own category corrections are kept. Reconnecting the same bank imports its transactions again.
+
+<Callout type="info">
+  Revocation is a request, not a receipt: a bank is not obliged to confirm it
+  closed the access. If the request itself fails — an expired consent, or a
+  provider outage — the bank is still disconnected from freenary and you are
+  told to revoke it from your bank directly.
+</Callout>
+
 ## Creating assets manually
 
 For unsupported assets, everything can be created manually:

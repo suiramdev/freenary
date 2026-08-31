@@ -24,19 +24,6 @@ export const useOnboardingWizard = ({
     () => loadOnboardingState()?.country ?? null
   );
   const [isCompleting, setIsCompleting] = useState(false);
-  const [connectedBanks, setConnectedBanks] = useState<ReadonlySet<string>>(
-    () => new Set(loadOnboardingState()?.connectedBanks)
-  );
-
-  const handleBankConnected = (name: string) => {
-    setConnectedBanks((prev) => {
-      const next = new Set(prev).add(name);
-      if (country) {
-        persistOnboardingState({ connectedBanks: [...next], country });
-      }
-      return next;
-    });
-  };
 
   const completeOnboarding = async () => {
     if (!country) {
@@ -63,10 +50,7 @@ export const useOnboardingWizard = ({
   const handleCountryContinue = () => {
     if (hasBankStep) {
       if (country) {
-        persistOnboardingState({
-          connectedBanks: [...connectedBanks],
-          country,
-        });
+        persistOnboardingState({ country });
       }
       setStep(1);
       return;
@@ -98,10 +82,8 @@ export const useOnboardingWizard = ({
   };
 
   return {
-    connectedBanks,
     country,
     handleBack: () => setStep(0),
-    handleBankConnected,
     handleCountryContinue,
     handleCountrySelect: setCountry,
     handleFinish,
