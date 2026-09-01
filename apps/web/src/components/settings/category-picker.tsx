@@ -26,6 +26,8 @@ import { useMemo, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { toCategorySections } from "@/lib/settings/category-sections";
+import { categoryEntryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 /** Keys the search field must keep; everything else belongs to the menu. */
 const EDITING_KEYS = new Set(["Backspace", "Delete", "End", "Home"]);
@@ -64,7 +66,11 @@ export const CategoryPicker = ({
           <Button className="w-40 shrink-0 justify-between" variant="outline" />
         }
       >
-        <span className="truncate">{selected?.label ?? "Pick a category"}</span>
+        <span className="truncate">
+          {selected
+            ? categoryEntryLabel(selected)
+            : m.settings_category_picker_placeholder()}
+        </span>
         <CaretUpDownIcon data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -87,7 +93,7 @@ export const CategoryPicker = ({
                   event.stopPropagation();
                 }
               }}
-              placeholder="Search categories..."
+              placeholder={m.settings_category_search_placeholder()}
               type="search"
               value={query}
             />
@@ -99,7 +105,9 @@ export const CategoryPicker = ({
               {/* A group is a heading; a line is assigned a category. Each
                   heading labels its own section, not the whole radio group. */}
               {section.heading && (
-                <DropdownMenuLabel>{section.heading.label}</DropdownMenuLabel>
+                <DropdownMenuLabel>
+                  {categoryEntryLabel(section.heading)}
+                </DropdownMenuLabel>
               )}
               {section.items.map((entry) => (
                 <DropdownMenuRadioItem
@@ -112,7 +120,7 @@ export const CategoryPicker = ({
                     icon={entry.icon}
                     className="size-5 [&_svg]:size-3"
                   />
-                  {entry.label}
+                  {categoryEntryLabel(entry)}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuGroup>
@@ -122,7 +130,7 @@ export const CategoryPicker = ({
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={onCreateRequest}>
             <PlusIcon data-icon="inline-start" />
-            New category…
+            {m.settings_category_new_ellipsis()}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

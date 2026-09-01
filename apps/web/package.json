@@ -11,6 +11,7 @@
     "@freenary/api": "workspace:*",
     "@freenary/env": "workspace:*",
     "@freenary/ui": "workspace:*",
+    "@inlang/paraglide-js": "^2.25.0",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/tanstack-query": "^1.14.12",

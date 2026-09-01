@@ -2,12 +2,7 @@ import {
   categoryGroupAppearance,
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
-import {
-  CATEGORY_GROUP_LABELS,
-  CATEGORY_GROUPS,
-  CATEGORY_LABELS,
-  categoriesInGroup,
-} from "@freenary/api/lib/taxonomy";
+import { CATEGORY_GROUPS, categoriesInGroup } from "@freenary/api/lib/taxonomy";
 import type {
   CategoryGroup,
   SpendingCategory,
@@ -45,6 +40,8 @@ import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TimeRange } from "@/lib/budget/period";
 import type { Transaction } from "@/lib/budget/transaction";
+import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 export const TransactionList = ({
   transactions,
@@ -75,8 +72,12 @@ export const TransactionList = ({
   onTransactionClick: (tx: Transaction) => void;
   range: TimeRange;
 }) => {
-  const outgoingLabel = `Outgoing · ${formatCurrency(Math.abs(totals.outgoing), "EUR")}`;
-  const incomingLabel = `Incoming · ${formatCurrency(totals.incoming, "EUR")}`;
+  const outgoingLabel = m.budget_tab_outgoing({
+    amount: formatCurrency(Math.abs(totals.outgoing), "EUR"),
+  });
+  const incomingLabel = m.budget_tab_incoming({
+    amount: formatCurrency(totals.incoming, "EUR"),
+  });
   const activeCount = filterCount(filter);
 
   const toggleCategory = (category: SpendingCategory) => {
@@ -115,7 +116,7 @@ export const TransactionList = ({
             <MagnifyingGlassIcon />
           </InputGroupAddon>
           <InputGroupInput
-            placeholder="Search transactions..."
+            placeholder={m.budget_search_placeholder()}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             type="search"
@@ -124,7 +125,7 @@ export const TransactionList = ({
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" />}>
             <FunnelIcon data-icon="inline-start" />
-            Category
+            {m.budget_filter_category()}
             {activeCount > 0 && (
               <Badge variant="secondary">{activeCount}</Badge>
             )}
@@ -144,7 +145,7 @@ export const TransactionList = ({
                       {...categoryGroupAppearance(group)}
                       className="size-5 [&_svg]:size-3"
                     />
-                    {CATEGORY_GROUP_LABELS[group]}
+                    {categoryGroupLabel(group)}
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuLabel>
                 {categoriesInGroup(group).map((cat) => (
@@ -166,7 +167,7 @@ export const TransactionList = ({
                       {...predefinedCategoryAppearance(cat)}
                       className="size-5 [&_svg]:size-3"
                     />
-                    {CATEGORY_LABELS[cat]}
+                    {categoryLabel(cat)}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuGroup>
@@ -183,7 +184,9 @@ export const TransactionList = ({
               className="hover:bg-muted"
               render={
                 <button
-                  aria-label={`Remove ${CATEGORY_GROUP_LABELS[group]} filter`}
+                  aria-label={m.budget_filter_remove({
+                    label: categoryGroupLabel(group),
+                  })}
                   type="button"
                   onClick={() => toggleGroup(group)}
                 />
@@ -194,7 +197,7 @@ export const TransactionList = ({
                 {...categoryGroupAppearance(group)}
                 className="size-4 [&_svg]:size-2.5"
               />
-              {CATEGORY_GROUP_LABELS[group]}
+              {categoryGroupLabel(group)}
               <XIcon data-icon="inline-end" />
             </Badge>
           ))}
@@ -204,7 +207,9 @@ export const TransactionList = ({
               className="hover:bg-muted"
               render={
                 <button
-                  aria-label={`Remove ${CATEGORY_LABELS[cat]} filter`}
+                  aria-label={m.budget_filter_remove({
+                    label: categoryLabel(cat),
+                  })}
                   type="button"
                   onClick={() => toggleCategory(cat)}
                 />
@@ -215,7 +220,7 @@ export const TransactionList = ({
                 {...predefinedCategoryAppearance(cat)}
                 className="size-4 [&_svg]:size-2.5"
               />
-              {CATEGORY_LABELS[cat]}
+              {categoryLabel(cat)}
               <XIcon data-icon="inline-end" />
             </Badge>
           ))}
@@ -224,7 +229,7 @@ export const TransactionList = ({
               variant="ghost"
               onClick={() => onFilterChange(EMPTY_CATEGORY_FILTER)}
             >
-              Clear all
+              {m.budget_filter_clear_all()}
             </Button>
           )}
         </div>

@@ -1,8 +1,10 @@
+import { m } from "@/paraglide/messages.js";
+
 export const AuthHeader = () => (
   <>
-    <h1 className="text-2xl font-bold">Welcome to Freenary</h1>
+    <h1 className="text-2xl font-bold">{m.auth_welcome_title()}</h1>
     <p className="text-muted-foreground mt-1 mb-6 text-sm">
-      Enter your email to sign in or create an account
+      {m.auth_welcome_description()}
     </p>
   </>
 );

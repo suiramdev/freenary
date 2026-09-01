@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { BankConnectionPanel } from "@/components/bank/bank-connection-panel";
 import { OnboardingStepHeader } from "@/components/onboarding/onboarding-step-header";
 import type { BankInstitution } from "@/hooks/bank/use-bank-connections";
+import { m } from "@/paraglide/messages.js";
 
 interface BankConnectionStepProps {
   banks: BankInstitution[];
@@ -27,8 +28,8 @@ export const BankConnectionStep = ({
 }: BankConnectionStepProps) => (
   <div className="flex flex-col gap-6">
     <OnboardingStepHeader
-      description="Connect your bank accounts to import transactions and balances. You can always do this later from Settings."
-      title="Connect your bank"
+      description={m.onboarding_bank_description()}
+      title={m.onboarding_bank_title()}
     />
     <BankConnectionPanel
       banks={banks}
@@ -39,15 +40,17 @@ export const BankConnectionStep = ({
     <div className="flex items-center justify-between gap-3">
       <Button onClick={onBack} type="button" variant="ghost">
         <ArrowLeftIcon data-icon="inline-start" />
-        Back
+        {m.onboarding_back()}
       </Button>
       <div className="flex items-center gap-2">
         <Button onClick={onFinish} type="button" variant="secondary">
-          Skip for now
+          {m.onboarding_skip()}
         </Button>
         <Button disabled={isCompleting} onClick={onFinish} type="button">
           {isCompleting && <Spinner data-icon="inline-start" />}
-          {connectedCount > 0 ? `Finish (${connectedCount})` : "Finish"}
+          {connectedCount > 0
+            ? m.onboarding_finish_with_count({ count: connectedCount })
+            : m.onboarding_finish()}
         </Button>
       </div>
     </div>

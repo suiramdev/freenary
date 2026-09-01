@@ -2,7 +2,7 @@
 
 **Read [`CONTEXT.md`](CONTEXT.md) first** — the glossary and the settled definition of each term. Architecture decisions live in `docs/adr/`.
 
-The rest of this file covers how to get a working stack, what every change owes the docs, how to write the pull request, and the code-quality standard.
+The rest of this file covers how to get a working stack, what every change owes the docs and the message catalogs, how to write the pull request, and the code-quality standard.
 
 **Contributing:** follow [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md). When opening or drafting a pull request, use every section of [`.github/pull_request_template.md`](.github/pull_request_template.md) — Summary, Motivation, Drawbacks, Prior art, Notes — and keep each one short.
 
@@ -65,6 +65,12 @@ A fact lives in **exactly one** section; everywhere else links to it. Duplicated
 | MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing |
 
 A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`apps/fumadocs/content/docs/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change.
+
+## Interface Text: Every String Is a Message Key
+
+`apps/web` ships in English and French. Every user-facing string it renders is a key in `apps/web/messages/en.json` and `messages/fr.json`, and **a change that adds or edits UI adds or edits both catalogs in the same commit**. A key present in `en.json` and missing from `fr.json` compiles with no error and no warning — the French branch aliases to the English one, so English reaches French readers and no build step catches it.
+
+The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. What readers see is documented at [`content/docs/language.mdx`](apps/fumadocs/content/docs/language.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 

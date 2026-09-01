@@ -1,10 +1,11 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
+import { m } from "@/paraglide/messages.js";
 
 export const OnboardingWizardSkeleton = () => (
   <div aria-busy="true">
-    <output className="sr-only">Loading onboarding</output>
+    <output className="sr-only">{m.onboarding_loading()}</output>
     <div aria-hidden="true" className="flex flex-col gap-8">
       <div className="flex items-center justify-center gap-3">
         <div className="flex items-center gap-2.5">

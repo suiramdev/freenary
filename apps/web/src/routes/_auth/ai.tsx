@@ -2,12 +2,13 @@ import { BrainIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PlannedPage } from "@/components/shared/planned-page";
+import { m } from "@/paraglide/messages.js";
 
 const AIPage = () => (
   <PlannedPage
-    description="AI-assisted financial insights that reason across your entire financial model — coming soon."
+    description={m.shell_planned_ai_description()}
     icon={BrainIcon}
-    title="AI is planned"
+    title={m.shell_planned_title({ page: m.nav_ai() })}
   />
 );
 

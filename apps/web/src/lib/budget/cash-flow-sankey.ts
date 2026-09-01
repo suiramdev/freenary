@@ -13,6 +13,8 @@ import type { DitherColor } from "@/components/dither-kit/palette";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
+import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 export interface IncomeSource {
   name: string;
@@ -21,14 +23,12 @@ export interface IncomeSource {
 
 export interface ExpenseCategory {
   category: SpendingCategory;
-  label: string;
   value: number;
 }
 
 export interface ExpenseGroup {
   categories: ExpenseCategory[];
   group: CategoryGroup;
-  label: string;
   value: number;
 }
 
@@ -107,7 +107,7 @@ export const toCashFlowSankey = ({
     groupNodes.push({
       color: CATEGORY_GROUP_COLORS[group.group],
       id,
-      label: group.label,
+      label: categoryGroupLabel(group.group),
       value: group.value,
     });
 
@@ -116,7 +116,7 @@ export const toCashFlowSankey = ({
       categoryNodes.push({
         color: categoryColor(category.category),
         id: categoryNodeId(category.category),
-        label: category.label,
+        label: categoryLabel(category.category),
         value: category.value,
       });
       links.push({
@@ -131,7 +131,7 @@ export const toCashFlowSankey = ({
     groupNodes.push({
       color: "grey",
       id: MONEY_LEFT_ID,
-      label: "Money left",
+      label: m.budget_money_left(),
       value: moneyLeft,
     });
   }

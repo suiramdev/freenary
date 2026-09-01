@@ -1,5 +1,8 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 
+import { foldForSearch } from "@/lib/search-text";
+import { categoryEntryLabel } from "@/lib/taxonomy-labels";
+
 /** A group heading with the categories under it; `heading` is null for a custom group. */
 export interface CategorySection {
   heading: CategoryEntry | null;
@@ -15,13 +18,14 @@ export interface CategorySection {
  * Groups the flat `listCategories` list into pickable sections, keeping only
  * entries matching `query`. Sections exist so each heading names its own items
  * rather than the whole radio group, and empty ones are dropped so a heading
- * never survives without something under it.
+ * never survives without something under it. Matching runs on the translated
+ * label, so a French reader searches the words they can see.
  */
 export const toCategorySections = (
   categories: CategoryEntry[],
   query: string
 ): CategorySection[] => {
-  const needle = query.trim().toLowerCase();
+  const needle = foldForSearch(query.trim());
   const sections: CategorySection[] = [];
 
   for (const entry of categories) {
@@ -31,7 +35,8 @@ export const toCategorySections = (
     }
     const matches =
       !needle ||
-      (entry.isAssignable && entry.label.toLowerCase().includes(needle));
+      (entry.isAssignable &&
+        foldForSearch(categoryEntryLabel(entry)).includes(needle));
     if (!matches) {
       continue;
     }

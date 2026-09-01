@@ -1,5 +1,6 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { cn } from "@freenary/ui/lib/utils";
 import { CaretRightIcon, DotsThreeIcon } from "@phosphor-icons/react";
 import * as React from "react";
@@ -93,6 +94,8 @@ function BreadcrumbEllipsis({
   className,
   ...props
 }: React.ComponentProps<"span">) {
+  const labels = useUiLabels();
+
   return (
     <span
       data-slot="breadcrumb-ellipsis"
@@ -105,7 +108,7 @@ function BreadcrumbEllipsis({
       {...props}
     >
       <DotsThreeIcon />
-      <span className="sr-only">More</span>
+      <span className="sr-only">{labels.more}</span>
     </span>
   );
 }

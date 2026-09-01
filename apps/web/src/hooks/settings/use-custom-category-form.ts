@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 const MAX_LABEL_LENGTH = 40;
@@ -15,14 +16,15 @@ const MAX_LABEL_LENGTH = 40;
 const categorySchema = z.object({
   color: z.enum(CATEGORY_COLOR_VALUES),
   icon: z.enum(CATEGORY_ICON_NAMES),
+  // Message thunks, resolved at parse time: evaluating them here would pin the
+  // locale of whichever request loaded this module first.
   label: z
     .string()
     .trim()
-    .min(1, "Name is required")
-    .max(
-      MAX_LABEL_LENGTH,
-      `Name must be at most ${MAX_LABEL_LENGTH} characters`
-    ),
+    .min(1, { error: () => m.settings_error_name_required() })
+    .max(MAX_LABEL_LENGTH, {
+      error: () => m.settings_error_name_too_long({ max: MAX_LABEL_LENGTH }),
+    }),
   // A custom category nests under a group, never under another category.
   parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
 });
@@ -74,7 +76,11 @@ export const useCustomCategoryForm = ({
       await queryClient.invalidateQueries({
         queryKey: orpc.settings.listCategories.queryOptions().queryKey,
       });
-      toast.success(edited ? "Category updated" : "Category created");
+      toast.success(
+        edited
+          ? m.settings_category_update_success()
+          : m.settings_category_create_success()
+      );
       if (key) {
         onCreated?.(key);
       }

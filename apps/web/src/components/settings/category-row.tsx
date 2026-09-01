@@ -17,6 +17,8 @@ import {
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { DeleteCategoryDialog } from "@/components/settings/delete-category-dialog";
+import { categoryEntryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 interface CategoryRowProps {
   entry: CategoryEntry;
@@ -39,6 +41,7 @@ export const CategoryRow = ({
 }: CategoryRowProps) => {
   // Custom keys carry the `custom:` prefix; the mutations take the bare cuid.
   const customId = entry.key.split(":")[1] ?? "";
+  const label = categoryEntryLabel(entry);
 
   return (
     <Item
@@ -55,7 +58,7 @@ export const CategoryRow = ({
       </ItemMedia>
 
       <ItemContent className="min-w-0">
-        <ItemTitle className="block w-full truncate">{entry.label}</ItemTitle>
+        <ItemTitle className="block w-full truncate">{label}</ItemTitle>
       </ItemContent>
 
       <ItemActions>
@@ -63,7 +66,9 @@ export const CategoryRow = ({
           <>
             {entry.usageCount > 0 ? (
               <span className="text-muted-foreground text-[0.625rem]">
-                {entry.usageCount} line{entry.usageCount === 1 ? "" : "s"}
+                {m.settings_category_line_count({
+                  count: entry.usageCount,
+                })}
               </span>
             ) : null}
             <Button
@@ -72,7 +77,9 @@ export const CategoryRow = ({
               variant="ghost"
             >
               <ArrowUpIcon />
-              <span className="sr-only">Move {entry.label} up</span>
+              <span className="sr-only">
+                {m.settings_category_move_up({ label })}
+              </span>
             </Button>
             <Button
               disabled={isMoving}
@@ -80,22 +87,26 @@ export const CategoryRow = ({
               variant="ghost"
             >
               <ArrowDownIcon />
-              <span className="sr-only">Move {entry.label} down</span>
+              <span className="sr-only">
+                {m.settings_category_move_down({ label })}
+              </span>
             </Button>
             <Button onClick={() => onEdit(entry)} variant="ghost">
               <PencilSimpleIcon />
-              <span className="sr-only">Edit {entry.label}</span>
+              <span className="sr-only">
+                {m.settings_category_edit_action({ label })}
+              </span>
             </Button>
             <DeleteCategoryDialog
               fallbackLabel={fallbackLabel}
               isDeleting={isDeleting}
-              label={entry.label}
+              label={label}
               onConfirm={() => onDelete(customId)}
               usageCount={entry.usageCount}
             />
           </>
         ) : (
-          <Badge variant="outline">Built-in</Badge>
+          <Badge variant="outline">{m.settings_category_built_in()}</Badge>
         )}
       </ItemActions>
     </Item>

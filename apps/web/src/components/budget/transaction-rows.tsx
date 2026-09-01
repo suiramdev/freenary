@@ -19,6 +19,8 @@ import {
   HEADER_HEIGHT,
   ROW_HEIGHT,
 } from "@/lib/budget/transaction-groups";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 export const TransactionRows = ({
   transactions,
@@ -40,9 +42,10 @@ export const TransactionRows = ({
   "use no memo";
   const parentRef = useRef<HTMLDivElement>(null);
 
+  const locale = getLocale();
   const virtualItems = useMemo(
-    () => buildVirtualItems(transactions, range),
-    [transactions, range]
+    () => buildVirtualItems(transactions, range, locale),
+    [transactions, range, locale]
   );
 
   // eslint-disable-next-line react/incompatible-library -- useVirtualizer is inherently incompatible with React Compiler; component opts out via "use no memo"
@@ -77,10 +80,11 @@ export const TransactionRows = ({
           <EmptyMedia variant="icon">
             <ReceiptIcon />
           </EmptyMedia>
-          <EmptyTitle>No transactions</EmptyTitle>
+          <EmptyTitle>{m.budget_transactions_empty_title()}</EmptyTitle>
           <EmptyDescription>
-            No {isIncoming ? "incoming" : "outgoing"} transactions found for
-            this period.
+            {isIncoming
+              ? m.budget_transactions_empty_incoming()
+              : m.budget_transactions_empty_outgoing()}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -132,7 +136,7 @@ export const TransactionRows = ({
       </div>
       {isLoading ? (
         <>
-          <output className="sr-only">Loading transactions</output>
+          <output className="sr-only">{m.budget_transactions_loading()}</output>
           <div aria-hidden="true">
             <TransactionRowsSkeleton rows={3} />
           </div>

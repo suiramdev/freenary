@@ -1,6 +1,7 @@
 import type { DitherColor } from "@/components/dither-kit/palette";
 import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
+import { m } from "@/paraglide/messages.js";
 
 export type BudgetLineKind = "INVESTMENT" | "OUTGOING" | "REVENUE";
 
@@ -96,7 +97,7 @@ export const toBudgetProfileSankey = (
     groupNodes.push({
       color: "grey",
       id: MONEY_LEFT_ID,
-      label: "Money left",
+      label: m.settings_budget_money_left(),
       value: moneyLeft,
     });
   }

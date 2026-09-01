@@ -1,31 +1,34 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { authClient } from "@/lib/auth-client";
+import { m } from "@/paraglide/messages.js";
 import { client } from "@/utils/orpc";
 
 const EMAIL_CHECK_DELAY_MS = 500;
 
 const emailSchema = z.email();
 
-const signInSchema = z.object({
-  email: z.email("Invalid email address"),
-  name: z.string(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+type Mode = "unknown" | "signup" | "signin";
 
-const signUpSchema = z.object({
-  email: z.email("Invalid email address"),
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-type Mode = "unknown" | "signin" | "signup";
+// Built per mount rather than once per module: a module-level schema would
+// freeze its messages in whichever locale rendered first, and on the server
+// that locale belongs to one request but the schema is shared by all of them.
+// Switching locale reloads the document, so a mount is a fresh locale.
+const credentialsSchema = (mode: Mode) =>
+  z.object({
+    email: z.email(m.auth_error_invalid_email()),
+    name:
+      mode === "signup"
+        ? z.string().min(2, m.auth_error_name_too_short())
+        : z.string(),
+    password: z.string().min(8, m.auth_error_password_too_short()),
+  });
 
 /** Answer of the last completed existence check, kept next to the address it
  * answered for. */
@@ -65,6 +68,8 @@ export const useAuthForm = () => {
       ? "unknown"
       : emailCheck.mode;
 
+  const schema = useMemo(() => credentialsSchema(mode), [mode]);
+
   const form = useForm({
     defaultValues: {
       email: "",
@@ -89,7 +94,7 @@ export const useAuthForm = () => {
               queryClient.clear();
               await refetchSession();
               await navigate({ to: "/" });
-              toast.success("Signed in successfully");
+              toast.success(m.auth_signed_in_toast());
             },
           }
         );
@@ -108,7 +113,7 @@ export const useAuthForm = () => {
               queryClient.clear();
               await refetchSession();
               await navigate({ to: "/" });
-              toast.success("Account created successfully");
+              toast.success(m.auth_account_created_toast());
             },
           }
         );
@@ -116,7 +121,7 @@ export const useAuthForm = () => {
       setIsSubmitting(false);
     },
     validators: {
-      onSubmit: mode === "signup" ? signUpSchema : signInSchema,
+      onSubmit: schema,
     },
   });
 

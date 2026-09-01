@@ -34,6 +34,11 @@ import {
 } from "@/components/budget/category-icon";
 import { useCustomCategoryForm } from "@/hooks/settings/use-custom-category-form";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
+import {
+  CATEGORY_COLOR_LABELS,
+  CATEGORY_ICON_LABELS,
+} from "@/lib/settings/category-appearance-labels";
+import { m } from "@/paraglide/messages.js";
 
 /** The swatch and the glyph cover the toggle's pressed background, so add a ring. */
 const SELECTED_RING = "aria-pressed:ring-2 aria-pressed:ring-ring";
@@ -76,10 +81,13 @@ export const CustomCategoryDrawer = ({
     <Drawer onOpenChange={onOpenChange} open={open} swipeDirection="right">
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>{shown ? "Edit category" : "New category"}</DrawerTitle>
+          <DrawerTitle>
+            {shown
+              ? m.settings_category_edit_title()
+              : m.settings_category_new()}
+          </DrawerTitle>
           <DrawerDescription>
-            Custom categories can be assigned to any revenue, investment or
-            outgoing in your budgeting profile.
+            {m.settings_category_drawer_description()}
           </DrawerDescription>
         </DrawerHeader>
 
@@ -95,13 +103,15 @@ export const CustomCategoryDrawer = ({
             <form.Field name="label">
               {(field) => (
                 <Field data-invalid={field.state.meta.errors.length > 0}>
-                  <FieldLabel htmlFor="custom-category-label">Name</FieldLabel>
+                  <FieldLabel htmlFor="custom-category-label">
+                    {m.settings_field_name()}
+                  </FieldLabel>
                   <Input
                     aria-invalid={field.state.meta.errors.length > 0}
                     id="custom-category-label"
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="Life insurance"
+                    placeholder={m.settings_category_name_placeholder()}
                     value={field.state.value}
                   />
                   <FieldError errors={field.state.meta.errors} />
@@ -112,7 +122,9 @@ export const CustomCategoryDrawer = ({
             <form.Field name="color">
               {(field) => (
                 <FieldSet>
-                  <FieldLegend variant="label">Color</FieldLegend>
+                  <FieldLegend variant="label">
+                    {m.settings_field_color()}
+                  </FieldLegend>
                   <ToggleGroup
                     className="flex-wrap"
                     value={[field.state.value]}
@@ -128,7 +140,7 @@ export const CustomCategoryDrawer = ({
                     {CATEGORY_COLOR_VALUES.map((color) => (
                       <ToggleGroupItem
                         key={color}
-                        aria-label={color}
+                        aria-label={CATEGORY_COLOR_LABELS[color]()}
                         className={cn("size-8 rounded-full p-0", SELECTED_RING)}
                         value={color}
                       >
@@ -150,7 +162,9 @@ export const CustomCategoryDrawer = ({
             <form.Field name="icon">
               {(field) => (
                 <FieldSet>
-                  <FieldLegend variant="label">Icon</FieldLegend>
+                  <FieldLegend variant="label">
+                    {m.settings_field_icon()}
+                  </FieldLegend>
                   <form.Subscribe selector={(state) => state.values.color}>
                     {(color) => (
                       // Past ToggleGroup's usual 2–7 options, but a grid of
@@ -170,7 +184,7 @@ export const CustomCategoryDrawer = ({
                         {CATEGORY_ICON_NAMES.map((icon) => (
                           <ToggleGroupItem
                             key={icon}
-                            aria-label={icon}
+                            aria-label={CATEGORY_ICON_LABELS[icon]()}
                             className={cn(
                               "size-8 rounded-full p-0",
                               SELECTED_RING
@@ -195,11 +209,11 @@ export const CustomCategoryDrawer = ({
               {(field) => (
                 <Field>
                   <FieldLabel htmlFor="custom-category-parent">
-                    Nested under
+                    {m.settings_field_parent()}
                   </FieldLabel>
                   <CategoryGroupSelect
                     id="custom-category-parent"
-                    noneLabel="No parent"
+                    noneLabel={m.settings_category_parent_none()}
                     onValueChange={(v) => field.handleChange(v)}
                     value={field.state.value}
                   />
@@ -213,10 +227,12 @@ export const CustomCategoryDrawer = ({
                 type="button"
                 variant="ghost"
               >
-                Cancel
+                {m.settings_cancel()}
               </Button>
               <Button disabled={isSaving} type="submit">
-                {shown ? "Save changes" : "Create category"}
+                {shown
+                  ? m.settings_save_changes()
+                  : m.settings_category_create()}
               </Button>
             </Field>
           </FieldGroup>

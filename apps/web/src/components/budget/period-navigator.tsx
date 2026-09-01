@@ -21,7 +21,7 @@ import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import {
-  AGGREGATION_LABELS,
+  aggregationLabel,
   AGGREGATION_MODES,
   formatPeriodLabel,
   isMultiMonth,
@@ -29,6 +29,8 @@ import {
   TIME_RANGES,
 } from "@/lib/budget/period";
 import type { AggregationMode, TimeRange } from "@/lib/budget/period";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 const YEAR_PAGE_SIZE = 12;
 
@@ -55,7 +57,7 @@ const PeriodYearPicker = ({
         <Button
           variant="ghost"
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
-          aria-label="Previous years"
+          aria-label={m.budget_year_picker_previous()}
         >
           <CaretLeftIcon />
         </Button>
@@ -65,7 +67,7 @@ const PeriodYearPicker = ({
         <Button
           variant="ghost"
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
-          aria-label="Next years"
+          aria-label={m.budget_year_picker_next()}
         >
           <CaretRightIcon />
         </Button>
@@ -137,13 +139,13 @@ export const PeriodNavigator = ({
           variant="ghost"
           disabled={!canGoBack}
           onClick={() => navigate(-1)}
-          aria-label="Previous period"
+          aria-label={m.budget_period_previous()}
         >
           <CaretLeftIcon />
         </Button>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger render={<Button variant="ghost" />}>
-            {formatPeriodLabel(from, to, range)}
+            {formatPeriodLabel(from, to, range, getLocale())}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="center">
             {range === "1Y" ? (
@@ -179,7 +181,7 @@ export const PeriodNavigator = ({
           variant="ghost"
           disabled={!canGoForward}
           onClick={() => navigate(1)}
-          aria-label="Next period"
+          aria-label={m.budget_period_next()}
         >
           <CaretRightIcon />
         </Button>
@@ -189,20 +191,22 @@ export const PeriodNavigator = ({
           <Select
             value={aggregation}
             onValueChange={(next) => {
-              const mode = AGGREGATION_MODES.find((m) => m === next);
+              const mode = AGGREGATION_MODES.find(
+                (candidate) => candidate === next
+              );
               if (mode) {
                 onAggregationChange(mode);
               }
             }}
           >
             <SelectTrigger>
-              <SelectValue>{() => AGGREGATION_LABELS[aggregation]}</SelectValue>
+              <SelectValue>{() => aggregationLabel(aggregation)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 {AGGREGATION_MODES.map((mode) => (
                   <SelectItem key={mode} value={mode}>
-                    {AGGREGATION_LABELS[mode]}
+                    {aggregationLabel(mode)}
                   </SelectItem>
                 ))}
               </SelectGroup>

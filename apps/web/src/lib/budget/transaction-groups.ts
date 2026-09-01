@@ -1,5 +1,7 @@
 import type { TimeRange } from "@/lib/budget/period";
 import type { Transaction } from "@/lib/budget/transaction";
+import { m } from "@/paraglide/messages.js";
+import type { Locale } from "@/paraglide/runtime.js";
 
 interface GroupHeader {
   type: "header";
@@ -40,14 +42,18 @@ export const groupKey = (dateStr: string, range: TimeRange): string => {
   return d.toISOString().slice(0, 10);
 };
 
-const formatShortDate = (date: Date) =>
-  date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const formatShortDate = (date: Date, locale: Locale) =>
+  date.toLocaleDateString(locale, { day: "numeric", month: "short" });
 
-export const formatGroupLabel = (key: string, range: TimeRange): string => {
+export const formatGroupLabel = (
+  key: string,
+  range: TimeRange,
+  locale: Locale
+): string => {
   if (range === "1Y") {
     const [year, month] = key.split("-");
     const d = new Date(Number(year), Number(month) - 1);
-    return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
   }
 
   if (range === "3M") {
@@ -60,7 +66,7 @@ export const formatGroupLabel = (key: string, range: TimeRange): string => {
     const sunday = new Date(monday);
     sunday.setDate(sunday.getDate() + 6);
 
-    return `${formatShortDate(monday)} – ${formatShortDate(sunday)}`;
+    return `${formatShortDate(monday, locale)} – ${formatShortDate(sunday, locale)}`;
   }
 
   // 1M → day
@@ -72,12 +78,12 @@ export const formatGroupLabel = (key: string, range: TimeRange): string => {
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
   if (key === today) {
-    return "Today";
+    return m.budget_group_today();
   }
   if (key === yesterdayStr) {
-    return "Yesterday";
+    return m.budget_group_yesterday();
   }
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     weekday: "long",
@@ -86,7 +92,8 @@ export const formatGroupLabel = (key: string, range: TimeRange): string => {
 
 export const buildVirtualItems = (
   transactions: Transaction[],
-  range: TimeRange
+  range: TimeRange,
+  locale: Locale
 ): VirtualItem[] => {
   if (transactions.length === 0) {
     return [];
@@ -110,7 +117,7 @@ export const buildVirtualItems = (
       openHeader = {
         currency: tx.currency,
         key: `header-${key}`,
-        label: formatGroupLabel(key, range),
+        label: formatGroupLabel(key, range, locale),
         total: 0,
         type: "header",
       };

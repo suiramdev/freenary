@@ -1,3 +1,6 @@
+import { m } from "@/paraglide/messages.js";
+import type { Locale } from "@/paraglide/runtime.js";
+
 export type TimeRange = "1M" | "3M" | "1Y";
 
 export type AggregationMode = "total" | "average" | "median";
@@ -8,11 +11,16 @@ export const AGGREGATION_MODES: AggregationMode[] = [
   "median",
 ];
 
-export const AGGREGATION_LABELS = {
-  average: "Monthly avg.",
-  median: "Monthly median",
-  total: "Total",
-} satisfies Record<AggregationMode, string>;
+// Message *functions*, never their results: evaluating at module scope would
+// freeze the first request's locale for the whole SSR process.
+const AGGREGATION_LABELS = {
+  average: m.budget_aggregation_average,
+  median: m.budget_aggregation_median,
+  total: m.budget_aggregation_total,
+} satisfies Record<AggregationMode, () => string>;
+
+export const aggregationLabel = (mode: AggregationMode): string =>
+  AGGREGATION_LABELS[mode]();
 
 /** True when the selected range spans more than a single month. */
 export const isMultiMonth = (range: TimeRange) => range !== "1M";
@@ -32,8 +40,8 @@ export const rangeMonths = (range: TimeRange): number => {
   }
 };
 
-export const formatMonthYear = (date: Date): string =>
-  date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+export const formatMonthYear = (date: Date, locale: Locale): string =>
+  date.toLocaleDateString(locale, { month: "long", year: "numeric" });
 
 /**
  * Human-readable period label.
@@ -45,18 +53,19 @@ export const formatMonthYear = (date: Date): string =>
 export const formatPeriodLabel = (
   from: Date,
   to: Date,
-  range: TimeRange
+  range: TimeRange,
+  locale: Locale
 ): string => {
   if (range === "1M") {
-    return formatMonthYear(from);
+    return formatMonthYear(from, locale);
   }
   if (range === "1Y") {
     return String(from.getFullYear());
   }
 
   const opts: Intl.DateTimeFormatOptions = { month: "short" };
-  const fromMonth = from.toLocaleDateString(undefined, opts);
-  const toMonth = to.toLocaleDateString(undefined, opts);
+  const fromMonth = from.toLocaleDateString(locale, opts);
+  const toMonth = to.toLocaleDateString(locale, opts);
   const fromYear = from.getFullYear();
   const toYear = to.getFullYear();
 

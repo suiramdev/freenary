@@ -15,8 +15,9 @@ import {
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
-import { AGGREGATION_LABELS } from "@/lib/budget/period";
+import { aggregationLabel } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
+import { m } from "@/paraglide/messages.js";
 
 interface CashFlowCardProps extends CashFlowData {
   aggregation: AggregationMode;
@@ -59,11 +60,11 @@ export const CashFlowCard = ({
     <Card className={className}>
       <CardHeader>
         <CardTitle>
-          Cash Flow
+          {m.budget_cash_flow_title()}
           {aggregation !== "total" && (
             <span className="text-muted-foreground font-normal">
               {" "}
-              · {AGGREGATION_LABELS[aggregation]}
+              · {aggregationLabel(aggregation)}
             </span>
           )}
         </CardTitle>
@@ -72,7 +73,7 @@ export const CashFlowCard = ({
         <SankeyChart
           columns={flow.columns}
           formatValue={formatCurrency}
-          label="Cash flow from income sources to category groups and their categories"
+          label={m.budget_cash_flow_chart_label()}
           links={flow.links}
           onNodeClick={onSelect ? handleNodeClick : undefined}
         />

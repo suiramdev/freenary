@@ -31,6 +31,7 @@ src/
 ## Conventions
 
 - Shared primitives live in `packages/ui`. Import as `@freenary/ui/components/button`. Add app-specific blocks here only when they aren't reusable.
+- **Every user-facing string is a message key.** Adding or changing UI means adding or updating entries in `messages/en.json` _and_ `messages/fr.json` in the same change — see [Internationalization](#internationalization).
 - API types: import the **router type** from `@freenary/api`, never the implementation. The oRPC client provides full inference.
 - Env vars must be prefixed `VITE_` and declared in `@freenary/env/src/web.ts`.
 - Follow the Ultracite + React rules in the root `CLAUDE.md` — no class components, hooks at top level, semantic HTML.
@@ -109,9 +110,37 @@ dashboard-overview.tsx  → export const DashboardOverview = () => { … }
 
 Avoid vague names (`form.tsx`, `card.tsx`, `section.tsx`) and PascalCase filenames. Avoid barrel `index.ts` files.
 
+## Internationalization
+
+**Every user-facing string goes through [Paraglide](https://paraglidejs.com), and adding UI means adding catalog entries in the same change.** A literal string in JSX is a bug rather than a shortcut: it shows English to French readers and never reaches the switcher. Catalogs live in `messages/en.json` and `messages/fr.json` — flat, alphabetically sorted, `en.json` is the reference — and `project.inlang/settings.json` lists the locales. The Vite plugin compiles them into `src/paraglide/`, which is generated and never committed.
+
+```tsx
+import { m } from "@/paraglide/messages.js";
+
+<h1>{m.budget_page_title()}</h1>
+<p>{m.bank_synced_at({ date })}</p>
+```
+
+**What counts as user-facing** is wider than visible text. All of these need a key: button and link labels, headings and body copy, `placeholder`, `title`, `alt`, `aria-label` and `sr-only` text, empty and error states, tooltips, toast messages on both success and failure, and Zod validation messages. What does _not_: values from the bank, the provider or the user; slugs and enums `packages/api` owns (translate those through a table — see below); log lines, comments and test fixtures.
+
+Keys are `snake_case`, prefixed by feature (`budget_`, `settings_`, `bank_`, `nav_`, …), and named for meaning rather than for the English wording. A sentence is one parameterized message, never two messages concatenated. Counts use the message format's plural variants so CLDR picks the branch — French takes the singular at zero, English does not.
+
+**Both catalogs move together.** A key present in `en.json` and missing from `fr.json` compiles with no error and no warning — the generated module aliases the French branch to the English one, so English silently leaks into a French page. Nothing in the build catches it; the only guard is adding both entries at once. Changing wording means editing the catalogs, not the JSX, and a change of _meaning_ takes a new key rather than a redefinition of the old one, because the existing translation is now wrong.
+
+**Never call `m.*()` or `getLocale()` at module scope.** Routes render on the server, where a module is evaluated once per process: an evaluated string would pin the first request's locale and serve it to everyone after. A module-level table holds the message _function_ (`label: m.nav_home`) and the use site calls it — see `src/lib/nav-items.ts`.
+
+Locale-sensitive formatting takes the locale explicitly. `Intl.NumberFormat(undefined, …)` and `toLocaleDateString(undefined, …)` mean "the JS runtime's locale", which is the server's during SSR and the browser's afterwards — pass `getLocale()`, and thread it as a parameter into pure helpers in `src/lib/` rather than reading it inside them. Search over translated text folds accents through `foldForSearch` (`src/lib/search-text.ts`).
+
+Things that are derived, not translated: country names and their sort order come from `Intl.DisplayNames` / `Intl.Collator`, and the spending taxonomy's names come from `src/lib/taxonomy-labels.ts`, keyed by the slugs `packages/api` owns. Values from the bank or from the user are never translated.
+
+`@freenary/ui` primitives carry their own accessible names for controls with no visible text ("Toggle sidebar", "Loading"). They read them from `UiLabelsProvider` (`@freenary/ui/lib/labels`), which `src/routes/__root.tsx` fills; the English defaults keep the package usable on its own.
+
+**Adding a locale:** add `messages/<code>.json`, list the code in `project.inlang/settings.json`, and give it an endonym in `src/lib/i18n.ts`. The switcher picks it up everywhere on its own.
+
 ## Adding a feature
 
 1. New oRPC procedure in `packages/api/src/routers/`.
 2. New route under `src/routes/` consuming it via the typed client.
 3. UI components under `@/components/<feature>/`, hooks under `@/hooks/<feature>/`; the route fetches data via `useQuery` and passes it down.
 4. Use primitives from `@freenary/ui`; add a shadcn primitive there if missing rather than reinventing it.
+5. Every string the feature renders gets a key in both catalogs — see [Internationalization](#internationalization).

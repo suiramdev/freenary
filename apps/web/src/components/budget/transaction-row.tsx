@@ -11,6 +11,7 @@ import { cn } from "@freenary/ui/lib/utils";
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { Transaction } from "@/lib/budget/transaction";
+import { m } from "@/paraglide/messages.js";
 
 export const TransactionRow = ({
   transaction,
@@ -40,7 +41,11 @@ export const TransactionRow = ({
       ref={measureRef}
       render={
         <button
-          aria-label={`${title}, ${isIncoming ? "received" : "paid"} ${amount}`}
+          aria-label={
+            isIncoming
+              ? m.budget_transaction_received({ amount, title })
+              : m.budget_transaction_paid({ amount, title })
+          }
           type="button"
         />
       }

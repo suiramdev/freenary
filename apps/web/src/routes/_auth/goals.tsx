@@ -2,12 +2,13 @@ import { TargetIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PlannedPage } from "@/components/shared/planned-page";
+import { m } from "@/paraglide/messages.js";
 
 const GoalsPage = () => (
   <PlannedPage
-    description="Define financial objectives, track progress and plan contributions — coming soon."
+    description={m.shell_planned_goals_description()}
     icon={TargetIcon}
-    title="Goals is planned"
+    title={m.shell_planned_title({ page: m.nav_goals() })}
   />
 );
 

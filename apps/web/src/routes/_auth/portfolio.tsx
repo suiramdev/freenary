@@ -2,12 +2,13 @@ import { WalletIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PlannedPage } from "@/components/shared/planned-page";
+import { m } from "@/paraglide/messages.js";
 
 const PortfolioPage = () => (
   <PlannedPage
-    description="Track your holdings, accounts and net worth across all your connections — coming soon."
+    description={m.shell_planned_portfolio_description()}
     icon={WalletIcon}
-    title="Portfolio is planned"
+    title={m.shell_planned_title({ page: m.nav_portfolio() })}
   />
 );
 

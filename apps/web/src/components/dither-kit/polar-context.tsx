@@ -241,7 +241,12 @@ export function usePolarController({
       const names = pie.map((s) => s.name);
       return {
         focusDataKey,
-        heading: (i) => pie[i]?.name ?? null,
+        // Divergence from upstream: `nameKey` carries a slug, so the heading
+        // resolves through `config` for the translated label, as its siblings do.
+        heading: (i) => {
+          const s = pie[i];
+          return s ? (config[s.name]?.label ?? s.name) : null;
+        },
         hoverIndex,
         itemsAt: (i) => {
           const s = pie[i];

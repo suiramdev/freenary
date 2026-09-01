@@ -14,6 +14,8 @@ import { OnboardingStepHeader } from "@/components/onboarding/onboarding-step-he
 import { SearchInput } from "@/components/shared/search-input";
 import { GITHUB_REPO_URL } from "@/lib/constants";
 import { filterCountries } from "@/lib/onboarding/countries";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 interface CountrySelectionStepProps {
   isCompleting: boolean;
@@ -29,18 +31,24 @@ export const CountrySelectionStep = ({
   selected,
 }: CountrySelectionStepProps) => {
   const [search, setSearch] = useState("");
+  const locale = getLocale();
 
-  const filtered = useMemo(() => filterCountries(search), [search]);
+  // Country names are CLDR names in the reader's language, so the list is
+  // rebuilt — and re-sorted — when the locale changes, not only the search.
+  const filtered = useMemo(
+    () => filterCountries(search, locale),
+    [search, locale]
+  );
 
   return (
     <div className="flex flex-col gap-6">
       <OnboardingStepHeader
-        description="Select your country to personalize your experience."
-        title="Where are you based?"
+        description={m.onboarding_country_description()}
+        title={m.onboarding_country_title()}
       />
       <SearchInput
         onChange={setSearch}
-        placeholder="Search countries..."
+        placeholder={m.onboarding_country_search_placeholder()}
         value={search}
       />
       {filtered.length === 0 ? (
@@ -49,7 +57,7 @@ export const CountrySelectionStep = ({
             <EmptyMedia variant="icon">
               <GlobeHemisphereWestIcon />
             </EmptyMedia>
-            <EmptyTitle>No countries match your search</EmptyTitle>
+            <EmptyTitle>{m.onboarding_country_empty()}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -65,14 +73,14 @@ export const CountrySelectionStep = ({
         </div>
       )}
       <p className="text-muted-foreground text-center text-xs">
-        Want to add support for your country?{" "}
+        {m.onboarding_contribute_prompt()}{" "}
         <a
           className="text-primary underline underline-offset-2"
           href={GITHUB_REPO_URL}
           rel="noopener noreferrer"
           target="_blank"
         >
-          Contribute here
+          {m.onboarding_contribute_link()}
         </a>
       </p>
       <div className="flex justify-end">
@@ -81,7 +89,7 @@ export const CountrySelectionStep = ({
           onClick={onContinue}
           type="button"
         >
-          Continue
+          {m.onboarding_continue()}
           {isCompleting ? (
             <Spinner data-icon="inline-end" />
           ) : (

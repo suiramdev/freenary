@@ -16,6 +16,8 @@ import type {
 } from "@/hooks/bank/use-bank-connections";
 import { useBankConnections } from "@/hooks/bank/use-bank-connections";
 import { buildBankRows } from "@/lib/bank/bank-rows";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 interface BankConnectionPanelProps {
   banks: BankInstitution[];
@@ -36,6 +38,7 @@ export const BankConnectionPanel = ({
   returnTo,
 }: BankConnectionPanelProps) => {
   const [search, setSearch] = useState("");
+  const locale = getLocale();
   const {
     connect,
     connecting,
@@ -47,8 +50,8 @@ export const BankConnectionPanel = ({
   } = useBankConnections({ returnTo });
 
   const rows = useMemo(
-    () => buildBankRows(banks, connections),
-    [banks, connections]
+    () => buildBankRows(banks, connections, locale),
+    [banks, connections, locale]
   );
 
   const filtered = useMemo(() => {
@@ -72,8 +75,10 @@ export const BankConnectionPanel = ({
           <EmptyMedia variant="icon">
             <WarningCircleIcon />
           </EmptyMedia>
-          <EmptyTitle>Could not load your banks</EmptyTitle>
-          <EmptyDescription>Reload the page to try again.</EmptyDescription>
+          <EmptyTitle>{m.bank_connections_error_title()}</EmptyTitle>
+          <EmptyDescription>
+            {m.bank_error_retry_description()}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -83,7 +88,7 @@ export const BankConnectionPanel = ({
     <div className="flex flex-col gap-2.5">
       <SearchInput
         onChange={setSearch}
-        placeholder="Search banks..."
+        placeholder={m.bank_search_placeholder()}
         value={search}
       />
       <BankList

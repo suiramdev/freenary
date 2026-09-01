@@ -19,6 +19,8 @@ import { TransactionDetailRow } from "@/components/budget/transaction-detail-row
 import { useTransactionCategory } from "@/hooks/budget/use-transaction-category";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { Transaction } from "@/lib/budget/transaction";
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 
 /** Split out so the drawer root can stay mounted with no transaction selected. */
 const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
@@ -26,25 +28,28 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
 
   const isIncoming = transaction.amount > 0;
   const isOverridden = transaction.category !== transaction.derivedCategory;
-  const displayDate = new Date(transaction.date).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "long",
-    weekday: "short",
-    year: "numeric",
-  });
+  const displayDate = new Date(transaction.date).toLocaleDateString(
+    getLocale(),
+    {
+      day: "numeric",
+      month: "long",
+      weekday: "short",
+      year: "numeric",
+    }
+  );
 
   return (
     <>
       <DrawerHeader>
-        <DrawerTitle>Transaction details</DrawerTitle>
+        <DrawerTitle>{m.budget_detail_title()}</DrawerTitle>
         <DrawerDescription className="sr-only">
-          View and edit transaction details
+          {m.budget_detail_sr_description()}
         </DrawerDescription>
         <DrawerClose
           render={<Button variant="ghost" className="absolute top-4 right-4" />}
         >
           <XIcon />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{m.budget_detail_close()}</span>
         </DrawerClose>
       </DrawerHeader>
 
@@ -76,18 +81,24 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
         <Separator />
 
         <ul className="flex flex-col gap-2.5">
-          <TransactionDetailRow icon={<CalendarIcon />} label="Date">
+          <TransactionDetailRow
+            icon={<CalendarIcon />}
+            label={m.budget_detail_date_label()}
+          >
             <span className="text-sm">{displayDate}</span>
           </TransactionDetailRow>
 
           {transaction.counterpartyName && transaction.description ? (
-            <TransactionDetailRow icon={<TagIcon />} label="Description">
+            <TransactionDetailRow
+              icon={<TagIcon />}
+              label={m.budget_detail_description_label()}
+            >
               <span className="text-sm">{transaction.description}</span>
             </TransactionDetailRow>
           ) : null}
 
           <TransactionDetailRow
-            label="Category"
+            label={m.budget_detail_category_label()}
             media={
               <CategoryIcon
                 {...predefinedCategoryAppearance(transaction.category)}

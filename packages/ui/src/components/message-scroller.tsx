@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@freenary/ui/components/button";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { cn } from "@freenary/ui/lib/utils";
 import { ArrowDown } from "@phosphor-icons/react";
 import {
@@ -90,6 +91,8 @@ function MessageScrollerButton({
   ...props
 }: React.ComponentProps<typeof MessageScrollerPrimitive.Button> &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+  const labels = useUiLabels();
+
   return (
     <MessageScrollerPrimitive.Button
       data-slot="message-scroller-button"
@@ -108,7 +111,7 @@ function MessageScrollerButton({
         <>
           <ArrowDown />
           <span className="sr-only">
-            {direction === "end" ? "Scroll to end" : "Scroll to start"}
+            {direction === "end" ? labels.scrollToEnd : labels.scrollToStart}
           </span>
         </>
       )}

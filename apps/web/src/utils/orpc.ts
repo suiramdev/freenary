@@ -8,15 +8,18 @@ import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { getServerUrl } from "@/lib/server-url";
+import { m } from "@/paraglide/messages.js";
 
 export const createQueryClient = () =>
   new QueryClient({
     defaultOptions: { queries: { staleTime: 60 * 1000 } },
     queryCache: new QueryCache({
       onError: (error, query) => {
-        toast.error(`Error: ${error.message}`, {
+        // `error.message` stays as the server sent it; only the framing is ours
+        // to translate.
+        toast.error(m.query_error({ reason: error.message }), {
           action: {
-            label: "retry",
+            label: m.query_error_retry(),
             onClick: () => {
               query.invalidate();
             },

@@ -3,6 +3,7 @@ import { Button } from "@freenary/ui/components/button";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 
 import { SpendingCategorySelect } from "@/components/budget/spending-category-select";
+import { m } from "@/paraglide/messages.js";
 
 export const TransactionCategoryPicker = ({
   category,
@@ -29,7 +30,7 @@ export const TransactionCategoryPicker = ({
     {isOverridden ? (
       <Button onClick={onReset} variant="ghost">
         <ArrowCounterClockwiseIcon />
-        <span className="sr-only">Reset to auto-detected category</span>
+        <span className="sr-only">{m.budget_category_reset()}</span>
       </Button>
     ) : null}
   </div>

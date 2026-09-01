@@ -1,3 +1,4 @@
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
@@ -6,6 +7,18 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [
+    // Locale lives in a cookie, not the URL: every route here is behind auth,
+    // so localized paths would buy no SEO and cost a router rewrite.
+    paraglideVitePlugin({
+      cookieName: "PARAGLIDE_LOCALE",
+      // Declarations keep the generated JS typed without relaxing the project
+      // to `allowJs`.
+      emitTsDeclarations: true,
+      outdir: "./src/paraglide",
+      outputStructure: "message-modules",
+      project: "./project.inlang",
+      strategy: ["cookie", "preferredLanguage", "baseLocale"],
+    }),
     tailwindcss(),
     tanstackStart(),
     nitro({ preset: "bun" }),

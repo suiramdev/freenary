@@ -36,7 +36,8 @@ describe("buildBankRows", () => {
   test("connected banks come first and carry their connection", () => {
     const rows = buildBankRows(
       [institution("alpha"), institution("beta"), institution("gamma")],
-      [connection("beta")]
+      [connection("beta")],
+      "en"
     );
 
     expect(rows.map((row) => row.name)).toEqual(["beta", "alpha", "gamma"]);
@@ -45,7 +46,11 @@ describe("buildBankRows", () => {
   });
 
   test("a connected institution is never offered twice", () => {
-    const rows = buildBankRows([institution("alpha")], [connection("alpha")]);
+    const rows = buildBankRows(
+      [institution("alpha")],
+      [connection("alpha")],
+      "en"
+    );
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.connection?.id).toBe("alpha");
@@ -54,7 +59,8 @@ describe("buildBankRows", () => {
   test("a connection the provider no longer lists keeps a row", () => {
     const rows = buildBankRows(
       [institution("alpha")],
-      [connection("delisted", { institutionName: "Delisted Bank" })]
+      [connection("delisted", { institutionName: "Delisted Bank" })],
+      "en"
     );
 
     expect(rows.map((row) => row.name)).toEqual(["Delisted Bank", "alpha"]);
@@ -64,7 +70,13 @@ describe("buildBankRows", () => {
   test("a connection without an institution id keeps a row", () => {
     const rows = buildBankRows(
       [institution("alpha")],
-      [connection("legacy", { institutionId: null, institutionName: "Legacy" })]
+      [
+        connection("legacy", {
+          institutionId: null,
+          institutionName: "Legacy",
+        }),
+      ],
+      "en"
     );
 
     expect(rows.map((row) => row.name)).toEqual(["Legacy", "alpha"]);
@@ -80,7 +92,8 @@ describe("buildBankRows", () => {
             { iban: null, id: "two", name: null },
           ],
         }),
-      ]
+      ],
+      "en"
     );
 
     expect(rows[0]?.description).toBe("2 accounts · Not synced yet");
@@ -90,7 +103,8 @@ describe("buildBankRows", () => {
   test("a connection that stopped importing says so", () => {
     const rows = buildBankRows(
       [institution("alpha")],
-      [connection("alpha", { status: "EXPIRED" })]
+      [connection("alpha", { status: "EXPIRED" })],
+      "en"
     );
 
     expect(rows[0]?.description).toBe(

@@ -8,7 +8,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { useUnsavedChangesWarning } from "@/hooks/shared/use-unsaved-changes-warning";
 import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 export interface EditorLine {
@@ -38,23 +40,29 @@ const DEFAULT_CATEGORY_KEY = {
   REVENUE: "salary",
 } satisfies Record<BudgetLineKind, string>;
 
-/** Mirrors saveBudgetProfile's line schema so the row error matches the server's rule. */
+/**
+ * Mirrors saveBudgetProfile's line schema so the row error matches the
+ * server's rule. The messages are thunks: resolved at parse time, they follow
+ * the request's locale instead of the one that first loaded this module.
+ */
 const lineSchema = z.object({
   amount: z
-    .number({ error: "Enter a positive amount" })
-    .int("Enter a positive amount")
-    .min(0, "Enter a positive amount")
-    .max(MAX_AMOUNT_MINOR_UNITS, "Amount is too large"),
-  categoryKey: z.string().min(1, "Pick a category"),
+    .number({ error: () => m.settings_line_error_amount() })
+    .int({ error: () => m.settings_line_error_amount() })
+    .min(0, { error: () => m.settings_line_error_amount() })
+    .max(MAX_AMOUNT_MINOR_UNITS, {
+      error: () => m.settings_line_error_amount_too_large(),
+    }),
+  categoryKey: z.string().min(1, { error: () => m.settings_category_pick() }),
   kind: z.enum(["INVESTMENT", "OUTGOING", "REVENUE"]),
   label: z
     .string()
     .trim()
-    .min(1, "Name is required")
-    .max(
-      MAX_BUDGET_LINE_LABEL_LENGTH,
-      `Name must be at most ${MAX_BUDGET_LINE_LABEL_LENGTH} characters`
-    ),
+    .min(1, { error: () => m.settings_error_name_required() })
+    .max(MAX_BUDGET_LINE_LABEL_LENGTH, {
+      error: () =>
+        m.settings_error_name_too_long({ max: MAX_BUDGET_LINE_LABEL_LENGTH }),
+    }),
 });
 
 /** Minor units for a typed amount; NaN when the text is not a usable number. */
@@ -119,6 +127,8 @@ export const useBudgetProfileEditor = (
     setLines(toEditorLines(serverLines ?? []));
   }
 
+  useUnsavedChangesWarning(isDirty);
+
   const errors = useMemo(() => {
     const knownKeys = new Set(categories.map((entry) => entry.key));
     const found = new Map<string, string>();
@@ -128,7 +138,7 @@ export const useBudgetProfileEditor = (
       // server would reject, so surface it here instead of on save.
       const message = knownKeys.has(line.categoryKey)
         ? parsed.error?.issues[0]?.message
-        : "Pick a category";
+        : m.settings_category_pick();
       if (message) {
         found.set(line.id, message);
       }
@@ -167,7 +177,7 @@ export const useBudgetProfileEditor = (
     mutationFn: (submitted: EditorLine[]) =>
       client.settings.saveBudgetProfile({ lines: submitted.map(toPayload) }),
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to save budgeting profile");
+      toast.error(error.message || m.settings_budgeting_save_error());
     },
     onMutate: () => ({ editCount: editCount.current }),
     onSuccess: async (_result, _submitted, saved) => {
@@ -185,7 +195,7 @@ export const useBudgetProfileEditor = (
           queryKey: orpc.settings.listCategories.queryOptions().queryKey,
         }),
       ]);
-      toast.success("Budgeting profile saved");
+      toast.success(m.settings_budgeting_save_success());
     },
   });
 

@@ -15,10 +15,8 @@ import {
 import { protectedProcedure } from "../index";
 import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
-  CATEGORY_GROUP_LABELS,
   CATEGORY_GROUP_OF,
   CATEGORY_GROUPS,
-  CATEGORY_LABELS,
   SPENDING_CATEGORIES,
   categoriesInGroup,
 } from "../lib/taxonomy";
@@ -609,7 +607,7 @@ export const budgetRouter = {
       // must add up to the node itself — a median of medians would not.
       const byGroup = new Map<
         CategoryGroup,
-        { category: SpendingCategory; label: string; value: number }[]
+        { category: SpendingCategory; value: number }[]
       >();
       for (const [category, value] of expenseCategories) {
         if (value <= 0) {
@@ -617,7 +615,7 @@ export const budgetRouter = {
         }
         const group = CATEGORY_GROUP_OF[category];
         const leaves = byGroup.get(group);
-        const leaf = { category, label: CATEGORY_LABELS[category], value };
+        const leaf = { category, value };
         if (leaves) {
           leaves.push(leaf);
         } else {
@@ -635,7 +633,6 @@ export const budgetRouter = {
           return {
             categories,
             group,
-            label: CATEGORY_GROUP_LABELS[group],
             value: categories.reduce((sum, leaf) => sum + leaf.value, 0),
           };
         }
@@ -726,7 +723,6 @@ export const budgetRouter = {
         .map(([group, amount]) => ({
           amount,
           group,
-          label: CATEGORY_GROUP_LABELS[group],
         }))
         .toSorted((a, b) => b.amount - a.amount);
 
