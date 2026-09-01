@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The stage order in section 1 is amended by [ADR-003](003-deterministic-first-categorisation.md): the deterministic layers run before the classifier, and the MCC lookup is part of them.
 
 ## Context
 

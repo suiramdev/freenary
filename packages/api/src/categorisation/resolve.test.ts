@@ -46,18 +46,30 @@ describe("categoriseTransaction", () => {
   });
 
   describe("empty merchant key", () => {
-    it("returns unknown for empty merchant key", async () => {
+    it("returns unknown when nothing else carries a signal", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
         merchantKey: "",
+        normalisedDescriptor: "unknown merchant xyz abc",
       });
       expect(result.stage).toBe("none");
       expect(result.band).toBe("unknown");
       expect(result.category).toBeNull();
     });
+
+    it("still runs the deterministic layer without a merchant key", async () => {
+      const result = await categoriseTransaction({
+        ...baseInput,
+        merchantCategoryCode: "5411",
+        merchantKey: "",
+        normalisedDescriptor: "",
+      });
+      expect(result.stage).toBe("mcc");
+      expect(result.category).toBe("groceries");
+    });
   });
 
-  describe("MCC fallback", () => {
+  describe("deterministic layer", () => {
     it("uses MCC when no earlier stage matches", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
@@ -69,7 +81,20 @@ describe("categoriseTransaction", () => {
       // Should reach MCC stage (5411 = grocery stores)
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("groceries");
-      expect(result.band).toBe("suggest");
+      expect(result.band).toBe("auto");
+    });
+
+    it("uses this country's rules when no code is reported", async () => {
+      const result = await categoriseTransaction({
+        ...baseInput,
+        bankTransactionCode: "PRLV LOYER",
+        country: "FR",
+        merchantKey: "unknown-merchant-xyz-abc",
+        normalisedDescriptor: "unknown-merchant-xyz-abc",
+      });
+      expect(result.stage).toBe("rules");
+      expect(result.category).toBe("rent");
+      expect(result.band).toBe("auto");
     });
 
     it("uses accommodation for MCC in the 3500-3999 range", async () => {
