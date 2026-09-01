@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import { createGunzip } from "node:zlib";
 
 import { resolveCategorySlug } from "../lib/taxonomy";
+import { isInCountryScope } from "./merchant-scope";
 import type { DictionaryEntry } from "./types";
 import { isVerificationConfigured, verifySignature } from "./verify";
 
@@ -17,21 +18,45 @@ interface DictionaryMerchant {
   domains: string[];
   source: string;
   aliases: { alias: string; normalisedAlias: string }[];
+  /** Absent in artifacts built before geographic scope was captured. */
+  countries?: string[];
 }
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../data");
+// `src/categorisation` -> the package's own `data/`, where the build script writes.
+const DATA_DIR = path.resolve(import.meta.dirname, "../../data");
 const DATA_PATH = path.resolve(DATA_DIR, "merchants.jsonl.gz");
 
-const countryDataPath = (country: string): string =>
-  path.resolve(DATA_DIR, `merchants-${country.toUpperCase()}.jsonl.gz`);
-
 let dictionary: Map<string, DictionaryEntry> | null = null;
+/** Countries the loaded map was filtered to; `null` means unfiltered. */
+let loadedScope: Set<string> | null = null;
 let loadingPromise: Promise<void> | null = null;
 let refCount = 0;
 
+/**
+ * Whether the map already in memory answers for every country in `wanted`.
+ * Batches share one module-global map, so a narrower load must never satisfy a
+ * wider caller: two concurrent batches in different countries would otherwise
+ * silently inherit whichever filter loaded first.
+ */
+const loadedScopeCovers = (wanted: Set<string> | null): boolean => {
+  if (loadedScope === null) {
+    return true;
+  }
+  if (wanted === null) {
+    return false;
+  }
+  for (const country of wanted) {
+    if (!loadedScope.has(country)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const buildDictionaryFromFile = async (
   filePath: string,
-  target: Map<string, DictionaryEntry>
+  target: Map<string, DictionaryEntry>,
+  wanted: Set<string> | null
 ): Promise<Map<string, DictionaryEntry>> => {
   if (!existsSync(filePath)) {
     console.warn(
@@ -77,6 +102,9 @@ const buildDictionaryFromFile = async (
       if (merchant.category === null || merchant.category === undefined) {
         continue;
       }
+      if (!isInCountryScope(merchant.countries, wanted)) {
+        continue;
+      }
       // A dictionary artifact built before the hierarchy still spells its
       // categories the old way, so decode instead of rejecting the entry.
       const category = resolveCategorySlug(merchant.category);
@@ -104,69 +132,61 @@ const buildDictionaryFromFile = async (
   return target;
 };
 
-const ensureLoaded = async (): Promise<void> => {
-  if (dictionary) {
+/**
+ * Loads, or widens, the shared map until it covers `wanted`. Widening only ever
+ * adds entries, so a batch already reading the previous map stays correct.
+ */
+const ensureLoaded = async (wanted: Set<string> | null): Promise<void> => {
+  if (dictionary && loadedScopeCovers(wanted)) {
     return;
   }
 
-  if (!loadingPromise) {
-    loadingPromise = (async () => {
-      dictionary = await buildDictionaryFromFile(DATA_PATH, new Map());
-      loadingPromise = null;
-    })();
-  }
+  // Queue behind any in-flight load rather than racing it: that load may be
+  // narrower than this caller needs, so re-test once it settles and only then
+  // decide whether to widen. Published before being awaited so a concurrent
+  // caller queues behind this one in turn.
+  const inFlight = loadingPromise;
+  loadingPromise = (async () => {
+    if (inFlight) {
+      try {
+        await inFlight;
+      } catch {
+        // A failed load must not cascade to the next caller.
+      }
+    }
+
+    if (dictionary && loadedScopeCovers(wanted)) {
+      return;
+    }
+
+    // Either nothing is loaded yet (`loadedScope` still null) or the loaded
+    // scope is too narrow, so widen over whatever it holds.
+    const target =
+      wanted === null ? null : new Set([...(loadedScope ?? []), ...wanted]);
+    dictionary = await buildDictionaryFromFile(DATA_PATH, new Map(), target);
+    loadedScope = target;
+  })();
 
   await loadingPromise;
 };
 
-// Existing shard paths, yielded lazily in the caller's country order.
-const existingShardPaths = async function* existingShardPaths(
-  countries: string[]
-): AsyncGenerator<string, void, void> {
-  for (const country of countries) {
-    const filePath = countryDataPath(country);
-    if (existsSync(filePath)) {
-      yield filePath;
-    }
-  }
-};
-
-const ensureLoadedForCountries = async (countries: string[]): Promise<void> => {
-  if (dictionary) {
-    return;
-  }
-
-  const map = new Map<string, DictionaryEntry>();
-  let anyCountryFileFound = false;
-
-  // Shards must merge one at a time: aliases are first-wins, so concurrent merges
-  // into the shared map would let stream interleaving decide the winner.
-  for await (const filePath of existingShardPaths(countries)) {
-    await buildDictionaryFromFile(filePath, map);
-    anyCountryFileFound = true;
-  }
-
-  // Fall back to global file if no country-specific files were found
-  if (!anyCountryFileFound) {
-    await buildDictionaryFromFile(DATA_PATH, map);
-  }
-
-  dictionary = map;
-};
-
-/** Eagerly load the dictionary into memory. Call once at batch start. */
+/**
+ * Eagerly load the dictionary into memory. Call once at batch start. Passing
+ * countries keeps only merchants scoped to them, plus every unscoped worldwide
+ * brand; omitting them loads the whole artifact.
+ */
 export const loadDictionary = async (countries?: string[]): Promise<void> => {
   refCount += 1;
-  if (refCount > 1 && dictionary) {
-    return;
-  }
+  const wanted =
+    countries && countries.length > 0
+      ? new Set(countries.map((c) => c.toUpperCase()))
+      : null;
   try {
-    await (countries && countries.length > 0
-      ? ensureLoadedForCountries(countries)
-      : ensureLoaded());
+    await ensureLoaded(wanted);
   } catch {
     // Never throw — treat as empty dictionary
     dictionary = new Map();
+    loadedScope = null;
     loadingPromise = null;
   }
 };
@@ -176,7 +196,11 @@ export const lookupDictionary = async (
   merchantKey: string
 ): Promise<DictionaryEntry | null> => {
   try {
-    await ensureLoaded();
+    if (!dictionary) {
+      // Outside a batch there is no country scope, so load everything rather
+      // than risk a false miss. Inside one, use the scope the batch loaded.
+      await ensureLoaded(null);
+    }
     return dictionary?.get(merchantKey) ?? null;
   } catch {
     // Never throw — miss is acceptable
@@ -189,6 +213,7 @@ export const unloadDictionary = (): void => {
   refCount = Math.max(0, refCount - 1);
   if (refCount === 0) {
     dictionary = null;
+    loadedScope = null;
     loadingPromise = null;
   }
 };

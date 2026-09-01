@@ -28,11 +28,14 @@ jobs:
 
       - run: bun install --frozen-lockfile --ignore-scripts
 
+      # Restore and save are split so a run that dies mid-pass still publishes
+      # what it fetched: `actions/cache` skips its save on a cancelled job, which
+      # is why every SIRENE lookup was repeated from scratch on the next run.
       - name: Restore SIRENE API cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: packages/api/.cache/sirene
-          key: sirene-${{ hashFiles('packages/api/scripts/lib/sirene-client.ts') }}
+          key: sirene-${{ github.run_id }}
           restore-keys: sirene-
 
       - name: Generate independent data (parallel)
@@ -46,13 +49,19 @@ jobs:
         run: bun scripts/build-merchant-dictionary.ts
         working-directory: packages/api
 
+      - name: Save SIRENE API cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: packages/api/.cache/sirene
+          key: sirene-${{ github.run_id }}
+
       - name: Create release tarball
         run: |
           cd packages/api
           tar -czf /tmp/merchant-data.tar.gz \
             data/place-tokens.json \
             data/merchants.jsonl.gz \
-            $(ls data/merchants-*.jsonl.gz 2>/dev/null) \
             $([ -f data/wikidata-brands.json ] && echo data/wikidata-brands.json || true)
 
       - name: Publish release

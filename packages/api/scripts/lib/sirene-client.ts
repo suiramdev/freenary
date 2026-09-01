@@ -3,6 +3,8 @@
  *  - Slot-claiming rate limiter (7 req/s, the documented limit)
  *  - Bounded concurrency (5 in-flight requests)
  *  - Disk cache keyed by normalised query string
+ *  - A wall-clock budget and a failure circuit breaker, so a throttled or
+ *    blackholing endpoint degrades the result instead of hanging the caller
  *
  * Used by both fetch-wikidata-brands.ts and build-merchant-dictionary.ts.
  */
@@ -21,6 +23,41 @@ const MIN_INTERVAL_MS = Math.ceil(1000 / 7);
 
 /** Max concurrent in-flight HTTP requests. */
 const MAX_CONCURRENCY = 5;
+
+/** Per-request ceiling; measured p95 is under 250ms, so this only trips on stalls. */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+const TOO_MANY_REQUESTS = 429;
+
+/** Backoff applied to every worker when the API throttles without Retry-After. */
+const THROTTLE_BACKOFF_MS = 2000;
+
+/**
+ * Ceiling on a server-supplied Retry-After. A worker already inside `claimSlot`
+ * is past the batch deadline check, so an unclamped delay would park all five
+ * of them and blow the caller's wall-clock budget.
+ */
+const MAX_THROTTLE_BACKOFF_MS = 30_000;
+
+/**
+ * Parses a `Retry-After` delay in seconds. An absent header is `null`, which
+ * `Number` would read as a zero-length backoff, so the fallback is explicit.
+ */
+const throttleBackoffMs = (retryAfter: string | null): number => {
+  const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
+  if (!(Number.isFinite(seconds) && seconds > 0)) {
+    return THROTTLE_BACKOFF_MS;
+  }
+  return Math.min(seconds * 1000, MAX_THROTTLE_BACKOFF_MS);
+};
+
+/**
+ * Consecutive request failures that mean the endpoint has stopped answering
+ * this host rather than choking on one query. Shared runner egress IPs get
+ * throttled into silence, and 5 workers × a 10s timeout each grinds at
+ * 0.5 req/s — slower than useless, so the batch stops instead.
+ */
+const FAILURE_STREAK_LIMIT = 25;
 
 /** Disk cache directory (gitignored). */
 const CACHE_DIR = path.resolve(import.meta.dirname, "../../.cache/sirene");
@@ -107,6 +144,27 @@ interface IndexedResult<T> extends SireneResult<T> {
   idx: number;
 }
 
+interface SireneBatchOptions {
+  /** Wall-clock budget for the whole batch. Omit for no limit. */
+  budgetMs?: number;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/** Why the batch ended, so the caller can report partial enrichment honestly. */
+type SireneStopReason = "complete" | "budget" | "failures";
+
+interface SireneBatchOutcome<T> {
+  /** Only the queries that were actually answered, in input order. */
+  results: SireneResult<T>[];
+  stop: SireneStopReason;
+  /** Answered from the disk cache, costing no request. */
+  cached: number;
+  /** Requests that yielded no answer: non-2xx, timeout, or transport error. */
+  failed: number;
+  /** Queries never attempted because the batch ended early. */
+  skipped: number;
+}
+
 /**
  * Fetches SIRENE search results for many queries concurrently, respecting
  * the 7 req/s rate limit and caching every response to disk.
@@ -115,20 +173,33 @@ interface IndexedResult<T> extends SireneResult<T> {
  * time slot before awaiting, so concurrent workers naturally stagger even
  * when multiple resume in the same microtask batch.
  *
+ * The batch stops early on `budgetMs` or on a long failure streak, and reports
+ * which happened; a caller that needs every answer must check `stop`.
+ *
  * @param queries  The merchant names to search.
  * @param parse    Extracts a typed result from the response (return null to skip).
- * @param onProgress  Optional callback after each completed query.
+ * @param options  Wall-clock budget and progress callback.
  */
 const fetchSireneBatch = async <T>(
   queries: string[],
   parse: (data: SireneSearchResponse, query: string) => T | null,
-  onProgress?: (done: number, total: number) => void
-): Promise<SireneResult<T>[]> => {
+  options: SireneBatchOptions = {}
+): Promise<SireneBatchOutcome<T>> => {
   ensureCacheDir();
 
-  const results: SireneResult<T>[] = Array.from({ length: queries.length });
+  const { budgetMs, onProgress } = options;
+  const deadline =
+    budgetMs === undefined ? Number.POSITIVE_INFINITY : Date.now() + budgetMs;
+
+  const settled: (SireneResult<T> | undefined)[] = Array.from({
+    length: queries.length,
+  });
   let nextIndex = 0;
   let completed = 0;
+  let cached = 0;
+  let failed = 0;
+  let failureStreak = 0;
+  let stop: SireneStopReason = "complete";
 
   // Slot-claiming rate limiter: each worker bumps this before awaiting,
   // so even if multiple workers resume in the same tick they each get a
@@ -145,7 +216,9 @@ const fetchSireneBatch = async <T>(
     }
   };
 
-  const fetchOne = async (query: string): Promise<T | null> => {
+  const fetchOne = async (
+    query: string
+  ): Promise<{ answered: boolean; data: T | null }> => {
     // Claim a rate-limit slot (synchronously reserves, then awaits).
     await claimSlot();
 
@@ -153,41 +226,81 @@ const fetchSireneBatch = async <T>(
       const url = `${SIRENE_BASE}?q=${encodeURIComponent(query)}&page=1&per_page=1`;
       const res = await fetch(url, {
         headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
       if (!res.ok) {
-        return null;
+        // Being throttled means every in-flight worker is too fast, so push the
+        // shared slot clock rather than retrying this one query.
+        if (res.status === TOO_MANY_REQUESTS) {
+          nextSlotTime = Math.max(
+            nextSlotTime,
+            Date.now() + throttleBackoffMs(res.headers.get("retry-after"))
+          );
+        }
+        return { answered: false, data: null };
       }
 
       const body = await res.text();
       writeCache(query, body);
       const parsed = sireneSearchResponseSchema.safeParse(JSON.parse(body));
-      return parsed.success ? parse(parsed.data, query) : null;
+      return {
+        answered: true,
+        data: parsed.success ? parse(parsed.data, query) : null,
+      };
     } catch {
-      return null;
+      return { answered: false, data: null };
     }
   };
 
   const processQuery = async (
     idx: number,
     query: string
-  ): Promise<IndexedResult<T>> => {
-    const cached = readCache(query);
-    if (cached !== null) {
-      const data =
-        cached.response === null ? null : parse(cached.response, query);
+  ): Promise<IndexedResult<T> | null> => {
+    const hit = readCache(query);
+    if (hit !== null) {
+      cached += 1;
+      const data = hit.response === null ? null : parse(hit.response, query);
       return { data, idx, query };
     }
-    return { data: await fetchOne(query), idx, query };
+
+    const outcome = await fetchOne(query);
+    if (outcome.answered) {
+      failureStreak = 0;
+      return { data: outcome.data, idx, query };
+    }
+
+    failed += 1;
+    failureStreak += 1;
+    // Only worth reporting while queries remain: a failing tail of an otherwise
+    // complete batch stopped nothing. An in-flight failure must also not
+    // relabel a stop the deadline already caused.
+    if (
+      failureStreak >= FAILURE_STREAK_LIMIT &&
+      stop === "complete" &&
+      nextIndex < queries.length
+    ) {
+      stop = "failures";
+    }
+    // A failed request answered nothing; recording null would cache a miss the
+    // endpoint never confirmed.
+    return null;
   };
 
   // Claims queries lazily: the consumer awaits each yielded promise before
   // pulling the next, so a worker keeps exactly one request in flight.
   const claimQueries = function* claimQueries(): Generator<
-    Promise<IndexedResult<T>>
+    Promise<IndexedResult<T> | null>
   > {
     while (nextIndex < queries.length) {
+      if (stop === "failures") {
+        return;
+      }
+      if (Date.now() >= deadline) {
+        stop = "budget";
+        return;
+      }
+
       const idx = nextIndex;
       nextIndex += 1;
 
@@ -202,7 +315,9 @@ const fetchSireneBatch = async <T>(
 
   const runWorker = async (): Promise<void> => {
     for await (const outcome of claimQueries()) {
-      results[outcome.idx] = { data: outcome.data, query: outcome.query };
+      if (outcome !== null) {
+        settled[outcome.idx] = { data: outcome.data, query: outcome.query };
+      }
       completed += 1;
       onProgress?.(completed, queries.length);
     }
@@ -215,7 +330,22 @@ const fetchSireneBatch = async <T>(
   );
   await Promise.all(workers);
 
-  return results;
+  const results = settled.filter(
+    (entry): entry is SireneResult<T> => entry !== undefined
+  );
+
+  return {
+    cached,
+    failed,
+    results,
+    skipped: queries.length - completed,
+    stop,
+  };
 };
 
-export { fetchSireneBatch, type SireneResult, type SireneSearchResponse };
+export {
+  fetchSireneBatch,
+  type SireneBatchOutcome,
+  type SireneResult,
+  type SireneSearchResponse,
+};
