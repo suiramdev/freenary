@@ -10,6 +10,7 @@ import { BankIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { BankCard } from "@/components/bank/bank-card";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
 import type { BankRow } from "@/lib/bank/bank-rows";
+import { m } from "@/paraglide/messages.js";
 
 interface BankListProps {
   connecting: string | null;
@@ -37,7 +38,7 @@ export const BankList = ({
   if (isPending) {
     return (
       <div aria-busy="true" className="max-h-64 overflow-y-auto">
-        <output className="sr-only">Loading banks</output>
+        <output className="sr-only">{m.bank_list_loading()}</output>
         <div aria-hidden="true">
           <BankListSkeleton rows={4} />
         </div>
@@ -52,8 +53,10 @@ export const BankList = ({
           <EmptyMedia variant="icon">
             <WarningCircleIcon />
           </EmptyMedia>
-          <EmptyTitle>Could not load banks</EmptyTitle>
-          <EmptyDescription>Reload the page to try again.</EmptyDescription>
+          <EmptyTitle>{m.bank_list_error_title()}</EmptyTitle>
+          <EmptyDescription>
+            {m.bank_error_retry_description()}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -67,7 +70,9 @@ export const BankList = ({
             <BankIcon />
           </EmptyMedia>
           <EmptyTitle>
-            {hasSearch ? "No banks match your search" : "No banks available"}
+            {hasSearch
+              ? m.bank_list_empty_search_title()
+              : m.bank_list_empty_title()}
           </EmptyTitle>
         </EmptyHeader>
       </Empty>

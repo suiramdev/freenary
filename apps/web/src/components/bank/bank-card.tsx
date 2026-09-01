@@ -12,6 +12,7 @@ import { BankIcon } from "@phosphor-icons/react";
 
 import { DisconnectBankDialog } from "@/components/bank/disconnect-bank-dialog";
 import type { BankRow } from "@/lib/bank/bank-rows";
+import { m } from "@/paraglide/messages.js";
 
 interface BankCardProps {
   connecting: boolean;
@@ -63,7 +64,7 @@ export const BankCard = ({
           variant="secondary"
         >
           {connecting && <Spinner data-icon="inline-start" />}
-          Connect
+          {m.bank_connect()}
         </Button>
       )}
     </ItemActions>

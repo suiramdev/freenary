@@ -1,7 +1,6 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import {
   CATEGORY_GROUP_FALLBACKS,
-  CATEGORY_LABELS,
   isCategoryGroup,
 } from "@freenary/api/lib/taxonomy";
 import { Badge } from "@freenary/ui/components/badge";
@@ -21,6 +20,8 @@ import { CustomCategoryDrawer } from "@/components/settings/custom-category-draw
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useCustomCategoryActions } from "@/hooks/settings/use-custom-category-actions";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
+import { categoryEntryLabel, categoryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 /** `null` closes the drawer; `"new"` opens it empty; an entry opens it for editing. */
 type DrawerState = EditedCustomCategory | "new" | null;
@@ -45,8 +46,8 @@ interface CategoryTreeGroup {
  */
 const fallbackLabelOf = (groupKey: string) =>
   isCategoryGroup(groupKey)
-    ? CATEGORY_LABELS[CATEGORY_GROUP_FALLBACKS[groupKey]]
-    : CATEGORY_LABELS.uncategorised;
+    ? categoryLabel(CATEGORY_GROUP_FALLBACKS[groupKey])
+    : categoryLabel("uncategorised");
 
 /** Rebuilds the group → categories tree from the flat, ordered server list. */
 const toTree = (categories: CategoryEntry[]): CategoryTreeGroup[] => {
@@ -86,15 +87,15 @@ export const CategoriesSection = ({
           variant="outline"
         >
           <PlusIcon data-icon="inline-start" />
-          New category
+          {m.settings_category_new()}
         </Button>
       }
-      description="Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed."
-      title="Categories"
+      description={m.settings_categories_description()}
+      title={m.settings_categories_title()}
     >
       {isPending ? (
         <div aria-busy="true">
-          <output className="sr-only">Loading your categories</output>
+          <output className="sr-only">{m.settings_categories_loading()}</output>
           <Skeleton aria-hidden="true" className="h-[200px]" />
         </div>
       ) : (
@@ -108,7 +109,7 @@ export const CategoriesSection = ({
               <ul className="flex flex-col" key={group.key}>
                 <CategoryRow
                   entry={group}
-                  fallbackLabel={CATEGORY_LABELS.uncategorised}
+                  fallbackLabel={categoryLabel("uncategorised")}
                   isDeleting={isDeleting}
                   isMoving={isMoving}
                   onDelete={deleteCategory}
@@ -135,7 +136,7 @@ export const CategoriesSection = ({
                     icon={group.icon}
                   />
                   <span className="flex-1 truncate text-sm font-medium">
-                    {group.label}
+                    {categoryEntryLabel(group)}
                   </span>
                   <Badge variant="secondary">{children.length}</Badge>
                 </CollapsibleTrigger>

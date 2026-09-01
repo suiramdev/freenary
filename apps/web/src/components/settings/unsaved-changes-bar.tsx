@@ -3,6 +3,8 @@ import { Card, CardContent } from "@freenary/ui/components/card";
 import { Spinner } from "@freenary/ui/components/spinner";
 import { AnimatePresence, motion } from "motion/react";
 
+import { m } from "@/paraglide/messages.js";
+
 interface UnsavedChangesBarProps {
   changeCount: number;
   hasErrors: boolean;
@@ -38,14 +40,14 @@ export const UnsavedChangesBar = ({
         <Card className="shadow-md" size="sm">
           <CardContent className="flex items-center gap-3">
             <span className="text-muted-foreground text-xs font-medium">
-              {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
+              {m.settings_unsaved_change({ count: changeCount })}
             </span>
             <Button disabled={isSaving} onClick={onCancel} variant="ghost">
-              Cancel
+              {m.settings_cancel()}
             </Button>
             <Button disabled={isSaving || hasErrors} onClick={onSave}>
               {isSaving && <Spinner data-icon="inline-start" />}
-              Save
+              {m.settings_save()}
             </Button>
           </CardContent>
         </Card>

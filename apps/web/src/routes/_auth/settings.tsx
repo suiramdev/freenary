@@ -19,6 +19,7 @@ import { CategoriesSection } from "@/components/settings/categories-section";
 import { UnsavedChangesBar } from "@/components/settings/unsaved-changes-bar";
 import { useBudgetProfileEditor } from "@/hooks/settings/use-budget-profile-editor";
 import type { ServerBudgetLine } from "@/hooks/settings/use-budget-profile-editor";
+import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
 interface SettingsContentProps {
@@ -86,7 +87,7 @@ const SettingsPage = () => {
           <EmptyMedia variant="icon">
             <WarningCircleIcon />
           </EmptyMedia>
-          <EmptyTitle>Could not load your settings</EmptyTitle>
+          <EmptyTitle>{m.settings_load_error_title()}</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
           <Button
@@ -98,7 +99,7 @@ const SettingsPage = () => {
             variant="outline"
           >
             {isRetrying && <Spinner data-icon="inline-start" />}
-            Try again
+            {m.settings_retry()}
           </Button>
         </EmptyContent>
       </Empty>

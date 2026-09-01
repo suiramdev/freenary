@@ -21,6 +21,7 @@ export default defineConfig({
     "tools/oxlint/anti-slop/**",
     "packages/ui/**",
     "apps/web/src/components/dither-kit/**",
+    "apps/web/src/paraglide/**",
   ],
   jsPlugins: [
     { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },

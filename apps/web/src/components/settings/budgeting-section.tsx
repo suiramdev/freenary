@@ -7,35 +7,38 @@ import { CustomCategoryDrawer } from "@/components/settings/custom-category-draw
 import { SettingsSection } from "@/components/settings/settings-section";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
 import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
+import { m } from "@/paraglide/messages.js";
 
+/**
+ * Message getters rather than strings: resolving them here would pin the
+ * locale of whichever request loaded the module first.
+ */
 interface GroupDefinition {
-  addLabel: string;
-  description: string;
+  addLabel: () => string;
+  description: () => string;
   kind: BudgetLineKind;
-  title: string;
+  title: () => string;
 }
 
 /** Ordered to walk the user through revenues → investments → outgoings. */
 const GROUPS: GroupDefinition[] = [
   {
-    addLabel: "Add revenue",
-    description:
-      "Everything that comes in each month, before anything is spent.",
+    addLabel: m.settings_budgeting_add_revenue,
+    description: m.settings_budgeting_revenues_description,
     kind: "REVENUE",
-    title: "Revenues",
+    title: m.settings_budgeting_revenues_title,
   },
   {
-    addLabel: "Add investment",
-    description: "What you set aside first — savings, stocks, life insurance.",
+    addLabel: m.settings_budgeting_add_investment,
+    description: m.settings_budgeting_investments_description,
     kind: "INVESTMENT",
-    title: "Investments",
+    title: m.settings_budgeting_investments_title,
   },
   {
-    addLabel: "Add outgoing",
-    description:
-      "Recurring costs of living: housing, groceries, subscriptions.",
+    addLabel: m.settings_budgeting_add_outgoing,
+    description: m.settings_budgeting_outgoings_description,
     kind: "OUTGOING",
-    title: "Outgoings",
+    title: m.settings_budgeting_outgoings_title,
   },
 ];
 
@@ -65,12 +68,12 @@ export const BudgetingSection = ({
 
   return (
     <SettingsSection
-      description="Declare where your money comes from and where it goes each month. The flow updates as you type."
-      title="Budgeting profile"
+      description={m.settings_budgeting_description()}
+      title={m.settings_budgeting_title()}
     >
       {isPending ? (
         <div aria-busy="true">
-          <output className="sr-only">Loading your budgeting profile</output>
+          <output className="sr-only">{m.settings_budgeting_loading()}</output>
           <Skeleton aria-hidden="true" className="h-[120px]" />
         </div>
       ) : (
@@ -78,10 +81,10 @@ export const BudgetingSection = ({
           const groupLines = lines.filter((line) => line.kind === group.kind);
           return (
             <BudgetLineGroup
-              addLabel={group.addLabel}
+              addLabel={group.addLabel()}
               categories={categories}
               defaultOpen={groupLines.length > 0 || index === 0}
-              description={group.description}
+              description={group.description()}
               errors={errors}
               key={group.kind}
               kind={group.kind}
@@ -91,7 +94,7 @@ export const BudgetingSection = ({
               onRemove={removeLine}
               onUpdate={updateLine}
               step={index + 1}
-              title={group.title}
+              title={group.title()}
             />
           );
         })

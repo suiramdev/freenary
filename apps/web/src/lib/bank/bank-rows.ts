@@ -2,6 +2,8 @@ import type {
   BankConnection,
   BankInstitution,
 } from "@/hooks/bank/use-bank-connections";
+import { m } from "@/paraglide/messages.js";
+import type { Locale } from "@/paraglide/runtime.js";
 
 /** One row of the bank list: an institution, a connection, or both. */
 export interface BankRow {
@@ -15,15 +17,20 @@ export interface BankRow {
 }
 
 /** What a connected row says beneath the bank name, most useful fact first. */
-const summaryOf = (connection: BankConnection): string => {
-  const accountCount = connection.accounts.length;
-  const accounts = `${accountCount} account${accountCount === 1 ? "" : "s"}`;
+const summaryOf = (connection: BankConnection, locale: Locale): string => {
+  const accounts = m.bank_account(
+    { count: connection.accounts.length },
+    { locale }
+  );
   if (connection.status !== "ACTIVE") {
-    return `${accounts} · Reconnect to resume importing`;
+    return m.bank_row_reconnect({ accounts }, { locale });
   }
   return connection.lastSyncedAt
-    ? `${accounts} · Synced ${connection.lastSyncedAt.toLocaleDateString()}`
-    : `${accounts} · Not synced yet`;
+    ? m.bank_row_synced(
+        { accounts, date: connection.lastSyncedAt.toLocaleDateString(locale) },
+        { locale }
+      )
+    : m.bank_row_never_synced({ accounts }, { locale });
 };
 
 /**
@@ -33,7 +40,8 @@ const summaryOf = (connection: BankConnection): string => {
  */
 export const buildBankRows = (
   banks: BankInstitution[],
-  connections: BankConnection[]
+  connections: BankConnection[],
+  locale: Locale
 ): BankRow[] => {
   const institutionsById = new Map(banks.map((bank) => [bank.id, bank]));
   const connectedIds = new Set(
@@ -48,7 +56,7 @@ export const buildBankRows = (
       : null;
     return {
       connection,
-      description: summaryOf(connection),
+      description: summaryOf(connection, locale),
       id: connection.id,
       institution,
       logo: institution?.logo ?? null,

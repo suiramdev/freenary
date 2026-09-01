@@ -1,8 +1,6 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import {
-  CATEGORY_GROUP_LABELS,
   CATEGORY_GROUPS,
-  CATEGORY_LABELS,
   categoriesInGroup,
   isSpendingCategory,
 } from "@freenary/api/lib/taxonomy";
@@ -18,6 +16,8 @@ import {
 } from "@freenary/ui/components/select";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 const NONE_VALUE = "none";
 
@@ -40,7 +40,7 @@ interface SpendingCategorySelectProps {
 export const SpendingCategorySelect = ({
   allowNone = false,
   id,
-  noneLabel = "None",
+  noneLabel = m.budget_category_none(),
   onValueChange,
   showTriggerIcon = true,
   value,
@@ -67,7 +67,7 @@ export const SpendingCategorySelect = ({
                   className="size-5 [&_svg]:size-3"
                 />
               )}
-              {CATEGORY_LABELS[selected]}
+              {categoryLabel(selected)}
             </>
           );
         }}
@@ -82,14 +82,14 @@ export const SpendingCategorySelect = ({
       )}
       {CATEGORY_GROUPS.map((group) => (
         <SelectGroup key={group}>
-          <SelectLabel>{CATEGORY_GROUP_LABELS[group]}</SelectLabel>
+          <SelectLabel>{categoryGroupLabel(group)}</SelectLabel>
           {categoriesInGroup(group).map((category) => (
             <SelectItem key={category} value={category}>
               <CategoryIcon
                 {...predefinedCategoryAppearance(category)}
                 className="size-5 [&_svg]:size-3"
               />
-              {CATEGORY_LABELS[category]}
+              {categoryLabel(category)}
             </SelectItem>
           ))}
         </SelectGroup>

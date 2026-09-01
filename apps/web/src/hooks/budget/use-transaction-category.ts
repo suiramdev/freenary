@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import type { Transaction } from "@/lib/budget/transaction";
+import { m } from "@/paraglide/messages.js";
 import { client } from "@/utils/orpc";
 
 const isBudgetQuery = ({ queryKey: [key] }: { queryKey: readonly unknown[] }) =>
@@ -53,7 +54,7 @@ export const useTransactionCategory = (transaction: Transaction) => {
       if (context) {
         patchCategory(context.txId, context.previousCategory);
       }
-      toast.error("Failed to update category");
+      toast.error(m.budget_category_update_error());
     },
     onMutate: async (newCategory) => {
       await queryClient.cancelQueries({ predicate: isBudgetQuery });

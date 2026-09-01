@@ -8,58 +8,69 @@ import {
   WalletIcon,
 } from "@phosphor-icons/react";
 
-/** The authenticated shell's navigation, and the source of each page's title. */
+import { m } from "@/paraglide/messages.js";
+
+/**
+ * The authenticated shell's navigation, and the source of each page's title.
+ *
+ * `label` holds the message function rather than its result: this array is
+ * built once per process, so an evaluated string would pin the first locale
+ * seen and serve it to every later render.
+ */
 export const NAV_ITEMS = [
   {
     icon: HouseIcon,
+    label: m.nav_home,
     planned: false,
     routeId: "/_auth/",
-    title: "Home",
     to: "/",
   },
   {
     icon: WalletIcon,
+    label: m.nav_portfolio,
     planned: true,
     routeId: "/_auth/portfolio",
-    title: "Portfolio",
     to: "/portfolio",
   },
   {
     icon: CurrencyCircleDollarIcon,
+    label: m.nav_budget,
     planned: false,
     routeId: "/_auth/budget",
-    title: "Budget",
     to: "/budget",
   },
   {
     icon: ChartBarIcon,
+    label: m.nav_analysis,
     planned: true,
     routeId: "/_auth/analysis",
-    title: "Analysis",
     to: "/analysis",
   },
   {
     icon: TargetIcon,
+    label: m.nav_goals,
     planned: true,
     routeId: "/_auth/goals",
-    title: "Goals",
     to: "/goals",
   },
   {
     icon: BrainIcon,
+    label: m.nav_ai,
     planned: true,
     routeId: "/_auth/ai",
-    title: "AI",
     to: "/ai",
   },
   {
     icon: GearIcon,
+    label: m.nav_settings,
     planned: false,
     routeId: "/_auth/settings",
-    title: "Settings",
     to: "/settings",
   },
 ] as const;
 
-export const navTitleOf = (routeId: string | undefined): string =>
-  NAV_ITEMS.find((item) => item.routeId === routeId)?.title ?? "Home";
+export const navTitleOf = (routeId: string | undefined): string => {
+  const label = NAV_ITEMS.find((item) => item.routeId === routeId)?.label;
+
+  return label ? label() : m.nav_home();
+};

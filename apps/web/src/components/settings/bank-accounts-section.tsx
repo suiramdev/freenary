@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { BankConnectionPanel } from "@/components/bank/bank-connection-panel";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
 /** Anchor the "connect a bank" prompts elsewhere in the app link to. */
@@ -47,7 +48,9 @@ export const BankAccountsSection = () => {
     if (availability.isPending) {
       return (
         <div aria-busy="true">
-          <output className="sr-only">Loading your bank accounts</output>
+          <output className="sr-only">
+            {m.settings_bank_accounts_loading()}
+          </output>
           <div aria-hidden="true">
             <BankListSkeleton rows={2} />
           </div>
@@ -64,8 +67,10 @@ export const BankAccountsSection = () => {
             <EmptyMedia variant="icon">
               <WarningCircleIcon />
             </EmptyMedia>
-            <EmptyTitle>Could not check bank linking</EmptyTitle>
-            <EmptyDescription>Reload the page to try again.</EmptyDescription>
+            <EmptyTitle>{m.settings_bank_check_error_title()}</EmptyTitle>
+            <EmptyDescription>
+              {m.settings_bank_check_error_description()}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       );
@@ -78,10 +83,9 @@ export const BankAccountsSection = () => {
             <EmptyMedia variant="icon">
               <PlugsIcon />
             </EmptyMedia>
-            <EmptyTitle>Bank linking is unavailable</EmptyTitle>
+            <EmptyTitle>{m.settings_bank_unavailable_title()}</EmptyTitle>
             <EmptyDescription>
-              This instance has no banking provider configured, so there is
-              nothing to link against yet.
+              {m.settings_bank_unavailable_description()}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -101,8 +105,8 @@ export const BankAccountsSection = () => {
   return (
     <div id={BANK_ACCOUNTS_ANCHOR} ref={sectionRef}>
       <SettingsSection
-        description="Connect the banks you want freenary to import transactions and balances from. Disconnecting removes a bank's imported data and asks it to revoke the access."
-        title="Bank accounts"
+        description={m.settings_bank_accounts_description()}
+        title={m.settings_bank_accounts_title()}
       >
         {renderPanel()}
       </SettingsSection>

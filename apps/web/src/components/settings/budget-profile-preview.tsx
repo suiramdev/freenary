@@ -24,15 +24,26 @@ import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { toBudgetProfileSankey } from "@/lib/settings/budget-profile-sankey";
 import type { BudgetProfileLine } from "@/lib/settings/budget-profile-sankey";
+import { categoryEntryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 /** Repainting the dithered canvas is per-pixel work, so typing settles first. */
 const PREVIEW_DELAY_MS = 200;
 
-const FALLBACK_GROUP: Pick<CategoryEntry, "color" | "key" | "label"> = {
+/**
+ * A getter, not a constant: resolving the label here would pin the locale.
+ * `isCustom` marks the label as already-translated copy, so `categoryEntryLabel`
+ * leaves it alone rather than reading `other` as the taxonomy group.
+ */
+const fallbackGroupOf = (): Pick<
+  CategoryEntry,
+  "color" | "isCustom" | "key" | "label"
+> => ({
   color: "grey",
+  isCustom: true,
   key: "other",
-  label: "Other",
-};
+  label: m.settings_category_other(),
+});
 
 interface BudgetProfilePreviewProps {
   categories: CategoryEntry[];
@@ -62,7 +73,7 @@ export const BudgetProfilePreview = ({
     const groupOf = (categoryKey: string) => {
       const entry = entryByKey.get(categoryKey);
       if (!entry) {
-        return FALLBACK_GROUP;
+        return fallbackGroupOf();
       }
       const parent = entry.parentKey
         ? entryByKey.get(entry.parentKey)
@@ -78,10 +89,10 @@ export const BudgetProfilePreview = ({
         amount: Number.isNaN(amount) ? 0 : amount,
         groupColor: group.color,
         groupKey: group.key,
-        groupLabel: group.label,
+        groupLabel: categoryEntryLabel(group),
         id: line.id,
         kind: line.kind,
-        label: line.label.trim() || "Untitled",
+        label: line.label.trim() || m.settings_line_untitled(),
       };
     });
   }, [categories, debouncedLines]);
@@ -108,10 +119,12 @@ export const BudgetProfilePreview = ({
     return (
       <Card aria-busy="true">
         <CardHeader>
-          <CardTitle>Budget Flow</CardTitle>
+          <CardTitle>{m.settings_budget_flow_title()}</CardTitle>
         </CardHeader>
         <CardContent>
-          <output className="sr-only">Loading budget flow</output>
+          <output className="sr-only">
+            {m.settings_budget_flow_loading()}
+          </output>
           <Skeleton aria-hidden="true" className="h-[200px]" />
         </CardContent>
       </Card>
@@ -127,9 +140,9 @@ export const BudgetProfilePreview = ({
               <EmptyMedia variant="icon">
                 <ChartDonutIcon />
               </EmptyMedia>
-              <EmptyTitle>No budget yet</EmptyTitle>
+              <EmptyTitle>{m.settings_budget_empty_title()}</EmptyTitle>
               <EmptyDescription>
-                Add a revenue below and the flow appears here as you type.
+                {m.settings_budget_empty_description()}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -141,13 +154,13 @@ export const BudgetProfilePreview = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Budget Flow</CardTitle>
+        <CardTitle>{m.settings_budget_flow_title()}</CardTitle>
       </CardHeader>
       <CardContent>
         <SankeyChart
           columns={flow.columns}
           formatValue={formatCurrency}
-          label="Budgeting profile from revenues through category groups to each planned line"
+          label={m.settings_budget_flow_chart_label()}
           links={flow.links}
         />
         <BudgetProfileSummary

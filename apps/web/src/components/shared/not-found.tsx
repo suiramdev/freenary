@@ -3,6 +3,7 @@ import { ArrowLeft } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
 import { ShaderBackground } from "@/components/shared/shader-background";
+import { m } from "@/paraglide/messages.js";
 
 export const NotFound = () => (
   <main className="bg-background relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 text-center">
@@ -20,16 +21,15 @@ export const NotFound = () => (
         404
       </p>
       <h1 className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-foreground text-2xl font-bold delay-75">
-        This page filed for bankruptcy
+        {m.shell_not_found_title()}
       </h1>
       <p className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-muted-foreground delay-100">
-        It listed zero assets, zero content, and frankly, zero chance of coming
-        back.
+        {m.shell_not_found_description()}
       </p>
       <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both mt-2 delay-150">
         <Button render={<Link to="/" />}>
           <ArrowLeft data-icon="inline-start" aria-hidden="true" />
-          Back to home
+          {m.shell_not_found_back_home()}
         </Button>
       </div>
     </div>

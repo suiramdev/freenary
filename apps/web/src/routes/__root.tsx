@@ -1,4 +1,5 @@
 import { Toaster } from "@freenary/ui/components/sonner";
+import { UiLabelsProvider } from "@freenary/ui/lib/labels";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -11,6 +12,8 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createMiddleware } from "@tanstack/react-start";
 import { evlogErrorHandler } from "evlog/nitro/v3";
 
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 import type { orpc } from "@/utils/orpc";
 
 import appCss from "../index.css?url";
@@ -20,13 +23,28 @@ export interface RouterAppContext {
   queryClient: QueryClient;
 }
 
+// The primitives in @freenary/ui carry their own accessible names for controls
+// with no visible text; this is where they learn the reader's language.
 const RootDocument = () => (
-  <html lang="en" className="dark">
+  <html lang={getLocale()} className="dark">
     <head>
       <HeadContent />
     </head>
     <body>
-      <Outlet />
+      <UiLabelsProvider
+        labels={{
+          close: m.ui_close(),
+          loading: m.ui_loading(),
+          more: m.ui_more(),
+          scrollToEnd: m.ui_scroll_to_end(),
+          scrollToStart: m.ui_scroll_to_start(),
+          sidebar: m.ui_sidebar(),
+          sidebarDescription: m.ui_sidebar_description(),
+          toggleSidebar: m.ui_toggle_sidebar(),
+        }}
+      >
+        <Outlet />
+      </UiLabelsProvider>
       <Toaster richColors />
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

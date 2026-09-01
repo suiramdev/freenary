@@ -5,11 +5,16 @@ import { BankConnectionStep } from "@/components/onboarding/bank-connection-step
 import { CountrySelectionStep } from "@/components/onboarding/country-selection-step";
 import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
 import { OnboardingWizardSkeleton } from "@/components/onboarding/onboarding-wizard-skeleton";
+import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { ShaderBackground } from "@/components/shared/shader-background";
 import type { BankInstitution } from "@/hooks/bank/use-bank-connections";
+import { m } from "@/paraglide/messages.js";
 
-const STEPS = ["Country", "Bank connection"] as const;
-const STEPS_WITHOUT_BANKING = ["Country"] as const;
+// Held as message functions, not strings: a module-level `m.x()` would freeze
+// the label in whichever locale rendered first, and on the server that locale
+// belongs to a single request.
+const STEPS = [m.onboarding_step_country, m.onboarding_step_bank] as const;
+const STEPS_WITHOUT_BANKING = [m.onboarding_step_country] as const;
 
 const STEP_SHIFT_PX = 16;
 const STEP_EASE = [0.23, 1, 0.32, 1] as const;
@@ -87,9 +92,10 @@ export const OnboardingWizard = ({
       <div aria-hidden="true" className="pointer-events-none fixed inset-0">
         <ShaderBackground />
       </div>
-      <div className="relative z-10 flex items-center justify-end px-4 py-3">
+      <div className="relative z-10 flex items-center justify-end gap-1 px-4 py-3">
+        <LocaleSwitcher />
         <Button onClick={onSignOut} type="button" variant="ghost">
-          Sign out
+          {m.account_sign_out()}
         </Button>
       </div>
 

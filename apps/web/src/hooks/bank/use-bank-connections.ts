@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { invalidateBudgetData } from "@/lib/budget/stale-queries";
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 export type BankConnection =
@@ -52,14 +53,21 @@ export const useBankConnections = ({
 
       if (!revocationRequested) {
         toast.warning(
-          `${institutionName} disconnected, but freenary could not ask your bank to revoke access. Revoke it from your bank to be sure.`
+          m.bank_disconnect_revoke_warning({ institution: institutionName })
+        );
+        return;
+      }
+      if (accountsRemoved === 0) {
+        toast.success(
+          m.bank_disconnect_success({ institution: institutionName })
         );
         return;
       }
       toast.success(
-        accountsRemoved === 0
-          ? `${institutionName} disconnected`
-          : `${institutionName} disconnected — ${accountsRemoved} account${accountsRemoved === 1 ? "" : "s"} removed`
+        m.bank_disconnect_success_accounts({
+          count: accountsRemoved,
+          institution: institutionName,
+        })
       );
     },
   });
@@ -83,7 +91,7 @@ export const useBankConnections = ({
       window.location.assign(result.url);
       return;
     }
-    toast.error(`Could not connect to ${bank.name}. Try again later.`);
+    toast.error(m.bank_connect_error({ institution: bank.name }));
     setConnecting(null);
   };
 

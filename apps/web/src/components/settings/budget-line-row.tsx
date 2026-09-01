@@ -11,6 +11,8 @@ import { TrashIcon } from "@phosphor-icons/react";
 
 import { CategoryPicker } from "@/components/settings/category-picker";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
+import { categoryEntryLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 interface BudgetLineRowProps {
   categories: CategoryEntry[];
@@ -29,12 +31,14 @@ export const BudgetLineRow = ({
   onRemove,
   onUpdate,
 }: BudgetLineRowProps) => {
-  const selectedLabel =
-    categories.find((entry) => entry.key === line.categoryKey)?.label ?? "";
+  const entryLabelOf = (categoryKey: string) => {
+    const entry = categories.find((candidate) => candidate.key === categoryKey);
+    return entry ? categoryEntryLabel(entry) : "";
+  };
+  const selectedLabel = entryLabelOf(line.categoryKey);
 
   const handleCategoryChange = (categoryKey: string) => {
-    const newLabel =
-      categories.find((entry) => entry.key === categoryKey)?.label ?? "";
+    const newLabel = entryLabelOf(categoryKey);
     // Auto-fill the name when it is empty or still matches the previous category.
     const patch: Partial<EditorLine> =
       !line.label || line.label === selectedLabel
@@ -48,17 +52,17 @@ export const BudgetLineRow = ({
       <div className="flex items-center gap-2">
         <Input
           aria-invalid={Boolean(error)}
-          aria-label="Name"
+          aria-label={m.settings_field_name()}
           className="min-w-0 flex-1"
           onChange={(event) => onUpdate(line.id, { label: event.target.value })}
-          placeholder={selectedLabel || "Name"}
+          placeholder={selectedLabel || m.settings_field_name()}
           value={line.label}
         />
 
         <InputGroup className="w-28 shrink-0">
           <InputGroupAddon>€</InputGroupAddon>
           <InputGroupInput
-            aria-label="Monthly amount"
+            aria-label={m.settings_line_amount_label()}
             inputMode="decimal"
             onChange={(event) =>
               onUpdate(line.id, { amountInput: event.target.value })
@@ -77,7 +81,11 @@ export const BudgetLineRow = ({
 
         <Button onClick={() => onRemove(line.id)} variant="ghost">
           <TrashIcon />
-          <span className="sr-only">Remove {line.label || "line"}</span>
+          <span className="sr-only">
+            {line.label
+              ? m.settings_line_remove({ label: line.label })
+              : m.settings_line_remove_untitled()}
+          </span>
         </Button>
       </div>
 

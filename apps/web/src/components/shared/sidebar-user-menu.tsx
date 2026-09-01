@@ -5,6 +5,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@freenary/ui/components/dropdown-menu";
 import {
@@ -13,12 +16,18 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@freenary/ui/components/sidebar";
-import { CaretUpDownIcon, SignOutIcon } from "@phosphor-icons/react";
+import {
+  CaretUpDownIcon,
+  SignOutIcon,
+  TranslateIcon,
+} from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
+import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
 import { UserIdentity } from "@/components/shared/user-identity";
 import { authClient } from "@/lib/auth-client";
+import { m } from "@/paraglide/messages.js";
 
 export const SidebarUserMenu = () => {
   const navigate = useNavigate();
@@ -46,7 +55,9 @@ export const SidebarUserMenu = () => {
   return (
     <SidebarMenu>
       <SidebarMenuItem aria-busy={isPending || undefined}>
-        {isPending && <output className="sr-only">Loading account</output>}
+        {isPending && (
+          <output className="sr-only">{m.account_menu_loading()}</output>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -81,9 +92,19 @@ export const SidebarUserMenu = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <TranslateIcon data-icon="inline-start" />
+                  {m.locale_switcher_label()}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <LocaleMenuItems />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <SignOutIcon data-icon="inline-start" />
-                Sign out
+                {m.account_sign_out()}
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

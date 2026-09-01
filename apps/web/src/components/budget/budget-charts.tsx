@@ -5,6 +5,7 @@ import { CashFlowCard } from "@/components/budget/cash-flow-card";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import type { AggregationMode } from "@/lib/budget/period";
+import { m } from "@/paraglide/messages.js";
 
 interface BudgetChartsProps {
   aggregation: AggregationMode;
@@ -33,7 +34,7 @@ export const BudgetCharts = ({
   <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
     {isCashFlowPending ? (
       <div aria-busy="true">
-        <output className="sr-only">Loading cash flow</output>
+        <output className="sr-only">{m.budget_cash_flow_loading()}</output>
         <Skeleton aria-hidden="true" className="h-[280px]" />
       </div>
     ) : null}
@@ -48,7 +49,7 @@ export const BudgetCharts = ({
 
     {isBreakdownPending ? (
       <div aria-busy="true">
-        <output className="sr-only">Loading spending breakdown</output>
+        <output className="sr-only">{m.budget_breakdown_loading()}</output>
         <Skeleton aria-hidden="true" className="h-[320px]" />
       </div>
     ) : null}

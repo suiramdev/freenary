@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AuthFormField } from "@/components/auth/auth-form-field";
 import { AuthHeader } from "@/components/auth/auth-header";
 import { useAuthForm } from "@/hooks/auth/use-auth-form";
+import { m } from "@/paraglide/messages.js";
 
 const REVEAL_SPRING = { bounce: 0, duration: 0.3, type: "spring" as const };
 const REVEAL_EASE = [0.23, 1, 0.32, 1] as const;
@@ -46,8 +47,8 @@ export const AuthForm = () => {
                 endAdornment={isCheckingEmail && <Spinner />}
                 errors={field.state.meta.errors.map((error) => error?.message)}
                 id={field.name}
-                label="Email"
-                placeholder="you@example.com"
+                label={m.auth_email_label()}
+                placeholder={m.auth_email_placeholder()}
                 type="email"
                 value={field.state.value}
                 onBlur={field.handleBlur}
@@ -98,8 +99,8 @@ export const AuthForm = () => {
                           (error) => error?.message
                         )}
                         id={field.name}
-                        label="Name"
-                        placeholder="Your name"
+                        label={m.auth_name_label()}
+                        placeholder={m.auth_name_placeholder()}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={field.handleChange}
@@ -115,7 +116,7 @@ export const AuthForm = () => {
                         (error) => error?.message
                       )}
                       id={field.name}
-                      label="Password"
+                      label={m.auth_password_label()}
                       placeholder="••••••••"
                       type="password"
                       value={field.state.value}
@@ -128,7 +129,9 @@ export const AuthForm = () => {
                 <Field>
                   <Button disabled={isSubmitting} type="submit">
                     {isSubmitting && <Spinner data-icon="inline-start" />}
-                    {mode === "signin" ? "Sign In" : "Create account"}
+                    {mode === "signin"
+                      ? m.auth_sign_in_submit()
+                      : m.auth_sign_up_submit()}
                   </Button>
                 </Field>
               </FieldGroup>

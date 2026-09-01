@@ -2,9 +2,12 @@ import { cn } from "@freenary/ui/lib/utils";
 import { Check } from "@phosphor-icons/react";
 import { Fragment } from "react";
 
+import { m } from "@/paraglide/messages.js";
+
 interface OnboardingStepperProps {
   current: number;
-  steps: readonly string[];
+  /** Message functions, so the labels follow a locale change with the tree. */
+  steps: readonly (() => string)[];
 }
 
 export const OnboardingStepper = ({
@@ -12,10 +15,11 @@ export const OnboardingStepper = ({
   steps,
 }: OnboardingStepperProps) => (
   <ol
-    aria-label="Onboarding progress"
+    aria-label={m.onboarding_progress_label()}
     className="flex items-center justify-center"
   >
-    {steps.map((label, index) => {
+    {steps.map((step, index) => {
+      const label = step();
       const isComplete = index < current;
       const isCurrent = index === current;
 

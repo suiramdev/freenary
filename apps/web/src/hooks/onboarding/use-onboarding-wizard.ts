@@ -9,6 +9,7 @@ import {
   loadOnboardingState,
   persistOnboardingState,
 } from "@/lib/onboarding/onboarding-state";
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 export const useOnboardingWizard = ({
@@ -41,10 +42,10 @@ export const useOnboardingWizard = ({
       await queryClient.invalidateQueries({
         queryKey: orpc.onboarding.getStatus.queryOptions().queryKey,
       });
-      toast.success("You're all set!");
+      toast.success(m.onboarding_completed_toast());
       navigate({ to: "/" });
     } else {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(m.onboarding_error_generic());
     }
     setIsCompleting(false);
   };

@@ -10,6 +10,7 @@ import {
   weeklyConfig,
   weeklyData,
 } from "@/lib/auth/preview-metrics";
+import { m } from "@/paraglide/messages.js";
 
 export const AuthShowcasePanel = () => (
   <div className="bg-background relative hidden overflow-hidden lg:flex lg:flex-col">
@@ -18,7 +19,7 @@ export const AuthShowcasePanel = () => (
     <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 p-8">
       <div className="flex w-full max-w-[280px] flex-col gap-3">
         <AuthPreviewCard
-          label="Monthly Spending"
+          label={m.auth_showcase_monthly_spending()}
           trailing={
             <span className="text-muted-foreground text-xs">+2.3%</span>
           }
@@ -32,7 +33,7 @@ export const AuthShowcasePanel = () => (
         </AuthPreviewCard>
 
         <AuthPreviewCard
-          label="Emergency Fund"
+          label={m.auth_showcase_emergency_fund()}
           subValue="/ $12,000"
           trailing={
             <span className="text-primary text-xs font-medium">70%</span>
@@ -42,7 +43,7 @@ export const AuthShowcasePanel = () => (
           <DitherProgress className="h-1.5" color="blue" value={0.7} />
         </AuthPreviewCard>
 
-        <AuthPreviewCard label="This Week" value="$587">
+        <AuthPreviewCard label={m.auth_showcase_this_week()} value="$587">
           <BarChart
             className="h-[64px] w-full"
             config={weeklyConfig}
@@ -55,7 +56,7 @@ export const AuthShowcasePanel = () => (
         </AuthPreviewCard>
 
         <AuthPreviewCard
-          label="Net Worth"
+          label={m.auth_showcase_net_worth()}
           trailing={<span className="text-primary text-xs">+12.4%</span>}
           value="$47,850"
         >
@@ -71,7 +72,7 @@ export const AuthShowcasePanel = () => (
     <div className="relative z-10 p-8">
       <h2 className="text-3xl font-bold tracking-tight">freenary</h2>
       <p className="text-muted-foreground mt-1 text-sm italic">
-        Your finances, understood.
+        {m.auth_tagline()}
       </p>
     </div>
   </div>

@@ -1,9 +1,5 @@
 import { categoryGroupAppearance } from "@freenary/api/lib/categories";
-import {
-  CATEGORY_GROUP_LABELS,
-  CATEGORY_GROUPS,
-  isCategoryGroup,
-} from "@freenary/api/lib/taxonomy";
+import { CATEGORY_GROUPS, isCategoryGroup } from "@freenary/api/lib/taxonomy";
 import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
 import {
   Select,
@@ -15,6 +11,8 @@ import {
 } from "@freenary/ui/components/select";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryGroupLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 const NONE_VALUE = "none";
 
@@ -32,7 +30,7 @@ interface CategoryGroupSelectProps {
  */
 export const CategoryGroupSelect = ({
   id,
-  noneLabel = "No parent",
+  noneLabel = m.budget_category_group_none(),
   onValueChange,
   value,
 }: CategoryGroupSelectProps) => (
@@ -56,7 +54,7 @@ export const CategoryGroupSelect = ({
                 {...categoryGroupAppearance(selected)}
                 className="size-5 [&_svg]:size-3"
               />
-              {CATEGORY_GROUP_LABELS[selected]}
+              {categoryGroupLabel(selected)}
             </>
           );
         }}
@@ -71,7 +69,7 @@ export const CategoryGroupSelect = ({
               {...categoryGroupAppearance(group)}
               className="size-5 [&_svg]:size-3"
             />
-            {CATEGORY_GROUP_LABELS[group]}
+            {categoryGroupLabel(group)}
           </SelectItem>
         ))}
       </SelectGroup>

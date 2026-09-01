@@ -1,7 +1,4 @@
-import {
-  CATEGORY_GROUP_COLORS,
-  CATEGORY_GROUP_LABELS,
-} from "@freenary/api/lib/taxonomy";
+import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
 import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
 import {
   Card,
@@ -18,14 +15,15 @@ import { PieChart } from "@/components/dither-kit/pie-chart";
 import { Tooltip } from "@/components/dither-kit/tooltip";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
-import { AGGREGATION_LABELS } from "@/lib/budget/period";
+import { aggregationLabel } from "@/lib/budget/period";
 import type { AggregationMode } from "@/lib/budget/period";
+import { categoryGroupLabel } from "@/lib/taxonomy-labels";
+import { m } from "@/paraglide/messages.js";
 
 /** One slice: a category group's spending for the period. */
 interface GroupData {
   amount: number;
   group: CategoryGroup;
-  label: string;
 }
 
 interface SpendingBreakdownChartProps {
@@ -35,12 +33,14 @@ interface SpendingBreakdownChartProps {
   onSelect?: (selection: CategorySelection | null) => void;
 }
 
+// Keyed by the group slug, never the display name: the label is translated,
+// so it changes with the locale while the identity must not.
 const buildConfig = (data: GroupData[]): ChartConfig => {
   const config: ChartConfig = {};
   for (const d of data) {
-    config[d.label] = {
+    config[d.group] = {
       color: CATEGORY_GROUP_COLORS[d.group],
-      label: CATEGORY_GROUP_LABELS[d.group],
+      label: categoryGroupLabel(d.group),
     };
   }
   return config;
@@ -61,19 +61,19 @@ export const SpendingBreakdownChart = ({
   const total = data.reduce((sum, d) => sum + d.amount, 0);
   const values: Record<string, number> = {};
   for (const d of data) {
-    values[d.label] = d.amount;
+    values[d.group] = d.amount;
   }
 
-  const selectByLabel = useCallback(
-    (label: string | null) => {
+  const selectByGroup = useCallback(
+    (group: string | null) => {
       if (!onSelect) {
         return;
       }
-      if (!label) {
+      if (!group) {
         onSelect(null);
         return;
       }
-      const entry = data.find((d) => d.label === label);
+      const entry = data.find((d) => d.group === group);
       if (entry) {
         onSelect({ group: entry.group, kind: "group" });
       }
@@ -85,11 +85,11 @@ export const SpendingBreakdownChart = ({
     <Card className={className}>
       <CardHeader>
         <CardTitle>
-          Spending Breakdown
+          {m.budget_breakdown_title()}
           {aggregation !== "total" && (
             <span className="text-muted-foreground font-normal">
               {" "}
-              · {AGGREGATION_LABELS[aggregation]}
+              · {aggregationLabel(aggregation)}
             </span>
           )}
         </CardTitle>
@@ -99,10 +99,10 @@ export const SpendingBreakdownChart = ({
           data={data}
           config={config}
           dataKey="amount"
-          nameKey="label"
+          nameKey="group"
           innerRadius={0.55}
           className="mx-auto aspect-square h-auto w-full max-w-[200px]"
-          onSelectionChange={selectByLabel}
+          onSelectionChange={selectByGroup}
         >
           <Pie variant="gradient" />
           <Tooltip
@@ -116,7 +116,7 @@ export const SpendingBreakdownChart = ({
           values={values}
           valueFormatter={(v) => formatCurrency(v)}
           align="start"
-          onItemClick={onSelect ? selectByLabel : undefined}
+          onItemClick={onSelect ? selectByGroup : undefined}
         />
       </CardContent>
     </Card>

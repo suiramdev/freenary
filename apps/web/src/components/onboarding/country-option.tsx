@@ -10,6 +10,7 @@ import { cn } from "@freenary/ui/lib/utils";
 
 import { SUPPORTED_COUNTRY_CODES } from "@/lib/onboarding/countries";
 import type { Country } from "@/lib/onboarding/countries";
+import { m } from "@/paraglide/messages.js";
 
 interface CountryOptionProps {
   country: Country;
@@ -33,7 +34,11 @@ export const CountryOption = ({
       render={
         <button
           aria-label={
-            supported ? country.name : `${country.name}, not supported yet`
+            supported
+              ? country.name
+              : m.onboarding_country_unsupported_label({
+                  country: country.name,
+                })
           }
           aria-pressed={isSelected}
           disabled={!supported}
@@ -52,7 +57,9 @@ export const CountryOption = ({
       </ItemContent>
       {supported ? null : (
         <ItemActions>
-          <Badge variant="outline">Not supported yet</Badge>
+          <Badge variant="outline">
+            {m.onboarding_country_unsupported_badge()}
+          </Badge>
         </ItemActions>
       )}
     </Item>

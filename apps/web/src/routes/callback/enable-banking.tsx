@@ -13,6 +13,7 @@ import { z } from "zod";
 import { BANK_ACCOUNTS_ANCHOR } from "@/components/settings/bank-accounts-section";
 import { authClient } from "@/lib/auth-client";
 import { invalidateBudgetData } from "@/lib/budget/stale-queries";
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 const callbackSearchSchema = z.object({
@@ -43,7 +44,7 @@ const ConnectingBank = () => (
     aria-busy="true"
     className="flex min-h-svh flex-col items-center justify-center gap-4"
   >
-    <output className="sr-only">Finishing bank connection</output>
+    <output className="sr-only">{m.bank_callback_loading()}</output>
     <div aria-hidden="true" className="flex flex-col items-center gap-4">
       <Skeleton className="size-10 rounded-full" />
       <div className="flex flex-col gap-2 text-center">
@@ -66,25 +67,25 @@ const EnableBankingCallback = () => {
     // moment anything may call the bank connected.
     if (exchangeResult.ok) {
       const count = exchangeResult.accounts.length;
-      toast.success(
+      const message =
         count > 0
-          ? `Connected ${count} account${count > 1 ? "s" : ""}`
-          : "Bank connected"
-      );
+          ? m.bank_callback_success_accounts({ count })
+          : m.bank_callback_success();
+      toast.success(message);
       void queryClient.invalidateQueries({
         queryKey: orpc.bankConnection.listConnections.queryOptions().queryKey,
       });
       void invalidateBudgetData(queryClient);
     } else if (exchangeResult.reason === "declined") {
-      toast.error("Bank connection cancelled. Nothing was linked.");
+      toast.error(m.bank_callback_declined());
     } else if (exchangeResult.reason === "failed") {
       toast.error(
         exchangeResult.returnTo === "settings"
-          ? "Bank connection failed. You can try again."
-          : "Bank connection failed. You can try again or skip."
+          ? m.bank_callback_failed_settings()
+          : m.bank_callback_failed_onboarding()
       );
     } else {
-      toast.error("Missing authorization code.");
+      toast.error(m.bank_callback_incomplete());
     }
 
     if (exchangeResult.returnTo === "settings") {
