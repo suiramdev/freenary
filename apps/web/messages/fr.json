@@ -12,6 +12,7 @@
   "auth_name_placeholder": "Votre nom",
   "auth_password_label": "Mot de passe",
   "auth_showcase_emergency_fund": "Épargne de précaution",
+  "auth_showcase_fund_target": "sur {target}",
   "auth_showcase_monthly_spending": "Dépenses mensuelles",
   "auth_showcase_net_worth": "Patrimoine net",
   "auth_showcase_this_week": "Cette semaine",
