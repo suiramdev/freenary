@@ -16,6 +16,14 @@ export interface FeatureVector {
   dimension: number;
 }
 
+/**
+ * Version of the input representation: the tokens modelInput() builds and the
+ * buckets they hash to. Bump it whenever either changes, so a weights file
+ * trained against the old representation is refused instead of silently
+ * scoring against shifted features. 2 added the `cc:<country>` token.
+ */
+export const INPUT_VERSION = 2;
+
 /** 2^16 hash buckets. */
 const DEFAULT_DIMENSION = 65_536;
 
