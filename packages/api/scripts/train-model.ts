@@ -1,10 +1,11 @@
 /**
- * Train a linear classifier from user correction data.
+ * Train the global transaction classifier from user correction data.
  *
- * Reads (merchantKey, category) pairs from the MerchantOverride table,
- * extracts hashed n-gram features via extractFeatures(), and fits a
- * one-vs-rest logistic regression. Writes the weight matrix as JSON
- * to data/model-weights.json.
+ * Reads (merchantKey, category) pairs from the MerchantOverride table and
+ * user-corrected transactions, extracts hashed n-gram features via
+ * extractFeatures() over modelInput() — country included, so one model covers
+ * every supported country — and fits a one-vs-rest logistic regression.
+ * Writes the weight matrix as JSON to data/model-weights.json.
  *
  * Usage: bun packages/api/scripts/train-model.ts
  */
@@ -14,7 +15,11 @@ import path from "node:path";
 
 import prisma from "@freenary/db";
 
-import { extractFeatures } from "../src/categorisation/features";
+import {
+  extractFeatures,
+  INPUT_VERSION,
+  modelInput,
+} from "../src/categorisation/features";
 import type { FeatureVector } from "../src/categorisation/features";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { SPENDING_CATEGORIES } from "../src/lib/taxonomy";
@@ -126,14 +131,87 @@ const buildCategoryIndex = (): Map<string, number> => {
   return index;
 };
 
+/**
+ * Bind parameters per statement. Postgres caps at 65535 and Prisma trips well
+ * before that, so a query binds at most one user chunk plus one key chunk.
+ */
+const USER_CHUNK = 1000;
+const KEY_CHUNK = 5000;
+
+/**
+ * Institution country per (user, merchant key). An override carries no country
+ * of its own, so it trains with the country the pipeline will pass at
+ * inference: the one on the connection the merchant was seen through. Rows
+ * arrive oldest first and overwrite, so the most recent sighting wins and two
+ * runs over the same data produce the same weights.
+ */
+const loadOverrideCountries = async (
+  overrides: { merchantKey: string; userId: string }[]
+): Promise<Map<string, string>> => {
+  const countryByKey = new Map<string, string>();
+
+  // Keys are grouped by their own user, so a query never carries the keys of
+  // the users it is not asking about.
+  const keysByUser = new Map<string, Set<string>>();
+  for (const { merchantKey, userId } of overrides) {
+    const keys = keysByUser.get(userId) ?? new Set<string>();
+    keys.add(merchantKey);
+    keysByUser.set(userId, keys);
+  }
+
+  const userIds = [...keysByUser.keys()];
+
+  for (let u = 0; u < userIds.length; u += USER_CHUNK) {
+    const userChunk = userIds.slice(u, u + USER_CHUNK);
+    const merchantKeys = [
+      ...new Set(userChunk.flatMap((id) => [...(keysByUser.get(id) ?? [])])),
+    ];
+
+    for (let k = 0; k < merchantKeys.length; k += KEY_CHUNK) {
+      // eslint-disable-next-line no-await-in-loop -- chunked to bound bind parameters
+      const rows = await prisma.transaction.findMany({
+        orderBy: { date: "asc" },
+        select: {
+          account: {
+            select: {
+              connection: {
+                select: { institutionCountry: true, userId: true },
+              },
+            },
+          },
+          merchantKey: true,
+        },
+        where: {
+          account: { connection: { userId: { in: userChunk } } },
+          merchantKey: { in: merchantKeys.slice(k, k + KEY_CHUNK) },
+        },
+      });
+
+      for (const row of rows) {
+        const { institutionCountry, userId } = row.account.connection;
+        if (row.merchantKey === null || institutionCountry === null) {
+          continue;
+        }
+        countryByKey.set(
+          `${userId}\u0000${row.merchantKey}`,
+          institutionCountry
+        );
+      }
+    }
+  }
+
+  return countryByKey;
+};
+
 const loadTrainingData = async (): Promise<TrainingSample[]> => {
   const categoryIndex = buildCategoryIndex();
   const samples: TrainingSample[] = [];
 
   // Source 1: MerchantOverride — user corrections on merchant keys
   const overrides = await prisma.merchantOverride.findMany({
-    select: { category: true, merchantKey: true },
+    select: { category: true, merchantKey: true, userId: true },
   });
+  const countryByKey = await loadOverrideCountries(overrides);
 
   for (const override of overrides) {
     const normalised = normaliseDescriptor(override.merchantKey);
@@ -146,13 +224,25 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
       continue;
     }
 
-    const features = extractFeatures(normalised, CONFIDENCE_DIMENSION);
+    const country =
+      countryByKey.get(`${override.userId}\u0000${override.merchantKey}`) ??
+      null;
+    const features = extractFeatures(
+      modelInput(normalised, country),
+      CONFIDENCE_DIMENSION
+    );
     samples.push({ features, label });
   }
 
   // Source 2: Transactions with user-applied category overrides
   const transactions = await prisma.transaction.findMany({
-    select: { category: true, normalisedDescriptor: true },
+    select: {
+      account: {
+        select: { connection: { select: { institutionCountry: true } } },
+      },
+      category: true,
+      normalisedDescriptor: true,
+    },
     where: {
       category: { not: null },
       categoryOverride: true,
@@ -175,7 +265,10 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
     }
 
     const features = extractFeatures(
-      tx.normalisedDescriptor,
+      modelInput(
+        tx.normalisedDescriptor,
+        tx.account.connection.institutionCountry
+      ),
       CONFIDENCE_DIMENSION
     );
     samples.push({ features, label });
@@ -189,6 +282,8 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
 interface TrainedModel {
   categories: string[];
   dimension: number;
+  /** Representation these weights were trained against; the loader refuses a mismatch. */
+  inputVersion: number;
   weights: Record<string, number>[];
 }
 
@@ -289,6 +384,7 @@ const serialiseWeights = (
   return {
     categories: [...SPENDING_CATEGORIES],
     dimension,
+    inputVersion: INPUT_VERSION,
     weights: sparseWeights,
   };
 };

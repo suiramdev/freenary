@@ -16,8 +16,17 @@ export interface FeatureVector {
   dimension: number;
 }
 
+/**
+ * Version of the input representation: the tokens modelInput() builds and the
+ * buckets they hash to. Bump it whenever either changes, so a weights file
+ * trained against the old representation is refused instead of silently
+ * scoring against shifted features. 2 added the `cc:<country>` token.
+ */
+export const INPUT_VERSION = 2;
+
 /** 2^16 hash buckets. */
 const DEFAULT_DIMENSION = 65_536;
+
 const DEFAULT_NGRAM_RANGE: [number, number] = [3, 5];
 
 const FNV_OFFSET = 0x81_1c_9d_c5;
@@ -105,4 +114,17 @@ export const extractFeatures = (
       values: new Float32Array(0),
     };
   }
+};
+
+/**
+ * Model input for a transaction: the country joins the descriptor as its own
+ * token, so one global classifier learns country-specific patterns over one
+ * taxonomy instead of one model per country.
+ */
+export const modelInput = (
+  normalisedDescriptor: string,
+  country?: string | null
+): string => {
+  const code = country?.trim().toLowerCase();
+  return code ? `cc:${code} ${normalisedDescriptor}` : normalisedDescriptor;
 };

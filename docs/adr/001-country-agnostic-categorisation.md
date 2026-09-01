@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The stage order in section 1 is amended by [ADR-003](003-deterministic-first-categorisation.md): the deterministic layers run before the classifier, and the MCC lookup is part of them.
 
 ## Context
 
@@ -13,6 +13,8 @@ The constraint that shapes everything: no mandatory cloud component. An optional
 ## Decision
 
 ### 1. Pipeline stages, in order
+
+> Superseded by [ADR-003](003-deterministic-first-categorisation.md). The list below is the order as decided here; the pipeline now runs the deterministic layers, MCC included, before the local model.
 
 Each stage exits early on a confident hit:
 
