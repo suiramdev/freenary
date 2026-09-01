@@ -10,14 +10,16 @@ export type TransactionPath = "iban" | "card";
 /**
  * Pipeline stage that produced the categorisation result.
  * Stages execute in order; each exits early on a confident hit.
+ * Everything up to "rules" is deterministic; "model" and "cloud" are not.
  */
 export type ResolutionStage =
   | "channel"
   | "user-override"
   | "dictionary"
+  | "mcc"
+  | "rules"
   | "model"
   | "cloud"
-  | "mcc"
   | "none";
 
 /**
@@ -56,6 +58,10 @@ export interface CategoriseInput {
   country?: string | null;
   /** Creditor IBAN when available. */
   creditorIban?: string | null;
+  /** Bank's own transaction classification description, when available. */
+  bankTransactionCode?: string | null;
+  /** Counterparty name when the provider reports one. */
+  counterpartyName?: string | null;
   /** ISO 18245 MCC when available. */
   merchantCategoryCode?: string | null;
   /** Signed amount in minor units; negative = outgoing. */

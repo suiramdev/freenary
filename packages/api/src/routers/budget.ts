@@ -292,7 +292,9 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
         },
       },
       amount: true,
+      bankTransactionCode: true,
       channel: true,
+      counterpartyName: true,
       creditorAccountIban: true,
       id: true,
       merchantCategoryCode: true,
@@ -317,22 +319,23 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
   const inputs: (CategoriseInput & { txId: string })[] = [];
 
   for (const tx of uncategorised) {
-    if (!tx.merchantKey) {
-      continue;
-    }
-
+    // A transaction with no merchant key skips the key-based stages inside the
+    // pipeline; its code and country rules can still categorise it.
+    const merchantKey = tx.merchantKey ?? "";
     const isIban =
-      tx.creditorAccountIban && tx.merchantKey === tx.creditorAccountIban;
+      tx.creditorAccountIban && merchantKey === tx.creditorAccountIban;
 
     inputs.push({
       allowCloudInference: false,
       amountMinor: tx.amount,
+      bankTransactionCode: tx.bankTransactionCode,
       // SAFETY: channel column stores validated TransactionChannel values or null
       channel: (tx.channel ?? "unknown") as TransactionChannel,
+      counterpartyName: tx.counterpartyName,
       country: tx.account.connection.institutionCountry,
       creditorIban: tx.creditorAccountIban,
       merchantCategoryCode: tx.merchantCategoryCode,
-      merchantKey: tx.merchantKey,
+      merchantKey,
       normalisedDescriptor: tx.normalisedDescriptor ?? "",
       // SAFETY: transactionPath column stores validated TransactionPath values or null
       path: (tx.transactionPath ??

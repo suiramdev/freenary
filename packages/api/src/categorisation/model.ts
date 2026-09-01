@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { SpendingCategory } from "../lib/taxonomy";
 import { resolveCategorySlug } from "../lib/taxonomy";
 import type { FeatureVector } from "./features";
-import { extractFeatures } from "./features";
+import { extractFeatures, modelInput } from "./features";
 
 export interface ModelPrediction {
   category: SpendingCategory;
@@ -160,12 +160,13 @@ export const unloadModel = (): void => {
 };
 
 /**
- * Predict a category from a normalised descriptor.
- * Returns null when no model is loaded or confidence is too low.
+ * Predict a category from a normalised descriptor and the transaction's
+ * country. Returns null when no model is loaded or confidence is too low —
+ * the caller reports "uncategorised" rather than forcing a category.
  */
 export const predict = (
   normalisedDescriptor: string,
-  _country?: string | null
+  country?: string | null
 ): Promise<ModelPrediction | null> => {
   if (
     loadedWeights === null ||
@@ -177,7 +178,10 @@ export const predict = (
 
   let features: FeatureVector;
   try {
-    features = extractFeatures(normalisedDescriptor, loadedDimension);
+    features = extractFeatures(
+      modelInput(normalisedDescriptor, country),
+      loadedDimension
+    );
   } catch {
     return Promise.resolve(null);
   }

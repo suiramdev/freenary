@@ -1,5 +1,7 @@
 /**
- * French locale-specific keyword heuristics for deriveCategory.
+ * French locale-specific keyword heuristics — the country layer over
+ * default.ts. Patterns are token-anchored and spell out the inflected forms
+ * French banks write ("impôts", "loyers").
  *
  * This module has NO imports from the normalise/institution chain to
  * avoid circular dependencies (that chain imports mcc-categories.ts,
@@ -7,18 +9,22 @@
  */
 
 import type { SpendingCategory } from "../../lib/taxonomy";
+import { tokens } from "./anchor";
 
 /** Bank-transaction-code keywords (French). */
 export const bankCodeKeywords: readonly [RegExp, SpendingCategory][] = [
-  [/loyer|bail/u, "rent"],
-  [/salaire|traitement/u, "salary"],
-  [/assurance|mutuelle/u, "other-insurance"],
-  [/imp[oô]t|pr[eé]l[eè]vement social/u, "other-taxes"],
-  [/virement/u, "other-transfer"],
+  [tokens("loyers?|bail|baux"), "rent"],
+  [tokens("salaires?|traitements?"), "salary"],
+  [tokens("assurances?|mutuelles?"), "other-insurance"],
+  [
+    tokens("imp[oô]ts?|pr[eé]l[eè]vement social|pr[eé]l[eè]vements sociaux"),
+    "other-taxes",
+  ],
+  [tokens("virements?"), "other-transfer"],
 ];
 
 /** Counterparty-name keywords (French). */
 export const counterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
-  [/\bsci\b|hlm|opac|bailleur/u, "rent"],
-  [/pharmacie/u, "pharmacy"],
+  [tokens("sci|hlm|opac|bailleurs?"), "rent"],
+  [tokens("pharmacies?"), "pharmacy"],
 ];

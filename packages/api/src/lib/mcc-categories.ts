@@ -1,6 +1,7 @@
 import {
   allBankCodeKeywords,
   allCounterpartyKeywords,
+  matchKeyword,
 } from "../categorisation/keywords";
 import { CATEGORY_GROUP_OF, resolveCategorySlug } from "./taxonomy";
 import type { SpendingCategory } from "./taxonomy";
@@ -239,11 +240,10 @@ const MCC_TO_CATEGORY = {
   "9405": "other-taxes",
 } as const satisfies Record<string, SpendingCategory>;
 
-export { MCC_TO_CATEGORY };
-
 // MCC code → category (range checks first, then flat lookup)
 
-const mccToCategory = (code: string): SpendingCategory => {
+/** Category for an ISO 18245 code, or null when the code maps to nothing. */
+export const categoryFromMcc = (code: string): SpendingCategory | null => {
   const n = Math.trunc(Number(code));
   if (!Number.isNaN(n)) {
     // The 3xxx block is issuer-assigned per carrier: airlines, then car-rental
@@ -259,59 +259,7 @@ const mccToCategory = (code: string): SpendingCategory => {
     }
   }
   // SAFETY: code is always a string key from the EB API; the assertion narrows for const lookup
-  return (
-    MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? "uncategorised"
-  );
-};
-
-// Keyword heuristic tables for deriveCategory
-
-const BANK_CODE_KEYWORDS: [RegExp, SpendingCategory][] = [
-  [/lön|salary|wage/u, "salary"],
-  [/hyra|rent/u, "rent"],
-  [/mortgage/u, "mortgage"],
-  [/försäkring|insurance/u, "other-insurance"],
-  [/skatt|tax/u, "other-taxes"],
-  [/överföring|transfer|utlandsbetalning|foreign/u, "other-transfer"],
-];
-
-const COUNTERPARTY_KEYWORDS: [RegExp, SpendingCategory][] = [
-  [/uber|lyft|bolt|taxi|cabify/u, "taxi"],
-  [/netflix|spotify|disney|hbo|youtube/u, "streaming"],
-  [/apple\.com|google play/u, "software"],
-  [/amazon|ebay/u, "other-shopping"],
-  [/zalando|asos|h&m|zara/u, "clothing"],
-  [/mcdonald|burger king|subway|domino/u, "takeaway"],
-  [/starbucks/u, "bars-cafes"],
-  [
-    /lidl|aldi|ica|coop|carrefour|tesco|walmart|target|albert heijn|migros/u,
-    "groceries",
-  ],
-  [/booking\.com|airbnb|expedia/u, "accommodation"],
-  [/ryanair|easyjet|sas|klm|lufthansa/u, "flights"],
-  [/apotek|pharmacy|apotheke/u, "pharmacy"],
-];
-
-// Concatenated once: deriveCategory runs per transaction, so the country tables
-// must not be spread on every call.
-const ALL_BANK_CODE_KEYWORDS: readonly (readonly [RegExp, SpendingCategory])[] =
-  [...BANK_CODE_KEYWORDS, ...allBankCodeKeywords];
-
-const ALL_COUNTERPARTY_KEYWORDS: readonly (readonly [
-  RegExp,
-  SpendingCategory,
-])[] = [...COUNTERPARTY_KEYWORDS, ...allCounterpartyKeywords];
-
-const matchKeyword = (
-  table: readonly (readonly [RegExp, SpendingCategory])[],
-  text: string
-): SpendingCategory | null => {
-  for (const [pattern, category] of table) {
-    if (pattern.test(text)) {
-      return category;
-    }
-  }
-  return null;
+  return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? null;
 };
 
 // Derive category from transaction data
@@ -333,9 +281,9 @@ export const deriveCategory = (tx: {
 
   // 1. MCC lookup
   if (tx.merchantCategoryCode) {
-    const cat = mccToCategory(tx.merchantCategoryCode);
-    if (cat !== "uncategorised") {
-      return cat;
+    const byMcc = categoryFromMcc(tx.merchantCategoryCode);
+    if (byMcc) {
+      return byMcc;
     }
   }
 
@@ -344,7 +292,7 @@ export const deriveCategory = (tx: {
   //    income-group match wins.
   if (tx.amount > 0) {
     const desc = tx.bankTransactionCode?.toLowerCase();
-    const named = desc ? matchKeyword(ALL_BANK_CODE_KEYWORDS, desc) : null;
+    const named = desc ? matchKeyword(allBankCodeKeywords, desc) : null;
     return named && CATEGORY_GROUP_OF[named] === "income"
       ? named
       : "other-income";
@@ -353,7 +301,7 @@ export const deriveCategory = (tx: {
   // 3. Bank transaction code keyword heuristics
   const bankCode = tx.bankTransactionCode?.toLowerCase();
   const byBankCode = bankCode
-    ? matchKeyword(ALL_BANK_CODE_KEYWORDS, bankCode)
+    ? matchKeyword(allBankCodeKeywords, bankCode)
     : null;
   if (byBankCode) {
     return byBankCode;
@@ -362,7 +310,7 @@ export const deriveCategory = (tx: {
   // 4. Counterparty name heuristics
   const counterparty = tx.counterpartyName?.toLowerCase();
   const byCounterparty = counterparty
-    ? matchKeyword(ALL_COUNTERPARTY_KEYWORDS, counterparty)
+    ? matchKeyword(allCounterpartyKeywords, counterparty)
     : null;
   if (byCounterparty) {
     return byCounterparty;
