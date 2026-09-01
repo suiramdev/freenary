@@ -68,4 +68,23 @@ describe("mapNafToCategory", () => {
     expect(mapNafToCategory("")).toBeNull();
     expect(mapNafToCategory("99.99Z")).toBeNull();
   });
+
+  it("refuses pre-2008 NAF rev. 1 codes instead of reading them as rev. 2", () => {
+    // Rev. 1 groups carry one digit after the dot. Reinterpreting them under
+    // rev. 2 silently moves a merchant: rev. 1 division 51 was wholesale, rev. 2
+    // is air transport, so 51.4S would otherwise resolve to `flights`.
+    expect(mapNafToCategory("51.4S")).toBeNull();
+    expect(mapNafToCategory("51.4F")).toBeNull();
+    expect(mapNafToCategory("52.4Z")).toBeNull();
+    // The rev. 2 code that shares the division still resolves.
+    expect(mapNafToCategory("51.10Z")).toBe("flights");
+  });
+
+  it("refuses malformed codes rather than reading their leading digits", () => {
+    expect(mapNafToCategory("4711B")).toBeNull();
+    expect(mapNafToCategory("47")).toBeNull();
+    expect(mapNafToCategory("47.")).toBeNull();
+    expect(mapNafToCategory("47.11BZ")).toBeNull();
+    expect(mapNafToCategory("not a code")).toBeNull();
+  });
 });

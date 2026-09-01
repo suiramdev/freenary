@@ -36,7 +36,9 @@ The pipeline loads resources (dictionary, model) once, drains the batch of uncat
 
 ### 4. Merchant dictionary is a static file
 
-A signed, versioned, country-partitioned JSONL artifact built from open data (NSI, Wikidata, SIRENE, OSM) plus community contributions that pass a k-anonymity admission gate. Instances download and load it into an in-memory Map for exact-match lookup.
+A signed, versioned JSONL artifact built from open data (NSI, Wikidata, SIRENE, OSM) plus community contributions that pass a k-anonymity admission gate. Instances download and load it into an in-memory Map for exact-match lookup.
+
+Every row carries the ISO 3166-1 alpha-2 countries it is scoped to, and instances filter on that field in memory. The artifact is **not** split into per-country files: a brand is scoped to a country only when its source says so, and the worldwide tail — brands their source declares global, plus every entry no source places — is 8,493 of 58,471 rows that every country needs. A per-country file has to carry that tail to be usable on its own, so the 228 countries the artifact observes cost 73 MB gzipped against 2.55 MB for the single file: 29× the bytes to serve the same lookups. One download that an instance filters is cheaper than the split it replaces.
 
 ### 5. User corrections are permanent overrides
 

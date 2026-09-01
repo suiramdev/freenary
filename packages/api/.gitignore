@@ -11,7 +11,6 @@ dist
 data/place-tokens.json
 data/wikidata-brands.json
 data/merchants.jsonl.gz
-data/merchants-*.jsonl.gz
 data/dictionary.key
 data/*.sig
 # code coverage

@@ -34,6 +34,9 @@ const DELAY_MS = 1500;
 
 const CURATED_WIKIDATA_BATCH_SIZE = 10;
 
+/** ~50 curated names at 7 req/s need seconds; this only caps a stalled endpoint. */
+const CURATED_SIRENE_BUDGET_MS = 120_000;
+
 /**
  * Wikidata types that cover consumer-facing commercial entities.
  * Direct P31 match only (no transitive P279* closure) to avoid WDQS timeouts.
@@ -64,6 +67,11 @@ interface SireneResult {
 
 interface WikidataBrand {
   aliases: string[];
+  /**
+   * ISO 3166-1 alpha-2 codes from P17, sorted. Empty when Wikidata states no
+   * country. Gates the SIRENE pass, which only knows French entities.
+   */
+  countries: string[];
   domains: string[];
   id: string;
   label: string;
@@ -177,43 +185,54 @@ const fetchSireneForCuratedMerchants = async (): Promise<
     `Phase 0: querying SIRENE for ${names.length} curated merchants…`
   );
 
-  const results = await fetchSireneBatch(
-    names,
-    parseSireneResult,
-    (done, total) => {
+  const outcome = await fetchSireneBatch(names, parseSireneResult, {
+    budgetMs: CURATED_SIRENE_BUDGET_MS,
+    onProgress: (done, total) => {
       if (done % 20 === 0 || done === total) {
         console.log(`  ${done}/${total} queried`);
       }
-    }
-  );
+    },
+  });
 
   const sireneMap = new Map<string, SireneResult>();
-  for (const { query, data } of results) {
+  for (const { query, data } of outcome.results) {
     if (data) {
       sireneMap.set(query, data);
     }
   }
 
   console.log(`  ${sireneMap.size}/${names.length} matched`);
+  if (outcome.stop !== "complete") {
+    console.log(
+      `  Warning: SIRENE lookup stopped early (${outcome.stop}); ${outcome.skipped} names unqueried, ${outcome.failed} requests failed`
+    );
+  }
   return sireneMap;
 };
 
 // ── Phase 1: fetch entities by type ──────────────────────────────────────
 
+interface EntityEntry {
+  countries: Set<string>;
+  domains: Set<string>;
+  label: string;
+}
+
 const fetchEntitiesByType = async (
   typeQid: string,
   typeName: string
-): Promise<Map<string, { domains: Set<string>; label: string }>> => {
-  const query = `SELECT ?item ?itemLabel ?website WHERE {
+): Promise<Map<string, EntityEntry>> => {
+  const query = `SELECT ?item ?itemLabel ?website ?countryCode WHERE {
   ?item wdt:P31 wd:${typeQid} .
   ?item wdt:P856 ?website .
   ?item rdfs:label ?itemLabel . FILTER(LANG(?itemLabel) = "en")
+  OPTIONAL { ?item wdt:P17/wdt:P297 ?countryCode }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q4167410 }
 } LIMIT 10000`;
 
   const data = await runQuery(query, `type ${typeQid} (${typeName})`);
-  const result = new Map<string, { domains: Set<string>; label: string }>();
+  const result = new Map<string, EntityEntry>();
 
   if (!data) {
     return result;
@@ -223,14 +242,18 @@ const fetchEntitiesByType = async (
     const qid = row.item.value.split("/").pop() ?? row.item.value;
     const label = row.itemLabel.value;
     const domain = extractDomain(row.website.value);
+    const countryCode = row.countryCode?.value.toUpperCase();
 
     let entry = result.get(qid);
     if (!entry) {
-      entry = { domains: new Set(), label };
+      entry = { countries: new Set(), domains: new Set(), label };
       result.set(qid, entry);
     }
     if (domain) {
       entry.domains.add(domain);
+    }
+    if (countryCode) {
+      entry.countries.add(countryCode);
     }
   }
 
@@ -241,7 +264,7 @@ const fetchEntitiesByType = async (
 
 const fetchCuratedFromWikidata = async (
   names: string[],
-  merged: Map<string, { domains: Set<string>; label: string }>
+  merged: Map<string, EntityEntry>
 ): Promise<void> => {
   console.log(
     `\nPhase 1b: querying Wikidata for ${names.length} curated merchant names…`
@@ -253,10 +276,11 @@ const fetchCuratedFromWikidata = async (
       .map((n) => `"${n.replaceAll('"', '\\"')}"@en`)
       .join(" ");
 
-    const query = `SELECT ?item ?itemLabel ?website WHERE {
+    const query = `SELECT ?item ?itemLabel ?website ?countryCode WHERE {
   VALUES ?searchLabel { ${valuesClause} }
   ?item rdfs:label ?searchLabel .
   OPTIONAL { ?item wdt:P856 ?website }
+  OPTIONAL { ?item wdt:P17/wdt:P297 ?countryCode }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
 }
 ORDER BY ?item ?website
@@ -283,12 +307,16 @@ LIMIT ${batch.length * 50}`;
 
         let entry = merged.get(qid);
         if (!entry) {
-          entry = { domains: new Set(), label };
+          entry = { countries: new Set(), domains: new Set(), label };
           merged.set(qid, entry);
           batchNew += 1;
         }
         if (domain) {
           entry.domains.add(domain);
+        }
+        const countryCode = row.countryCode?.value.toUpperCase();
+        if (countryCode) {
+          entry.countries.add(countryCode);
         }
       }
       console.log(
@@ -349,7 +377,7 @@ const main = async (): Promise<void> => {
   );
 
   // Phase 1: collect all entities across types
-  const merged = new Map<string, { domains: Set<string>; label: string }>();
+  const merged = new Map<string, EntityEntry>();
 
   console.log(
     `\nPhase 1: fetching entities by type (${Object.keys(ENTITY_TYPES).length} types)…`
@@ -365,8 +393,12 @@ const main = async (): Promise<void> => {
         for (const d of entry.domains) {
           existing.domains.add(d);
         }
+        for (const c of entry.countries) {
+          existing.countries.add(c);
+        }
       } else {
         merged.set(qid, {
+          countries: new Set(entry.countries),
           domains: new Set(entry.domains),
           label: entry.label,
         });
@@ -433,6 +465,7 @@ const main = async (): Promise<void> => {
 
     const brand: WikidataBrand = {
       aliases: filteredAliases.toSorted(),
+      countries: [...entry.countries].toSorted(),
       domains: [...entry.domains].toSorted(),
       id: qid,
       label: entry.label,
@@ -447,7 +480,9 @@ const main = async (): Promise<void> => {
   const sorted = brands.toSorted((a, b) => a.id.localeCompare(b.id));
 
   await writeFile(OUTPUT_PATH, JSON.stringify(sorted, null, 2), "utf-8");
+  const frenchCount = sorted.filter((b) => b.countries.includes("FR")).length;
   console.log(`\nWrote ${sorted.length} brands to ${OUTPUT_PATH}`);
+  console.log(`French-linked brands (P17 = FR): ${frenchCount}`);
 };
 
 const run = async (): Promise<void> => {

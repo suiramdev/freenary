@@ -30,7 +30,9 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 
+import { mergeCountryScopes } from "../src/categorisation/merchant-scope";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
+import { resolveNsiCountries } from "../src/categorisation/nsi/location-scope";
 import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { categoryPriority } from "./lib/category-priority";
@@ -58,11 +60,34 @@ const WIKIDATA_PATH = path.resolve(
   "../data/wikidata-brands.json"
 );
 
+/**
+ * Wall-clock ceiling for the SIRENE pass. The job's own limit is 60 minutes and
+ * every other pass needs about 7, so this leaves the release steps room even
+ * when the endpoint is slow. Whatever it does answer is cached on disk, so a
+ * truncated pass resumes rather than restarts.
+ */
+const SIRENE_BUDGET_MS = 15 * 60 * 1000;
+
+/** A one-word name matches half the registry, so it is not worth a query. */
+const MIN_SIRENE_QUERY_LENGTH = 3;
+
+const SIRENE_PROGRESS_EVERY = 50;
+
 // NSI types (minimal, for extraction)
+
+/**
+ * NSI geographic scope. `include` mixes ISO codes, UN M49 codes, region
+ * filenames and inline GeoJSON geometry, so a member is only a country when
+ * `resolveNsiCountries` can validate it as one.
+ */
+interface NsiLocationSet {
+  include?: unknown[];
+}
 
 interface NsiItem {
   id?: string;
   displayName?: string;
+  locationSet?: NsiLocationSet;
   matchNames?: string[];
   tags?: Record<string, string> & {
     "contact:website"?: string;
@@ -157,43 +182,6 @@ const slugify = (text: string): string =>
     .replaceAll(/[^a-z0-9]+/gu, "-")
     .replaceAll(/^-|-$/gu, "");
 
-// Country partitioning — extract trailing 2-letter code from NSI ids
-
-const extractCountryFromId = (id: string): string | null => {
-  const match = id.match(/-(?<cc>[a-z]{2})$/iu);
-  return match?.groups?.["cc"]?.toUpperCase() ?? null;
-};
-
-const partitionByCountry = (
-  merchants: DictionaryMerchant[]
-): Map<string, DictionaryMerchant[]> => {
-  const partitions = new Map<string, DictionaryMerchant[]>();
-  const globalEntries: DictionaryMerchant[] = [];
-
-  for (const m of merchants) {
-    const country = m.source === "nsi" ? extractCountryFromId(m.id) : null;
-    if (country) {
-      const bucket = partitions.get(country) ?? [];
-      bucket.push(m);
-      partitions.set(country, bucket);
-    } else {
-      globalEntries.push(m);
-    }
-  }
-
-  // Merge global entries into each country partition
-  for (const [cc, bucket] of partitions) {
-    partitions.set(cc, [...bucket, ...globalEntries]);
-  }
-
-  // If no country partitions exist, create a single global one
-  if (partitions.size === 0 && globalEntries.length > 0) {
-    partitions.set("GLOBAL", globalEntries);
-  }
-
-  return partitions;
-};
-
 // Write gzipped JSONL artifact
 
 const writeArtifact = async (
@@ -217,28 +205,6 @@ const writeArtifact = async (
   const { size: gzippedBytes } = await Bun.file(outputPath).stat();
 
   return { gzippedBytes, rawBytes };
-};
-
-const writeCountryPartition = async (
-  cc: string,
-  entries: DictionaryMerchant[]
-): Promise<string> => {
-  const countryPath = path.resolve(
-    import.meta.dirname,
-    `../data/merchants-${cc}.jsonl.gz`
-  );
-  await writeArtifact(countryPath, entries);
-  return `  ${cc}: ${entries.length} merchants`;
-};
-
-// Yields lazily so the consumer gzips one partition at a time: every partition
-// carries the whole global slice, so writing them at once multiplies peak memory.
-const countryPartitionWrites = function* countryPartitionWrites(
-  partitions: Map<string, DictionaryMerchant[]>
-): Generator<Promise<string>> {
-  for (const [cc, entries] of partitions) {
-    yield writeCountryPartition(cc, entries);
-  }
 };
 
 // URL field narrowing — parse at the I/O boundary into typed values
@@ -384,6 +350,7 @@ const collectNsiCandidates = (
       rawMerchants.push({
         aliases,
         category,
+        countries: resolveNsiCountries(item.locationSet?.include),
         domains,
         id,
         name: displayName,
@@ -399,7 +366,10 @@ const collectNsiCandidates = (
 
 // Pass 3: resolve normalisedName collisions via category priority
 
-const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
+/** Takes a non-empty group so the primary needs no unchecked index access. */
+const mergeCollisionGroup = (
+  group: [DictionaryMerchant, ...DictionaryMerchant[]]
+) => {
   let winningCategory = group[0].category;
   let bestPriority = -1;
   for (const m of group) {
@@ -450,6 +420,7 @@ const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
       ...primary,
       aliases: mergedAliases,
       category: winningCategory,
+      countries: mergeCountryScopes(group.map((m) => m.countries)),
       domains: mergedDomains,
     },
   };
@@ -459,6 +430,8 @@ const mergeCollisionGroup = (group: DictionaryMerchant[]) => {
 
 interface WikidataBrand {
   aliases: string[];
+  /** ISO 3166-1 alpha-2 from Wikidata P17; absent in artifacts built before it was captured. */
+  countries?: string[];
   domains: string[];
   id: string;
   label: string;
@@ -508,9 +481,10 @@ const mergeWikidataBrands = (
     const aliases = buildAliases(wd.aliases, normalisedName, isGenericToken);
 
     const existingIdx = byNorm[normalisedName];
-    if (existingIdx !== undefined) {
+    const existing =
+      existingIdx === undefined ? undefined : merchants[existingIdx];
+    if (existing) {
       // Enrich existing entry with new aliases and domains
-      const existing = merchants[existingIdx];
       const seenAliases = new Set<string>([
         existing.normalisedName,
         ...existing.aliases.map((a) => a.normalisedAlias),
@@ -532,6 +506,14 @@ const mergeWikidataBrands = (
           enriched = true;
         }
       }
+      // Only a stated P17 is evidence. An absent one means Wikidata does not
+      // know where the brand trades, which must not erase what NSI declared.
+      if (wd.countries && wd.countries.length > 0) {
+        existing.countries = mergeCountryScopes([
+          existing.countries,
+          wd.countries,
+        ]);
+      }
       if (enriched) {
         wikidataMatched += 1;
       }
@@ -541,6 +523,7 @@ const mergeWikidataBrands = (
       merchants.push({
         aliases,
         category: null,
+        countries: wd.countries ?? [],
         domains,
         id: `wd:${wd.id}`,
         name: wd.label,
@@ -557,6 +540,22 @@ const mergeWikidataBrands = (
 
   return { wikidataMatched, wikidataNew };
 };
+
+/**
+ * NAF classes that name a legal or asset structure rather than a trade. A brand
+ * is matched here by name, not by SIREN, so the hit is routinely the group's
+ * property or holding company: NRJ, Thalys and LVMH all resolve to 68.20, which
+ * would file a radio station, a railway and a luxury house alike under `rent`.
+ * The map keeps reading these codes at face value, which is right for an
+ * establishment identified by its own SIREN rather than by a name search.
+ */
+const STRUCTURAL_NAF_CLASSES = {
+  "64.20": true,
+  "64.30": true,
+  "66.30": true,
+  "68.20": true,
+  "70.10": true,
+} as const satisfies Record<string, true>;
 
 const parseNafCode = (
   data: SireneSearchResponse,
@@ -577,16 +576,38 @@ const parseNafCode = (
     return null;
   }
 
-  return firstResult.matching_etablissements[0]?.activite_principale ?? null;
+  const nafCode = firstResult.matching_etablissements[0]?.activite_principale;
+  if (!nafCode) {
+    return null;
+  }
+  if (Object.hasOwn(STRUCTURAL_NAF_CLASSES, nafCode.slice(0, 5))) {
+    return null;
+  }
+  return nafCode;
 };
 
 // Pass 3c: enrich uncategorised merchants via the French SIRENE registry
+
+/**
+ * SIRENE only holds French legal entities, so a non-French brand can only match
+ * a namesake: querying it returned a French subsidiary's holding or landlord
+ * code 21% of the time (Adobe → 68.20B "rent", Samsung → the obsolete 51.4S),
+ * which is worse than leaving the category null. Restricting the pass to
+ * French-linked names is also what makes it finish: it cuts ~48k lookups, over
+ * two hours at the documented 7 req/s, down to about fifteen hundred.
+ */
+const isFrenchLinked = (merchant: DictionaryMerchant): boolean =>
+  merchant.countries.includes("FR") ||
+  merchant.domains.some((d) => d.endsWith(".fr"));
 
 const enrichWithSirene = async (
   merchants: DictionaryMerchant[]
 ): Promise<number> => {
   const candidates = merchants.filter((m) => {
-    if (m.name.length < 3) {
+    if (m.name.length < MIN_SIRENE_QUERY_LENGTH) {
+      return false;
+    }
+    if (!isFrenchLinked(m)) {
       return false;
     }
     if (m.category === null) {
@@ -607,7 +628,9 @@ const enrichWithSirene = async (
     return 0;
   }
 
-  console.log(`SIRENE: ${candidates.length} candidates to enrich`);
+  console.log(
+    `SIRENE: ${candidates.length} French-linked candidates to enrich`
+  );
 
   // Build a name→merchant index so we can apply results back.
   const byName = new Map<string, DictionaryMerchant[]>();
@@ -622,36 +645,44 @@ const enrichWithSirene = async (
 
   const uniqueNames = [...byName.keys()];
 
-  const results = await fetchSireneBatch(
-    uniqueNames,
-    parseNafCode,
-    (done, total) => {
-      if (done % 50 === 0 || done === total) {
+  const outcome = await fetchSireneBatch(uniqueNames, parseNafCode, {
+    budgetMs: SIRENE_BUDGET_MS,
+    onProgress: (done, total) => {
+      if (done % SIRENE_PROGRESS_EVERY === 0 || done === total) {
         console.log(`SIRENE: processed ${done}/${total}`);
       }
-    }
-  );
+    },
+  });
 
   let enriched = 0;
-  for (const { query, data: nafCode } of results) {
+  for (const { query, data: nafCode } of outcome.results) {
     if (nafCode === null) {
       continue;
     }
     const category = mapNafToCategory(nafCode);
-    if (category === null) {
+    // `uncategorised` states no consumer intent, so it is not worth overwriting
+    // a null with: the entry stays a candidate for a better source later.
+    if (category === null || category === "uncategorised") {
       continue;
     }
-    const merchants_for_name = byName.get(query);
-    if (!merchants_for_name) {
+    const merchantsForName = byName.get(query);
+    if (!merchantsForName) {
       continue;
     }
-    for (const m of merchants_for_name) {
+    for (const m of merchantsForName) {
       m.category = category;
       enriched += 1;
     }
   }
 
-  console.log(`SIRENE: ${enriched} merchants enriched`);
+  console.log(
+    `SIRENE: ${enriched} merchants enriched (${outcome.cached} from cache, ${outcome.failed} requests failed)`
+  );
+  if (outcome.stop !== "complete") {
+    console.log(
+      `SIRENE: stopped early (${outcome.stop}) with ${outcome.skipped} names unqueried — the disk cache carries them into the next run`
+    );
+  }
   return enriched;
 };
 
@@ -704,9 +735,12 @@ const mergeCuratedSupplement = (
 
     const domains = buildDomains(rawDomains.map((d) => `https://${d}`));
 
+    // The curated list declares no country and spans both French utilities and
+    // global subscriptions, so it stays unscoped rather than assumed French.
     const merchant: DictionaryMerchant = {
       aliases,
       category: curated.category,
+      countries: [],
       domains,
       id: `curated:${slugify(curated.name)}`,
       name: curated.name,
@@ -822,11 +856,15 @@ const main = async (): Promise<void> => {
   const nsiMerchants: DictionaryMerchant[] = [];
   let mergedCount = 0;
   for (const [, group] of Object.entries(groups)) {
-    if (group.length === 1) {
-      nsiMerchants.push(group[0]);
+    const [primary, ...rest] = group;
+    if (!primary) {
       continue;
     }
-    const { merged, absorbed } = mergeCollisionGroup(group);
+    if (rest.length === 0) {
+      nsiMerchants.push(primary);
+      continue;
+    }
+    const { merged, absorbed } = mergeCollisionGroup([primary, ...rest]);
     nsiMerchants.push(merged);
     mergedCount += absorbed;
   }
@@ -836,15 +874,17 @@ const main = async (): Promise<void> => {
 
   // Pass 3b: merge Wikidata brands (aliases + domains only; no category)
   let wikidataBrands: WikidataBrand[] = [];
+  let wikidataMatched = 0;
+  let wikidataNew = 0;
   try {
     const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
     // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
     wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
-    const { wikidataMatched, wikidataNew } = mergeWikidataBrands(
+    ({ wikidataMatched, wikidataNew } = mergeWikidataBrands(
       nsiMerchants,
       wikidataBrands,
       isGenericToken
-    );
+    ));
     console.log(
       `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
     );
@@ -893,13 +933,14 @@ const main = async (): Promise<void> => {
 
   const distinctCategories = new Set(merchants.map((m) => m.category));
 
-  // Write global gzipped JSONL (backward compatible)
+  // Every consumer loads the one artifact and filters on `countries` in memory:
+  // per-country files would each need the unscoped worldwide tail duplicated.
   const { gzippedBytes, rawBytes } = await writeArtifact(
     OUTPUT_PATH,
     merchants
   );
 
-  // Sign the global dictionary artifact
+  // Sign the dictionary artifact
   const PRIVATE_KEY_PATH = path.resolve(
     import.meta.dirname,
     "../data/dictionary.key"
@@ -922,12 +963,7 @@ const main = async (): Promise<void> => {
     );
   }
 
-  // Write per-country partitions
-  const partitions = partitionByCountry(merchants);
-  console.log(`\nCountry partitions: ${partitions.size}`);
-  for await (const summary of countryPartitionWrites(partitions)) {
-    console.log(summary);
-  }
+  const scopedCount = merchants.filter((m) => m.countries.length > 0).length;
 
   console.log("\n─── Build Summary ───");
   console.log(`NSI version:        ${NSI_VERSION}`);
@@ -940,6 +976,9 @@ const main = async (): Promise<void> => {
   console.log(`Total merchants:    ${merchants.length}`);
   console.log(`Aliases kept:       ${totalAliases}`);
   console.log(`Distinct categories: ${distinctCategories.size}`);
+  console.log(
+    `Country-scoped:     ${scopedCount} (${merchants.length - scopedCount} unscoped)`
+  );
   console.log(`Raw JSONL bytes:    ${rawBytes.toLocaleString()}`);
   console.log(`Gzipped bytes:      ${gzippedBytes.toLocaleString()}`);
   console.log(`Output:             ${OUTPUT_PATH}`);

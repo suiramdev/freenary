@@ -8,11 +8,15 @@
 
 Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `SpendingCategory` (or `null` for Wikidata-only entries), and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
 
+`countries` holds the ISO 3166-1 alpha-2 codes the merchant is scoped to — NSI geographic scope, or Wikidata `P17` — and is empty for a worldwide brand rather than absent from everywhere. Consumers filter on it in memory; there are no per-country files, because the unscoped worldwide tail every country needs would have to be duplicated into each one (see [ADR-001 §4](../../../docs/adr/001-country-agnostic-categorisation.md)).
+
 ## Why three sources?
 
 NSI indexes OSM points of interest — retail shops, restaurants, fuel stations — so utilities, telecoms, rail operators, insurers, and subscription services are sparse or absent. These are precisely the SEPA direct-debit merchants that matter most for a budgeting product (EDF, Orange, SNCF, Netflix, AXA, etc.). The curated supplement fills those gaps. Curated entries take precedence over NSI and Wikidata entries with the same normalised name.
 
 Wikidata broadens brand coverage to online-only and service businesses that lack OSM presence. When a Wikidata brand matches an existing NSI entry by normalised name, its aliases and domains are merged in. Unmatched Wikidata brands are added as new entries only if they carry at least one domain (evidence of being a real commercial entity). Because Wikidata has no OSM tags, these entries carry `category: null` — the resolver uses them for name matching only, and downstream stages (e.g. Sirene NAF) handle category assignment.
+
+SIRENE only holds French legal entities, so the SIRENE pass considers a merchant only when something ties it to France: a `.fr` domain, or a `countries` entry of `FR`. Asking the French register about a foreign brand returns a namesake: measured on a sample, one lookup in five matched a French holding or landlord, which would have filed Adobe under `rent`. Classes naming a legal or asset structure rather than a trade (`64.20`, `64.30`, `66.30`, `68.20`, `70.10`) are refused for a name match, as are pre-2008 NAF rev. 1 codes, and a code mapping to `uncategorised` leaves `category` null rather than claiming an answer.
 
 ## How data is supplied
 
@@ -33,7 +37,7 @@ The full generation pipeline runs three scripts in sequence:
 2. `fetch-wikidata-brands.ts` — queries Wikidata SPARQL and the SIRENE API, writes `wikidata-brands.json`.
 3. `build-merchant-dictionary.ts` — fetches the pinned NSI tarball, merges NSI + Wikidata + curated supplement, enriches via SIRENE, and writes `merchants.jsonl.gz`.
 
-Each step degrades gracefully when its upstream API is unreachable.
+Each step degrades gracefully when its upstream API is unreachable. The SIRENE pass also carries a 15-minute wall-clock budget and stops after 25 consecutive request failures — shared CI egress IPs get throttled into silence, and every answer it did get is cached on disk (`packages/api/.cache/sirene`, persisted across CI runs), so a truncated pass resumes on the next run instead of restarting.
 
 ## Runtime enrichment
 

@@ -141,16 +141,24 @@ const NAF_TO_CATEGORY = {
 } as const satisfies Record<string, SpendingCategory>;
 
 /**
+ * NAF rev. 2 code: two-digit division, two-digit class, optional sub-class
+ * letter. Establishments registered before 2008 still carry rev. 1 codes, whose
+ * groups mean something else entirely — rev. 1 division 51 was wholesale, rev. 2
+ * is air transport — so `51.4S` must not resolve at all rather than resolve to
+ * `flights`.
+ */
+const NAF_REV2_CODE = /^\d{2}\.\d{2}[A-Z]?$/u;
+
+/**
  * Resolve a NAF/APE code to a spending category.
  * Tries the full code first, then progressively shorter prefixes down to
  * the 2-digit division. Returns null when no mapping exists.
  */
 export const mapNafToCategory = (nafCode: string): SpendingCategory | null => {
-  if (!nafCode) {
+  const trimmed = nafCode.trim().toUpperCase();
+  if (!NAF_REV2_CODE.test(trimmed)) {
     return null;
   }
-
-  const trimmed = nafCode.trim();
 
   // Try full code, then strip trailing characters until we reach the 2-digit division.
   // SAFETY: cast is needed because dynamic key lookup returns string | undefined
@@ -175,14 +183,12 @@ export const mapNafToCategory = (nafCode: string): SpendingCategory | null => {
 
   // Try group level (e.g. '47.73' → '47.7')
   const group = trimmed.slice(0, 4);
-  if (group.length >= 4) {
-    // SAFETY: cast is needed because dynamic key lookup returns string | undefined
-    const hit = NAF_TO_CATEGORY[group as keyof typeof NAF_TO_CATEGORY] as
-      | SpendingCategory
-      | undefined;
-    if (hit) {
-      return hit;
-    }
+  // SAFETY: cast is needed because dynamic key lookup returns string | undefined
+  const groupHit = NAF_TO_CATEGORY[group as keyof typeof NAF_TO_CATEGORY] as
+    | SpendingCategory
+    | undefined;
+  if (groupHit) {
+    return groupHit;
   }
 
   // Division level (first 2 digits)

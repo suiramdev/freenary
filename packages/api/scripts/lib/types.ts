@@ -21,6 +21,12 @@ export interface DictionaryMerchant {
   source: string;
   /** The originating OSM tag, e.g. "shop=supermarket". Kept for auditability. */
   osmTag: string | null;
+  /**
+   * ISO 3166-1 alpha-2 countries the merchant is scoped to: NSI geographic
+   * scope, or Wikidata P17. Empty means unscoped rather than absent everywhere —
+   * a worldwide brand names no country.
+   */
+  countries: string[];
 }
 
 export interface CuratedEntry {
