@@ -14,6 +14,7 @@ data/merchants.jsonl.gz
 data/merchants-*.jsonl.gz
 data/dictionary.key
 data/*.sig
+data/model-weights.json
 # code coverage
 coverage
 *.lcov

@@ -14,6 +14,8 @@ The constraint that shapes everything: no mandatory cloud component. An optional
 
 ### 1. Pipeline stages, in order
 
+> Superseded by [ADR-003](003-deterministic-first-categorisation.md). The list below is the order as decided here; the pipeline now runs the deterministic layers, MCC included, before the local model.
+
 Each stage exits early on a confident hit:
 
 1. **Sync** — scheduled job pulling raw ISO 20022 data from Enable Banking. Raw transactions are persisted without categorisation.

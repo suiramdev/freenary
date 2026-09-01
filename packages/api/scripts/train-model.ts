@@ -15,7 +15,11 @@ import path from "node:path";
 
 import prisma from "@freenary/db";
 
-import { extractFeatures, modelInput } from "../src/categorisation/features";
+import {
+  extractFeatures,
+  INPUT_VERSION,
+  modelInput,
+} from "../src/categorisation/features";
 import type { FeatureVector } from "../src/categorisation/features";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { SPENDING_CATEGORIES } from "../src/lib/taxonomy";
@@ -127,7 +131,11 @@ const buildCategoryIndex = (): Map<string, number> => {
   return index;
 };
 
-/** Postgres accepts 65535 bind parameters per statement; stay well under. */
+/**
+ * Bind parameters per statement. Postgres caps at 65535 and Prisma trips well
+ * before that, so a query binds at most one user chunk plus one key chunk.
+ */
+const USER_CHUNK = 1000;
 const KEY_CHUNK = 5000;
 
 /**
@@ -141,36 +149,54 @@ const loadOverrideCountries = async (
   overrides: { merchantKey: string; userId: string }[]
 ): Promise<Map<string, string>> => {
   const countryByKey = new Map<string, string>();
-  const merchantKeys = [...new Set(overrides.map((o) => o.merchantKey))];
-  const userIds = [...new Set(overrides.map((o) => o.userId))];
-  if (merchantKeys.length === 0) {
-    return countryByKey;
+
+  // Keys are grouped by their own user, so a query never carries the keys of
+  // the users it is not asking about.
+  const keysByUser = new Map<string, Set<string>>();
+  for (const { merchantKey, userId } of overrides) {
+    const keys = keysByUser.get(userId) ?? new Set<string>();
+    keys.add(merchantKey);
+    keysByUser.set(userId, keys);
   }
 
-  for (let i = 0; i < merchantKeys.length; i += KEY_CHUNK) {
-    // eslint-disable-next-line no-await-in-loop -- chunked to bound bind parameters
-    const rows = await prisma.transaction.findMany({
-      orderBy: { date: "asc" },
-      select: {
-        account: {
-          select: {
-            connection: { select: { institutionCountry: true, userId: true } },
-          },
-        },
-        merchantKey: true,
-      },
-      where: {
-        account: { connection: { userId: { in: userIds } } },
-        merchantKey: { in: merchantKeys.slice(i, i + KEY_CHUNK) },
-      },
-    });
+  const userIds = [...keysByUser.keys()];
 
-    for (const row of rows) {
-      const { institutionCountry, userId } = row.account.connection;
-      if (row.merchantKey === null || institutionCountry === null) {
-        continue;
+  for (let u = 0; u < userIds.length; u += USER_CHUNK) {
+    const userChunk = userIds.slice(u, u + USER_CHUNK);
+    const merchantKeys = [
+      ...new Set(userChunk.flatMap((id) => [...(keysByUser.get(id) ?? [])])),
+    ];
+
+    for (let k = 0; k < merchantKeys.length; k += KEY_CHUNK) {
+      // eslint-disable-next-line no-await-in-loop -- chunked to bound bind parameters
+      const rows = await prisma.transaction.findMany({
+        orderBy: { date: "asc" },
+        select: {
+          account: {
+            select: {
+              connection: {
+                select: { institutionCountry: true, userId: true },
+              },
+            },
+          },
+          merchantKey: true,
+        },
+        where: {
+          account: { connection: { userId: { in: userChunk } } },
+          merchantKey: { in: merchantKeys.slice(k, k + KEY_CHUNK) },
+        },
+      });
+
+      for (const row of rows) {
+        const { institutionCountry, userId } = row.account.connection;
+        if (row.merchantKey === null || institutionCountry === null) {
+          continue;
+        }
+        countryByKey.set(
+          `${userId}\u0000${row.merchantKey}`,
+          institutionCountry
+        );
       }
-      countryByKey.set(`${userId}\u0000${row.merchantKey}`, institutionCountry);
     }
   }
 
@@ -256,6 +282,8 @@ const loadTrainingData = async (): Promise<TrainingSample[]> => {
 interface TrainedModel {
   categories: string[];
   dimension: number;
+  /** Representation these weights were trained against; the loader refuses a mismatch. */
+  inputVersion: number;
   weights: Record<string, number>[];
 }
 
@@ -356,6 +384,7 @@ const serialiseWeights = (
   return {
     categories: [...SPENDING_CATEGORIES],
     dimension,
+    inputVersion: INPUT_VERSION,
     weights: sparseWeights,
   };
 };

@@ -34,4 +34,4 @@ There is one model for every supported country, not one model per country. The c
 - The stage vocabulary gains `rules` and keeps `mcc`; `resolutionStage` stays readable as "which signal decided this".
 - Stages keyed on the merchant key are skipped, not fatal, when a transaction has none — the deterministic layer and the classifier still run.
 - The keyword tables have one owner (`categorisation/keywords`) and two consumers: the pipeline, which dispatches on country, and `deriveCategory`, which has no country and uses every layer flattened.
-- Retraining is required for the country feature to be used at inference; a model trained before this change simply never sees the token.
+- Retraining is required for the country feature to be used at inference. `INPUT_VERSION` in `features.ts` stamps the representation into `model-weights.json`, and the loader refuses a file that carries a different one rather than scoring against buckets the weights never saw — an unretrained deployment runs with no model, not with a wrong one.

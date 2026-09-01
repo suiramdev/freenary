@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { SpendingCategory } from "../lib/taxonomy";
 import { resolveCategorySlug } from "../lib/taxonomy";
 import type { FeatureVector } from "./features";
-import { extractFeatures, modelInput } from "./features";
+import { extractFeatures, INPUT_VERSION, modelInput } from "./features";
 
 export interface ModelPrediction {
   category: SpendingCategory;
@@ -18,6 +18,8 @@ export interface ModelPrediction {
 const trainedWeightsSchema = z.object({
   categories: z.array(z.string()),
   dimension: z.number(),
+  /** Representation the weights were trained against; see INPUT_VERSION. */
+  inputVersion: z.number(),
   weights: z.array(z.record(z.string(), z.number())),
 });
 
@@ -130,6 +132,16 @@ export const loadModel = async (): Promise<void> => {
     const parsed = trainedWeightsSchema.safeParse(JSON.parse(raw));
 
     if (!parsed.success) {
+      console.warn(
+        `[categorisation] Weights file unreadable: ${WEIGHTS_PATH} — refusing to load`
+      );
+      return;
+    }
+
+    if (parsed.data.inputVersion !== INPUT_VERSION) {
+      console.warn(
+        `[categorisation] Weights file trained on input version ${parsed.data.inputVersion}, runtime expects ${INPUT_VERSION}: ${WEIGHTS_PATH} — refusing to load, retrain the model`
+      );
       return;
     }
 
