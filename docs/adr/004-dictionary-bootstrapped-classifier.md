@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, with a negative result. Extends the training source that [ADR-001](001-country-agnostic-categorisation.md) left open. The dictionary source, the evaluation and the shipping gate are implemented; on the current artifact the gate **refuses to ship weights**, so the classifier stays inert. Section 6 records the measurement.
+Accepted, with a negative result. Extends the training source that [ADR-001](001-country-agnostic-categorisation.md) left open. The dictionary source, the evaluation and the shipping gate are implemented; on both artifacts measured so far the gate **refuses to ship weights**, so the classifier stays inert. Section 6 records the measurement on a full local build, section 7 the one on the CI release the trainer now runs against.
 
 ## Context
 
@@ -16,9 +16,9 @@ The tempting shortcut is to invent training data: write plausible bank descripto
 
 ### 1. The dictionary is the bootstrap prior
 
-The dictionary artifact carries every merchant with a resolvable `SpendingCategory`, and its labels come from three places, none of them invented. Measured on the build these numbers were taken from, 32,556 labelled strings over 20,510 merchants: **16,890 from Wikidata-sourced entries** (CC0) whose category the SIRENE NAF pass assigned by company-name lookup, **15,529 from NSI** (BSD-3-Clause) via OSM tags, and **137 curated** (original to this project). It is the same artifact stage 3 loads.
+The dictionary artifact carries every merchant with a resolvable `SpendingCategory`, and its labels come from three places, none of them invented. Measured on a full local build — the one section 6 scores — 32,556 labelled strings over 20,510 merchants: **16,890 from Wikidata-sourced entries** (CC0) whose category the SIRENE NAF pass assigned by company-name lookup, **15,529 from NSI** (BSD-3-Clause) via OSM tags, and **137 curated** (original to this project). It is the same artifact stage 3 loads. The CI release differs, mainly in how far its SIRENE pass got (section 7).
 
-The Wikidata share matters twice over. It is the majority of the corpus, so a description naming only NSI would misstate where the labels come from; and its categories are assigned by fuzzy name-matching into a NAF-to-category map rather than read off a tag, so it carries more label noise than the NSI share.
+The Wikidata share matters twice over. On that local build it is the majority of the corpus, so a description naming only NSI would misstate where the labels come from; and its categories are assigned by fuzzy name-matching into a NAF-to-category map rather than read off a tag, so it carries more label noise than the NSI share.
 
 This is not a new fact about the world. It is the fact stage 3 already holds, re-encoded so the classifier can generalise it: the dictionary answers exact matches, and character n-grams over the same names answer the near-misses the dictionary structurally cannot.
 
@@ -30,7 +30,7 @@ A dictionary sample carries weight 1, a user correction weight 20, and the weigh
 
 Every merchant carries a `countries` scope in the artifact, where absent or empty means worldwide (`src/categorisation/merchant-scope.ts`). A merchant trains under the country-less pass — the one a connection with a null `institutionCountry` hits — plus each supported country its scope admits, matching what `modelInput()` receives at inference. Countries outside `SUPPORTED_COUNTRIES` contribute nothing, and no invented data stands in.
 
-On the artifact these numbers were measured against, **0 of the 20,510 labelled merchants carry a scope**: it predates the build that captures one, so every merchant is worldwide and every string trains under both `null` and `FR`. The two slices are therefore near-duplicates here, and the per-slice gate has no discriminating power yet — it will once the build emits scopes and the slices carry different merchants.
+On the artifact these numbers were measured against, **0 of the 20,510 labelled merchants carry a scope**: it predates the build that captures one, so every merchant is worldwide and every string trains under both `null` and `FR`. The two slices are therefore near-duplicates here, and the per-slice gate has little discriminating power. Scope changes only the training mix — which countries a merchant trains under — never the holdout: every held-out string is scored under every inference country, so the slices always hold the same merchants and differ only by the token (section 7 confirms this on a scoped build).
 
 The country token is not free even so. The hashing trick gives no token a private region of the feature space: the labelled corpus occupies 52,911 of the 65,536 buckets, and 10 of the 12 buckets `cc:fr` hashes into are among them. The token therefore shares weights with content n-grams rather than adding a clean signal of its own.
 
@@ -67,10 +67,24 @@ Two causes, and the ordering matters. The first is intrinsic: a brand name is an
 
 This does not condemn the classifier's premise. The case the dictionary genuinely supports is the *known* brand wearing noise — a store number, a town, an acquirer prefix — which is within-merchant generalisation, and the merchant-level holdout deliberately excludes it. Measuring that needs real bank descriptors, which is what the contribution pipeline is for. Until then the honest position is an inert classifier, which is what the gate enforces.
 
+### 7. Measured on the CI release: a different corpus, a different number
+
+Section 6 scores a full local build. The workflow trains on the dictionary it rebuilds in the same run, whose SIRENE-categorised share depends on how far that pass got within its budget, so the corpus differs from release to release. The release `data-2026-09-01` — the asset every deployment downloads — holds 16,459 labelled strings over 11,355 merchants: 15,798 from NSI, 135 curated and 526 from the 308 Wikidata entries the SIRENE pass categorised before its wall-clock budget ran out. 10,147 of those merchants carry a country scope, which changes the training mix: a merchant scoped outside `FR` trains under `null` only. The holdout is unaffected — both slices hold the same 2,311 merchants and 3,289 strings and differ only by the `cc:fr` token. That becomes 19,666 samples, 2,311 held-out merchants scored as 6,578 inputs:
+
+|Confidence|Coverage (none)|Precision (none)|Coverage (FR)|Precision (FR)|
+|---|---|---|---|---|
+|0.50|64.9%|66.2%|68.5%|63.1%|
+|0.70 (gate)|51.4%|74.9%|53.3%|**72.4%**|
+|0.90|37.1%|84.6%|37.4%|83.4%|
+|0.95|31.0%|87.5%|31.5%|87.1%|
+
+Top-1 accuracy is 49.0% (none) and 49.1% (FR) against an 11.8% baseline. The gate still refuses; the worst slice is 2.6 points short. This is a second observation on a different build, not an ablation: against section 6 the corpus is half the size, nearly all of the SIRENE-labelled share is gone, the training mix is scoped and the baseline moved, and none of those was held fixed. What it does establish is that the shortfall is not the 32 points section 6 extrapolated from, and that the SIRENE share is the largest known difference between the two corpora. Whether label noise explains the gap needs the ablation section 6 did not run — the same artifact with the Wikidata-labelled entries dropped — and the per-release curve in the workflow summary now shows how the number moves as the SIRENE pass gets further. Until that is measured, the honest position is unchanged: the gate refuses, the classifier stays inert.
+
 ## Consequences
 
 - The classifier stays inert on a fresh instance: the gate refuses these weights. Transactions the deterministic layers miss stay uncategorised and correctable, unchanged from before this ADR.
-- The tempting shortcut is now closed with a number rather than an argument. Anyone proposing to bootstrap the classifier from merchant names alone can read section 6 instead of rediscovering it.
+- The tempting shortcut is closed with numbers rather than an argument. Anyone proposing to bootstrap the classifier from merchant names alone can read sections 6 and 7 — both refuse, on two different corpora — instead of rediscovering it.
 - `bun run train:model` exits non-zero when the gate refuses, so a CI job cannot ship an unevaluated model by accident. Without a dictionary artifact there is no holdout, so it refuses before training rather than writing weights nobody scored — a change from the previous behaviour, which shipped a corrections-only model unevaluated.
+- Training runs in CI, not on instances. `generate-data.yml` trains with `--dictionary-only` against the dictionary it just built and attaches `model-weights.json` to the same `data-*` release only when the gate passes, which gives one canonical, reproducible weights file per dictionary build and keeps ADR-001's promise that the model travels with the dictionary. Operators hold the only corrections, but corrections cannot move a gate scored on dictionary merchants (section 4), and a model each instance trains for itself would be unevaluated on real descriptors and different everywhere. A refusal exits 2 and is the expected outcome of every run until contributed data exists, so the workflow records the curves in its summary and stays green; any other failure still fails the run.
 - The reported precision is a floor over dictionary merchants, not a figure for real bank descriptors. Only contributed data measures the real thing.
 - ADR-001's k-anonymity pipeline is no longer just the eventual source; it is the blocking one. The classifier cannot ship until it delivers **and** the gate is revised to hold out corrections (section 4); delivery alone does not move a gate scored on dictionary merchants.

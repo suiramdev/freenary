@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "packages/api/scripts/**"
+      - "packages/api/src/categorisation/features.ts"
       - "packages/api/src/categorisation/normalise/**"
       - "packages/api/src/categorisation/sirene/**"
 
@@ -56,22 +57,59 @@ jobs:
           path: packages/api/.cache/sirene
           key: sirene-${{ github.run_id }}
 
+      # `--ignore-scripts` above skipped `prisma generate`; the trainer imports
+      # the client even when it reads no corrections.
+      - name: Generate Prisma client
+        run: bun run db:generate
+        working-directory: packages/db
+
+      # The gate refusing is the expected outcome until contributed data exists
+      # (ADR-004 §6–7): it exits 2, leaves no weights file, and must not fail the
+      # run. Anything else non-zero is a crash and does. PIPESTATUS, not $?:
+      # the default shell has no pipefail, so $? would be tee's.
+      - name: Train classifier
+        id: train
+        working-directory: packages/api
+        run: |
+          set +e
+          bun scripts/train-model.ts --dictionary-only 2>&1 | tee /tmp/train.log
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## Classifier training"
+            echo
+            echo '```'
+            cat /tmp/train.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$status" in
+            0)
+              test -f data/model-weights.json
+              echo "weights=attached" >> "$GITHUB_OUTPUT" ;;
+            2)
+              test ! -f data/model-weights.json
+              echo "weights=refused by the shipping gate, none attached" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$status" ;;
+          esac
+
       - name: Create release tarball
         run: |
           cd packages/api
           tar -czf /tmp/merchant-data.tar.gz \
             data/place-tokens.json \
             data/merchants.jsonl.gz \
-            $([ -f data/wikidata-brands.json ] && echo data/wikidata-brands.json || true)
+            $([ -f data/wikidata-brands.json ] && echo data/wikidata-brands.json || true) \
+            $([ -f data/model-weights.json ] && echo data/model-weights.json || true)
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          WEIGHTS: ${{ steps.train.outputs.weights }}
         run: |
           TAG="data-$(date -u +%Y-%m-%d)"
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push --delete origin "refs/tags/$TAG" 2>/dev/null || true
           gh release create "$TAG" /tmp/merchant-data.tar.gz \
             --title "Merchant data $(date -u +%Y-%m-%d)" \
-            --notes "Auto-generated merchant dictionary (NSI + Wikidata + SIRENE)." \
+            --notes "Auto-generated merchant dictionary (NSI + Wikidata + SIRENE). Classifier weights: $WEIGHTS." \
             --latest=false

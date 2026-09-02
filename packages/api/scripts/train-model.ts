@@ -14,7 +14,16 @@
  * clears MIN_PRECISION; otherwise the script exits non-zero and leaves the
  * classifier inert. See ADR-004.
  *
- * Usage: bun packages/api/scripts/train-model.ts
+ * Exit codes:
+ *   0 — weights written
+ *   1 — training failed, or no dictionary artifact to evaluate against
+ *   2 — evaluated and refused by the shipping gate
+ *
+ * Usage: bun packages/api/scripts/train-model.ts [--dictionary-only]
+ *
+ * --dictionary-only skips the corrections in the database, for the CI job that
+ * trains the canonical weights against a fresh dictionary build and has no
+ * instance to read corrections from.
  */
 
 import { createReadStream, existsSync } from "node:fs";
@@ -61,6 +70,11 @@ const CORRECTION_SAMPLE_WEIGHT = 20;
 
 /** Fraction of dictionary merchants held out to measure generalisation. */
 const HOLDOUT_FRACTION = 0.2;
+
+/** Exit status for a gate refusal, so CI can tell it apart from a crash. */
+const EXIT_REFUSED = 2;
+
+const DICTIONARY_ONLY = process.argv.includes("--dictionary-only");
 
 /** Fixed seed: two runs over the same data must produce the same weights. */
 const SHUFFLE_SEED = 1_588_635_695;
@@ -795,18 +809,16 @@ const main = async (): Promise<void> => {
     `  ${dictionary.length} dictionary samples → ${training.length} train / ${holdoutMerchants} held-out merchants scored as ${holdoutSize} inputs`
   );
 
-  console.log("Loading user corrections...");
-  const corrections = await loadCorrectionSamples();
-  console.log(`  ${corrections.length} corrections`);
+  let corrections: TrainingSample[] = [];
+  if (DICTIONARY_ONLY) {
+    console.log("Skipping user corrections (--dictionary-only)");
+  } else {
+    console.log("Loading user corrections...");
+    corrections = await loadCorrectionSamples();
+    console.log(`  ${corrections.length} corrections`);
+  }
 
   const samples = [...training, ...corrections];
-
-  if (samples.length < MIN_SAMPLES) {
-    console.log(
-      `Fewer than ${MIN_SAMPLES} training samples — skipping model training.`
-    );
-    return;
-  }
 
   // The holdout comes only from the dictionary, so without the artifact there
   // is nothing to score against and no model can be shown to be worth
@@ -814,6 +826,14 @@ const main = async (): Promise<void> => {
   if (holdoutSize === 0) {
     console.error(
       "No holdout set — the dictionary artifact is missing, so the model cannot be evaluated and will not be written. Run `bun run build:data` first."
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  if (samples.length < MIN_SAMPLES) {
+    console.error(
+      `Fewer than ${MIN_SAMPLES} training samples — nothing to train, no weights written.`
     );
     process.exitCode = 1;
     return;
@@ -871,7 +891,7 @@ const main = async (): Promise<void> => {
     console.error(
       "No weights file leaves the classifier inert, so these transactions stay uncategorised and correctable rather than being assigned a category that is probably wrong."
     );
-    process.exitCode = 1;
+    process.exitCode = EXIT_REFUSED;
     return;
   }
 
