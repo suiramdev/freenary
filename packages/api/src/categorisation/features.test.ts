@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { extractFeatures } from "./features";
+import { extractFeatures, modelInput } from "./features";
 
 describe("extractFeatures", () => {
   it("produces non-empty features for a descriptor", () => {
@@ -47,5 +47,22 @@ describe("extractFeatures", () => {
     for (const idx of result.indices) {
       expect(idx).toBeLessThan(1024);
     }
+  });
+});
+
+describe("modelInput", () => {
+  it("adds the country as its own token", () => {
+    expect(modelInput("carrefour market", "FR")).toBe("cc:fr carrefour market");
+  });
+
+  it("omits the token when the country is unknown", () => {
+    expect(modelInput("carrefour market", null)).toBe("carrefour market");
+    expect(modelInput("carrefour market", "  ")).toBe("carrefour market");
+  });
+
+  it("gives two countries different features for one descriptor", () => {
+    const fr = extractFeatures(modelInput("pharmacie", "FR"));
+    const de = extractFeatures(modelInput("pharmacie", "DE"));
+    expect([...fr.indices]).not.toEqual([...de.indices]);
   });
 });

@@ -5,23 +5,32 @@
  *   1. Channel short-circuit (ATM, cheque, fee → known category)
  *   2. User override (exact match on merchant key)
  *   3. Shared dictionary (exact match on merchant key)
- *   4. Local model (n-grams + linear classifier — stub)
- *   5. Opt-in cloud tail (stub)
- *   6. MCC fallback
+ *   4. Deterministic layer (MCC, then this country's rules)
+ *   5. Local classifier (n-grams + linear model, country as a feature — stub)
+ *   6. Opt-in cloud tail (stub)
  *   7. Unknown
  *
+ * Stages 1–4 are deterministic: same transaction data, same category, no
+ * model involved. The classifier only sees what they leave undecided, and an
+ * unconfident classifier yields "uncategorised" rather than a forced guess.
+ *
  * The pipeline runs as a batch job, not on the request path.
- * Steps 1–3 are hash lookups. Steps 4–5 load/unload resources.
+ * Steps 1–4 are hash lookups and regex tables. Steps 5–6 load/unload resources.
  */
 
-import { MCC_TO_CATEGORY } from "../lib/mcc-categories";
 import type { SpendingCategory } from "../lib/taxonomy";
+import { deterministicCategory } from "./deterministic";
 import {
   loadDictionary,
   lookupDictionary,
   unloadDictionary,
 } from "./dictionary";
-import { loadModel, predict, unloadModel } from "./model";
+import {
+  loadModel,
+  MODEL_ACCEPT_THRESHOLD,
+  predict,
+  unloadModel,
+} from "./model";
 import type { CategoriseInput, ResolutionResult } from "./types";
 import { lookupUserOverride } from "./user-override";
 
@@ -40,33 +49,10 @@ const UNKNOWN_RESULT: ResolutionResult = {
   stage: "none",
 };
 
-/** Derive a category from an MCC code; returns null when unknown. */
-const categoryFromMcc = (mcc: string): SpendingCategory | null => {
-  const n = Math.trunc(Number(mcc));
-  if (!Number.isNaN(n) && n >= 3000 && n <= 3999) {
-    if (n <= 3299) {
-      return "flights";
-    }
-    return n <= 3499 ? "other-travel" : "accommodation";
-  }
-  // SAFETY: mcc is a string key from the provider; the assertion narrows for the const lookup
-  return (
-    (MCC_TO_CATEGORY[mcc as keyof typeof MCC_TO_CATEGORY] as
-      | SpendingCategory
-      | undefined) ?? null
-  );
-};
-
 const categoriseInternal = async (
   input: CategoriseInput
 ): Promise<ResolutionResult> => {
-  const {
-    channel,
-    merchantCategoryCode,
-    merchantKey,
-    normalisedDescriptor,
-    userId,
-  } = input;
+  const { channel, merchantKey, normalisedDescriptor, userId } = input;
 
   // Stage 1: Channel short-circuit
   // SAFETY: channel is an arbitrary string; narrowing for the const lookup
@@ -83,39 +69,52 @@ const categoriseInternal = async (
     };
   }
 
-  if (merchantKey.length === 0) {
-    return UNKNOWN_RESULT;
+  // Stages 2–3 key off the merchant key; the deterministic layer and the
+  // classifier do not, so an unkeyed transaction still gets a chance.
+  if (merchantKey.length > 0) {
+    // Stage 2: User override (exact match on merchant key)
+    const override = await lookupUserOverride(userId, merchantKey);
+    if (override) {
+      return {
+        band: "auto",
+        category: override.category,
+        confidence: 1,
+        intermediaryName: null,
+        merchantName: override.merchantName,
+        stage: "user-override",
+      };
+    }
+
+    // Stage 3: Shared dictionary (exact match on merchant key)
+    const dictEntry = await lookupDictionary(merchantKey);
+    if (dictEntry) {
+      return {
+        band: "auto",
+        category: dictEntry.category,
+        confidence: 0.85,
+        intermediaryName: null,
+        merchantName: dictEntry.name,
+        stage: "dictionary",
+      };
+    }
   }
 
-  // Stage 2: User override (exact match on merchant key)
-  const override = await lookupUserOverride(userId, merchantKey);
-  if (override) {
+  // Stage 4: Deterministic layer (MCC, then this country's rules)
+  const deterministic = deterministicCategory(input);
+  if (deterministic) {
     return {
       band: "auto",
-      category: override.category,
-      confidence: 1,
+      category: deterministic.category,
+      confidence: deterministic.confidence,
       intermediaryName: null,
-      merchantName: override.merchantName,
-      stage: "user-override",
+      merchantName: null,
+      stage: deterministic.stage,
     };
   }
 
-  // Stage 3: Shared dictionary (exact match on merchant key)
-  const dictEntry = await lookupDictionary(merchantKey);
-  if (dictEntry) {
-    return {
-      band: "auto",
-      category: dictEntry.category,
-      confidence: 0.85,
-      intermediaryName: null,
-      merchantName: dictEntry.name,
-      stage: "dictionary",
-    };
-  }
-
-  // Stage 4: Local model
+  // Stage 5: Local classifier — the fallback for what the rules could not decide
   const modelResult = await predict(normalisedDescriptor, input.country);
-  if (modelResult && modelResult.confidence >= 0.7) {
+  if (modelResult && modelResult.confidence >= MODEL_ACCEPT_THRESHOLD) {
     return {
       band: modelResult.confidence >= 0.85 ? "auto" : "suggest",
       category: modelResult.category,
@@ -126,24 +125,9 @@ const categoriseInternal = async (
     };
   }
 
-  // Stage 5: Opt-in cloud tail (stub — returns null)
+  // Stage 6: Opt-in cloud tail (stub — returns null)
   // Future: send merchantKey to the cloud API for tail inference
   // when input.allowCloudInference is true.
-
-  // Stage 6: MCC fallback
-  if (merchantCategoryCode) {
-    const mccCategory = categoryFromMcc(merchantCategoryCode);
-    if (mccCategory) {
-      return {
-        band: "suggest",
-        category: mccCategory,
-        confidence: 0.5,
-        intermediaryName: null,
-        merchantName: null,
-        stage: "mcc",
-      };
-    }
-  }
 
   // Stage 7: Unknown
   return UNKNOWN_RESULT;

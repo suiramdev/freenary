@@ -3,7 +3,11 @@
  *
  * Looks for the most recent release tagged `data-YYYY-MM-DD`, downloads its
  * `merchant-data.tar.gz` asset, and extracts the data files into
- * `packages/api/data/`.
+ * `packages/api/data/`. The tarball carries `model-weights.json` only when the
+ * trainer's shipping gate passed for that build, so the release decides
+ * whether the classifier runs: a local weights file is removed first, before
+ * the download, so a failed download and local regeneration never leave
+ * weights paired with a dictionary they were not trained on.
  *
  * Exit codes:
  *   0 — data downloaded and extracted successfully
@@ -23,6 +27,7 @@ const ASSET_NAME = "merchant-data.tar.gz";
 const PACKAGE_DIR = path.resolve(import.meta.dirname, "..");
 const DATA_DIR = path.resolve(PACKAGE_DIR, "data");
 const EXPECTED_ARTIFACT = path.resolve(DATA_DIR, "merchants.jsonl.gz");
+const WEIGHTS_ARTIFACT = path.resolve(DATA_DIR, "model-weights.json");
 
 /**
  * Resolve the GitHub repository slug (`owner/repo`) from, in order:
@@ -66,6 +71,7 @@ interface Release {
 }
 
 const main = async (): Promise<void> => {
+  await rm(WEIGHTS_ARTIFACT, { force: true });
   const repo = resolveRepo();
 
   const baseHeaders = {

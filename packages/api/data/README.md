@@ -14,13 +14,13 @@ Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `S
 
 NSI indexes OSM points of interest — retail shops, restaurants, fuel stations — so utilities, telecoms, rail operators, insurers, and subscription services are sparse or absent. These are precisely the SEPA direct-debit merchants that matter most for a budgeting product (EDF, Orange, SNCF, Netflix, AXA, etc.). The curated supplement fills those gaps. Curated entries take precedence over NSI and Wikidata entries with the same normalised name.
 
-Wikidata broadens brand coverage to online-only and service businesses that lack OSM presence. When a Wikidata brand matches an existing NSI entry by normalised name, its aliases and domains are merged in. Unmatched Wikidata brands are added as new entries only if they carry at least one domain (evidence of being a real commercial entity). Because Wikidata has no OSM tags, these entries carry `category: null` — the resolver uses them for name matching only, and downstream stages (e.g. Sirene NAF) handle category assignment.
+Wikidata broadens brand coverage to online-only and service businesses that lack OSM presence. When a Wikidata brand matches an existing NSI entry by normalised name, its aliases and domains are merged in. Unmatched Wikidata brands are added as new entries only if they carry at least one domain (evidence of being a real commercial entity). Because Wikidata has no OSM tags, these entries start at `category: null`; the SIRENE NAF pass later in the same build fills in the ones it can match by company name, and the rest stay `null` and serve name matching only. How many it fills depends on how far the pass gets within its budget: 9,463 of 48,484 on a full local build, 308 of 47,392 on the CI release `data-2026-09-01`.
 
 SIRENE only holds French legal entities, so the SIRENE pass considers a merchant only when something ties it to France: a `.fr` domain, or a `countries` entry of `FR`. Asking the French register about a foreign brand returns a namesake: measured on a sample, one lookup in five matched a French holding or landlord, which would have filed Adobe under `rent`. Classes naming a legal or asset structure rather than a trade (`64.20`, `64.30`, `66.30`, `68.20`, `70.10`) are refused for a name match, as are pre-2008 NAF rev. 1 codes, and a code mapping to `uncategorised` leaves `category` null rather than claiming an answer.
 
 ## How data is supplied
 
-Data artifacts are built in CI (`.github/workflows/generate-data.yml`) and published as a GitHub Release tagged `data-YYYY-MM-DD`. The workflow runs weekly and on push to `main` when the generation scripts change.
+Data artifacts are built in CI (`.github/workflows/generate-data.yml`) and published as a GitHub Release tagged `data-YYYY-MM-DD`. The workflow runs weekly and on push to `main` when the generation scripts, the feature extractor or the trainer change. The same run trains the classifier against the dictionary it just built and adds `model-weights.json` to the release only when the shipping gate passes (see [Model weights](#model-weights)); the release notes say which.
 
 ```bash
 # Default: download pre-built artifacts from the latest GitHub data release,
@@ -38,6 +38,21 @@ The full generation pipeline runs three scripts in sequence:
 3. `build-merchant-dictionary.ts` — fetches the pinned NSI tarball, merges NSI + Wikidata + curated supplement, enriches via SIRENE, and writes `merchants.jsonl.gz`.
 
 Each step degrades gracefully when its upstream API is unreachable. The SIRENE pass also carries a 15-minute wall-clock budget and stops after 25 consecutive request failures — shared CI egress IPs get throttled into silence, and every answer it did get is cached on disk (`packages/api/.cache/sirene`, persisted across CI runs), so a truncated pass resumes on the next run instead of restarting.
+
+## Model weights
+
+`model-weights.json` is the local classifier, produced by `bun run train:model` from two sources ([ADR-004](../../../docs/adr/004-dictionary-bootstrapped-classifier.md)):
+
+1. **The merchant dictionary** — every entry with a resolvable category, read as names and aliases. On the release `data-2026-09-01` that is 16,459 labelled strings over 11,355 merchants: 15,798 from NSI's OSM tags, 526 from the 308 Wikidata-sourced entries the SIRENE NAF pass categorised, and 135 curated. A bootstrap prior. The Wikidata share carries more label noise than the NSI share because its categories come from company-name matching rather than a tag, and its size changes from one release to the next with how far the SIRENE pass got ([ADR-004 §7](../../../docs/adr/004-dictionary-bootstrapped-classifier.md)).
+2. **User corrections** — `MerchantOverride` rows and hand-recategorised transactions. Ground truth, weighted 20× a dictionary sample so it takes over as it accumulates.
+
+No training data is synthesised. The trainer holds out 20% of merchants — split by merchant id, so no alias of a training merchant is scored — scores each held-out string once per country inference may pass, and **refuses to write the weights unless the worst country slice clears 75% precision at the confidence the pipeline writes a category at** (0.7, the floor `resolve.ts` applies). Gating on the worst slice rather than the pooled figure stops a strong slice carrying a weak one, and which slice is weakest is not stable between runs. A missing weights file leaves the classifier inert and transactions correctable, which is the safe state. The script exits 2 when the gate refuses and 1 on any other failure, so CI cannot ship an unevaluated model and can tell a refusal from a crash.
+
+**On the current release the gate refuses.** The worst slice (`FR`) reaches 72.4% precision at that threshold over 2,311 held-out merchants; the country-less slice reaches 74.9%. A full local build with the SIRENE pass complete measured 43.4% — a different corpus, twice the size and mostly SIRENE-labelled, so the two numbers are two observations, not an ablation. Either way `train:model` currently produces no weights and the classifier stays inert by design. [ADR-004 §6–7](../../../docs/adr/004-dictionary-bootstrapped-classifier.md) has the full curves and the reasoning; read it before proposing another bootstrap from merchant names.
+
+Training is reproducible: the epoch shuffle is seeded and the holdout split is hashed, so the same data yields the same weights and the same reported numbers.
+
+**Who trains, and where the weights come from.** The data workflow does, with `--dictionary-only`, so the canonical weights for a dictionary build come from that build alone and every deployment that runs `build:data` gets the same file — or none. The precision curves of each run are in the workflow's job summary. Corrections only exist inside individual instances and cannot lift a gate scored on dictionary merchants, so running `bun run train:model` against your own database is a research tool, not a deployment path: `build:data` deletes a local `model-weights.json` before it does anything else, and only a release puts one back.
 
 ## Runtime enrichment
 

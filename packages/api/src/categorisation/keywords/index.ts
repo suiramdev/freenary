@@ -1,9 +1,9 @@
 /**
- * Country-specific keyword heuristics for deriveCategory.
+ * Keyword tables for the deterministic categorisation layer.
  *
- * Each country file defines locale-specific bank-code and counterparty
- * keywords. Adding a country = one new file, one entry in the registry
- * below, and one entry in supported-countries.ts.
+ * Two layers, resolved in ADR-001 order: country over default. Adding a
+ * country = one new file, one entry in the registry below, and one entry in
+ * supported-countries.ts.
  *
  * This module is deliberately separate from the normalise/institution
  * chain to avoid circular dependencies.
@@ -12,11 +12,18 @@
 import type { SpendingCategory } from "../../lib/taxonomy";
 import { SUPPORTED_COUNTRIES } from "../supported-countries";
 import type { SupportedCountry } from "../supported-countries";
+import * as defaults from "./default";
 import * as fr from "./fr";
 
 interface KeywordModule {
   readonly bankCodeKeywords: readonly [RegExp, SpendingCategory][];
   readonly counterpartyKeywords: readonly [RegExp, SpendingCategory][];
+}
+
+/** The two tables one lookup needs, already in layer order. */
+export interface KeywordTables {
+  readonly bankCode: readonly (readonly [RegExp, SpendingCategory])[];
+  readonly counterparty: readonly (readonly [RegExp, SpendingCategory])[];
 }
 
 /**
@@ -30,10 +37,57 @@ const registry = {
 
 const countries = SUPPORTED_COUNTRIES.map((code) => registry[code]);
 
-/** Combined bank-transaction-code keywords across all countries. */
-export const allBankCodeKeywords: readonly [RegExp, SpendingCategory][] =
-  countries.flatMap((c) => c.bankCodeKeywords);
+const layer = (country?: KeywordModule): KeywordTables => ({
+  bankCode: country
+    ? [...country.bankCodeKeywords, ...defaults.bankCodeKeywords]
+    : defaults.bankCodeKeywords,
+  counterparty: country
+    ? [...country.counterpartyKeywords, ...defaults.counterpartyKeywords]
+    : defaults.counterpartyKeywords,
+});
 
-/** Combined counterparty-name keywords across all countries. */
-export const allCounterpartyKeywords: readonly [RegExp, SpendingCategory][] =
-  countries.flatMap((c) => c.counterpartyKeywords);
+// Concatenated once at module load: the lookup runs per transaction, so the
+// layers must not be spread on every call.
+const DEFAULT_TABLES = layer();
+
+const TABLES_BY_COUNTRY: Record<string, KeywordTables> = {};
+for (const code of SUPPORTED_COUNTRIES) {
+  TABLES_BY_COUNTRY[code] = layer(registry[code]);
+}
+
+/**
+ * Tables for one transaction's country: that country's rules first, defaults
+ * after. A country without a deterministic layer gets the defaults alone.
+ */
+export const keywordsFor = (country?: string | null): KeywordTables =>
+  (country ? TABLES_BY_COUNTRY[country.toUpperCase()] : undefined) ??
+  DEFAULT_TABLES;
+
+// The flattened lists keep default-before-country order. A caller with no
+// country searches every layer at once, where a country's generic catch-all
+// ("virement") must not outrank a specific default keyword.
+
+/** Every layer flattened, for the callers that have no country to dispatch on. */
+export const allBankCodeKeywords: readonly [RegExp, SpendingCategory][] = [
+  ...defaults.bankCodeKeywords,
+  ...countries.flatMap((c) => c.bankCodeKeywords),
+];
+
+/** Every layer flattened, for the callers that have no country to dispatch on. */
+export const allCounterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
+  ...defaults.counterpartyKeywords,
+  ...countries.flatMap((c) => c.counterpartyKeywords),
+];
+
+/** First category whose pattern matches the text, or null. */
+export const matchKeyword = (
+  table: readonly (readonly [RegExp, SpendingCategory])[],
+  text: string
+): SpendingCategory | null => {
+  for (const [pattern, category] of table) {
+    if (pattern.test(text)) {
+      return category;
+    }
+  }
+  return null;
+};
