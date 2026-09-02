@@ -25,7 +25,12 @@ import {
   lookupDictionary,
   unloadDictionary,
 } from "./dictionary";
-import { loadModel, predict, unloadModel } from "./model";
+import {
+  loadModel,
+  MODEL_ACCEPT_THRESHOLD,
+  predict,
+  unloadModel,
+} from "./model";
 import type { CategoriseInput, ResolutionResult } from "./types";
 import { lookupUserOverride } from "./user-override";
 
@@ -109,7 +114,7 @@ const categoriseInternal = async (
 
   // Stage 5: Local classifier — the fallback for what the rules could not decide
   const modelResult = await predict(normalisedDescriptor, input.country);
-  if (modelResult && modelResult.confidence >= 0.7) {
+  if (modelResult && modelResult.confidence >= MODEL_ACCEPT_THRESHOLD) {
     return {
       band: modelResult.confidence >= 0.85 ? "auto" : "suggest",
       category: modelResult.category,

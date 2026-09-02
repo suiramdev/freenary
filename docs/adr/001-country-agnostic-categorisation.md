@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. The stage order in section 1 is amended by [ADR-003](003-deterministic-first-categorisation.md): the deterministic layers run before the classifier, and the MCC lookup is part of them.
+Accepted. The stage order in section 1 is amended by [ADR-003](003-deterministic-first-categorisation.md): the deterministic layers run before the classifier, and the MCC lookup is part of them. The classifier's training source is extended by [ADR-004](004-dictionary-bootstrapped-classifier.md): the merchant dictionary bootstraps the model before any contributed data exists.
 
 ## Context
 
@@ -56,4 +56,4 @@ The categorisation data model uses two tables: `Transaction` (with `merchantKey`
 - The dictionary build pipeline is decoupled from the runtime. Build scripts fetch from public APIs; the runtime consumes the static artifact.
 - No runtime external API calls besides Enable Banking (and the opt-in cloud tail when implemented).
 - Memory footprint is bounded: dictionary loaded only during batch, model loaded only during batch, both freed after.
-- Future model training uses contributed data from the k-anonymity pipeline; the model file is distributed alongside the dictionary.
+- Model training bootstraps from the merchant dictionary and takes contributed data from the k-anonymity pipeline as it arrives ([ADR-004](004-dictionary-bootstrapped-classifier.md)); the model file is distributed alongside the dictionary.

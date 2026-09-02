@@ -33,8 +33,9 @@ const FNV_OFFSET = 0x81_1c_9d_c5;
 const FNV_PRIME = 0x01_00_01_93;
 
 // Bucket ids must stay bit-for-bit stable: any change here shifts every feature
-// away from the weights in the trained model file.
-const fnv1a32 = (str: string): number => {
+// away from the weights in the trained model file. Exported because the
+// trainer's holdout split hashes merchant ids with the same function.
+export const fnv1a32 = (str: string): number => {
   let hash = FNV_OFFSET;
   for (let i = 0; i < str.length; i += 1) {
     // eslint-disable-next-line unicorn/prefer-code-point -- code points would change the hash for astral characters

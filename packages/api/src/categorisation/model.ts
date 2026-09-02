@@ -28,7 +28,15 @@ const WEIGHTS_PATH = path.resolve(
   "../../data/model-weights.json"
 );
 
+/** Below this `predict()` abstains and returns null. */
 const CONFIDENCE_THRESHOLD = 0.5;
+
+/**
+ * Confidence at which the pipeline actually writes a category: `resolve.ts`
+ * discards anything below it, so this — not the abstention threshold above —
+ * is the operating point the trainer's shipping gate has to measure.
+ */
+export const MODEL_ACCEPT_THRESHOLD = 0.7;
 
 // Module-level state
 
