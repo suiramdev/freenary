@@ -11,6 +11,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createMiddleware } from "@tanstack/react-start";
 import { evlogErrorHandler } from "evlog/nitro/v3";
+import { ThemeProvider } from "next-themes";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
@@ -26,26 +27,35 @@ export interface RouterAppContext {
 // The primitives in @freenary/ui carry their own accessible names for controls
 // with no visible text; this is where they learn the reader's language.
 const RootDocument = () => (
-  <html lang={getLocale()} className="dark">
+  // The theme class is decided in the browser, so the server renders none and
+  // `ThemeProvider`'s inline script sets it before the first paint.
+  <html lang={getLocale()} suppressHydrationWarning>
     <head>
       <HeadContent />
     </head>
     <body>
-      <UiLabelsProvider
-        labels={{
-          close: m.ui_close(),
-          loading: m.ui_loading(),
-          more: m.ui_more(),
-          scrollToEnd: m.ui_scroll_to_end(),
-          scrollToStart: m.ui_scroll_to_start(),
-          sidebar: m.ui_sidebar(),
-          sidebarDescription: m.ui_sidebar_description(),
-          toggleSidebar: m.ui_toggle_sidebar(),
-        }}
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        disableTransitionOnChange
+        enableSystem
       >
-        <Outlet />
-      </UiLabelsProvider>
-      <Toaster richColors />
+        <UiLabelsProvider
+          labels={{
+            close: m.ui_close(),
+            loading: m.ui_loading(),
+            more: m.ui_more(),
+            scrollToEnd: m.ui_scroll_to_end(),
+            scrollToStart: m.ui_scroll_to_start(),
+            sidebar: m.ui_sidebar(),
+            sidebarDescription: m.ui_sidebar_description(),
+            toggleSidebar: m.ui_toggle_sidebar(),
+          }}
+        >
+          <Outlet />
+        </UiLabelsProvider>
+        <Toaster richColors />
+      </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
       <Scripts />

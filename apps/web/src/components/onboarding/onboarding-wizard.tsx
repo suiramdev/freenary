@@ -6,7 +6,7 @@ import { CountrySelectionStep } from "@/components/onboarding/country-selection-
 import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
 import { OnboardingWizardSkeleton } from "@/components/onboarding/onboarding-wizard-skeleton";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
-import { ShaderBackground } from "@/components/shared/shader-background";
+import { ThemeSwitcher } from "@/components/shared/theme-switcher";
 import type { BankInstitution } from "@/hooks/bank/use-bank-connections";
 import { m } from "@/paraglide/messages.js";
 
@@ -88,18 +88,16 @@ export const OnboardingWizard = ({
   };
 
   return (
-    <main className="bg-background relative flex min-h-svh flex-col">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
-        <ShaderBackground />
-      </div>
-      <div className="relative z-10 flex items-center justify-end gap-1 px-4 py-3">
+    <main className="bg-background flex min-h-svh flex-col">
+      <div className="flex items-center justify-end gap-1 px-4 py-3">
+        <ThemeSwitcher />
         <LocaleSwitcher />
         <Button onClick={onSignOut} type="button" variant="ghost">
           {m.account_sign_out()}
         </Button>
       </div>
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
         {/* popLayout takes the outgoing screen out of flow, so the incoming one
             lands in place instead of leaving an empty frame behind. */}
         <div className="relative flex w-full max-w-md flex-col gap-8">

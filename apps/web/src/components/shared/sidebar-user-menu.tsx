@@ -17,6 +17,7 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import {
+  RiContrastLine,
   RiExpandUpDownLine,
   RiLogoutBoxLine,
   RiTranslate2,
@@ -25,6 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
+import { ThemeMenuItems } from "@/components/shared/theme-menu-items";
 import { UserIdentity } from "@/components/shared/user-identity";
 import { authClient } from "@/lib/auth-client";
 import { m } from "@/paraglide/messages.js";
@@ -99,6 +101,15 @@ export const SidebarUserMenu = () => {
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <LocaleMenuItems />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <RiContrastLine data-icon="inline-start" />
+                  {m.theme_switcher_label()}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <ThemeMenuItems />
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
