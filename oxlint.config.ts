@@ -20,7 +20,6 @@ export default defineConfig({
     ".windsurf/**",
     "tools/oxlint/anti-slop/**",
     "packages/ui/**",
-    "apps/web/src/components/dither-kit/**",
     "apps/web/src/paraglide/**",
   ],
   jsPlugins: [

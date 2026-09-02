@@ -32,6 +32,15 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* Named series colors, one per `CategoryColor`. The numbered `--chart-*` ramp
+     above is monochrome; a spending breakdown needs hues that stay apart. */
+  --chart-green: oklch(72.3% 0.219 149.579);
+  --chart-blue: oklch(62.3% 0.214 259.815);
+  --chart-purple: oklch(62.7% 0.265 303.9);
+  --chart-pink: oklch(65.6% 0.241 354.308);
+  --chart-orange: oklch(70.5% 0.213 47.604);
+  --chart-red: oklch(63.7% 0.237 25.331);
+  --chart-grey: oklch(55.2% 0.016 285.938);
   --radius: 0.45rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -68,6 +77,15 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* One step lighter than their light-theme counterparts: the same hue reads as
+     muddy against a near-black background. */
+  --chart-green: oklch(79.2% 0.209 151.711);
+  --chart-blue: oklch(70.7% 0.165 254.624);
+  --chart-purple: oklch(71.4% 0.203 305.504);
+  --chart-pink: oklch(71.8% 0.202 349.761);
+  --chart-orange: oklch(75% 0.183 55.934);
+  --chart-red: oklch(70.4% 0.191 22.216);
+  --chart-grey: oklch(70.5% 0.015 286.067);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.704 0.14 182.503);

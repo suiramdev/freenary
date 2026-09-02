@@ -16,9 +16,7 @@ export const SearchInput = ({
   placeholder,
   value,
 }: SearchInputProps) => (
-  // Opaque: the onboarding wizard sits on the animated shader, which shows
-  // through the control's default translucent fill.
-  <InputGroup className="bg-background">
+  <InputGroup>
     <InputGroupAddon>
       <RiSearchLine />
     </InputGroupAddon>

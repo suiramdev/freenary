@@ -96,7 +96,7 @@ describe("label budget", () => {
     expect(first.labelBudget).toBeGreaterThan(contested.labelBudget);
   });
 
-  test("never promises room past the canvas when no column follows", () => {
+  test("never promises room past the chart edge when no column follows", () => {
     // A lone column has no gap to write into, so its budget cannot be positive.
     const layout = computeSankeyLayout({
       columns: [[node("a-tall", TALL_VALUE), node("a-short", SHORT_VALUE)]],

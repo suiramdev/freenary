@@ -27,7 +27,7 @@ import type { BudgetProfileLine } from "@/lib/settings/budget-profile-sankey";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** Repainting the dithered canvas is per-pixel work, so typing settles first. */
+/** Every keystroke re-lays out the whole flow, so typing settles first. */
 const PREVIEW_DELAY_MS = 200;
 
 /**

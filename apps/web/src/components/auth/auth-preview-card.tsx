@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@freenary/ui/components/card";
-import { cn } from "@freenary/ui/lib/utils";
 import type { ReactNode } from "react";
 
 interface AuthPreviewCardProps {
@@ -29,8 +28,7 @@ export const AuthPreviewCard = ({
   trailing,
   value,
 }: AuthPreviewCardProps) => (
-  // Translucent so the animated shader behind the panel stays visible.
-  <Card className={cn("bg-card/80 backdrop-blur-sm", className)} size="sm">
+  <Card className={className} size="sm">
     <CardHeader>
       <CardDescription>{label}</CardDescription>
       {trailing ? <CardAction>{trailing}</CardAction> : null}

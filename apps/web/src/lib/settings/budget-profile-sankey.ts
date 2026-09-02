@@ -1,4 +1,5 @@
-import type { DitherColor } from "@/components/dither-kit/palette";
+import type { CategoryColor } from "@freenary/api/lib/taxonomy";
+
 import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
 import { m } from "@/paraglide/messages.js";
@@ -8,7 +9,7 @@ export type BudgetLineKind = "INVESTMENT" | "OUTGOING" | "REVENUE";
 export interface BudgetProfileLine {
   /** Planned amount per month in minor units. */
   amount: number;
-  groupColor: DitherColor;
+  groupColor: CategoryColor;
   /** Group slug, or the custom category's key when it is a group of its own. */
   groupKey: string;
   groupLabel: string;
@@ -20,7 +21,7 @@ export interface BudgetProfileLine {
 const MONEY_LEFT_ID = "money-left";
 
 interface LineGroup {
-  color: DitherColor;
+  color: CategoryColor;
   label: string;
   lines: BudgetProfileLine[];
   value: number;

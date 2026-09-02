@@ -19,11 +19,9 @@ src/
     shared.ts       # App name, docs base route, repo coordinates, .md URL codec
     layout.shared.tsx  # Nav/GitHub options shared by every layout
   routes/           # TanStack Router file routes
-  components/       # MDX component map, not-found, and the landing-page chrome
+  components/       # MDX component map, markdown renderer, AI search, not-found
   styles/app.css
 ```
-
-`/` is a full-bleed landing page modelled on `apps/web`'s onboarding route — the shared dither shader behind a spotlight scrim, a minimal top bar, centred copy — so it deliberately sits **outside** Fumadocs' `HomeLayout`. `dither-background.tsx` mirrors the app's component and must stay in lockstep with it; `home-backdrop.tsx` keeps the app's reduced-motion guard, which drops the WebGL layer entirely.
 
 ## Content structure
 

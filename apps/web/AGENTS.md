@@ -26,8 +26,6 @@ src/
   lib/            # Client helpers (auth-client, …) and per-feature libs (lib/<feature>/)
 ```
 
-`components/dither-kit/` is the one exception to everything below: a vendored dithered-charting kit, excluded from linting in `oxlint.config.ts`. Compose it, don't restructure it.
-
 ## Conventions
 
 - Shared primitives live in `packages/ui`. Import as `@freenary/ui/components/button`. Add app-specific blocks here only when they aren't reusable.

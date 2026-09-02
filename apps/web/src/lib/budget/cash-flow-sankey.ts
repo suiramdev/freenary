@@ -5,11 +5,11 @@ import {
   isSpendingCategory,
 } from "@freenary/api/lib/taxonomy";
 import type {
+  CategoryColor,
   CategoryGroup,
   SpendingCategory,
 } from "@freenary/api/lib/taxonomy";
 
-import type { DitherColor } from "@/components/dither-kit/palette";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
@@ -50,7 +50,7 @@ const INTEREST = /interest|ränta/u;
 const REFUND = /refund|return/u;
 
 /** An income source is a counterparty name, not a category, so read its colour off the name. */
-const incomeColor = (name: string): DitherColor => {
+const incomeColor = (name: string): CategoryColor => {
   const lower = name.toLowerCase();
   if (DIVIDEND.test(lower)) {
     return "purple";

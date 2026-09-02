@@ -1,3 +1,6 @@
+import type { ChartConfig } from "@freenary/ui/components/chart";
+
+import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import type { Locale } from "@/paraglide/runtime.js";
 
 /** Demo figures for the login showcase panel — illustrative, never fetched. */
@@ -32,7 +35,11 @@ export const weeklyData = [
   { amount: 60 },
 ];
 
-export const weeklyConfig = { amount: { color: "green" as const } };
+/** Colour only: a decorative card has nothing to label, and a translated
+ * label would mean calling `m.*()` at module scope. */
+export const weeklyConfig: ChartConfig = {
+  amount: { color: CHART_COLOR_VARS.green },
+};
 
 export const netWorthTrend = [
   32_000,

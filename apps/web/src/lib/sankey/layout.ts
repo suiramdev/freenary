@@ -1,8 +1,8 @@
-import type { DitherColor } from "@/components/dither-kit/palette";
+import type { CategoryColor } from "@freenary/api/lib/taxonomy";
 
 /** One node of a flow: each column feeds the next. */
 export interface SankeyNode {
-  color: DitherColor;
+  color: CategoryColor;
   id: string;
   label: string;
   value: number;
@@ -23,7 +23,7 @@ export interface SankeyFlow {
 
 /** A laid-out node, in chart user units. */
 export interface NodeRect {
-  color: DitherColor;
+  color: CategoryColor;
   column: number;
   h: number;
   id: string;
@@ -38,7 +38,7 @@ export interface NodeRect {
 
 /** A laid-out link: a ribbon from `sx`/`sy0`–`sy1` to `tx`/`ty0`–`ty1`. */
 export interface LinkBand {
-  color: DitherColor;
+  color: CategoryColor;
   id: string;
   sourceId: string;
   sx: number;
@@ -59,8 +59,7 @@ export interface SankeyLayout {
 }
 
 export const CHART_WIDTH = 700;
-/** Backing-canvas cell size: one dither pixel per CELL user units. */
-export const CELL = 3;
+/** Width of the accent strip on the face where flow enters or leaves a node. */
 export const ACCENT_W = 3;
 /** Below this node height the label no longer fits inside the node. */
 export const LABEL_MIN_H = 28;
@@ -171,7 +170,7 @@ export const computeSankeyLayout = ({
     }
     const contested = rivals.some((rival) => sharesRows(rect, rival));
     const share = contested ? gapW / 2 : gapW;
-    // Writing rightwards, the canvas edge binds too when no column follows.
+    // Writing rightwards, the chart edge binds too when no column follows.
     const room =
       rect.column === 0 ? CHART_WIDTH - PAD.right - (rect.x + rect.w) : share;
     rect.labelBudget = Math.max(0, Math.min(share, room) - LABEL_INSET);

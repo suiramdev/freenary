@@ -2,18 +2,11 @@ import { Button } from "@freenary/ui/components/button";
 import { RiArrowLeftLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 
-import { ShaderBackground } from "@/components/shared/shader-background";
 import { m } from "@/paraglide/messages.js";
 
 export const NotFound = () => (
-  <main className="bg-background relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 text-center">
-    <div className="pointer-events-none fixed inset-0" aria-hidden="true">
-      <ShaderBackground />
-    </div>
-
-    <div className="from-background/90 via-background/50 pointer-events-none absolute inset-0 bg-radial to-transparent" />
-
-    <div className="relative z-10 flex max-w-md flex-col items-center gap-5">
+  <main className="bg-background flex min-h-svh flex-col items-center justify-center px-6 text-center">
+    <div className="flex max-w-md flex-col items-center gap-5">
       <p
         aria-hidden="true"
         className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-primary text-[7rem] leading-none font-bold sm:text-[9rem]"
