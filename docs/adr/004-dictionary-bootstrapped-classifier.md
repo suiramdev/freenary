@@ -52,12 +52,12 @@ The epoch shuffle runs on a seeded PRNG rather than `Math.random()`, and the hol
 
 4,159 held-out merchants, scored once per inference country for 13,242 inputs, trained on the remaining 51,870 training samples. The 32,556 distinct labelled strings of section 1 become 65,112 samples because each trains once per inference country. Both slices are gated; the country-less one is the worse here:
 
-|Confidence|Coverage (none)|Precision (none)|Coverage (FR)|Precision (FR)|
-|---|---|---|---|---|
-|0.50|62.1%|36.9%|62.8%|37.1%|
-|0.70 (gate)|44.0%|**43.4%**|44.1%|43.9%|
-|0.90|25.7%|55.5%|26.4%|56.7%|
-|0.95|19.6%|62.4%|20.2%|63.9%|
+| Confidence | Coverage (none) | Precision (none) | Coverage (FR) | Precision (FR) |
+| --- | --- | --- | --- | --- |
+| 0.50 | 62.1% | 36.9% | 62.8% | 37.1% |
+| 0.70 (gate) | 44.0% | **43.4%** | 44.1% | 43.9% |
+| 0.90 | 25.7% | 55.5% | 26.4% | 56.7% |
+| 0.95 | 19.6% | 62.4% | 20.2% | 63.9% |
 
 Top-1 accuracy is 27.9% (none) and 27.8% (FR) against a 13.3% majority baseline — better than chance, and nowhere near shippable. At the threshold the pipeline writes at, more than half the written categories would be wrong. No threshold on either curve reaches 75%, so raising it does not rescue the model, it only trades coverage for a precision that is still too low. Training longer makes the gated slice worse, not better: the worst slice gives 43.4% at 10 epochs, 40.0% at 30 and 37.8% at 60, because the extra fitting raises confidence faster than correctness.
 
@@ -65,18 +65,18 @@ The two slices track each other closely because nothing in this artifact is coun
 
 Two causes, and the ordering matters. The first is intrinsic: a brand name is an arbitrary string, so character n-grams learned from `lidl` and `carrefour` carry almost nothing about an unseen `netto`. Only descriptive names (`pharmacie …`, `boulangerie …`) transfer, and the deterministic keyword tables at stage 4 already catch those more cheaply and more predictably. The second is label quality: half the corpus is Wikidata entries categorised by SIRENE name-matching (section 1), so an unknown share of the error is a wrong label rather than a wrong prediction. Cleaning the labels would raise the ceiling; it would not plausibly raise it by the 32 points the gate needs.
 
-This does not condemn the classifier's premise. The case the dictionary genuinely supports is the *known* brand wearing noise — a store number, a town, an acquirer prefix — which is within-merchant generalisation, and the merchant-level holdout deliberately excludes it. Measuring that needs real bank descriptors, which is what the contribution pipeline is for. Until then the honest position is an inert classifier, which is what the gate enforces.
+This does not condemn the classifier's premise. The case the dictionary genuinely supports is the _known_ brand wearing noise — a store number, a town, an acquirer prefix — which is within-merchant generalisation, and the merchant-level holdout deliberately excludes it. Measuring that needs real bank descriptors, which is what the contribution pipeline is for. Until then the honest position is an inert classifier, which is what the gate enforces.
 
 ### 7. Measured on the CI release: a different corpus, a different number
 
 Section 6 scores a full local build. The workflow trains on the dictionary it rebuilds in the same run, whose SIRENE-categorised share depends on how far that pass got within its budget, so the corpus differs from release to release. The release `data-2026-09-01` — the asset every deployment downloads — holds 16,459 labelled strings over 11,355 merchants: 15,798 from NSI, 135 curated and 526 from the 308 Wikidata entries the SIRENE pass categorised before its wall-clock budget ran out. 10,147 of those merchants carry a country scope, which changes the training mix: a merchant scoped outside `FR` trains under `null` only. The holdout is unaffected — both slices hold the same 2,311 merchants and 3,289 strings and differ only by the `cc:fr` token. That becomes 19,666 samples, 2,311 held-out merchants scored as 6,578 inputs:
 
-|Confidence|Coverage (none)|Precision (none)|Coverage (FR)|Precision (FR)|
-|---|---|---|---|---|
-|0.50|64.9%|66.2%|68.5%|63.1%|
-|0.70 (gate)|51.4%|74.9%|53.3%|**72.4%**|
-|0.90|37.1%|84.6%|37.4%|83.4%|
-|0.95|31.0%|87.5%|31.5%|87.1%|
+| Confidence | Coverage (none) | Precision (none) | Coverage (FR) | Precision (FR) |
+| --- | --- | --- | --- | --- |
+| 0.50 | 64.9% | 66.2% | 68.5% | 63.1% |
+| 0.70 (gate) | 51.4% | 74.9% | 53.3% | **72.4%** |
+| 0.90 | 37.1% | 84.6% | 37.4% | 83.4% |
+| 0.95 | 31.0% | 87.5% | 31.5% | 87.1% |
 
 Top-1 accuracy is 49.0% (none) and 49.1% (FR) against an 11.8% baseline. The gate still refuses; the worst slice is 2.6 points short. This is a second observation on a different build, not an ablation: against section 6 the corpus is half the size, nearly all of the SIRENE-labelled share is gone, the training mix is scoped and the baseline moved, and none of those was held fixed. What it does establish is that the shortfall is not the 32 points section 6 extrapolated from, and that the SIRENE share is the largest known difference between the two corpora. Whether label noise explains the gap needs the ablation section 6 did not run — the same artifact with the Wikidata-labelled entries dropped — and the per-release curve in the workflow summary now shows how the number moves as the SIRENE pass gets further. Until that is measured, the honest position is unchanged: the gate refuses, the classifier stays inert.
 
