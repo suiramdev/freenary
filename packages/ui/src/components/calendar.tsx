@@ -1,10 +1,10 @@
 import { Button, buttonVariants } from "@freenary/ui/components/button";
 import { cn } from "@freenary/ui/lib/utils";
 import {
-  CaretLeftIcon,
-  CaretRightIcon,
-  CaretDownIcon,
-} from "@phosphor-icons/react";
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
+  RiArrowDownSLine,
+} from "@remixicon/react";
 import * as React from "react";
 import {
   DayPicker,
@@ -148,18 +148,24 @@ function Calendar({
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
-              <CaretLeftIcon className={cn("size-4", className)} {...props} />
+              <RiArrowLeftSLine
+                className={cn("size-4", className)}
+                {...props}
+              />
             );
           }
 
           if (orientation === "right") {
             return (
-              <CaretRightIcon className={cn("size-4", className)} {...props} />
+              <RiArrowRightSLine
+                className={cn("size-4", className)}
+                {...props}
+              />
             );
           }
 
           return (
-            <CaretDownIcon className={cn("size-4", className)} {...props} />
+            <RiArrowDownSLine className={cn("size-4", className)} {...props} />
           );
         },
         DayButton: ({ ...props }) => (

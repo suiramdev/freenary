@@ -28,7 +28,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@freenary/ui/components/tabs";
-import { FunnelIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { RiCloseLine, RiFilter3Line, RiSearchLine } from "@remixicon/react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { TransactionRows } from "@/components/budget/transaction-rows";
@@ -113,7 +113,7 @@ export const TransactionList = ({
       <div className="flex items-center gap-2">
         <InputGroup className="flex-1">
           <InputGroupAddon>
-            <MagnifyingGlassIcon />
+            <RiSearchLine />
           </InputGroupAddon>
           <InputGroupInput
             placeholder={m.budget_search_placeholder()}
@@ -124,7 +124,7 @@ export const TransactionList = ({
         </InputGroup>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" />}>
-            <FunnelIcon data-icon="inline-start" />
+            <RiFilter3Line data-icon="inline-start" />
             {m.budget_filter_category()}
             {activeCount > 0 && (
               <Badge variant="secondary">{activeCount}</Badge>
@@ -198,7 +198,7 @@ export const TransactionList = ({
                 className="size-4 [&_svg]:size-2.5"
               />
               {categoryGroupLabel(group)}
-              <XIcon data-icon="inline-end" />
+              <RiCloseLine data-icon="inline-end" />
             </Badge>
           ))}
           {filter.categories.map((cat) => (
@@ -221,7 +221,7 @@ export const TransactionList = ({
                 className="size-4 [&_svg]:size-2.5"
               />
               {categoryLabel(cat)}
-              <XIcon data-icon="inline-end" />
+              <RiCloseLine data-icon="inline-end" />
             </Badge>
           ))}
           {activeCount >= 2 && (

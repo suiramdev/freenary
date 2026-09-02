@@ -24,7 +24,7 @@ import {
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
 import { cn } from "@freenary/ui/lib/utils";
-import { CheckIcon } from "@phosphor-icons/react";
+import { RiCheckLine } from "@remixicon/react";
 import { useEffect, useState } from "react";
 
 import { CategoryGroupSelect } from "@/components/budget/category-group-select";
@@ -150,7 +150,7 @@ export const CustomCategoryDrawer = ({
                             SWATCH_BY_COLOR[color]
                           )}
                         >
-                          {field.state.value === color ? <CheckIcon /> : null}
+                          {field.state.value === color ? <RiCheckLine /> : null}
                         </span>
                       </ToggleGroupItem>
                     ))}

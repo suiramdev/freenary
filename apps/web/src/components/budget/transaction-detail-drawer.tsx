@@ -10,7 +10,7 @@ import {
 } from "@freenary/ui/components/drawer";
 import { Separator } from "@freenary/ui/components/separator";
 import { cn } from "@freenary/ui/lib/utils";
-import { CalendarIcon, TagIcon, XIcon } from "@phosphor-icons/react";
+import { RiCalendarLine, RiCloseLine, RiPriceTag3Line } from "@remixicon/react";
 import { useEffect, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -48,7 +48,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
         <DrawerClose
           render={<Button variant="ghost" className="absolute top-4 right-4" />}
         >
-          <XIcon />
+          <RiCloseLine />
           <span className="sr-only">{m.budget_detail_close()}</span>
         </DrawerClose>
       </DrawerHeader>
@@ -82,7 +82,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
 
         <ul className="flex flex-col gap-2.5">
           <TransactionDetailRow
-            icon={<CalendarIcon />}
+            icon={<RiCalendarLine />}
             label={m.budget_detail_date_label()}
           >
             <span className="text-sm">{displayDate}</span>
@@ -90,7 +90,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
 
           {transaction.counterpartyName && transaction.description ? (
             <TransactionDetailRow
-              icon={<TagIcon />}
+              icon={<RiPriceTag3Line />}
               label={m.budget_detail_description_label()}
             >
               <span className="text-sm">{transaction.description}</span>

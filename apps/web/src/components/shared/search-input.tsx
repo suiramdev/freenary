@@ -3,7 +3,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@freenary/ui/components/input-group";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { RiSearchLine } from "@remixicon/react";
 
 interface SearchInputProps {
   onChange: (value: string) => void;
@@ -20,7 +20,7 @@ export const SearchInput = ({
   // through the control's default translucent fill.
   <InputGroup className="bg-background">
     <InputGroupAddon>
-      <MagnifyingGlassIcon />
+      <RiSearchLine />
     </InputGroupAddon>
     <InputGroupInput
       onChange={(e) => onChange(e.target.value)}

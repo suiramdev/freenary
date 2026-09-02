@@ -4,7 +4,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 import { Button } from "@freenary/ui/components/button";
 import { useUiLabels } from "@freenary/ui/lib/labels";
 import { cn } from "@freenary/ui/lib/utils";
-import { XIcon } from "@phosphor-icons/react";
+import { RiCloseLine } from "@remixicon/react";
 import * as React from "react";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
@@ -72,7 +72,7 @@ function SheetContent({
               />
             }
           >
-            <XIcon />
+            <RiCloseLine />
             <span className="sr-only">{labels.close}</span>
           </SheetPrimitive.Close>
         )}

@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { ReceiptIcon } from "@phosphor-icons/react";
+import { RiReceiptLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -78,7 +78,7 @@ export const TransactionRows = ({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <ReceiptIcon />
+            <RiReceiptLine />
           </EmptyMedia>
           <EmptyTitle>{m.budget_transactions_empty_title()}</EmptyTitle>
           <EmptyDescription>

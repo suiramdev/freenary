@@ -17,10 +17,10 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import {
-  CaretUpDownIcon,
-  SignOutIcon,
-  TranslateIcon,
-} from "@phosphor-icons/react";
+  RiExpandUpDownLine,
+  RiLogoutBoxLine,
+  RiTranslate2,
+} from "@remixicon/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -74,7 +74,7 @@ export const SidebarUserMenu = () => {
               isPending={isPending}
               name={session?.user.name}
             />
-            <CaretUpDownIcon className="ml-auto" />
+            <RiExpandUpDownLine className="ml-auto" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
@@ -94,7 +94,7 @@ export const SidebarUserMenu = () => {
               <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  <TranslateIcon data-icon="inline-start" />
+                  <RiTranslate2 data-icon="inline-start" />
                   {m.locale_switcher_label()}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
@@ -103,7 +103,7 @@ export const SidebarUserMenu = () => {
               </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
-                <SignOutIcon data-icon="inline-start" />
+                <RiLogoutBoxLine data-icon="inline-start" />
                 {m.account_sign_out()}
               </DropdownMenuItem>
             </DropdownMenuGroup>

@@ -2,7 +2,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { useUiLabels } from "@freenary/ui/lib/labels";
 import { cn } from "@freenary/ui/lib/utils";
-import { CaretRightIcon, DotsThreeIcon } from "@phosphor-icons/react";
+import { RiArrowRightSLine, RiMoreLine } from "@remixicon/react";
 import * as React from "react";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
@@ -85,7 +85,7 @@ function BreadcrumbSeparator({
       className={cn("[&>svg]:size-3.5", className)}
       {...props}
     >
-      {children ?? <CaretRightIcon />}
+      {children ?? <RiArrowRightSLine />}
     </li>
   );
 }
@@ -107,7 +107,7 @@ function BreadcrumbEllipsis({
       )}
       {...props}
     >
-      <DotsThreeIcon />
+      <RiMoreLine />
       <span className="sr-only">{labels.more}</span>
     </span>
   );

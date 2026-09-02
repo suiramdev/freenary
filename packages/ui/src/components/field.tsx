@@ -1,3 +1,5 @@
+"use client";
+
 import { Label } from "@freenary/ui/components/label";
 import { Separator } from "@freenary/ui/components/separator";
 import { cn } from "@freenary/ui/lib/utils";

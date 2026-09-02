@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@freenary/ui/components/button";
 import { Input } from "@freenary/ui/components/input";
 import { Textarea } from "@freenary/ui/components/textarea";

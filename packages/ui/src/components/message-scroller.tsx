@@ -3,7 +3,7 @@
 import { Button } from "@freenary/ui/components/button";
 import { useUiLabels } from "@freenary/ui/lib/labels";
 import { cn } from "@freenary/ui/lib/utils";
-import { ArrowDown } from "@phosphor-icons/react";
+import { RiArrowDownLine } from "@remixicon/react";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,
@@ -42,7 +42,7 @@ function MessageScrollerViewport({
     <MessageScrollerPrimitive.Viewport
       data-slot="message-scroller-viewport"
       className={cn(
-        "scroll-fade-b size-full min-h-0 min-w-0 scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content data-autoscrolling:scrollbar-thumb-transparent data-autoscrolling:scrollbar-track-transparent",
+        "scroll-fade-b size-full min-h-0 min-w-0 scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content data-autoscrolling:scrollbar-thumb-transparent data-autoscrolling:scrollbar-track-transparent data-pending-scroll:invisible",
         className
       )}
       {...props}
@@ -109,7 +109,7 @@ function MessageScrollerButton({
     >
       {children ?? (
         <>
-          <ArrowDown />
+          <RiArrowDownLine />
           <span className="sr-only">
             {direction === "end" ? labels.scrollToEnd : labels.scrollToStart}
           </span>

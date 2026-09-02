@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { BankIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { RiBankLine, RiErrorWarningLine } from "@remixicon/react";
 
 import { BankCard } from "@/components/bank/bank-card";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
@@ -51,7 +51,7 @@ export const BankList = ({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <WarningCircleIcon />
+            <RiErrorWarningLine />
           </EmptyMedia>
           <EmptyTitle>{m.bank_list_error_title()}</EmptyTitle>
           <EmptyDescription>
@@ -67,7 +67,7 @@ export const BankList = ({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <BankIcon />
+            <RiBankLine />
           </EmptyMedia>
           <EmptyTitle>
             {hasSearch

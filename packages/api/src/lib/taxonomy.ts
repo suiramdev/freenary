@@ -20,7 +20,7 @@ export const CATEGORY_COLOR_VALUES = [
 
 export type CategoryColor = (typeof CATEGORY_COLOR_VALUES)[number];
 
-/** Phosphor icon exports a category may use; the web name→component map covers exactly these. */
+/** Stable icon names a category may use; the web name→component map covers exactly these. */
 export const CATEGORY_ICON_NAMES = [
   "AirplaneIcon",
   "ArrowsLeftRightIcon",

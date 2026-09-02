@@ -6,7 +6,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@freenary/ui/components/dropdown-menu";
-import { TranslateIcon } from "@phosphor-icons/react";
+import { RiTranslate2 } from "@remixicon/react";
 
 import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
 import { LOCALE_LABELS } from "@/lib/i18n";
@@ -20,7 +20,7 @@ import { getLocale } from "@/paraglide/runtime.js";
 export const LocaleSwitcher = () => (
   <DropdownMenu>
     <DropdownMenuTrigger render={<Button variant="ghost" />}>
-      <TranslateIcon data-icon="inline-start" />
+      <RiTranslate2 data-icon="inline-start" />
       {LOCALE_LABELS[getLocale()]}
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">

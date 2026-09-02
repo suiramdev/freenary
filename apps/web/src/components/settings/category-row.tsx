@@ -9,11 +9,7 @@ import {
   ItemTitle,
 } from "@freenary/ui/components/item";
 import { cn } from "@freenary/ui/lib/utils";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  PencilSimpleIcon,
-} from "@phosphor-icons/react";
+import { RiArrowDownLine, RiArrowUpLine, RiPencilLine } from "@remixicon/react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { DeleteCategoryDialog } from "@/components/settings/delete-category-dialog";
@@ -76,7 +72,7 @@ export const CategoryRow = ({
               onClick={() => onMove({ direction: "up", id: customId })}
               variant="ghost"
             >
-              <ArrowUpIcon />
+              <RiArrowUpLine />
               <span className="sr-only">
                 {m.settings_category_move_up({ label })}
               </span>
@@ -86,13 +82,13 @@ export const CategoryRow = ({
               onClick={() => onMove({ direction: "down", id: customId })}
               variant="ghost"
             >
-              <ArrowDownIcon />
+              <RiArrowDownLine />
               <span className="sr-only">
                 {m.settings_category_move_down({ label })}
               </span>
             </Button>
             <Button onClick={() => onEdit(entry)} variant="ghost">
-              <PencilSimpleIcon />
+              <RiPencilLine />
               <span className="sr-only">
                 {m.settings_category_edit_action({ label })}
               </span>

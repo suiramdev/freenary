@@ -6,11 +6,11 @@
   "tailwind": {
     "config": "",
     "css": "../../packages/ui/src/styles/globals.css",
-    "baseColor": "stone",
+    "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
-  "iconLibrary": "phosphor",
+  "iconLibrary": "remixicon",
   "aliases": {
     "components": "@/components",
     "utils": "@freenary/ui/lib/utils",

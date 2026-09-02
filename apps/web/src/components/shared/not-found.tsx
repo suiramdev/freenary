@@ -1,5 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { RiArrowLeftLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 
 import { ShaderBackground } from "@/components/shared/shader-background";
@@ -28,7 +28,7 @@ export const NotFound = () => (
       </p>
       <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both mt-2 delay-150">
         <Button render={<Link to="/" />}>
-          <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+          <RiArrowLeftLine data-icon="inline-start" aria-hidden="true" />
           {m.shell_not_found_back_home()}
         </Button>
       </div>

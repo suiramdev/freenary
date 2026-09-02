@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { PlugsIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { RiErrorWarningLine, RiPlugLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
@@ -65,7 +65,7 @@ export const BankAccountsSection = () => {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <WarningCircleIcon />
+              <RiErrorWarningLine />
             </EmptyMedia>
             <EmptyTitle>{m.settings_bank_check_error_title()}</EmptyTitle>
             <EmptyDescription>
@@ -81,7 +81,7 @@ export const BankAccountsSection = () => {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <PlugsIcon />
+              <RiPlugLine />
             </EmptyMedia>
             <EmptyTitle>{m.settings_bank_unavailable_title()}</EmptyTitle>
             <EmptyDescription>

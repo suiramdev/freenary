@@ -17,11 +17,7 @@ import {
   InputGroupInput,
 } from "@freenary/ui/components/input-group";
 import { cn } from "@freenary/ui/lib/utils";
-import {
-  CaretUpDownIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-} from "@phosphor-icons/react";
+import { RiAddLine, RiExpandUpDownLine, RiSearchLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -71,7 +67,7 @@ export const CategoryPicker = ({
             ? categoryEntryLabel(selected)
             : m.settings_category_picker_placeholder()}
         </span>
-        <CaretUpDownIcon data-icon="inline-end" />
+        <RiExpandUpDownLine data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
@@ -80,7 +76,7 @@ export const CategoryPicker = ({
         <div className="p-1">
           <InputGroup>
             <InputGroupAddon>
-              <MagnifyingGlassIcon />
+              <RiSearchLine />
             </InputGroupAddon>
             <InputGroupInput
               onChange={(e) => setQuery(e.target.value)}
@@ -129,7 +125,7 @@ export const CategoryPicker = ({
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={onCreateRequest}>
-            <PlusIcon data-icon="inline-start" />
+            <RiAddLine data-icon="inline-start" />
             {m.settings_category_new_ellipsis()}
           </DropdownMenuItem>
         </DropdownMenuGroup>

@@ -17,7 +17,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
-import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
 import { useState } from "react";
 
 import {
@@ -59,7 +59,7 @@ const PeriodYearPicker = ({
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
           aria-label={m.budget_year_picker_previous()}
         >
-          <CaretLeftIcon />
+          <RiArrowLeftSLine />
         </Button>
         <span className="text-xs font-medium tabular-nums">
           {pageStart} – {pageStart + YEAR_PAGE_SIZE - 1}
@@ -69,7 +69,7 @@ const PeriodYearPicker = ({
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
           aria-label={m.budget_year_picker_next()}
         >
-          <CaretRightIcon />
+          <RiArrowRightSLine />
         </Button>
       </div>
       <div className="grid grid-cols-3 gap-1">
@@ -141,7 +141,7 @@ export const PeriodNavigator = ({
           onClick={() => navigate(-1)}
           aria-label={m.budget_period_previous()}
         >
-          <CaretLeftIcon />
+          <RiArrowLeftSLine />
         </Button>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger render={<Button variant="ghost" />}>
@@ -183,7 +183,7 @@ export const PeriodNavigator = ({
           onClick={() => navigate(1)}
           aria-label={m.budget_period_next()}
         >
-          <CaretRightIcon />
+          <RiArrowRightSLine />
         </Button>
       </div>
       <div className="flex items-center gap-1">

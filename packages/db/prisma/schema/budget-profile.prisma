@@ -8,7 +8,7 @@ model CustomCategory {
   label       String       @db.Citext
   /// Palette color name, validated against CATEGORY_COLOR_VALUES.
   color       String
-  /// Phosphor icon name, validated against CATEGORY_ICON_NAMES.
+  /// Icon name, validated against CATEGORY_ICON_NAMES.
   icon        String
   /// Category group slug this one nests under; null = it is a group of its own.
   parentSlug  String?

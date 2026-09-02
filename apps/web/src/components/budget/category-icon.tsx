@@ -4,48 +4,52 @@ import type {
   CategoryIconName,
 } from "@freenary/api/lib/taxonomy";
 import { cn } from "@freenary/ui/lib/utils";
-import type { Icon } from "@phosphor-icons/react";
 import {
-  AirplaneIcon,
-  ArrowsLeftRightIcon,
-  BankIcon,
-  CarIcon,
-  CoinsIcon,
-  DotsThreeIcon,
-  FilmSlateIcon,
-  FirstAidIcon,
-  ForkKnifeIcon,
-  GraduationCapIcon,
-  HouseIcon,
-  LightningIcon,
-  PiggyBankIcon,
-  ReceiptIcon,
-  RepeatIcon,
-  ShieldCheckIcon,
-  ShoppingBagIcon,
-  StorefrontIcon,
-} from "@phosphor-icons/react";
+  RiArrowLeftRightFill,
+  RiBankFill,
+  RiCarFill,
+  RiClapperboardFill,
+  RiCoinsFill,
+  RiFirstAidKitFill,
+  RiFlashlightFill,
+  RiGraduationCapFill,
+  RiHomeFill,
+  RiMoreFill,
+  RiPlaneFill,
+  RiReceiptFill,
+  RiRepeatFill,
+  RiRestaurantFill,
+  RiSafeFill,
+  RiShieldCheckFill,
+  RiShoppingBagFill,
+  RiStoreFill,
+} from "@remixicon/react";
+import type { RemixiconComponentType } from "@remixicon/react";
 
+/**
+ * Keys are persisted category icon names, so they outlive the icon library.
+ * Fill variants keep the glyph legible in the 10px chips the lists render.
+ */
 const ICON_BY_NAME = {
-  AirplaneIcon,
-  ArrowsLeftRightIcon,
-  BankIcon,
-  CarIcon,
-  CoinsIcon,
-  DotsThreeIcon,
-  FilmSlateIcon,
-  FirstAidIcon,
-  ForkKnifeIcon,
-  GraduationCapIcon,
-  HouseIcon,
-  LightningIcon,
-  PiggyBankIcon,
-  ReceiptIcon,
-  RepeatIcon,
-  ShieldCheckIcon,
-  ShoppingBagIcon,
-  StorefrontIcon,
-} satisfies Record<CategoryIconName, Icon>;
+  AirplaneIcon: RiPlaneFill,
+  ArrowsLeftRightIcon: RiArrowLeftRightFill,
+  BankIcon: RiBankFill,
+  CarIcon: RiCarFill,
+  CoinsIcon: RiCoinsFill,
+  DotsThreeIcon: RiMoreFill,
+  FilmSlateIcon: RiClapperboardFill,
+  FirstAidIcon: RiFirstAidKitFill,
+  ForkKnifeIcon: RiRestaurantFill,
+  GraduationCapIcon: RiGraduationCapFill,
+  HouseIcon: RiHomeFill,
+  LightningIcon: RiFlashlightFill,
+  PiggyBankIcon: RiSafeFill,
+  ReceiptIcon: RiReceiptFill,
+  RepeatIcon: RiRepeatFill,
+  ShieldCheckIcon: RiShieldCheckFill,
+  ShoppingBagIcon: RiShoppingBagFill,
+  StorefrontIcon: RiStoreFill,
+} satisfies Record<CategoryIconName, RemixiconComponentType>;
 
 /** Exported for the custom-category color picker. */
 export const SWATCH_BY_COLOR = {
@@ -76,7 +80,7 @@ export const CategoryIcon = ({
         className
       )}
     >
-      <IconComponent weight="duotone" />
+      <IconComponent />
     </div>
   );
 };

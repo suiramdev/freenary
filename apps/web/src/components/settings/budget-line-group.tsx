@@ -5,7 +5,7 @@ import {
   CollapsiblePanel,
   CollapsibleTrigger,
 } from "@freenary/ui/components/collapsible";
-import { PlusIcon } from "@phosphor-icons/react";
+import { RiAddLine } from "@remixicon/react";
 
 import { BudgetLineRow } from "@/components/settings/budget-line-row";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -76,7 +76,7 @@ export const BudgetLineGroup = ({
             onClick={() => onAdd(kind)}
             variant="ghost"
           >
-            <PlusIcon data-icon="inline-start" />
+            <RiAddLine data-icon="inline-start" />
             {addLabel}
           </Button>
         </div>

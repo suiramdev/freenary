@@ -8,7 +8,7 @@ import {
   EmptyTitle,
 } from "@freenary/ui/components/empty";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { WarningCircleIcon } from "@phosphor-icons/react";
+import { RiErrorWarningLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -85,7 +85,7 @@ const SettingsPage = () => {
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <WarningCircleIcon />
+            <RiErrorWarningLine />
           </EmptyMedia>
           <EmptyTitle>{m.settings_load_error_title()}</EmptyTitle>
         </EmptyHeader>

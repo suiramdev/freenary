@@ -6,7 +6,7 @@ import {
   EmptyTitle,
 } from "@freenary/ui/components/empty";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { ArrowRightIcon, GlobeHemisphereWestIcon } from "@phosphor-icons/react";
+import { RiArrowRightLine, RiEarthLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { CountryOption } from "@/components/onboarding/country-option";
@@ -55,7 +55,7 @@ export const CountrySelectionStep = ({
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <GlobeHemisphereWestIcon />
+              <RiEarthLine />
             </EmptyMedia>
             <EmptyTitle>{m.onboarding_country_empty()}</EmptyTitle>
           </EmptyHeader>
@@ -93,7 +93,7 @@ export const CountrySelectionStep = ({
           {isCompleting ? (
             <Spinner data-icon="inline-end" />
           ) : (
-            <ArrowRightIcon data-icon="inline-end" />
+            <RiArrowRightLine data-icon="inline-end" />
           )}
         </Button>
       </div>

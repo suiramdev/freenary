@@ -13,7 +13,7 @@ import {
   EmptyTitle,
 } from "@freenary/ui/components/empty";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { ChartDonutIcon } from "@phosphor-icons/react";
+import { RiDonutChartLine } from "@remixicon/react";
 import { useMemo } from "react";
 
 import { BudgetProfileSummary } from "@/components/settings/budget-profile-summary";
@@ -138,7 +138,7 @@ export const BudgetProfilePreview = ({
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ChartDonutIcon />
+                <RiDonutChartLine />
               </EmptyMedia>
               <EmptyTitle>{m.settings_budget_empty_title()}</EmptyTitle>
               <EmptyDescription>

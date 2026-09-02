@@ -1,6 +1,8 @@
+"use client";
+
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { cn } from "@freenary/ui/lib/utils";
-import { CaretRight, Check } from "@phosphor-icons/react";
+import { RiArrowRightSLine, RiCheckLine } from "@remixicon/react";
 import * as React from "react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -119,7 +121,7 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <CaretRight className="ml-auto" />
+      <RiArrowRightSLine className="ml-auto" />
     </MenuPrimitive.SubmenuTrigger>
   );
 }
@@ -173,7 +175,7 @@ function DropdownMenuCheckboxItem({
         data-slot="dropdown-menu-checkbox-item-indicator"
       >
         <MenuPrimitive.CheckboxItemIndicator>
-          <Check />
+          <RiCheckLine />
         </MenuPrimitive.CheckboxItemIndicator>
       </span>
       {children}
@@ -213,7 +215,7 @@ function DropdownMenuRadioItem({
         data-slot="dropdown-menu-radio-item-indicator"
       >
         <MenuPrimitive.RadioItemIndicator>
-          <Check />
+          <RiCheckLine />
         </MenuPrimitive.RadioItemIndicator>
       </span>
       {children}

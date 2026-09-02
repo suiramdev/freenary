@@ -1,5 +1,5 @@
 import { cn } from "@freenary/ui/lib/utils";
-import { Check } from "@phosphor-icons/react";
+import { RiCheckLine } from "@remixicon/react";
 import { Fragment } from "react";
 
 import { m } from "@/paraglide/messages.js";
@@ -37,7 +37,7 @@ export const OnboardingStepper = ({
               )}
             >
               {isComplete ? (
-                <Check className="animate-in fade-in zoom-in-75 size-3.5 duration-200 ease-out motion-reduce:animate-none" />
+                <RiCheckLine className="animate-in fade-in zoom-in-75 size-3.5 duration-200 ease-out motion-reduce:animate-none" />
               ) : (
                 index + 1
               )}

@@ -1,6 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { RiArrowLeftLine } from "@remixicon/react";
 
 import { BankConnectionPanel } from "@/components/bank/bank-connection-panel";
 import { OnboardingStepHeader } from "@/components/onboarding/onboarding-step-header";
@@ -39,7 +39,7 @@ export const BankConnectionStep = ({
     />
     <div className="flex items-center justify-between gap-3">
       <Button onClick={onBack} type="button" variant="ghost">
-        <ArrowLeftIcon data-icon="inline-start" />
+        <RiArrowLeftLine data-icon="inline-start" />
         {m.onboarding_back()}
       </Button>
       <div className="flex items-center gap-2">

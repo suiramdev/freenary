@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger,
 } from "@freenary/ui/components/collapsible";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { PlusIcon } from "@phosphor-icons/react";
+import { RiAddLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -86,7 +86,7 @@ export const CategoriesSection = ({
           onClick={() => setDrawer("new")}
           variant="outline"
         >
-          <PlusIcon data-icon="inline-start" />
+          <RiAddLine data-icon="inline-start" />
           {m.settings_category_new()}
         </Button>
       }

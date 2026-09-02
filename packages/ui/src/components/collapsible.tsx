@@ -1,6 +1,6 @@
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
 import { cn } from "@freenary/ui/lib/utils";
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { RiArrowRightSLine } from "@remixicon/react";
 
 function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
   return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
@@ -20,7 +20,7 @@ function CollapsibleTrigger({
       )}
       {...props}
     >
-      <CaretRightIcon className="text-muted-foreground size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90" />
+      <RiArrowRightSLine className="text-muted-foreground size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90" />
       {children}
     </CollapsiblePrimitive.Trigger>
   );

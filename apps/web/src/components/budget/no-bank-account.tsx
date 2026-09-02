@@ -6,7 +6,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { Wallet } from "@phosphor-icons/react";
+import { RiWalletLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 
 import { BANK_ACCOUNTS_ANCHOR } from "@/components/settings/bank-accounts-section";
@@ -17,7 +17,7 @@ export const NoBankAccount = () => (
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <Wallet />
+          <RiWalletLine />
         </EmptyMedia>
         <EmptyTitle>{m.budget_no_account_title()}</EmptyTitle>
         <EmptyDescription>{m.budget_no_account_description()}</EmptyDescription>

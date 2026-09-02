@@ -11,7 +11,7 @@ import {
 } from "@freenary/ui/components/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { TrashIcon } from "@phosphor-icons/react";
+import { RiDeleteBinLine } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
 
@@ -45,7 +45,7 @@ export const DeleteCategoryDialog = ({
     // one keeps the dialog available to retry.
     <AlertDialog>
       <AlertDialogTrigger render={<Button variant="ghost" />}>
-        <TrashIcon />
+        <RiDeleteBinLine />
         <span className="sr-only">
           {m.settings_category_delete_action({ label })}
         </span>

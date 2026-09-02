@@ -1,12 +1,12 @@
 import {
-  BrainIcon,
-  ChartBarIcon,
-  CurrencyCircleDollarIcon,
-  GearIcon,
-  HouseIcon,
-  TargetIcon,
-  WalletIcon,
-} from "@phosphor-icons/react";
+  RiBarChartLine,
+  RiBrainLine,
+  RiHomeLine,
+  RiMoneyDollarCircleLine,
+  RiSettings3Line,
+  RiTargetLine,
+  RiWalletLine,
+} from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
 
@@ -19,49 +19,49 @@ import { m } from "@/paraglide/messages.js";
  */
 export const NAV_ITEMS = [
   {
-    icon: HouseIcon,
+    icon: RiHomeLine,
     label: m.nav_home,
     planned: false,
     routeId: "/_auth/",
     to: "/",
   },
   {
-    icon: WalletIcon,
+    icon: RiWalletLine,
     label: m.nav_portfolio,
     planned: true,
     routeId: "/_auth/portfolio",
     to: "/portfolio",
   },
   {
-    icon: CurrencyCircleDollarIcon,
+    icon: RiMoneyDollarCircleLine,
     label: m.nav_budget,
     planned: false,
     routeId: "/_auth/budget",
     to: "/budget",
   },
   {
-    icon: ChartBarIcon,
+    icon: RiBarChartLine,
     label: m.nav_analysis,
     planned: true,
     routeId: "/_auth/analysis",
     to: "/analysis",
   },
   {
-    icon: TargetIcon,
+    icon: RiTargetLine,
     label: m.nav_goals,
     planned: true,
     routeId: "/_auth/goals",
     to: "/goals",
   },
   {
-    icon: BrainIcon,
+    icon: RiBrainLine,
     label: m.nav_ai,
     planned: true,
     routeId: "/_auth/ai",
     to: "/ai",
   },
   {
-    icon: GearIcon,
+    icon: RiSettings3Line,
     label: m.nav_settings,
     planned: false,
     routeId: "/_auth/settings",

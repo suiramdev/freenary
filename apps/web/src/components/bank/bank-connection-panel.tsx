@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { WarningCircleIcon } from "@phosphor-icons/react";
+import { RiErrorWarningLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { BankList } from "@/components/bank/bank-list";
@@ -73,7 +73,7 @@ export const BankConnectionPanel = ({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <WarningCircleIcon />
+            <RiErrorWarningLine />
           </EmptyMedia>
           <EmptyTitle>{m.bank_connections_error_title()}</EmptyTitle>
           <EmptyDescription>

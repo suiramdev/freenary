@@ -8,7 +8,7 @@ import {
   ItemTitle,
 } from "@freenary/ui/components/item";
 import { Spinner } from "@freenary/ui/components/spinner";
-import { BankIcon } from "@phosphor-icons/react";
+import { RiBankLine } from "@remixicon/react";
 
 import { DisconnectBankDialog } from "@/components/bank/disconnect-bank-dialog";
 import type { BankRow } from "@/lib/bank/bank-rows";
@@ -40,7 +40,7 @@ export const BankCard = ({
       className="text-muted-foreground [&_img]:object-contain [&_svg]:size-5"
       variant="image"
     >
-      {row.logo ? <img alt="" src={row.logo} /> : <BankIcon />}
+      {row.logo ? <img alt="" src={row.logo} /> : <RiBankLine />}
     </ItemMedia>
     <ItemContent className="min-w-0">
       <ItemTitle className="block w-full truncate">{row.name}</ItemTitle>

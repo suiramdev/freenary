@@ -7,7 +7,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@freenary/ui/components/input-group";
-import { TrashIcon } from "@phosphor-icons/react";
+import { RiDeleteBinLine } from "@remixicon/react";
 
 import { CategoryPicker } from "@/components/settings/category-picker";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -80,7 +80,7 @@ export const BudgetLineRow = ({
         />
 
         <Button onClick={() => onRemove(line.id)} variant="ghost">
-          <TrashIcon />
+          <RiDeleteBinLine />
           <span className="sr-only">
             {line.label
               ? m.settings_line_remove({ label: line.label })

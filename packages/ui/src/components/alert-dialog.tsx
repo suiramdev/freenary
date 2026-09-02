@@ -1,5 +1,3 @@
-"use client";
-
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
 import { cn } from "@freenary/ui/lib/utils";
