@@ -1,8 +1,12 @@
+import { env } from "@freenary/env/server";
+
 import { enableBankingProvider } from "./enable-banking";
+import { powensProvider } from "./powens";
 import type { BankingProvider } from "./types";
 
 const providers = {
   [enableBankingProvider.id]: enableBankingProvider,
+  [powensProvider.id]: powensProvider,
 } as const satisfies Record<string, BankingProvider>;
 
 export const getProvider = (id: string): BankingProvider => {
@@ -13,6 +17,5 @@ export const getProvider = (id: string): BankingProvider => {
   return provider;
 };
 
-export const getDefaultProvider = (): BankingProvider => enableBankingProvider;
-
-export const listProviders = (): BankingProvider[] => Object.values(providers);
+export const getDefaultProvider = (): BankingProvider =>
+  getProvider(env.BANKING_PROVIDER);

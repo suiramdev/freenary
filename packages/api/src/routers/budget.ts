@@ -1,9 +1,9 @@
-import prisma, { Prisma } from "@freenary/db";
+import prisma from "@freenary/db";
+import type { Prisma } from "@freenary/db";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
-import { deriveMerchantKey } from "../categorisation/merchant-key";
 import type { TransactionChannel } from "../categorisation/normalise/types";
 import {
   cadenceWindow,
@@ -17,6 +17,8 @@ import {
   upsertUserOverride,
 } from "../categorisation/user-override";
 import { protectedProcedure } from "../index";
+import { findProviderUser } from "../lib/bank-provider-user";
+import { syncConnection } from "../lib/bank-sync";
 import { periodMonthCount, plannedByGroup } from "../lib/budget-planned";
 import { budgetLineKindOf } from "../lib/budget-profile";
 import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
@@ -28,7 +30,6 @@ import {
 } from "../lib/taxonomy";
 import type { CategoryGroup, SpendingCategory } from "../lib/taxonomy";
 import { getProvider } from "../providers/registry";
-import type { ProviderTransaction } from "../providers/types";
 
 const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   `SELECT
@@ -243,186 +244,6 @@ const outgoingByGroup = async (
     groupAmounts.set(group, (groupAmounts.get(group) ?? 0) + amount);
   }
   return groupAmounts;
-};
-
-interface ConnectionWithAccounts {
-  id: string;
-  provider: string;
-  providerSessionId: string;
-  institutionName: string;
-  institutionCountry: string | null;
-  institutionBic: string | null;
-  institutionGroup: string | null;
-  status: string;
-  lastSyncedAt: Date | null;
-  accounts: {
-    id: string;
-    providerAccountId: string;
-  }[];
-}
-
-// Provider → persistence field mapping (sync writes raw data, no categorisation)
-
-const mapProviderFields = (tx: ProviderTransaction) => ({
-  amount: tx.amountMinor,
-  balanceAfterTransaction: tx.balanceAfterMinor ?? null,
-  bankTransactionCode: tx.bankTransactionDescription ?? null,
-  bankTransactionFamilyCode: tx.bankTransactionFamilyCode ?? null,
-  bankTransactionSubCode: tx.bankTransactionSubCode ?? null,
-  counterpartyName: tx.creditorName ?? tx.debtorName ?? null,
-  creditorAccountIban: tx.creditorIban ?? null,
-  creditorAgentBic: tx.creditorAgentBic ?? null,
-  creditorCountry: tx.creditorCountry ?? null,
-  // SAFETY: Prisma requires DbNull (not plain null) to clear a Json? column
-  creditorIdentifications: tx.creditorIdentifications
-    ? (tx.creditorIdentifications.map(({ identification, schemeName }) => ({
-        identification,
-        schemeName,
-      })) as Prisma.InputJsonValue)
-    : Prisma.DbNull,
-  creditorTown: tx.creditorTown ?? null,
-  currency: tx.currency,
-  date: new Date(tx.bookingDate),
-  debtorAccountIban: tx.debtorIban ?? null,
-  description: tx.remittanceLines.join(" "),
-  exchangeRate: tx.exchangeRate ?? null,
-  merchantCategoryCode: tx.merchantCategoryCode ?? null,
-  psuNote: tx.psuNote ?? null,
-  referenceNumber: tx.referenceNumber ?? null,
-  referenceNumberScheme: tx.referenceNumberScheme ?? null,
-  remittanceLines: tx.remittanceLines,
-  status: tx.status,
-  transactionDate: tx.transactionDate ? new Date(tx.transactionDate) : null,
-  valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
-});
-
-// Merchant key derivation for a provider transaction
-
-const deriveKey = (
-  tx: ProviderTransaction,
-  institutionName: string,
-  institutionCountry: string | null,
-  institutionBic: string | null,
-  institutionGroup: string | null
-) =>
-  deriveMerchantKey({
-    amountMinor: tx.amountMinor,
-    bankTransactionFamilyCode: tx.bankTransactionFamilyCode,
-    bankTransactionSubCode: tx.bankTransactionSubCode,
-    country: institutionCountry,
-    creditorIban: tx.creditorIban,
-    creditorIdentifications: tx.creditorIdentifications,
-    creditorName: tx.creditorName,
-    debtorName: tx.debtorName,
-    institutionBic,
-    institutionGroup,
-    institutionName,
-    remittanceLines: tx.remittanceLines,
-  });
-
-// Transaction upsert (sync only — raw data + merchant key, no categorisation)
-
-const upsertTransaction = async (
-  accountId: string,
-  tx: ProviderTransaction,
-  institutionName: string,
-  institutionCountry: string | null,
-  institutionBic: string | null,
-  institutionGroup: string | null
-) => {
-  const shared = mapProviderFields(tx);
-  const keyResult = deriveKey(
-    tx,
-    institutionName,
-    institutionCountry,
-    institutionBic,
-    institutionGroup
-  );
-
-  await prisma.transaction.upsert({
-    create: {
-      ...shared,
-      accountId,
-      category: null,
-      categoryOverride: false,
-      channel: keyResult.channel,
-      intermediaryName: keyResult.intermediaryName,
-      merchantKey: keyResult.merchantKey || null,
-      normalisedDescriptor: keyResult.normalisedDescriptor || null,
-      providerTransactionId: tx.providerTransactionId,
-      transactionPath: keyResult.path,
-    },
-    update: {
-      ...shared,
-      channel: keyResult.channel,
-      intermediaryName: keyResult.intermediaryName,
-      merchantKey: keyResult.merchantKey || null,
-      normalisedDescriptor: keyResult.normalisedDescriptor || null,
-      transactionPath: keyResult.path,
-    },
-    where: {
-      accountId_providerTransactionId: {
-        accountId,
-        providerTransactionId: tx.providerTransactionId,
-      },
-    },
-  });
-};
-
-const syncConnection = async (
-  connection: ConnectionWithAccounts,
-  errors: string[],
-  institutionName: string,
-  institutionCountry: string | null,
-  institutionBic: string | null,
-  institutionGroup: string | null
-) => {
-  try {
-    const now = new Date();
-    const syncFrom =
-      connection.lastSyncedAt ??
-      new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    const dateFrom = syncFrom.toISOString().split("T")[0] ?? "";
-    const dateTo = now.toISOString().split("T")[0] ?? "";
-
-    for (const account of connection.accounts) {
-      try {
-        const provider = getProvider(connection.provider);
-        // eslint-disable-next-line no-await-in-loop -- sequential to avoid rate-limiting
-        const transactions = await provider.fetchTransactions({
-          dateFrom,
-          dateTo,
-          providerAccountId: account.providerAccountId,
-          providerSessionId: connection.providerSessionId,
-        });
-
-        for (const tx of transactions) {
-          // eslint-disable-next-line no-await-in-loop -- sequential to avoid unique constraint races
-          await upsertTransaction(
-            account.id,
-            tx,
-            institutionName,
-            institutionCountry,
-            institutionBic,
-            institutionGroup
-          );
-        }
-      } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : "Unknown account error";
-        errors.push(`Account ${account.providerAccountId}: ${msg}`);
-      }
-    }
-
-    await prisma.bankConnection.update({
-      data: { lastSyncedAt: now },
-      where: { id: connection.id },
-    });
-  } catch (error) {
-    const msg =
-      error instanceof Error ? error.message : "Unknown connection error";
-    errors.push(`Connection ${connection.institutionName}: ${msg}`);
-  }
 };
 
 // Batch categorisation of uncategorised transactions
@@ -1113,21 +934,21 @@ export const budgetRouter = {
     const errors: string[] = [];
 
     const connections = await prisma.bankConnection.findMany({
-      include: { accounts: true },
+      include: {
+        accounts: { select: { id: true, providerAccountId: true, type: true } },
+      },
       where: { status: "ACTIVE", userId },
     });
 
-    // Step 1: Sync raw transactions from all connections
+    // Step 1: Sync raw provider data from all connections
     for (const connection of connections) {
       // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
-      await syncConnection(
-        connection,
-        errors,
-        connection.institutionName,
-        connection.institutionCountry ?? null,
-        connection.institutionBic ?? null,
-        connection.institutionGroup ?? null
+      const providerUser = await findProviderUser(
+        userId,
+        getProvider(connection.provider)
       );
+      // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
+      await syncConnection(connection, errors, providerUser);
     }
 
     // Step 2: Internal transfer matching (separate pass after sync)

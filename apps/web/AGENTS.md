@@ -60,7 +60,7 @@ When building UI, still decompose top-down into these levels: split out the smal
 
 ### Rendering
 
-**Routes render on the server.** The only route that opts out is `callback/enable-banking`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
+**Routes render on the server.** The only route that opts out is `callback/$provider`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
 
 The session lives on the API's own origin, so it is unreadable during SSR. Access rules therefore run in `AuthGate` (`@/components/auth/auth-gate.tsx`), never in a route's `beforeLoad`: a `beforeLoad` that awaits the session forces the whole subtree client-only and blanks the shell with it. Give the gate an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects.
 

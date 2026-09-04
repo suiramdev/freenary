@@ -35,7 +35,7 @@
   "bank_callback_declined": "Bank connection cancelled. Nothing was linked.",
   "bank_callback_failed_onboarding": "Bank connection failed. You can try again or skip.",
   "bank_callback_failed_settings": "Bank connection failed. You can try again.",
-  "bank_callback_incomplete": "Missing authorization code.",
+  "bank_callback_incomplete": "The bank sent back an incomplete response.",
   "bank_callback_loading": "Finishing bank connection",
   "bank_callback_success": "Bank connected",
   "bank_callback_success_accounts": [

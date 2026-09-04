@@ -35,7 +35,7 @@
   "bank_callback_declined": "Connexion bancaire annulée. Rien n’a été lié.",
   "bank_callback_failed_onboarding": "La connexion bancaire a échoué. Vous pouvez réessayer ou passer cette étape.",
   "bank_callback_failed_settings": "La connexion bancaire a échoué. Vous pouvez réessayer.",
-  "bank_callback_incomplete": "Code d’autorisation manquant.",
+  "bank_callback_incomplete": "La banque a renvoyé une réponse incomplète.",
   "bank_callback_loading": "Finalisation de la connexion bancaire",
   "bank_callback_success": "Banque connectée",
   "bank_callback_success_accounts": [

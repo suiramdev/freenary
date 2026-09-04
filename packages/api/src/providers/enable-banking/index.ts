@@ -1,6 +1,8 @@
 import type {
   BankingProvider,
+  CompleteConnectionRequest,
   CompletedConnection,
+  ConnectionRequest,
   FetchTransactionsRequest,
   ProviderInstitution,
   ProviderTransaction,
@@ -12,9 +14,11 @@ import { mapEBCompletedConnection } from "./map-connection";
 import { mapEBTransactions } from "./map-transaction";
 
 export const enableBankingProvider: BankingProvider = {
-  async closeConnection(providerSessionId: string): Promise<void> {
+  callbackPath: "/callback/enable-banking",
+
+  async closeConnection(request: ConnectionRequest): Promise<void> {
     const response = await ebFetch(
-      `/sessions/${encodeURIComponent(providerSessionId)}`,
+      `/sessions/${encodeURIComponent(request.providerSessionId)}`,
       { method: "DELETE" }
     );
 
@@ -30,7 +34,16 @@ export const enableBankingProvider: BankingProvider = {
     );
   },
 
-  async completeConnection(code: string): Promise<CompletedConnection> {
+  async completeConnection(
+    request: CompleteConnectionRequest
+  ): Promise<CompletedConnection> {
+    const { code } = request.callbackParams;
+    if (!code) {
+      throw new Error(
+        "Enable Banking callback is missing the authorization code"
+      );
+    }
+
     const response = await ebFetch("/sessions", {
       body: JSON.stringify({ code }),
       method: "POST",

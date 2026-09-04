@@ -11,6 +11,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   bankConnections       BankConnection[]
+  bankProviderUsers     BankProviderUser[]
   merchantOverrides     MerchantOverride[]
   budgetLines           BudgetLine[]
   customCategories      CustomCategory[]

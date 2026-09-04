@@ -1,12 +1,12 @@
-/// A link to an external banking provider (e.g. Enable Banking).
+/// A link to an external banking provider (Powens, Enable Banking).
 /// Hierarchy: User → BankConnection → BankAccount → Transaction.
 model BankConnection {
   id                String   @id @default(cuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// Provider identifier (e.g. "enable-banking").
+  /// Provider identifier (e.g. "powens", "enable-banking").
   provider          String
-  /// Provider-level session identifier used to refresh data.
+  /// Provider-level handle used to refresh data: Enable Banking session_id, Powens connection id.
   providerSessionId String
   /// Provider-level institution identifier this connection was opened against.
   institutionId     String?
@@ -36,6 +36,23 @@ enum BankConnectionStatus {
   ERROR
 }
 
+/// A user's identity at a provider that scopes data per user (Powens). Enable Banking has none.
+model BankProviderUser {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Provider identifier, same vocabulary as BankConnection.provider.
+  provider       String
+  providerUserId String
+  /// Permanent user-scoped bearer token. Stored as-is, like better-auth's Account.accessToken.
+  accessToken    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@map("bank_provider_user")
+}
+
 /// An individual bank account within a connection.
 model BankAccount {
   id                 String         @id @default(cuid())
@@ -48,13 +65,66 @@ model BankAccount {
   /// Provider-assigned opaque account hash for cross-account matching.
   identificationHash String?
   name               String?
+  /// Kind of account, as reported by the provider.
+  type               BankAccountType @default(UNKNOWN)
+  /// ISO 4217 currency code of the account (e.g. "EUR").
+  currency           String?
+  /// Signed balance in minor units of `currency`.
+  balanceMinor       Int?
+  /// When the provider last valued the balance.
+  balanceAt          DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   transactions       Transaction[]
+  holdings           Holding[]
 
   @@unique([connectionId, providerAccountId])
   @@index([connectionId])
   @@map("bank_account")
+}
+
+enum BankAccountType {
+  CHECKING
+  SAVINGS
+  CARD
+  LOAN
+  BROKERAGE
+  LIFE_INSURANCE
+  RETIREMENT
+  EMPLOYEE_SAVINGS
+  REAL_ESTATE
+  CROWDLENDING
+  UNKNOWN
+}
+
+/// A security held inside an investment account. Snapshot of the last sync, not a history.
+model Holding {
+  id                  String      @id @default(cuid())
+  accountId           String
+  account             BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  /// Provider-level identifier for deduplication.
+  providerHoldingId   String
+  label               String
+  /// ISIN when codeType is "ISIN"; provider code otherwise.
+  code                String?
+  codeType            String?
+  quantity            Decimal     @db.Decimal(24, 8)
+  /// Average purchase price per unit, account currency.
+  unitCost            Decimal?    @db.Decimal(24, 6)
+  unitValue           Decimal?    @db.Decimal(24, 6)
+  /// Current value in minor units of `currency`.
+  valuationMinor      Int
+  /// Unrealised gain/loss in minor units as reported by the provider.
+  unrealisedGainMinor Int?
+  currency            String
+  /// Valuation date reported by the provider.
+  valuedAt            DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@unique([accountId, providerHoldingId])
+  @@index([accountId])
+  @@map("holding")
 }
 
 /// A single financial transaction (purchase, sale, deposit, withdrawal, etc.).

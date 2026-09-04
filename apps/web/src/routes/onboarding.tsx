@@ -17,7 +17,7 @@ const OnboardingPage = () => {
   const banksQuery = useQuery(
     orpc.bankConnection.listInstitutions.queryOptions({
       // Prefetch once a country is picked; the `step === 1` arm covers a flow
-      // resumed into the bank step after Enable Banking went unavailable.
+      // resumed into the bank step after the banking provider went unavailable.
       enabled: wizard.country !== null && (hasBankStep || wizard.step === 1),
       input: { country: wizard.country ?? undefined },
     })

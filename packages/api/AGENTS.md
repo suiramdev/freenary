@@ -26,6 +26,7 @@ src/
 - `apps/web` imports the **router type** (`AppRouter`, `AppRouterClient`) for full client inference — never the implementation.
 - The context depends on Elysia's `Context` type. If the server framework changes, `context.ts` is the only file that needs updating.
 - **Return slugs and enums, never display strings.** `apps/web` is translated and the API is not: a human-readable `label` in a response is English the client cannot translate and must ignore. Send the stable key (`"daily-living"`, `"ACTIVE"`) and let the web app map it to a message — the spending taxonomy works this way via `apps/web/src/lib/taxonomy-labels.ts`. Text that originates with the user, the bank or the provider is data, not UI copy, and passes through as-is.
+- **Bank providers live in `src/providers/<id>/` behind `BankingProvider`** (`src/providers/types.ts`); routers and sync only ever see that interface, and `src/providers/registry.ts` picks the default from `BANKING_PROVIDER`. Per-user provider identities are persisted by `src/lib/bank-provider-user.ts`, never by an adapter.
 
 ## Adding a procedure
 
