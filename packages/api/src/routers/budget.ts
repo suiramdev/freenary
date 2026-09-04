@@ -246,6 +246,27 @@ const outgoingByGroup = async (
   return groupAmounts;
 };
 
+/**
+ * Drop the pipeline's own verdicts so the next batch re-decides them. Manual
+ * overrides and internal-transfer flags are the user's, not the pipeline's, so
+ * they survive. A connection id narrows it to that bank.
+ */
+const clearResolutions = (userId: string, connectionId?: string) =>
+  prisma.transaction.updateMany({
+    data: {
+      resolutionConfidence: null,
+      resolutionStage: null,
+      resolvedCategory: null,
+    },
+    where: {
+      account: {
+        connection: connectionId ? { id: connectionId, userId } : { userId },
+      },
+      categoryOverride: false,
+      isInternalTransfer: false,
+    },
+  });
+
 // Batch categorisation of uncategorised transactions
 
 const categoriseUncategorised = async (userId: string): Promise<number> => {
@@ -907,70 +928,97 @@ export const budgetRouter = {
   recategorise: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;
 
-    // Clear non-override resolutions so the batch re-evaluates them
-    await prisma.transaction.updateMany({
-      data: {
-        resolutionConfidence: null,
-        resolutionStage: null,
-        resolvedCategory: null,
-      },
-      where: {
-        account: { connection: { userId } },
-        categoryOverride: false,
-        isInternalTransfer: false,
-      },
-    });
+    await clearResolutions(userId);
 
     const categorised = await categoriseUncategorised(userId);
     return { categorised };
   }),
 
   /**
-   * Sync raw transaction data from banking providers, then run
-   * internal transfer matching and batch categorisation.
+   * Sync raw transaction data from banking providers, then run internal
+   * transfer matching and batch categorisation.
+   *
+   * A forced sync re-reads the provider's whole window rather than resuming at
+   * the last sync, and drops the pipeline's own verdicts first: re-importing
+   * re-derives every merchant key it touches, and a row already carrying a
+   * category would otherwise never be re-read against it.
    */
-  syncAccounts: protectedProcedure.handler(async ({ context }) => {
-    const userId = context.session.user.id;
-    const errors: string[] = [];
+  syncAccounts: protectedProcedure
+    .input(
+      z
+        .object({
+          connectionId: z.string().optional(),
+          force: z.boolean().optional(),
+        })
+        .optional()
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const connectionId = input?.connectionId;
+      const force = input?.force ?? false;
+      const errors: string[] = [];
 
-    const connections = await prisma.bankConnection.findMany({
-      include: {
-        accounts: { select: { id: true, providerAccountId: true, type: true } },
-      },
-      where: { status: "ACTIVE", userId },
-    });
-
-    // Step 1: Sync raw provider data from all connections
-    for (const connection of connections) {
-      // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
-      const providerUser = await findProviderUser(
+      const where: Prisma.BankConnectionWhereInput = {
+        status: "ACTIVE",
         userId,
-        getProvider(connection.provider)
-      );
-      // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
-      await syncConnection(connection, errors, providerUser);
-    }
+      };
+      if (connectionId) {
+        where.id = connectionId;
+      }
 
-    // Step 2: Internal transfer matching (separate pass after sync)
-    await matchInternalTransfers(userId);
+      const connections = await prisma.bankConnection.findMany({
+        include: {
+          accounts: {
+            select: { id: true, providerAccountId: true, type: true },
+          },
+        },
+        where,
+      });
 
-    // Step 3: Batch categorisation of uncategorised transactions
-    let categorisationWarning: string | undefined;
-    try {
-      await categoriseUncategorised(userId);
-    } catch (error) {
-      categorisationWarning =
-        error instanceof Error
-          ? `Categorisation: ${error.message}`
-          : "Categorisation failed";
-    }
+      // Step 1: Sync raw provider data from all connections. Resolving the
+      // provider or its stored identity can throw, and one connection the
+      // registry no longer knows must not cost every other bank its sync.
+      for (const connection of connections) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
+          const providerUser = await findProviderUser(
+            userId,
+            getProvider(connection.provider)
+          );
+          // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
+          await syncConnection(connection, errors, providerUser, force);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown connection error";
+          errors.push(`Connection ${connection.institutionName}: ${message}`);
+        }
+      }
 
-    return {
-      error: errors.length > 0 ? errors.join("; ") : undefined,
-      success: errors.length === 0,
-      warning: categorisationWarning,
-    };
-  }),
+      // Step 2: Internal transfer matching (separate pass after sync)
+      await matchInternalTransfers(userId);
+
+      // Step 3: Batch categorisation of uncategorised transactions
+      let categorisationWarning: string | undefined;
+      let categorised = 0;
+      try {
+        if (force) {
+          await clearResolutions(userId, input?.connectionId);
+        }
+        categorised = await categoriseUncategorised(userId);
+      } catch (error) {
+        categorisationWarning =
+          error instanceof Error
+            ? `Categorisation: ${error.message}`
+            : "Categorisation failed";
+      }
+
+      return {
+        categorised,
+        error: errors.length > 0 ? errors.join("; ") : undefined,
+        success: errors.length === 0,
+        warning: categorisationWarning,
+      };
+    }),
 
   /**
    * Update a transaction's category. Writes to the user's MerchantOverride

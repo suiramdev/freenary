@@ -90,8 +90,10 @@
   "bank_list_loading": "Chargement des banques",
   "bank_row_never_synced": "{accounts} · Jamais synchronisé",
   "bank_row_reconnect": "{accounts} · Reconnectez pour reprendre l’import",
+  "bank_row_sync": "Resynchroniser {institution}",
   "bank_row_synced": "{accounts} · Synchronisé le {date}",
   "bank_search_placeholder": "Rechercher une banque…",
+  "bank_sync_success": "{institution} resynchronisé",
   "budget_aggregation_average": "Moy. mensuelle",
   "budget_aggregation_median": "Médiane mensuelle",
   "budget_aggregation_total": "Total",
@@ -155,7 +157,20 @@
   "budget_summary_net_total": "Solde",
   "budget_summary_unavailable": "Indisponible",
   "budget_sync_error": "Échec de la synchronisation des transactions",
+  "budget_sync_now": "Synchroniser les transactions",
   "budget_sync_retry": "Réessayer",
+  "budget_sync_running": "Synchronisation…",
+  "budget_sync_success": "Transactions à jour",
+  "budget_sync_success_categorised": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "À jour · {count} transaction catégorisée",
+        "countPlural=other": "À jour · {count} transactions catégorisées"
+      }
+    }
+  ],
   "budget_tab_incoming": "Entrées · {amount}",
   "budget_tab_outgoing": "Sorties · {amount}",
   "budget_transaction_paid": "{title}, payé {amount}",

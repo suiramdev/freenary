@@ -238,10 +238,23 @@ const syncHoldings = async (
   });
 };
 
+/**
+ * How far back a sync with nothing to resume from reaches. Also the window a
+ * forced sync re-reads: providers serve roughly this much history, so it is
+ * the whole of what re-importing can recover.
+ */
+const SYNC_HISTORY_DAYS = 90;
+
 export const syncConnection = async (
   connection: ConnectionWithAccounts,
   errors: string[],
-  user: ProviderUserSession | null
+  user: ProviderUserSession | null,
+  /**
+   * Re-read the whole window instead of resuming at `lastSyncedAt`. The upsert
+   * re-derives the merchant key of every row it touches, so this is what
+   * repairs keys already stored under an older normalisation.
+   */
+  force = false
 ) => {
   const {
     institutionBic,
@@ -252,9 +265,12 @@ export const syncConnection = async (
 
   try {
     const now = new Date();
-    const syncFrom =
-      connection.lastSyncedAt ??
-      new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const windowStart = new Date(
+      now.getTime() - SYNC_HISTORY_DAYS * 24 * 60 * 60 * 1000
+    );
+    const syncFrom = force
+      ? windowStart
+      : (connection.lastSyncedAt ?? windowStart);
     const dateFrom = syncFrom.toISOString().split("T")[0] ?? "";
     const dateTo = now.toISOString().split("T")[0] ?? "";
     const provider = getProvider(connection.provider);

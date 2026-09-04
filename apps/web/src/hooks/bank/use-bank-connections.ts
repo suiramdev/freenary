@@ -73,6 +73,35 @@ export const useBankConnections = ({
   });
 
   /**
+   * Forces one bank to be re-read from scratch: the provider's whole window,
+   * with every category re-derived. The connection list carries the "synced"
+   * date the row shows, so it goes stale too.
+   */
+  const resyncMutation = useMutation({
+    mutationFn: (connection: BankConnection) =>
+      client.budget.syncAccounts({ connectionId: connection.id, force: true }),
+    onError: () => {
+      toast.error(m.budget_sync_error());
+    },
+    onSuccess: async (result, connection) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orpc.bankConnection.listConnections.queryOptions().queryKey,
+        }),
+        invalidateBudgetData(queryClient),
+      ]);
+
+      if (!result.success) {
+        toast.error(m.budget_sync_error());
+        return;
+      }
+      toast.success(
+        m.bank_sync_success({ institution: connection.institutionName })
+      );
+    },
+  });
+
+  /**
    * Hands the browser to the bank. Nothing is marked connected here: the
    * connection only exists once the callback exchanged the code.
    */
@@ -109,5 +138,7 @@ export const useBankConnections = ({
     isConnectionsMissing:
       connectionsQuery.isError && connectionsQuery.data === undefined,
     isConnectionsPending: connectionsQuery.isPending,
+    resync: resyncMutation.mutate,
+    resyncingId: resyncMutation.isPending ? resyncMutation.variables.id : null,
   };
 };

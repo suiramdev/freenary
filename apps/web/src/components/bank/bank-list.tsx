@@ -9,6 +9,7 @@ import { RiBankLine, RiErrorWarningLine } from "@remixicon/react";
 
 import { BankCard } from "@/components/bank/bank-card";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
+import type { BankConnection } from "@/hooks/bank/use-bank-connections";
 import type { BankRow } from "@/lib/bank/bank-rows";
 import { m } from "@/paraglide/messages.js";
 
@@ -22,7 +23,10 @@ interface BankListProps {
   isPending: boolean;
   onConnect: (row: BankRow) => void;
   onDisconnect: (connectionId: string) => void;
+  onSync: (connection: BankConnection) => void;
   rows: BankRow[];
+  /** The connection currently being re-synced, if any. */
+  syncingId: string | null;
 }
 
 export const BankList = ({
@@ -33,7 +37,9 @@ export const BankList = ({
   isPending,
   onConnect,
   onDisconnect,
+  onSync,
   rows,
+  syncingId,
 }: BankListProps) => {
   if (isPending) {
     return (
@@ -94,7 +100,13 @@ export const BankList = ({
               onDisconnect(row.connection.id);
             }
           }}
+          onSync={() => {
+            if (row.connection) {
+              onSync(row.connection);
+            }
+          }}
           row={row}
+          syncing={syncingId === row.connection?.id}
         />
       ))}
     </ul>
