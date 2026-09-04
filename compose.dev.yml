@@ -10,6 +10,10 @@ x-app-watch: &app-watch
     target: /app/apps
     ignore:
       - node_modules/
+      # Generated on each side by the paraglide compile step: syncing the host
+      # copy over the container's deletes it mid-session, and Vite caches the
+      # failed resolution of `@/paraglide/server.js` into a permanent 500.
+      - web/src/paraglide/
   - action: sync
     path: ./packages
     target: /app/packages

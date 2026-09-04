@@ -5,7 +5,7 @@
   "scripts": {
     "build": "vite build",
     "serve": "vite preview",
-    "dev": "vite dev"
+    "dev": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --output-structure message-modules --strategy cookie preferredLanguage baseLocale --emit-ts-declarations && vite dev"
   },
   "dependencies": {
     "@freenary/api": "workspace:*",

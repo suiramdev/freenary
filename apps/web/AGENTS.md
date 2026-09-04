@@ -3,6 +3,7 @@
 ## Stack
 
 - **Vite** dev server (`bun run dev:web`, port `WEB_PORT` or 5173).
+  The `dev` script compiles Paraglide **before** Vite starts, and `compose.dev.yml` keeps `web/src/paraglide/` out of its watch sync: Vite caches the first failed resolution of `@/paraglide/server.js`, so a generated directory that appears (or is deleted) after startup turns every SSR request into a permanent 500 until the process restarts.
 - **TanStack Router** for type-safe file-based routing — routes live in `src/routes/`.
 - **TanStack Query** + `@orpc/tanstack-query` — typed queries derived from the server router type.
 - **Better Auth** client for sessions; auth state syncs with `apps/server`.
