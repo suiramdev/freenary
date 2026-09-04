@@ -1,0 +1,107 @@
+---
+title: Signing In
+description: Passwords, passkeys, Google, Apple and single sign-on, plus two-factor authentication, sessions and connected accounts.
+---
+
+Freenary asks for your email address first and works out what to show you next. Type it in, and the form fills out with what that address needs: a password if the address already has an account, or a name and a password if it does not. Edit the address again and those fields fold away until the new one has been checked.
+
+Whatever you use, it is the same account. Freenary joins sign-in methods on the email address, so signing in with Google after having used a password lands you in the account you already have — never a second, empty one.
+
+## A password is always part of it
+
+There is no sign-in by emailed code and no magic link. Every account that signs in with an address signs in with a password; codes exist only to confirm an address and to reset a password you have forgotten.
+
+Passwords need **at least twelve characters**. There is no requirement to mix upper case, digits and symbols — length is what makes a password hard to guess. Unless your instance runs with no route to the internet, a password known from a public data breach is refused and the screen tells you so; pick a different one rather than a variation of it.
+
+## Creating an account
+
+An address with no account gets a **name**, an address and a password. Submit them and Freenary emails you a six-digit confirmation code — **you are not signed in yet**. Enter the code and you are, with the address already confirmed.
+
+Signing in with that password before confirming does not leave you stuck: the screen says the address is not confirmed yet and takes you straight to the code step, because the server sends a fresh code along with that refusal.
+
+An address is confirmed by typing a code, never by clicking a link in the email. Links break when the mail is read on a different device from the one you started on, and mail clients sometimes open them for you; a code you type works from anywhere.
+
+## A forgotten password
+
+The revealed password field carries a **Forgot password?** link, on any instance that can send email. Freenary emails a code, you enter it together with the new password, and you are returned to the sign-in form to use it — resetting a password does not sign you in, so whoever reset it has to prove they hold it.
+
+Every code Freenary sends follows the same rules:
+
+- Valid for **ten minutes**. After that, ask for a new one — the screen has a resend button.
+- **Three attempts** per code. A fourth entry needs a fresh one.
+- Asking repeatedly in the same minute is refused for a short while. Wait, then try again.
+- The code is tied to the address it was sent to, so a mistyped address means going back and entering the right one.
+- A code is spent once it has done its job. Entering a confirmation code again — or asking to confirm an address that is already confirmed — is refused, because a code is never a way in on its own.
+
+## An authenticator app as a second factor
+
+**Two-factor authentication** is the first section of **Security**, at the top of Settings, and it applies to accounts that have a password.
+
+Turning it on asks for your password, then shows a QR code to scan with an authenticator app — 1Password, Aegis, Google Authenticator, anything that does time-based codes. The code the app generates confirms the enrolment; until you enter it, nothing has changed.
+
+**Recovery codes** are shown once, immediately after that, and never again. They are single-use stand-ins for your authenticator, for the day you lose the phone. Copy them somewhere you can reach without Freenary and without that phone. You can generate a new set at any time, which invalidates the old one, and you can turn two-factor off with your password.
+
+From then on, signing in with your password asks for the authenticator code — with the option to use a recovery code instead — before it gives you a session.
+
+That step carries a **Remember this device for 30 days** checkbox. Tick it and this browser skips the second-factor step for thirty days; your password is still required every time. Each sign-in inside those thirty days extends them, so a browser you use regularly stays trusted, and one you leave alone for a month asks for a code again. It is per browser and per device: trusting your laptop does nothing for your phone. Leave it unticked on anything you do not control.
+
+## Passkeys
+
+A passkey replaces the password entirely for the device that holds it — your phone's or laptop's own unlock, a hardware key, or a password manager that keeps passkeys.
+
+Two things make it worth setting up. The private half never leaves the device, so there is nothing for a fake sign-in page to collect and nothing for a leaked database to contain; and the browser checks it is really talking to your Freenary instance before it will use the passkey at all, which is why a passkey **cannot be phished**. It also signs you in on its own: one tap, no password and no authenticator code.
+
+Register one from **Passkeys**, the second section of Security. Give it a name you will recognise later — "Work laptop", "Phone" — and add as many as you like; rename or remove any of them from the same list. Signing in then means choosing the passkey button under the divider and confirming with your device.
+
+Adding a passkey and removing one both ask you to have signed in **within the last fifteen minutes**, for the same reason connecting a provider does: they change how your account opens. Renaming one does not. If the screen says to sign in again, sign out and back in and the action goes through.
+
+<Callout type="info">
+  Passkeys need a browser that supports them and a secure connection. If your
+  instance is served over plain `http`, the browser refuses the whole mechanism
+  and the section says so instead of offering a button that cannot work.
+</Callout>
+
+A passkey is tied to the exact web address it was registered on, port included. That is what makes it unphishable, and it has one consequence worth knowing: if your instance moves to a different address, existing passkeys stop working there and you register them again.
+
+## Google, Apple and single sign-on
+
+Under the divider, alongside the passkey button, sit whichever providers your deployment has configured — Google, Apple, or your organization's own provider under the name your administrator gave it. Choosing one sends you to that provider and back.
+
+Freenary links the identity to an existing account only when the provider confirms the address is verified **and** your Freenary address is already confirmed. If it will not link, sign in with a method you already have and connect the provider from your settings.
+
+<Callout type="info">
+  A deployment that has configured none of these shows no provider buttons at
+  all. Nothing is hidden behind a button that cannot work.
+</Callout>
+
+## What protects what
+
+It is worth being precise about the shape of this, because "two-factor is on" does not mean every door is guarded:
+
+- Two-factor authentication raises the bar on **your password** — nothing else.
+- A passkey, and a connected Google, Apple or single-sign-on identity, each sign you in **without** your password and without an authenticator code. That is the point of them; they are strong doors, not weak ones.
+- An account created through one of those providers has no password, so the Two-factor section tells you enrolment is unavailable rather than offering a switch that cannot work. It can still register a passkey.
+
+## Finish setting up your account
+
+While the **First steps** checklist is still in the sidebar, one of its rows suggests protecting your account and jumps you to the Security group in Settings. It counts as done once you have either two-factor authentication enabled **or** at least one passkey registered — either one ends "a stolen password gets in on its own".
+
+## Where you are signed in
+
+**Active sessions**, the third section of Security, lists every browser and device holding a live session, with the one you are reading from marked. Each row describes the device from what the browser reported, the address it connected from when that is known, and when the session started and was last seen.
+
+Revoke any other session to sign that device out, or sign out every other session at once. Your current session is never in that sweep, so you stay signed in where you are.
+
+## Connecting and disconnecting sign-in methods
+
+**Connected accounts**, the last section of Security, lists what currently opens your account: your password, if you have one, and each provider you have linked. Connect one you have not used yet, or disconnect one you no longer want.
+
+Both ask you to have signed in **within the last fifteen minutes**, and say so when the server refuses. Adding or removing a way into your account is exactly what someone on a borrowed, still-signed-in browser would do, so it takes a fresh sign-in rather than an old session. Sign out and back in, and the action goes through.
+
+Your last remaining sign-in method cannot be removed — an account with no way in is not something you can recover from. Connect another method first, then remove the one you wanted gone.
+
+<Callout type="info">
+  Running the instance yourself? Which providers exist, and whether email can be
+  sent at all, is configuration — see [Configuring
+  authentication](/docs/configuring-authentication).
+</Callout>

@@ -7,7 +7,7 @@ import { orpc } from "@/utils/orpc";
 
 /**
  * Completion read from the user's own records, so it stays right for someone
- * who skipped onboarding. Null until both queries answered: a half-read state
+ * who skipped onboarding. Null until every source answered: a half-read state
  * would nudge toward a step that is already done.
  */
 export const useFirstSteps = (): FirstStepsState | null => {
@@ -22,19 +22,29 @@ export const useFirstSteps = (): FirstStepsState | null => {
   const profile = useQuery(
     orpc.settings.getBudgetProfile.queryOptions({ enabled })
   );
+  const passkeys = authClient.useListPasskeys();
 
   const connectionCount = connections.data?.connections.length;
   const lineCount = profile.data?.lines.length;
+  const hasTwoFactor = session?.user.twoFactorEnabled === true;
+  // A failed list counts as none rather than holding the whole checklist back;
+  // the step then reads as unfinished, which is the safe way to be wrong here.
+  const passkeyCount = passkeys.isPending
+    ? undefined
+    : (passkeys.data?.length ?? 0);
 
   // A fresh object each render would retrigger every consumer effect keyed on it.
   return useMemo(
     () =>
-      connectionCount === undefined || lineCount === undefined
+      connectionCount === undefined ||
+      lineCount === undefined ||
+      passkeyCount === undefined
         ? null
         : {
+            hasAccountProtection: hasTwoFactor || passkeyCount > 0,
             hasBankConnection: connectionCount > 0,
             hasBudgetLine: lineCount > 0,
           },
-    [connectionCount, lineCount]
+    [connectionCount, hasTwoFactor, lineCount, passkeyCount]
   );
 };

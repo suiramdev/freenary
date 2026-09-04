@@ -1,15 +1,18 @@
 model User {
-  id                    String    @id
+  id                    String             @id
   name                  String
   email                 String
-  emailVerified         Boolean   @default(false)
+  emailVerified         Boolean            @default(false)
+  twoFactorEnabled      Boolean            @default(false)
   image                 String?
   country               String?
   onboardingCompletedAt DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
   sessions              Session[]
   accounts              Account[]
+  twoFactors            TwoFactor[]
+  passkeys              Passkey[]
   bankConnections       BankConnection[]
   merchantOverrides     MerchantOverride[]
   budgetLines           BudgetLine[]
@@ -67,4 +70,55 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+/// TOTP enrolment for one user, owned by better-auth's two-factor plugin.
+/// `secret` and `backupCodes` are stored encrypted with BETTER_AUTH_SECRET.
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
+}
+
+/// Request counters for better-auth's rate limiter. Persisted rather than kept
+/// in memory so a server restart cannot clear a sign-in or OTP lockout.
+model RateLimit {
+  id          String @id
+  key         String
+  count       Int
+  lastRequest BigInt
+
+  @@unique([key])
+  @@map("rate_limit")
+}
+
+/// One registered WebAuthn credential, owned by better-auth's passkey plugin.
+/// `publicKey` is public by construction; the private half never leaves the
+/// authenticator, which is what makes a passkey phishing-resistant.
+model Passkey {
+  id           String   @id
+  name         String?
+  publicKey    String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+
+  @@index([credentialID])
+  @@index([userId])
+  @@map("passkey")
 }

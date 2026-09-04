@@ -12,9 +12,11 @@
     "ai",
     "invest",
     "profiles",
+    "signing-in",
     "settings",
     "language",
     "appearance",
-    "architecture"
+    "architecture",
+    "configuring-authentication"
   ]
 }

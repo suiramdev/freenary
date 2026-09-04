@@ -1,11 +1,21 @@
 import type { RemixiconComponentType } from "@remixicon/react";
-import { RiBankLine, RiMoneyDollarCircleLine } from "@remixicon/react";
+import {
+  RiBankLine,
+  RiMoneyDollarCircleLine,
+  RiShieldKeyholeLine,
+} from "@remixicon/react";
 
-import { BANK_ACCOUNTS_ANCHOR, BUDGETING_ANCHOR } from "@/lib/settings/anchors";
+import {
+  BANK_ACCOUNTS_ANCHOR,
+  BUDGETING_ANCHOR,
+  SECURITY_ANCHOR,
+} from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 
 /** What the steps are judged against: one field per step, read from real records. */
 export interface FirstStepsState {
+  /** A second factor or a passkey: either one ends "a stolen password gets in". */
+  hasAccountProtection: boolean;
   hasBankConnection: boolean;
   hasBudgetLine: boolean;
 }
@@ -36,6 +46,14 @@ export const FIRST_STEPS = [
     id: "budgeting-profile",
     isDone: (state) => state.hasBudgetLine,
     label: m.first_steps_budgeting_profile,
+    to: "/settings",
+  },
+  {
+    hash: SECURITY_ANCHOR,
+    icon: RiShieldKeyholeLine,
+    id: "account-protection",
+    isDone: (state) => state.hasAccountProtection,
+    label: m.first_steps_protect_account,
     to: "/settings",
   },
 ] as const satisfies readonly FirstStep[];
