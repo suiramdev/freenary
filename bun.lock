@@ -31,7 +31,7 @@
         "@tanstack/react-start": "1.168.44",
         "ai": "^7.0.62",
         "class-variance-authority": "^0.7.1",
-        "cnfast": "^0.1.0",
+        "cn": "^0.2.5",
         "flexsearch": "^0.8.212",
         "fumadocs-core": "16.15.1",
         "fumadocs-mdx": "15.3.1",
@@ -106,7 +106,6 @@
         "@tanstack/react-start": "^1.168.32",
         "@tanstack/react-virtual": "^3.14.10",
         "better-auth": "catalog:",
-        "clsx": "^2.1.1",
         "dotenv": "catalog:",
         "evlog": "catalog:",
         "motion": "^13.1.1",
@@ -117,7 +116,6 @@
         "react-dom": "catalog:",
         "recharts": "3.8.0",
         "sonner": "catalog:",
-        "tailwind-merge": "^3.6.0",
         "tailwindcss": "catalog:",
         "zod": "catalog:",
       },
@@ -232,7 +230,7 @@
         "@remixicon/react": "^4.9.0",
         "@shadcn/react": "^0.2.1",
         "class-variance-authority": "^0.7.1",
-        "clsx": "^2.1.1",
+        "cn": "^0.2.5",
         "d3-scale": "^4.0.2",
         "d3-shape": "^3.2.0",
         "date-fns": "^4.4.0",
@@ -244,12 +242,12 @@
         "recharts": "3.8.0",
         "shadcn": "^4.19.1",
         "sonner": "catalog:",
-        "tailwind-merge": "^3.6.0",
         "tw-animate-css": "^1.4.0",
       },
       "devDependencies": {
         "@freenary/config": "workspace:*",
         "@tailwindcss/postcss": "^4.3.3",
+        "@types/bun": "catalog:",
         "@types/d3-scale": "^4.0.9",
         "@types/d3-shape": "^3.2.0",
         "@types/react": "catalog:",
@@ -1198,6 +1196,8 @@
     "cli-truncate": ["cli-truncate@6.1.1", "", { "dependencies": { "slice-ansi": "^9.0.0", "string-width": "^8.2.0" } }, "sha512-06p9vyLahLa4zkGcgsGxU6iEkSOiuI4fhCH6Emhe2lPAcoUv73n72DnODsnHA+5wwXGnV0n9M9/qOQJSjYhFhw=="],
 
     "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
+
+    "cn": ["cn@0.2.5", "", { "bin": { "cn": "bin/cn.mjs" } }, "sha512-OCjZtMeQfXbI4Es1+EIjkd77gvWzaE689gD8KhfexlqjClC06qR1MQBR+Z35ZMSPNEBWyHiItW1Soy0UvwNv9w=="],
 
     "cnfast": ["cnfast@0.1.0", "", { "bin": { "cnfast": "bin/cli.js" } }, "sha512-rH0jBKeLkVrK7NsZ5Ba2l7WdMBmm1k0FMpABeXUU1PgTUxbz3261gEuCSsrYuXo4BwAe3yCcIbQ93YyS52lOGQ=="],
 

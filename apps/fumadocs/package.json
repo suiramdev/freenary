@@ -19,7 +19,7 @@
     "@tanstack/react-start": "1.168.44",
     "ai": "^7.0.62",
     "class-variance-authority": "^0.7.1",
-    "cnfast": "^0.1.0",
+    "cn": "^0.2.5",
     "flexsearch": "^0.8.212",
     "fumadocs-core": "16.15.1",
     "fumadocs-mdx": "15.3.1",

@@ -10,7 +10,7 @@
       "version": "19.2.8"
     },
     "tailwindcss": {
-      "callees": ["clsx", "cva", "cn"]
+      "callees": ["cva", "cn"]
     }
   },
   "ignorePatterns": ["node_modules/", "dist/"]
