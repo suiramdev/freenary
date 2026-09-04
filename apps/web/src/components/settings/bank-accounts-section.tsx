@@ -7,20 +7,16 @@ import {
 } from "@freenary/ui/components/empty";
 import { RiErrorWarningLine, RiPlugLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
 
 import { BankConnectionPanel } from "@/components/bank/bank-connection-panel";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { useScrollToAnchor } from "@/hooks/shared/use-scroll-to-anchor";
+import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
-/** Anchor the "connect a bank" prompts elsewhere in the app link to. */
-export const BANK_ACCOUNTS_ANCHOR = "bank-accounts";
-
 export const BankAccountsSection = () => {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-
   const availability = useQuery(
     orpc.bankConnection.getProviderAvailability.queryOptions()
   );
@@ -34,13 +30,10 @@ export const BankAccountsSection = () => {
     })
   );
 
-  // A hash arrived at by client-side navigation is not scrolled to, and this
-  // section's content only lands after its queries answer.
-  useEffect(() => {
-    if (window.location.hash.slice(1) === BANK_ACCOUNTS_ANCHOR) {
-      sectionRef.current?.scrollIntoView({ block: "start" });
-    }
-  }, []);
+  const sectionRef = useScrollToAnchor<HTMLDivElement>(
+    BANK_ACCOUNTS_ANCHOR,
+    !availability.isPending
+  );
 
   // Claiming the provider is missing before its query answers would flash a
   // wrong verdict on every load.

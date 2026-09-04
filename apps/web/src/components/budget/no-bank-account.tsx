@@ -9,7 +9,7 @@ import {
 import { RiWalletLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 
-import { BANK_ACCOUNTS_ANCHOR } from "@/components/settings/bank-accounts-section";
+import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 
 export const NoBankAccount = () => (

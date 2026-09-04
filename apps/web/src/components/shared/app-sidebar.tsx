@@ -13,6 +13,7 @@ import {
 } from "@freenary/ui/components/sidebar";
 import { Link } from "@tanstack/react-router";
 
+import { SidebarFirstSteps } from "@/components/shared/sidebar-first-steps";
 import { SidebarUserMenu } from "@/components/shared/sidebar-user-menu";
 import { NAV_ITEMS } from "@/lib/nav-items";
 import { m } from "@/paraglide/messages.js";
@@ -59,6 +60,7 @@ export const AppSidebar = () => (
     </SidebarContent>
 
     <SidebarFooter>
+      <SidebarFirstSteps />
       <SidebarUserMenu />
     </SidebarFooter>
 

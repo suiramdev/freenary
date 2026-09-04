@@ -10,9 +10,9 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { BANK_ACCOUNTS_ANCHOR } from "@/components/settings/bank-accounts-section";
 import { authClient } from "@/lib/auth-client";
 import { invalidateBudgetData } from "@/lib/budget/stale-queries";
+import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
