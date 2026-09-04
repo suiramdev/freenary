@@ -13,9 +13,9 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { BankAccountsSection } from "@/components/settings/bank-accounts-section";
-import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { BudgetingSection } from "@/components/settings/budgeting-section";
 import { CategoriesSection } from "@/components/settings/categories-section";
+import { SettingsGroup } from "@/components/settings/settings-group";
 import { UnsavedChangesBar } from "@/components/settings/unsaved-changes-bar";
 import { useBudgetProfileEditor } from "@/hooks/settings/use-budget-profile-editor";
 import type { ServerBudgetLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -39,29 +39,33 @@ const SettingsContent = ({
   const editor = useBudgetProfileEditor(serverLines, categories);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-4 pb-20">
-      <BankAccountsSection />
+    <div className="flex flex-1 flex-col gap-8 p-4 pb-20">
+      <SettingsGroup
+        description={m.settings_group_connections_description()}
+        title={m.settings_group_connections_title()}
+      >
+        <BankAccountsSection />
+      </SettingsGroup>
 
-      <BudgetProfilePreview
-        categories={categories}
-        isPending={isPending}
-        lines={editor.lines}
-      />
+      <SettingsGroup
+        description={m.settings_group_budgeting_description()}
+        title={m.settings_group_budgeting_title()}
+      >
+        <BudgetingSection
+          addLine={editor.addLine}
+          categories={categories}
+          errors={editor.errors}
+          isPending={isPending}
+          lines={editor.lines}
+          removeLine={editor.removeLine}
+          updateLine={editor.updateLine}
+        />
 
-      <BudgetingSection
-        addLine={editor.addLine}
-        categories={categories}
-        errors={editor.errors}
-        isPending={isPending}
-        lines={editor.lines}
-        removeLine={editor.removeLine}
-        updateLine={editor.updateLine}
-      />
-
-      <CategoriesSection
-        categories={categories}
-        isPending={isCategoriesPending}
-      />
+        <CategoriesSection
+          categories={categories}
+          isPending={isCategoriesPending}
+        />
+      </SettingsGroup>
 
       <UnsavedChangesBar
         changeCount={editor.changeCount}

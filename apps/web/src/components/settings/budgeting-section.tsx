@@ -1,8 +1,10 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
+import { Separator } from "@freenary/ui/components/separator";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import { useState } from "react";
 
 import { BudgetLineGroup } from "@/components/settings/budget-line-group";
+import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { CustomCategoryDrawer } from "@/components/settings/custom-category-drawer";
 import { SettingsSection } from "@/components/settings/settings-section";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
@@ -78,6 +80,14 @@ export const BudgetingSection = ({
         description={m.settings_budgeting_description()}
         title={m.settings_budgeting_title()}
       >
+        <BudgetProfilePreview
+          categories={categories}
+          isPending={isPending}
+          lines={lines}
+        />
+
+        <Separator />
+
         {isPending ? (
           <div aria-busy="true">
             <output className="sr-only">

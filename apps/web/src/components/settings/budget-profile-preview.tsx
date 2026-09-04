@@ -1,11 +1,5 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@freenary/ui/components/card";
-import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -117,57 +111,41 @@ export const BudgetProfilePreview = ({
 
   if (debouncedLines === null) {
     return (
-      <Card aria-busy="true">
-        <CardHeader>
-          <CardTitle>{m.settings_budget_flow_title()}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <output className="sr-only">
-            {m.settings_budget_flow_loading()}
-          </output>
-          <Skeleton aria-hidden="true" className="h-[200px]" />
-        </CardContent>
-      </Card>
+      <div aria-busy="true">
+        <output className="sr-only">{m.settings_budget_flow_loading()}</output>
+        <Skeleton aria-hidden="true" className="h-[200px]" />
+      </div>
     );
   }
 
   if (profileLines.length === 0) {
     return (
-      <Card>
-        <CardContent>
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <RiDonutChartLine />
-              </EmptyMedia>
-              <EmptyTitle>{m.settings_budget_empty_title()}</EmptyTitle>
-              <EmptyDescription>
-                {m.settings_budget_empty_description()}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </CardContent>
-      </Card>
+      <Empty className="bg-muted/40 rounded-md border p-4">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <RiDonutChartLine />
+          </EmptyMedia>
+          <EmptyTitle>{m.settings_budget_empty_title()}</EmptyTitle>
+          <EmptyDescription>
+            {m.settings_budget_empty_description()}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{m.settings_budget_flow_title()}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <SankeyChart
-          columns={flow.columns}
-          formatValue={formatCurrency}
-          label={m.settings_budget_flow_chart_label()}
-          links={flow.links}
-        />
-        <BudgetProfileSummary
-          totalAllocated={totals.totalAllocated}
-          totalRevenue={totals.totalRevenue}
-        />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col">
+      <SankeyChart
+        columns={flow.columns}
+        formatValue={formatCurrency}
+        label={m.settings_budget_flow_chart_label()}
+        links={flow.links}
+      />
+      <BudgetProfileSummary
+        totalAllocated={totals.totalAllocated}
+        totalRevenue={totals.totalRevenue}
+      />
+    </div>
   );
 };
