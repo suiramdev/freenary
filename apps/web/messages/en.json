@@ -448,6 +448,8 @@
       }
     }
   ],
+  "shell_brand_name": "Freenary",
+  "shell_brand_tooltip": "Freenary home",
   "shell_dashboard_welcome": "Welcome back, {name}",
   "shell_nav_planned_badge": "Planned",
   "shell_nav_planned_tooltip": "{page} (planned)",

@@ -5,6 +5,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
@@ -13,6 +14,7 @@ import {
 } from "@freenary/ui/components/sidebar";
 import { Link } from "@tanstack/react-router";
 
+import { SidebarBrand } from "@/components/shared/sidebar-brand";
 import { SidebarFirstSteps } from "@/components/shared/sidebar-first-steps";
 import { SidebarUserMenu } from "@/components/shared/sidebar-user-menu";
 import { NAV_ITEMS } from "@/lib/nav-items";
@@ -20,6 +22,10 @@ import { m } from "@/paraglide/messages.js";
 
 export const AppSidebar = () => (
   <Sidebar collapsible="icon" variant="floating">
+    <SidebarHeader>
+      <SidebarBrand />
+    </SidebarHeader>
+
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>{m.nav_group_application()}</SidebarGroupLabel>
