@@ -1,8 +1,13 @@
 "use client";
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@freenary/ui/components/input-group";
 import { cn } from "@freenary/ui/lib/utils";
-import { RiArrowRightSLine, RiCheckLine } from "@remixicon/react";
+import { RiArrowRightSLine, RiCheckLine, RiSearchLine } from "@remixicon/react";
 import * as React from "react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -53,6 +58,81 @@ function DropdownMenuContent({
 
 function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
   return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />;
+}
+
+/**
+ * Keys the search field must keep: the menu's typeahead preventDefaults every
+ * printable key and its list navigation does the same for these, which would
+ * swallow the keystroke before the field sees it.
+ */
+const SEARCH_KEYS_TO_KEEP: Record<string, true> = {
+  Backspace: true,
+  Delete: true,
+  End: true,
+  Home: true,
+};
+
+/**
+ * A filter field for a menu long enough to need one. Sticky, so it stays
+ * reachable while the list scrolls under it; arrows, Enter, Tab and Escape
+ * still reach the menu.
+ */
+function DropdownMenuSearch({
+  className,
+  onKeyDown,
+  ...props
+}: React.ComponentProps<"input">) {
+  return (
+    // Bled into the popup's padding so no item shows through beside it, and
+    // offset by that padding so `top` pins it to the popup's own edge. The rule
+    // marks where the scrolling list begins.
+    <div
+      data-slot="dropdown-menu-search"
+      className={cn(
+        "bg-popover border-border/50 sticky -top-1 z-10 -mx-1 -mt-1 border-b p-1",
+        className
+      )}
+    >
+      <InputGroup>
+        <InputGroupAddon>
+          <RiSearchLine />
+        </InputGroupAddon>
+        <InputGroupInput
+          type="search"
+          {...props}
+          onKeyDown={(event) => {
+            if (
+              event.key.length === 1 ||
+              Object.hasOwn(SEARCH_KEYS_TO_KEEP, event.key)
+            ) {
+              event.stopPropagation();
+            }
+            onKeyDown?.(event);
+          }}
+        />
+      </InputGroup>
+    </div>
+  );
+}
+
+/**
+ * What a filtered menu shows when nothing matches. A plain row rather than an
+ * item, so keyboard navigation skips it.
+ */
+function DropdownMenuEmpty({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dropdown-menu-empty"
+      className={cn(
+        "text-muted-foreground px-2 py-3 text-center text-xs/relaxed",
+        className
+      )}
+      {...props}
+    />
+  );
 }
 
 function DropdownMenuLabel({
@@ -260,6 +340,8 @@ export {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuSearch,
+  DropdownMenuEmpty,
   DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,

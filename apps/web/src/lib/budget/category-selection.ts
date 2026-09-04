@@ -1,3 +1,4 @@
+import { categoriesInGroup } from "@freenary/api/lib/taxonomy";
 import type {
   CategoryGroup,
   SpendingCategory,
@@ -49,3 +50,33 @@ export const toggleCategoryFilter = (
 
 export const filterCount = (filter: CategoryFilter) =>
   filter.categories.length + filter.groups.length;
+
+export const toggleCategory = (
+  filter: CategoryFilter,
+  category: SpendingCategory
+): CategoryFilter => ({
+  ...filter,
+  categories: filter.categories.includes(category)
+    ? filter.categories.filter((c) => c !== category)
+    : [...filter.categories, category],
+});
+
+/**
+ * Picking a group filters on the whole group rather than expanding into nine
+ * category chips the user then has to unpick one by one. Its categories are
+ * dropped because the server unions them in anyway, so their chips would count
+ * toward the badge while changing no result.
+ */
+export const toggleGroup = (
+  filter: CategoryFilter,
+  group: CategoryGroup
+): CategoryFilter => {
+  if (filter.groups.includes(group)) {
+    return { ...filter, groups: filter.groups.filter((g) => g !== group) };
+  }
+  const covered = new Set<SpendingCategory>(categoriesInGroup(group));
+  return {
+    categories: filter.categories.filter((c) => !covered.has(c)),
+    groups: [...filter.groups, group],
+  };
+};

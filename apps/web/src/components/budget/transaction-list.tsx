@@ -2,21 +2,8 @@ import {
   categoryGroupAppearance,
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
-import { CATEGORY_GROUPS, categoriesInGroup } from "@freenary/api/lib/taxonomy";
-import type {
-  CategoryGroup,
-  SpendingCategory,
-} from "@freenary/api/lib/taxonomy";
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
 import {
   InputGroup,
   InputGroupAddon,
@@ -32,13 +19,16 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
-import { RiCloseLine, RiFilter3Line, RiSearchLine } from "@remixicon/react";
+import { RiCloseLine, RiSearchLine } from "@remixicon/react";
 
+import { CategoryFilterMenu } from "@/components/budget/category-filter-menu";
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { TransactionRows } from "@/components/budget/transaction-rows";
 import {
   EMPTY_CATEGORY_FILTER,
   filterCount,
+  toggleCategory,
+  toggleGroup,
 } from "@/lib/budget/category-selection";
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
@@ -95,34 +85,6 @@ export const TransactionList = ({
   });
   const activeCount = filterCount(filter);
 
-  const toggleCategory = (category: SpendingCategory) => {
-    onFilterChange({
-      ...filter,
-      categories: filter.categories.includes(category)
-        ? filter.categories.filter((c) => c !== category)
-        : [...filter.categories, category],
-    });
-  };
-
-  // Selecting a group filters on the whole group rather than expanding into
-  // nine category chips the user then has to unpick one by one. Its categories
-  // are dropped because the server unions them in anyway, so their chips would
-  // count toward the badge while changing no result.
-  const toggleGroup = (group: CategoryGroup) => {
-    if (filter.groups.includes(group)) {
-      onFilterChange({
-        ...filter,
-        groups: filter.groups.filter((g) => g !== group),
-      });
-      return;
-    }
-    const covered = new Set<SpendingCategory>(categoriesInGroup(group));
-    onFilterChange({
-      categories: filter.categories.filter((c) => !covered.has(c)),
-      groups: [...filter.groups, group],
-    });
-  };
-
   return (
     <div className="flex flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -157,58 +119,7 @@ export const TransactionList = ({
             {m.budget_sort_amount()}
           </ToggleGroupItem>
         </ToggleGroup>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" />}>
-            <RiFilter3Line data-icon="inline-start" />
-            {m.budget_filter_category()}
-            {activeCount > 0 && (
-              <Badge variant="secondary">{activeCount}</Badge>
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="max-h-96 min-w-64 overflow-y-auto"
-          >
-            {CATEGORY_GROUPS.map((group) => (
-              <DropdownMenuGroup key={group}>
-                <DropdownMenuLabel>
-                  <DropdownMenuCheckboxItem
-                    checked={filter.groups.includes(group)}
-                    onCheckedChange={() => toggleGroup(group)}
-                  >
-                    <CategoryIcon
-                      {...categoryGroupAppearance(group)}
-                      className="size-5 [&_svg]:size-3"
-                    />
-                    {categoryGroupLabel(group)}
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuLabel>
-                {categoriesInGroup(group).map((cat) => (
-                  <DropdownMenuCheckboxItem
-                    key={cat}
-                    // The server unions groups into their categories, so a
-                    // ticked group already covers these rows; showing them
-                    // unchecked would misreport what is being filtered, and
-                    // toggling one would change no result.
-                    checked={
-                      filter.groups.includes(group) ||
-                      filter.categories.includes(cat)
-                    }
-                    disabled={filter.groups.includes(group)}
-                    className="ps-8"
-                    onCheckedChange={() => toggleCategory(cat)}
-                  >
-                    <CategoryIcon
-                      {...predefinedCategoryAppearance(cat)}
-                      className="size-5 [&_svg]:size-3"
-                    />
-                    {categoryLabel(cat)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <CategoryFilterMenu filter={filter} onFilterChange={onFilterChange} />
       </div>
 
       {activeCount > 0 && (
@@ -223,7 +134,7 @@ export const TransactionList = ({
                     label: categoryGroupLabel(group),
                   })}
                   type="button"
-                  onClick={() => toggleGroup(group)}
+                  onClick={() => onFilterChange(toggleGroup(filter, group))}
                 />
               }
               variant="outline"
@@ -246,7 +157,7 @@ export const TransactionList = ({
                     label: categoryLabel(cat),
                   })}
                   type="button"
-                  onClick={() => toggleCategory(cat)}
+                  onClick={() => onFilterChange(toggleCategory(filter, cat))}
                 />
               }
               variant="outline"

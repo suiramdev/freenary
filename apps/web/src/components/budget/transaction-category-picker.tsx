@@ -2,7 +2,7 @@ import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import { RiResetLeftLine } from "@remixicon/react";
 
-import { SpendingCategorySelect } from "@/components/budget/spending-category-select";
+import { SpendingCategoryPicker } from "@/components/budget/spending-category-picker";
 import { m } from "@/paraglide/messages.js";
 
 export const TransactionCategoryPicker = ({
@@ -17,15 +17,7 @@ export const TransactionCategoryPicker = ({
   onReset: () => void;
 }) => (
   <div className="flex items-center gap-1">
-    <SpendingCategorySelect
-      value={category}
-      onValueChange={(v) => {
-        if (v) {
-          onSelect(v);
-        }
-      }}
-      showTriggerIcon={false}
-    />
+    <SpendingCategoryPicker onValueChange={onSelect} value={category} />
 
     {isOverridden ? (
       <Button onClick={onReset} variant="ghost">

@@ -3,30 +3,24 @@ import { Button } from "@freenary/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuEmpty,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSearch,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@freenary/ui/components/dropdown-menu";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@freenary/ui/components/input-group";
 import { cn } from "@freenary/ui/lib/utils";
-import { RiAddLine, RiExpandUpDownLine, RiSearchLine } from "@remixicon/react";
+import { RiAddLine, RiExpandUpDownLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { toCategorySections } from "@/lib/settings/category-sections";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
-
-/** Keys the search field must keep; everything else belongs to the menu. */
-const EDITING_KEYS = new Set(["Backspace", "Delete", "End", "Home"]);
 
 interface CategoryPickerProps {
   categories: CategoryEntry[];
@@ -73,28 +67,11 @@ export const CategoryPicker = ({
         align="start"
         className="max-h-72 w-64 overflow-y-auto"
       >
-        <div className="p-1">
-          <InputGroup>
-            <InputGroupAddon>
-              <RiSearchLine />
-            </InputGroupAddon>
-            <InputGroupInput
-              onChange={(e) => setQuery(e.target.value)}
-              // The menu's typeahead preventDefaults every printable key and
-              // its list navigation does the same for Home/End, which would
-              // swallow the keystroke before the field sees it. Arrows, Enter,
-              // Tab and Escape still reach the menu.
-              onKeyDown={(event) => {
-                if (event.key.length === 1 || EDITING_KEYS.has(event.key)) {
-                  event.stopPropagation();
-                }
-              }}
-              placeholder={m.settings_category_search_placeholder()}
-              type="search"
-              value={query}
-            />
-          </InputGroup>
-        </div>
+        <DropdownMenuSearch
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={m.settings_category_search_placeholder()}
+          value={query}
+        />
         <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
           {sections.map((section) => (
             <DropdownMenuGroup key={section.key}>
@@ -109,6 +86,8 @@ export const CategoryPicker = ({
                 <DropdownMenuRadioItem
                   key={entry.key}
                   value={entry.key}
+                  // One category is the whole answer, so picking one is done.
+                  closeOnClick={true}
                   className={cn(section.heading && "ps-8")}
                 >
                   <CategoryIcon
@@ -122,6 +101,11 @@ export const CategoryPicker = ({
             </DropdownMenuGroup>
           ))}
         </DropdownMenuRadioGroup>
+        {sections.length === 0 && (
+          <DropdownMenuEmpty>
+            {m.settings_category_search_empty()}
+          </DropdownMenuEmpty>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={onCreateRequest}>
