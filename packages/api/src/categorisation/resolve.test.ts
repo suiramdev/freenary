@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { categoriseTransaction } from "./resolve";
+import { categoriseTransaction, merchantKeyCandidates } from "./resolve";
 import type { CategoriseInput } from "./types";
 
 const baseInput: CategoriseInput = {
@@ -138,5 +138,43 @@ describe("categoriseTransaction", () => {
       expect(result.band).toBe("unknown");
       expect(result.stage).toBe("none");
     });
+  });
+});
+
+describe("merchantKeyCandidates", () => {
+  it("tries the key itself before any relaxation", () => {
+    expect(merchantKeyCandidates("carrefour market", "FR")).toEqual([
+      "carrefour market",
+    ]);
+  });
+
+  it("drops trailing service words one at a time, longest key first", () => {
+    expect(merchantKeyCandidates("free internet fibre", "FR")).toEqual([
+      "free internet fibre",
+      "free internet",
+      "free",
+    ]);
+  });
+
+  it("stops at the first token that is not a service word", () => {
+    // "forfait mobile" must never reach "mobile" — that is the fuel brand Mobil.
+    expect(merchantKeyCandidates("forfait mobile", "FR")).toEqual([
+      "forfait mobile",
+      "forfait",
+    ]);
+    expect(merchantKeyCandidates("halls beer mobile", "FR")).toEqual([
+      "halls beer mobile",
+      "halls beer",
+    ]);
+  });
+
+  it("keeps a country's own service words out of other countries", () => {
+    expect(merchantKeyCandidates("edf electricite", "DE")).toEqual([
+      "edf electricite",
+    ]);
+  });
+
+  it("refuses to strip down to an initial", () => {
+    expect(merchantKeyCandidates("t mobile", "FR")).toEqual(["t mobile"]);
   });
 });

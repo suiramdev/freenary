@@ -18,6 +18,24 @@ describe("deriveMerchantKey", () => {
       expect(result.channel).toBeDefined();
     });
 
+    // Deferred-debit cards print "DEBIT DIFFERE" between the card marker and
+    // the merchant; the key is an exact dictionary lookup, so keeping the
+    // marker misses every merchant behind it.
+    it("drops deferred and immediate debit markers", () => {
+      expect(
+        deriveMerchantKey({
+          ...baseInput,
+          remittanceLines: ["CB DEBIT DIFFERE MCDO", "MCDO"],
+        }).merchantKey
+      ).toBe("mcdo");
+      expect(
+        deriveMerchantKey({
+          ...baseInput,
+          remittanceLines: ["CARTE DEBIT IMMEDIAT MONOPRIX PARIS"],
+        }).merchantKey
+      ).toBe("monoprix");
+    });
+
     it("uses sub-merchant text when intermediary detected", () => {
       const input: MerchantKeyInput = {
         ...baseInput,

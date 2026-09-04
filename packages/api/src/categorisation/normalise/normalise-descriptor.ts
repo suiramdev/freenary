@@ -12,7 +12,8 @@
  */
 
 /**
- * Channel verbs, card markers and legal forms carry no merchant identity.
+ * Channel verbs, card markers, settlement-timing markers and legal forms carry
+ * no merchant identity.
  * Dropping them raises trigram similarity between a descriptor and a merchant name.
  */
 const NOISE_TOKENS = {
@@ -37,6 +38,7 @@ const NOISE_TOKENS = {
   de: true,
   debit: true,
   des: true,
+  differe: true,
   direct: true,
   du: true,
   ech: true,
@@ -47,6 +49,7 @@ const NOISE_TOKENS = {
   facture: true,
   gie: true,
   gmbh: true,
+  immediat: true,
   inc: true,
   inst: true,
   kg: true,

@@ -25,13 +25,18 @@ import {
   lookupDictionary,
   unloadDictionary,
 } from "./dictionary";
+import { keywordsFor } from "./keywords";
 import {
   loadModel,
   MODEL_ACCEPT_THRESHOLD,
   predict,
   unloadModel,
 } from "./model";
-import type { CategoriseInput, ResolutionResult } from "./types";
+import type {
+  CategoriseInput,
+  DictionaryEntry,
+  ResolutionResult,
+} from "./types";
 import { lookupUserOverride } from "./user-override";
 
 const CHANNEL_CATEGORY = {
@@ -47,6 +52,55 @@ const UNKNOWN_RESULT: ResolutionResult = {
   intermediaryName: null,
   merchantName: null,
   stage: "none",
+};
+
+/** Below this a stripped key is an initial, not a brand ("t mobile" -> "t"). */
+const MIN_STRIPPED_KEY = 3;
+
+/**
+ * The keys to try in the dictionary, most specific first: the merchant key
+ * itself, then the same key minus its trailing service words, one at a time —
+ * so "bouygues telecom mobile" is read as Bouygues Telecom rather than as
+ * Bouygues. Only the tail is stripped, and only known service words, because
+ * matching any window of the key would read "forfait mobile" as the fuel brand
+ * Mobil.
+ */
+export const merchantKeyCandidates = (
+  merchantKey: string,
+  country?: string | null
+): string[] => {
+  const candidates = [merchantKey];
+  const { merchantQualifiers } = keywordsFor(country);
+  const parts = merchantKey.split(" ");
+
+  for (let end = parts.length - 1; end >= 1; end -= 1) {
+    const tail = parts[end];
+    if (!(tail && merchantQualifiers.has(tail))) {
+      break;
+    }
+    const candidate = parts.slice(0, end).join(" ");
+    if (candidate.length < MIN_STRIPPED_KEY) {
+      break;
+    }
+    candidates.push(candidate);
+  }
+
+  return candidates;
+};
+
+/** The dictionary is an exact-match table; the relaxation is in the key. */
+const lookupMerchant = async (
+  merchantKey: string,
+  country?: string | null
+): Promise<DictionaryEntry | null> => {
+  for (const candidate of merchantKeyCandidates(merchantKey, country)) {
+    // eslint-disable-next-line no-await-in-loop -- ordered, exits on first hit
+    const hit = await lookupDictionary(candidate);
+    if (hit) {
+      return hit;
+    }
+  }
+  return null;
 };
 
 const categoriseInternal = async (
@@ -85,8 +139,9 @@ const categoriseInternal = async (
       };
     }
 
-    // Stage 3: Shared dictionary (exact match on merchant key)
-    const dictEntry = await lookupDictionary(merchantKey);
+    // Stage 3: Shared dictionary, exact on the merchant key or on it minus a
+    // trailing service word
+    const dictEntry = await lookupMerchant(merchantKey, input.country);
     if (dictEntry) {
       return {
         band: "auto",
