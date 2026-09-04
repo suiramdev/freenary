@@ -1,3 +1,4 @@
+import { BrandAvatar } from "@freenary/ui/components/brand-avatar";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { AuthConfirmStep } from "@/components/auth/auth-confirm-step";
@@ -6,6 +7,7 @@ import { AuthHeader } from "@/components/auth/auth-header";
 import { AuthResetRequestStep } from "@/components/auth/auth-reset-request-step";
 import { AuthResetStep } from "@/components/auth/auth-reset-step";
 import { AuthTwoFactorStep } from "@/components/auth/auth-two-factor-step";
+import { useAuthAvatar } from "@/hooks/auth/use-auth-avatar";
 import { useSignInFlow } from "@/hooks/auth/use-sign-in-flow";
 import type { SecondFactor, SignInStep } from "@/hooks/auth/use-sign-in-flow";
 import type { AuthCapabilities } from "@/lib/auth/auth-capabilities";
@@ -82,10 +84,24 @@ export const AuthForm = ({
   const flow = useSignInFlow(capabilities);
   const prefersReducedMotion = useReducedMotion();
 
+  // The mark is the one thing on this side that is not the form: it watches
+  // the reader fill it in. Decorative — every state it reacts to is already
+  // said by a spinner, a toast or the fields themselves.
+  const avatar = useAuthAvatar({
+    isBusy:
+      flow.isSubmitting ||
+      flow.isResending ||
+      flow.isPasskeyPending ||
+      flow.pendingProvider !== null,
+    outcome: flow.outcome,
+  });
+
   const heading = stepHeading(flow.step, flow.email, flow.secondFactor);
 
   return (
-    <div>
+    <div {...avatar.handlers}>
+      <BrandAvatar className="mb-6" size={56} state={avatar.state} />
+
       {/* The heading is outside the animated body: it names the step, so it is
           the static cue that stays readable while the body cross-fades. */}
       <AuthHeader description={heading.description} title={heading.title} />

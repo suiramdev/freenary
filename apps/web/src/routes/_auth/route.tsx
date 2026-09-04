@@ -11,7 +11,12 @@ import {
   SidebarTrigger,
 } from "@freenary/ui/components/sidebar";
 import { TooltipProvider } from "@freenary/ui/components/tooltip";
-import { Outlet, createFileRoute, useMatches } from "@tanstack/react-router";
+import {
+  Outlet,
+  createFileRoute,
+  redirect,
+  useMatches,
+} from "@tanstack/react-router";
 
 import { AuthGate } from "@/components/auth/auth-gate";
 import { AppSidebar } from "@/components/shared/app-sidebar";
@@ -51,5 +56,14 @@ const AuthLayout = () => {
 };
 
 export const Route = createFileRoute("/_auth")({
+  // `unknown` falls through to `AuthGate`, which holds the live session.
+  beforeLoad: ({ context: { viewer } }) => {
+    if (viewer.kind === "guest") {
+      throw redirect({ to: "/login" });
+    }
+    if (viewer.kind === "member" && !viewer.onboarded) {
+      throw redirect({ to: "/onboarding" });
+    }
+  },
   component: AuthLayout,
 });

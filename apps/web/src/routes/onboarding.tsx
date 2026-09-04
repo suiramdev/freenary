@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { AuthGate } from "@/components/auth/auth-gate";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
@@ -57,5 +57,14 @@ const OnboardingRoute = () => (
 );
 
 export const Route = createFileRoute("/onboarding")({
+  // `unknown` falls through to `AuthGate`, which holds the live session.
+  beforeLoad: ({ context: { viewer } }) => {
+    if (viewer.kind === "guest") {
+      throw redirect({ to: "/login" });
+    }
+    if (viewer.kind === "member" && viewer.onboarded) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: OnboardingRoute,
 });

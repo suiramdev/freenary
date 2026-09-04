@@ -60,4 +60,6 @@ Five rules hold this together, and each one is load-bearing:
 
 The renderer patches `d` and `opacity` on a fixed set of paths instead of re-rendering, so a wall of avatars costs no React commits per frame. Adding a decoration therefore means adding a slot to `INK_SLOTS` and its static fill to `INK_STYLES` — the shape list must never change between frames.
 
+`BrandPattern` (`src/components/brand-pattern.tsx`) is the mark as a surface: the `logo` frame tiled across an SVG `<pattern>`, for a place that is about the brand rather than about data. It draws the same `brandAvatarFrame("logo", 0)` the favicon does, so the two cannot drift, and it is decorative by construction — `aria-hidden`, no pointer events, brand fills that ignore the theme, and an `opacity-*` class from the caller for how much of them shows.
+
 Nothing here decides _when_ a state applies; callers pass `state`. Triggers belong to the feature that has the context, not to the mark.

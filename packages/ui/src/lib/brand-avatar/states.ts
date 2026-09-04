@@ -42,6 +42,7 @@ export const BRAND_AVATAR_STATES = [
   "success",
   "error",
   "wink",
+  "shy",
 ] as const;
 
 export type BrandAvatarState = (typeof BRAND_AVATAR_STATES)[number];
@@ -502,6 +503,26 @@ const wink = (time: number): Pose => {
   return pose;
 };
 
+/** Eyes politely closed and the head turned a little away — for a secret being typed. */
+const shy = (time: number): Pose => {
+  const pose = facePose();
+  organic(pose, time, 0.8);
+  breathing(pose, time, 0.2, 0.01);
+  pose.body.lean = -0.06;
+  pose.body.rotation = -5 * DEG;
+  pose.body.y = 0.8;
+  for (const eye of [pose.face.left, pose.face.right]) {
+    eye.halfWidth = 5;
+    eye.top = -0.7;
+    eye.bottom = 0.8;
+    eye.topBow = -1.3;
+    eye.bottomBow = -1.1;
+  }
+  pose.face.gazeY = 1.4;
+  smile(pose, 3, 0);
+  return pose;
+};
+
 interface StateSpec {
   /** Seconds the blend into this state takes. */
   transition: number;
@@ -527,6 +548,7 @@ const SPECS: Record<BrandAvatarState, StateSpec> = {
   success: { transition: 0.28, build: success },
   error: { transition: 0.18, build: error },
   wink: { transition: 0.3, build: wink },
+  shy: { transition: 0.45, build: shy },
 };
 
 export const statePose = (

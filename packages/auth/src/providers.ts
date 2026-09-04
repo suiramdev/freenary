@@ -3,6 +3,7 @@ import { env } from "@freenary/env/server";
 import type { BetterAuthOptions } from "better-auth";
 import type { GenericOAuthConfig } from "better-auth/plugins";
 
+import { resolveCookiePolicy } from "./cookies";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -43,6 +44,13 @@ export interface AuthCapabilities {
   otpLength: number;
   /** Passkeys can be registered and used to sign in. */
   passkey: boolean;
+  /**
+   * The browser sends the session cookie to the web app's own origin too — one
+   * hostname, or a declared `AUTH_COOKIE_DOMAIN`. That is what lets the web
+   * app resolve the visitor while it renders a page on the server; without it
+   * every page renders signed-out and the browser sorts the visitor out after.
+   */
+  sessionCookieShared: boolean;
   /** How long "remember this device" skips the second factor for. */
   trustedDeviceDays: number;
 }
@@ -102,6 +110,14 @@ if (env.OIDC_DISCOVERY_URL !== undefined && env.OIDC_CLIENT_ID !== undefined) {
 
 export const appleTrustedOrigins = apple === null ? [] : [APPLE_ORIGIN];
 
+/** Applied by `createAuth`, and reported through `authCapabilities`. */
+export const cookiePolicy = resolveCookiePolicy(
+  env.BETTER_AUTH_URL,
+  env.CORS_ORIGIN,
+  env.NODE_ENV === "production",
+  env.AUTH_COOKIE_DOMAIN
+);
+
 const oauth: OAuthProviderDescriptor[] = [];
 
 if (google !== null) {
@@ -126,5 +142,7 @@ export const authCapabilities: AuthCapabilities = {
   oauth,
   otpLength: OTP_LENGTH,
   passkey: true,
+  // `Lax` is the policy's own word for "both origins are one site".
+  sessionCookieShared: cookiePolicy.sameSite === "lax",
   trustedDeviceDays: TRUSTED_DEVICE_DAYS,
 };
