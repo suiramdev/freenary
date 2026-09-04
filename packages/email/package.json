@@ -1,0 +1,25 @@
+{
+  "name": "@freenary/email",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@freenary/env": "workspace:*",
+    "dotenv": "catalog:",
+    "nodemailer": "^7.0.10",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@freenary/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@types/nodemailer": "^7.0.4",
+    "typescript": "catalog:"
+  }
+}

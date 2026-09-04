@@ -4,14 +4,18 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@freenary/ui/components/input-group";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 interface AuthFormFieldProps {
+  autoComplete: string;
+  autoFocus?: boolean;
   /** Rendered in the input's trailing addon. */
   endAdornment?: ReactNode;
   errors: (string | undefined)[];
   id: string;
+  inputMode?: ComponentProps<"input">["inputMode"];
   label: string;
+  maxLength?: number;
   onBlur: () => void;
   onChange: (value: string) => void;
   placeholder: string;
@@ -20,10 +24,14 @@ interface AuthFormFieldProps {
 }
 
 export const AuthFormField = ({
+  autoComplete,
+  autoFocus,
   endAdornment,
   errors,
   id,
+  inputMode,
   label,
+  maxLength,
   onBlur,
   onChange,
   placeholder,
@@ -40,7 +48,11 @@ export const AuthFormField = ({
       <InputGroup>
         <InputGroupInput
           aria-invalid={isInvalid || undefined}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
           id={id}
+          inputMode={inputMode}
+          maxLength={maxLength}
           name={id}
           placeholder={placeholder}
           type={type}

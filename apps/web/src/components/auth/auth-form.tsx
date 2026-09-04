@@ -1,144 +1,176 @@
-import { Button } from "@freenary/ui/components/button";
-import { Field, FieldGroup } from "@freenary/ui/components/field";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
-import { AuthFormField } from "@/components/auth/auth-form-field";
+import { AuthConfirmStep } from "@/components/auth/auth-confirm-step";
+import { AuthCredentialsStep } from "@/components/auth/auth-credentials-step";
 import { AuthHeader } from "@/components/auth/auth-header";
-import { useAuthForm } from "@/hooks/auth/use-auth-form";
+import { AuthResetRequestStep } from "@/components/auth/auth-reset-request-step";
+import { AuthResetStep } from "@/components/auth/auth-reset-step";
+import { AuthTwoFactorStep } from "@/components/auth/auth-two-factor-step";
+import { useSignInFlow } from "@/hooks/auth/use-sign-in-flow";
+import type { SecondFactor, SignInStep } from "@/hooks/auth/use-sign-in-flow";
+import type { AuthCapabilities } from "@/lib/auth/auth-capabilities";
 import { m } from "@/paraglide/messages.js";
 
-const REVEAL_SPRING = { bounce: 0, duration: 0.3, type: "spring" as const };
-const REVEAL_EASE = [0.23, 1, 0.32, 1] as const;
+const STEP_EASE = [0.23, 1, 0.32, 1] as const;
+/** How far the leaving step drops: a hint of direction, never its own height. */
+const STEP_EXIT_OFFSET = 12;
 
-const revealTransition = {
-  height: REVEAL_SPRING,
-  opacity: { duration: 0.2, ease: REVEAL_EASE },
-};
-const collapseTransition = {
-  height: REVEAL_SPRING,
-  opacity: { duration: 0.12, ease: REVEAL_EASE },
-};
-const reducedTransition = {
-  height: { duration: 0 },
-  opacity: { duration: 0.15, ease: REVEAL_EASE },
+const enterTransition = { duration: 0.2, ease: STEP_EASE };
+const exitTransition = { duration: 0.15, ease: "easeOut" as const };
+const reducedTransition = { duration: 0 };
+
+interface StepHeading {
+  description: string;
+  title: string;
+}
+
+const stepHeading = (
+  step: SignInStep,
+  email: string,
+  secondFactor: SecondFactor
+): StepHeading => {
+  switch (step) {
+    case "confirm": {
+      return {
+        description: m.auth_verify_description({ email }),
+        title: m.auth_verify_title(),
+      };
+    }
+    case "reset-request": {
+      return {
+        description: m.auth_reset_request_description(),
+        title: m.auth_reset_request_title(),
+      };
+    }
+    case "reset": {
+      return {
+        description: m.auth_reset_description({ email }),
+        title: m.auth_reset_title(),
+      };
+    }
+    case "two-factor": {
+      return {
+        description:
+          secondFactor === "recovery"
+            ? m.auth_two_factor_recovery_description()
+            : m.auth_two_factor_description(),
+        title: m.auth_two_factor_title(),
+      };
+    }
+    default: {
+      return {
+        description: m.auth_welcome_description(),
+        title: m.auth_welcome_title(),
+      };
+    }
+  }
 };
 
-export const AuthForm = () => {
-  const { form, isCheckingEmail, isSubmitting, mode, onEmailChange } =
-    useAuthForm();
+interface AuthFormProps {
+  capabilities: AuthCapabilities | undefined;
+  isCapabilitiesError: boolean;
+  onRetryCapabilities: () => void;
+}
+
+export const AuthForm = ({
+  capabilities,
+  isCapabilitiesError,
+  onRetryCapabilities,
+}: AuthFormProps) => {
+  // The flow reports the server's own password bounds in its refusals, so it is
+  // given the deployment's answer rather than a number of this screen's own.
+  const flow = useSignInFlow(capabilities);
   const prefersReducedMotion = useReducedMotion();
+
+  const heading = stepHeading(flow.step, flow.email, flow.secondFactor);
 
   return (
     <div>
-      <AuthHeader />
+      {/* The heading is outside the animated body: it names the step, so it is
+          the static cue that stays readable while the body cross-fades. */}
+      <AuthHeader description={heading.description} title={heading.title} />
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
-      >
-        <FieldGroup>
-          <form.Field name="email">
-            {(field) => (
-              <AuthFormField
-                endAdornment={isCheckingEmail && <Spinner />}
-                errors={field.state.meta.errors.map((error) => error?.message)}
-                id={field.name}
-                label={m.auth_email_label()}
-                placeholder={m.auth_email_placeholder()}
-                type="email"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(value) => {
-                  field.handleChange(value);
-                  onEmailChange(value);
-                }}
-              />
-            )}
-          </form.Field>
-        </FieldGroup>
-
-        {/* Editing the email drops the mode back to "unknown", so this block is
-            revealed and collapsed repeatedly — it animates with transitions
-            that retarget mid-flight rather than keyframes that restart. */}
-        <AnimatePresence initial={false}>
-          {mode !== "unknown" && (
-            <motion.div
-              key="credentials"
-              // Clip only while the height animates: the input's focus ring
-              // sits outside the box and a permanent clip would cut it off.
-              animate={{
-                height: "auto",
-                opacity: 1,
-                transitionEnd: { overflow: "visible" },
-              }}
-              exit={{
-                height: 0,
-                opacity: 0,
-                overflow: "hidden",
-                transition: prefersReducedMotion
-                  ? reducedTransition
-                  : collapseTransition,
-              }}
-              initial={{ height: 0, opacity: 0, overflow: "hidden" }}
-              transition={
-                prefersReducedMotion ? reducedTransition : revealTransition
-              }
-            >
-              {/* The gap lives inside the reveal so no empty row is left
-                  behind while the block is collapsed. */}
-              <FieldGroup className="pt-4">
-                {mode === "signup" && (
-                  <form.Field name="name">
-                    {(field) => (
-                      <AuthFormField
-                        errors={field.state.meta.errors.map(
-                          (error) => error?.message
-                        )}
-                        id={field.name}
-                        label={m.auth_name_label()}
-                        placeholder={m.auth_name_placeholder()}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={field.handleChange}
-                      />
-                    )}
-                  </form.Field>
-                )}
-
-                <form.Field name="password">
-                  {(field) => (
-                    <AuthFormField
-                      errors={field.state.meta.errors.map(
-                        (error) => error?.message
-                      )}
-                      id={field.name}
-                      label={m.auth_password_label()}
-                      placeholder="••••••••"
-                      type="password"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={field.handleChange}
-                    />
-                  )}
-                </form.Field>
-
-                <Field>
-                  <Button disabled={isSubmitting} type="submit">
-                    {isSubmitting && <Spinner data-icon="inline-start" />}
-                    {mode === "signin"
-                      ? m.auth_sign_in_submit()
-                      : m.auth_sign_up_submit()}
-                  </Button>
-                </Field>
-              </FieldGroup>
-            </motion.div>
+      {/* A step replaces the whole body rather than revealing part of it, so
+          the two states cross-fade in sequence: nothing moves but the leaving
+          step, which drops a little on its way out. `initial={false}` keeps the
+          server-rendered first step opaque. */}
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={flow.step}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{
+            opacity: 0,
+            transition: prefersReducedMotion
+              ? reducedTransition
+              : exitTransition,
+            y: STEP_EXIT_OFFSET,
+          }}
+          initial={{ opacity: 0, y: 0 }}
+          transition={
+            prefersReducedMotion ? reducedTransition : enterTransition
+          }
+        >
+          {flow.step === "credentials" && (
+            <AuthCredentialsStep
+              capabilities={capabilities}
+              defaultEmail={flow.email}
+              isCapabilitiesError={isCapabilitiesError}
+              isPasskeyPending={flow.isPasskeyPending}
+              isSubmitting={flow.isSubmitting}
+              onForgotPassword={flow.handleForgotPassword}
+              onPasskey={flow.handlePasskeySelect}
+              onProvider={flow.handleProviderSelect}
+              onRetryCapabilities={onRetryCapabilities}
+              onSignIn={flow.handleSignInSubmit}
+              onSignUp={flow.handleSignUpSubmit}
+              pendingProvider={flow.pendingProvider}
+            />
           )}
-        </AnimatePresence>
-      </form>
+
+          {flow.step === "confirm" && (
+            <AuthConfirmStep
+              isResending={flow.isResending}
+              isSubmitting={flow.isSubmitting}
+              onBack={() => flow.goTo("credentials")}
+              onResend={flow.handleResend}
+              onSubmit={flow.handleConfirmSubmit}
+              otpLength={capabilities?.otpLength}
+            />
+          )}
+
+          {flow.step === "reset-request" && (
+            <AuthResetRequestStep
+              defaultEmail={flow.email}
+              isSubmitting={flow.isSubmitting}
+              onBack={() => flow.goTo("credentials")}
+              onSubmit={flow.handleResetRequestSubmit}
+            />
+          )}
+
+          {flow.step === "reset" && (
+            <AuthResetStep
+              isResending={flow.isResending}
+              isSubmitting={flow.isSubmitting}
+              minPasswordLength={capabilities?.minPasswordLength}
+              onBack={() => flow.goTo("credentials")}
+              onResend={flow.handleResend}
+              onSubmit={flow.handleResetSubmit}
+              otpLength={capabilities?.otpLength}
+            />
+          )}
+
+          {flow.step === "two-factor" && (
+            <AuthTwoFactorStep
+              isSubmitting={flow.isSubmitting}
+              method={flow.secondFactor}
+              onBack={() => flow.goTo("credentials")}
+              onMethodSwitch={flow.handleSecondFactorSwitch}
+              onSubmit={flow.handleSecondFactorSubmit}
+              trustedDeviceDays={capabilities?.trustedDeviceDays}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

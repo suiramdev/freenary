@@ -1,10 +1,11 @@
-import { m } from "@/paraglide/messages.js";
+interface AuthHeaderProps {
+  description: string;
+  title: string;
+}
 
-export const AuthHeader = () => (
+export const AuthHeader = ({ description, title }: AuthHeaderProps) => (
   <>
-    <h1 className="text-2xl font-bold">{m.auth_welcome_title()}</h1>
-    <p className="text-muted-foreground mt-1 mb-6 text-sm">
-      {m.auth_welcome_description()}
-    </p>
+    <h1 className="text-2xl font-bold">{title}</h1>
+    <p className="text-muted-foreground mt-1 mb-6 text-sm">{description}</p>
   </>
 );
