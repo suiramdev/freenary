@@ -1,5 +1,4 @@
-import type { AvatarAnimationName } from "@/lib/avatar/animations";
-import type { AvatarExpressionName } from "@/lib/avatar/expressions";
+import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
 
 export interface AssistantAvatarInput {
   /** `useChat().status`. */
@@ -13,15 +12,8 @@ export interface AssistantAvatarInput {
   composerActive: boolean;
 }
 
-export interface AssistantAvatarState {
-  animation: AvatarAnimationName | null;
-  /** The resting face an animation falls back to when it clears. */
-  expression: AvatarExpressionName;
-  idle: boolean;
-}
-
 /**
- * The agent's state as a face. Precedence matters: a tool call mid-answer is
+ * The agent's state as one face. Precedence matters: a tool call mid-answer is
  * work, not speech, and a failure outranks whatever was happening when it hit.
  */
 export const assistantAvatarState = ({
@@ -30,26 +22,22 @@ export const assistantAvatarState = ({
   justFinished,
   status,
   toolRunning,
-}: AssistantAvatarInput): AssistantAvatarState => {
+}: AssistantAvatarInput): BrandAvatarState => {
   if (hasError || status === "error") {
-    return { animation: "alarmed", expression: "concerned", idle: false };
+    return "error";
   }
 
   if (status === "submitted" || (status === "streaming" && toolRunning)) {
-    return { animation: "thinking", expression: "focused", idle: false };
+    return "thinking";
   }
 
   if (status === "streaming") {
-    return { animation: "speaking", expression: "neutral", idle: false };
+    return "speaking";
   }
 
   if (justFinished) {
-    return { animation: "wink", expression: "neutral", idle: false };
+    return "success";
   }
 
-  if (composerActive) {
-    return { animation: null, expression: "curious", idle: true };
-  }
-
-  return { animation: null, expression: "neutral", idle: true };
+  return composerActive ? "curious" : "idle";
 };

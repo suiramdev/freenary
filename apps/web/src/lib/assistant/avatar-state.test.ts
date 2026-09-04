@@ -12,32 +12,26 @@ const resting: AssistantAvatarInput = {
 };
 
 describe("assistantAvatarState", () => {
-  it("rests neutral and keeps blinking when nothing is happening", () => {
-    expect(assistantAvatarState(resting)).toEqual({
-      animation: null,
-      expression: "neutral",
-      idle: true,
-    });
+  it("rests when nothing is happening", () => {
+    expect(assistantAvatarState(resting)).toBe("idle");
   });
 
   it("looks up while the user is writing", () => {
-    expect(
-      assistantAvatarState({ ...resting, composerActive: true }).expression
-    ).toBe("curious");
+    expect(assistantAvatarState({ ...resting, composerActive: true })).toBe(
+      "curious"
+    );
   });
 
   it("thinks while waiting for the first token", () => {
-    expect(assistantAvatarState({ ...resting, status: "submitted" })).toEqual({
-      animation: "thinking",
-      expression: "focused",
-      idle: false,
-    });
+    expect(assistantAvatarState({ ...resting, status: "submitted" })).toBe(
+      "thinking"
+    );
   });
 
   it("speaks while tokens stream", () => {
-    expect(
-      assistantAvatarState({ ...resting, status: "streaming" }).animation
-    ).toBe("speaking");
+    expect(assistantAvatarState({ ...resting, status: "streaming" })).toBe(
+      "speaking"
+    );
   });
 
   it("goes back to thinking when a tool runs mid-answer", () => {
@@ -46,14 +40,14 @@ describe("assistantAvatarState", () => {
         ...resting,
         status: "streaming",
         toolRunning: true,
-      }).animation
+      })
     ).toBe("thinking");
   });
 
   it("acknowledges an answer that just landed", () => {
-    expect(
-      assistantAvatarState({ ...resting, justFinished: true }).animation
-    ).toBe("wink");
+    expect(assistantAvatarState({ ...resting, justFinished: true })).toBe(
+      "success"
+    );
   });
 
   it("shows the failure even mid-stream, and even with a tool running", () => {
@@ -65,16 +59,10 @@ describe("assistantAvatarState", () => {
         status: "streaming",
         toolRunning: true,
       })
-    ).toEqual({
-      animation: "alarmed",
-      expression: "concerned",
-      idle: false,
-    });
+    ).toBe("error");
   });
 
   it("treats an error status with no error object as a failure", () => {
-    expect(
-      assistantAvatarState({ ...resting, status: "error" }).animation
-    ).toBe("alarmed");
+    expect(assistantAvatarState({ ...resting, status: "error" })).toBe("error");
   });
 });

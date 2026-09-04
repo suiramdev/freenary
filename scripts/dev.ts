@@ -13,7 +13,6 @@ import path from "node:path";
 import { deriveDevIdentity } from "./dev-identity";
 
 const DEV_COMPOSE_FILE = "compose.dev.yml";
-const SLUG_ENV_LINE = /^\s*FREENARY_SLUG\s*=\s*(?<value>.+?)\s*$/mu;
 const QUOTE_EDGES = /^["']|["']$/gu;
 
 const readBranch = (): string | null => {
@@ -25,17 +24,18 @@ const readBranch = (): string | null => {
   return branch && branch !== "HEAD" ? branch : null;
 };
 
-// FREENARY_SLUG may live in the worktree-local .env (copied per worktree). Read
-// just that one key without a dotenv dependency; the shell env wins when both are set.
-const readSlugOverride = (): string | null => {
-  const fromShell = process.env.FREENARY_SLUG?.trim();
+// A key may live in the worktree-local .env (copied per worktree). Read just
+// that one without a dotenv dependency; the shell env wins when both are set.
+const readEnvOverride = (key: string): string | null => {
+  const fromShell = process.env[key]?.trim();
   if (fromShell) {
     return fromShell;
   }
   if (!existsSync(".env")) {
     return null;
   }
-  const match = readFileSync(".env", "utf-8").match(SLUG_ENV_LINE);
+  const line = new RegExp(`^\\s*${key}\\s*=\\s*(?<value>.+?)\\s*$`, "mu");
+  const match = readFileSync(".env", "utf-8").match(line);
   const value = match?.groups?.value?.replace(QUOTE_EDGES, "");
   return value || null;
 };
@@ -56,11 +56,15 @@ const main = (): number => {
   const identity = deriveDevIdentity({
     branch: readBranch(),
     dir: path.basename(process.cwd()),
-    slugOverride: readSlugOverride(),
+    slugOverride: readEnvOverride("FREENARY_SLUG"),
   });
 
   const env = {
     ...process.env,
+    // Shares the session cookie with the web host, which is what lets the web
+    // app resolve the visitor while rendering. An operator's own value wins.
+    AUTH_COOKIE_DOMAIN:
+      readEnvOverride("AUTH_COOKIE_DOMAIN") ?? identity.cookieDomain,
     DOCS_HOST: identity.docsHost,
     FREENARY_SLUG: identity.slug,
     SERVER_HOST: identity.serverHost,

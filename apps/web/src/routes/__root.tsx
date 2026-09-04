@@ -13,6 +13,8 @@ import { createMiddleware } from "@tanstack/react-start";
 import { evlogErrorHandler } from "evlog/nitro/v3";
 import { ThemeProvider } from "next-themes";
 
+import { UNKNOWN_VIEWER, getViewer } from "@/functions/get-viewer";
+import { isServer } from "@/lib/is-server";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import type { orpc } from "@/utils/orpc";
@@ -67,6 +69,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   server: {
     middleware: [createMiddleware().server(evlogErrorHandler)],
   },
+
+  // Answered once per page load from the request's own cookies, so the routes
+  // below redirect before the first byte. In the browser it is `unknown` on
+  // purpose: after hydration the session is the browser's to hold, and
+  // `AuthGate` routes on that — a stale server answer here would fight it.
+  beforeLoad: async () => ({
+    viewer: isServer ? await getViewer() : UNKNOWN_VIEWER,
+  }),
 
   head: () => ({
     meta: [

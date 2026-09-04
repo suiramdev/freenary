@@ -1,11 +1,12 @@
+import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
+
 import { ConversationEmptyState } from "@/components/ai-elements/conversation";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { AssistantAvatar } from "@/components/assistant/assistant-avatar";
-import type { AssistantAvatarState } from "@/lib/assistant/avatar-state";
 import { m } from "@/paraglide/messages.js";
 
 interface AssistantEmptyStateProps {
-  avatarState: AssistantAvatarState;
+  avatarState: BrandAvatarState;
   userName: string;
   onSuggestion: (text: string) => void;
 }

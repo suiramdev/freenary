@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AuthShowcasePanel } from "@/components/auth/auth-showcase-panel";
+import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { ThemeSwitcher } from "@/components/shared/theme-switcher";
 
@@ -20,6 +20,6 @@ export const AuthPanel = ({ children }: { children: ReactNode }) => (
         {children}
       </div>
     </div>
-    <AuthShowcasePanel />
+    <AuthBrandPanel />
   </div>
 );

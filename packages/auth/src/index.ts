@@ -17,7 +17,6 @@ import {
   twoFactor,
 } from "better-auth/plugins";
 
-import { resolveCookiePolicy } from "./cookies";
 import { sendOtpEmail } from "./emails";
 import {
   DISABLED_OTP_TYPES,
@@ -37,6 +36,7 @@ import {
 } from "./policy";
 import {
   appleTrustedOrigins,
+  cookiePolicy,
   genericOAuthProviders,
   socialProviders,
 } from "./providers";
@@ -165,12 +165,7 @@ export const createAuth = () => {
         env.AUTH_COOKIE_DOMAIN === undefined
           ? undefined
           : { domain: env.AUTH_COOKIE_DOMAIN, enabled: true },
-      defaultCookieAttributes: resolveCookiePolicy(
-        env.BETTER_AUTH_URL,
-        env.CORS_ORIGIN,
-        env.NODE_ENV === "production",
-        env.AUTH_COOKIE_DOMAIN
-      ),
+      defaultCookieAttributes: cookiePolicy,
       // Better Auth refuses a multi-hop `x-forwarded-for` without this list and
       // keys every caller into one bucket, which would cap the deployment
       // instead of the caller on every rule below.

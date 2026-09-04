@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import type { AuthOutcome } from "@/hooks/auth/use-auth-avatar";
 import { authClient } from "@/lib/auth-client";
 import type {
   AuthRequestError,
@@ -80,8 +81,19 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
   const [isResending, setIsResending] = useState(false);
   const [isPasskeyPending, setIsPasskeyPending] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<AuthOutcome | null>(null);
+
+  const settle = (kind: AuthOutcome["kind"]) => {
+    setOutcome((previous) => ({ kind, seq: (previous?.seq ?? 0) + 1 }));
+  };
+
+  const refuse = (error: AuthRequestError) => {
+    toast.error(authErrorMessage(error, passwordBounds));
+    settle("error");
+  };
 
   const finish = async (message: string) => {
+    settle("success");
     // A session can also end without the Sign out button (expiry, or another
     // tab), so the incoming user is cleared of the previous one's cached
     // onboarding status and data here too.
@@ -105,7 +117,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       // The password was right; the address just has not been confirmed, and
       // the server emailed a fresh code with its refusal — so the confirm step
       // is the way forward rather than a dead error.
@@ -137,7 +149,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       return;
     }
 
@@ -160,7 +172,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       return;
     }
     await finish(m.auth_verified_toast());
@@ -179,7 +191,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsResending(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       return;
     }
     toast.success(m.auth_code_resent_toast());
@@ -199,7 +211,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       return;
     }
     setStep("reset");
@@ -220,7 +232,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       return;
     }
     // Deliberately no session: whoever reset the password proves they hold it
@@ -242,7 +254,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
       // Either the 600 s two-factor cookie has lapsed or five wrong codes have
       // burned the challenge. Both leave nothing to verify against, so the
       // password itself has to be given again rather than another code.
@@ -266,6 +278,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     // reported as a failure the reader cannot place.
     if (!("PublicKeyCredential" in window)) {
       toast.error(m.auth_error_passkey_unsupported());
+      settle("error");
       return;
     }
 
@@ -282,6 +295,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
       );
       if (!isCancelled) {
         toast.error(m.auth_error_passkey_failed());
+        settle("error");
       }
       return;
     }
@@ -301,7 +315,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     // A successful call navigates away, so only a refusal ever reaches here.
     if (error) {
       setPendingProvider(null);
-      toast.error(authErrorMessage(error, passwordBounds));
+      refuse(error);
     }
   };
 
@@ -322,6 +336,7 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
     isPasskeyPending,
     isResending,
     isSubmitting,
+    outcome,
     pendingProvider,
     secondFactor,
     step,

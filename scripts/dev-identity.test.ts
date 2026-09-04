@@ -103,6 +103,8 @@ describe("deriveDevIdentity host shapes", () => {
     );
     expect(id.docsHost).toBe("docs.feat-projects.freenary.orb.local");
     expect(id.docsUrl).toBe("https://docs.feat-projects.freenary.orb.local");
+    // The server refuses a domain that is not a parent of both hosts.
+    expect(id.cookieDomain).toBe(".feat-projects.freenary.orb.local");
   });
 });
 

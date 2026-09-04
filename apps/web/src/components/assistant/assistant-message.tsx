@@ -1,3 +1,4 @@
+import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
 import { RiFileCopyLine, RiRefreshLine } from "@remixicon/react";
 import type { ToolUIPart, UIMessage } from "ai";
 
@@ -10,20 +11,12 @@ import {
 } from "@/components/ai-elements/message";
 import { AssistantAvatar } from "@/components/assistant/assistant-avatar";
 import { AssistantToolCall } from "@/components/assistant/assistant-tool-call";
-import type { AssistantAvatarState } from "@/lib/assistant/avatar-state";
 import { m } from "@/paraglide/messages.js";
-
-/** A settled transcript animates nothing: only the live turn gets a state. */
-const SETTLED: AssistantAvatarState = {
-  animation: null,
-  expression: "neutral",
-  idle: false,
-};
 
 interface AssistantMessageProps {
   message: UIMessage;
   /** The live agent state, passed only to the turn currently being answered. */
-  avatarState?: AssistantAvatarState;
+  avatarState?: BrandAvatarState;
   onRetry?: () => void;
 }
 
@@ -50,7 +43,8 @@ export const AssistantMessage = ({
       {isAssistant && (
         <AssistantAvatar
           className="mt-0.5 size-7"
-          state={avatarState ?? SETTLED}
+          frozen={avatarState === undefined}
+          state={avatarState ?? "idle"}
         />
       )}
       <Message from={message.role}>

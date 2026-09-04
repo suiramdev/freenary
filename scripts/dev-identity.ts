@@ -25,6 +25,8 @@ export interface DevIdentity {
   corsOrigin: string;
   betterAuthUrl: string;
   viteServerUrl: string;
+  /** Parent domain of the web and server hosts, as `AUTH_COOKIE_DOMAIN`. */
+  cookieDomain: string;
   /** Browser URL for the documentation site; no CORS or auth relationship. */
   docsUrl: string;
 }
@@ -66,10 +68,14 @@ export const deriveDevIdentity = (input: DevIdentityInput): DevIdentity => {
   const webHost = `web.${slug}.${ORBSTACK_SUFFIX}`;
   const serverHost = `server.${slug}.${ORBSTACK_SUFFIX}`;
   const docsHost = `docs.${slug}.${ORBSTACK_SUFFIX}`;
+  // The parent both origins sit under, so the browser sends the session
+  // cookie to the web app as well and its server can resolve the visitor.
+  const cookieDomain = `.${slug}.${ORBSTACK_SUFFIX}`;
 
   return {
     betterAuthUrl: `https://${serverHost}`,
     composeProjectName: `${PROJECT_PREFIX}-${slug}`,
+    cookieDomain,
     corsOrigin: `https://${webHost}`,
     docsHost,
     docsUrl: `https://${docsHost}`,

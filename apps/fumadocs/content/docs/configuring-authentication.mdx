@@ -164,7 +164,11 @@ Everything else about the session cookie is derived at startup from `BETTER_AUTH
 
 The cookie is always `HttpOnly`, and `Secure` follows whether `BETTER_AUTH_URL` is `https`. Split hostnames, no cookie domain and plain HTTP is the one combination that cannot work: browsers drop a `SameSite=None` cookie without `Secure`, so the server **refuses to start** in production and warns in development. Set `AUTH_COOKIE_DOMAIN`, serve `BETTER_AUTH_URL` over HTTPS, or put the API and the web app behind one hostname.
 
-The development stack is itself a split-hostname deployment, over HTTPS: `compose.dev.yml` serves the API at `server.freenary.orb.local` and the web app at `web.freenary.orb.local`, so it runs on `SameSite=None` until you set `AUTH_COOKIE_DOMAIN=.freenary.orb.local`.
+**The shared cookie is also what lets the web app decide a page on the server.** On every page load the web app's own server forwards the request's cookie to the API and finds out who is asking, so a signed-in visitor gets their home page in the first response and a signed-out one gets the sign-in form — never one and then the other. That only works when the browser sends the session cookie to the web app's origin, which is the first two rows of the table above. In the third — split hostnames, no `AUTH_COOKIE_DOMAIN` — the web app's server never sees a session, treats every page load as undecided, and leaves it to the browser to redirect once it has checked; the app still works, with the bounce that implies. The API reports which case it is in as `sessionCookieShared` in its public `auth.capabilities` answer.
+
+The web app's server reaches the API through `SERVER_URL`, an origin the server can connect to directly — a container name, a private address — that need not be the public `VITE_SERVER_URL` the browser uses. Left unset, it falls back to that public one.
+
+The development stack is itself a split-hostname deployment, over HTTPS: `compose.dev.yml` serves the API at `server.<worktree>.freenary.orb.local` and the web app at `web.<worktree>.freenary.orb.local`. `bun run dev:up` therefore sets `AUTH_COOKIE_DOMAIN` to `.<worktree>.freenary.orb.local` for you, and `SERVER_URL` to the API's container address; a value of your own in the shell or in `.env` wins.
 
 ## Rate limits and lockouts
 

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
+  redirect,
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
@@ -44,6 +45,12 @@ const LoginPage = () => {
 };
 
 export const Route = createFileRoute("/login")({
+  // `unknown` falls through to `AuthGate`, which holds the live session.
+  beforeLoad: ({ context: { viewer } }) => {
+    if (viewer.kind === "member") {
+      throw redirect({ to: viewer.onboarded ? "/" : "/onboarding" });
+    }
+  },
   component: LoginPage,
   validateSearch: loginSearchSchema,
 });

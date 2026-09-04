@@ -62,7 +62,11 @@ When building UI, still decompose top-down into these levels: split out the smal
 
 **Routes render on the server.** The only route that opts out is `callback/$provider`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
 
-The session lives on the API's own origin, so it is unreadable during SSR. Access rules therefore run in `AuthGate` (`@/components/auth/auth-gate.tsx`), never in a route's `beforeLoad`: a `beforeLoad` that awaits the session forces the whole subtree client-only and blanks the shell with it. Give the gate an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects.
+**Who the page is for is decided on the server, once per page load.** The root route's `beforeLoad` calls `getViewer` (`@/functions/get-viewer.ts`), which forwards the request's own `cookie` header to the API and answers `guest`, `member` (with `onboarded`) or `unknown`. `/login`, `/onboarding` and the `_auth` layout redirect on that answer in their own `beforeLoad`, so a visitor lands on their page in the first response instead of on one that then bounces. `unknown` never redirects: it is what the server answers when the API did not reply, or when the session cookie never reaches the web app's origin — split hostnames with no `AUTH_COOKIE_DOMAIN`, see [Cookies](../fumadocs/content/docs/configuring-authentication.mdx) — and it is what every `beforeLoad` sees in the browser, on purpose.
+
+From hydration on, the session is the browser's: it signs in, signs out and expires there, and `AuthGate` (`@/components/auth/auth-gate.tsx`) holds the routing rules between page loads. Give it an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects. The initial page load hydrates with the server's `viewer`, which is why the gate can render a member's page while the session is still pending; every `beforeLoad` that runs in the browser sees `unknown`, so never route on `viewer` there — a stale server answer would fight the live session. The gate navigates from an effect keyed on the destination, never with `<Navigate>`: that component navigates again on every render, and the layout above re-renders while a navigation is pending.
+
+Server-side calls that act for the visitor pass their cookie explicitly — `client.x.y(input, { context: { cookie } })` — because the server has no cookie jar. `SERVER_URL` is the API origin those calls use; the browser bundle keeps `VITE_SERVER_URL`.
 
 There is no router-level pending component. A route that swaps its whole page for a placeholder is a bug — see “Loading states”.
 
@@ -110,28 +114,20 @@ Avoid vague names (`form.tsx`, `card.tsx`, `section.tsx`) and PascalCase filenam
 
 ## The avatar
 
-The brand mark is a procedural piggy bank, not an asset: a teal sphere with two eyes and a coin slot, drawn from numbers so it can change expression and be animated. It is also the face the assistant wears on Home, so treat the expression set as a shared vocabulary rather than as sidebar decoration.
+The brand mark is a procedural character, not an asset: the tricolour donut, drawn from numbers so it can morph into an expression, a loading spinner or a notification dot. **It lives in `@freenary/ui`, not here** — see [The Brand Avatar](../../packages/ui/AGENTS.md#the-brand-avatar) for the engine, the state library and the invariants that hold it together. This app owns four things:
 
 ```txt
-@/lib/avatar/geometry.ts       # sphere projection + SVG path builders (pure, no React)
-@/lib/avatar/expressions.ts    # AVATAR_EXPRESSIONS, blending, the blink overlay
-@/lib/avatar/animations.ts     # AVATAR_ANIMATIONS: expression steps with hold + transition
-@/lib/avatar/shading.ts        # AVATAR_SHADING: the sphere's lighting, shared with the favicon
-@/components/shared/freenary-avatar.tsx   # the renderer
-@/components/shared/sidebar-brand.tsx     # the shell's mark, greeting on hover and focus
-@/lib/assistant/avatar-state.ts            # agent state -> expression + animation, with precedence
-@/components/assistant/assistant-avatar.tsx  # the assistant's mark, plus the hover greeting
+@/components/shared/sidebar-brand.tsx   # the shell's mark, greeting on hover and focus
+@/components/auth/auth-form.tsx         # the sign-in screen's mark, driven by use-auth-avatar
+@/lib/assistant/avatar-state.ts         # agent state -> BrandAvatarState, with precedence
+scripts/generate-favicon.ts             # public/favicon.svg + favicon.png
 ```
 
-Every feature is a rounded rectangle laid on the sphere's surface and projected, which is why eyes bulge towards the centre and the slot arches across the crown. Adding a feature means adding a `SurfaceFeature`, never hand-written path data. `avatarPaths` returns paths that fully describe the mark — an expression's `roll` is folded into the projection rather than left to the caller as a `rotate()`, so a second consumer cannot draw it upright by forgetting.
+**Nothing below the component decides _when_ a state applies; callers pass `state`.** `SidebarBrand` holds `logo` and swaps to `happy` while pointed at or focused. `useAuthAvatar` (`@/hooks/auth/use-auth-avatar.ts`) reads focus and input events bubbling from the sign-in form — `curious` at a field, `listening` while keys land, `shy` at a password, `loading`, `error` and `success` from the flow's outcome — so no field knows the mark exists. Home's assistant drives `thinking`, `speaking`, `concerned` and `success` the same way, from `assistantAvatarState`. The sign-in screen's other half is `BrandPattern` (`@freenary/ui/components/brand-pattern`), the mark tiled as a decorative field.
 
-**Expressions are numbers, and animations are lists of expressions.** A new expression is an entry in `AVATAR_EXPRESSIONS`; a new performance is an entry in `AVATAR_ANIMATIONS` naming existing expressions. Nothing else needs to change, and the renderer blends between whatever it is given — including mid-animation, so an interrupted hover picks up from where it stopped rather than snapping.
+**The assistant's face is a pure mapping, not scattered conditionals.** `assistantAvatarState` (`@/lib/assistant/avatar-state.ts`) turns `useChat`'s status plus the live tool state into one `BrandAvatarState`, and its precedence is the behaviour: a failure outranks everything, a tool call mid-answer reads as `thinking` rather than `speaking`, and the `success` acknowledgement is time-boxed. Change the mapping there and its test, never by branching inside a component.
 
-**The assistant's face is a pure mapping, not scattered conditionals.** `assistantAvatarState` turns `useChat`'s status plus the live tool state into `{ animation, expression, idle }`, and its precedence is the behaviour: a failure outranks everything, a tool call mid-answer reads as working rather than talking, and the acknowledgement wink is time-boxed. Change the mapping there and its test, never by branching inside a component.
-
-`<FreenaryAvatar>` owns the frame loop and writes `d` attributes directly, bypassing React: paths are recomputed per frame, so re-rendering them from React would fight the loop. A render still re-applies the resting paths, which is why the live frame is written back in a layout effect before the browser paints. Under `prefers-reduced-motion` an animation jumps straight to its final expression — no coin, no tilt, no blinking.
-
-**The favicon is generated from the same modules.** `bun run favicon` in `apps/web` rewrites `public/favicon.svg` from the `neutral` expression, taking geometry from `avatarPaths` and lighting from `AVATAR_SHADING`, so retuning either cannot leave the tab icon behind. Colors are the one duplication: literal in the script because theme tokens do not exist in a favicon, mirroring `--avatar-*` in `@freenary/ui` — change one and change the other. `public/favicon.png` is the 32px raster fallback for browsers that ignore SVG favicons, and the script rewrites it only when `rsvg-convert` or `resvg` is on PATH.
+**The favicon is generated from the same modules.** `bun run favicon` rewrites `public/favicon.svg` from `brandAvatarFrame("logo", 0)`, so retuning the mark cannot leave the tab icon behind. `logo` is the one state with no clock in it, which is why a favicon can hold it. The ink colour is the one duplication the generator carries: `currentColor` in the app, two literals plus a `prefers-color-scheme` query in the script, because a tab icon has no theme. `logo` closes its aperture over the face and so emits no ink today, and the script leaves the stylesheet out rather than shipping it dead — which is why the tab icon is identical in light and dark. `public/favicon.png` is the 32px raster fallback for browsers that ignore SVG favicons, and the script rewrites it only when `rsvg-convert` or `resvg` is on PATH.
 
 ## Internationalization
 

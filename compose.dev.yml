@@ -123,6 +123,9 @@ services:
     command: bun run dev -- --host 0.0.0.0
     environment:
       VITE_SERVER_URL: https://${SERVER_HOST:-server.freenary.orb.local}
+      # What the web app's own server calls while rendering a page: the
+      # container network, since OrbStack's local CA is not trusted inside it.
+      SERVER_URL: ${SERVER_URL:-http://server:3000}
     labels:
       - dev.orbstack.domains=${WEB_HOST:-web.freenary.orb.local}
       - dev.orbstack.http-port=3001
