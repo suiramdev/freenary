@@ -5,7 +5,11 @@ import { z } from "zod";
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
 import { deriveMerchantKey } from "../categorisation/merchant-key";
 import type { TransactionChannel } from "../categorisation/normalise/types";
-import { detectRecurringExpenses } from "../categorisation/recurrence";
+import {
+  cadenceWindow,
+  detectRecurringExpenses,
+  trailingYear,
+} from "../categorisation/recurrence";
 import { categoriseBatch } from "../categorisation/resolve";
 import type { CategoriseInput, TransactionPath } from "../categorisation/types";
 import {
@@ -13,6 +17,7 @@ import {
   upsertUserOverride,
 } from "../categorisation/user-override";
 import { protectedProcedure } from "../index";
+import { periodMonthCount, plannedByGroup } from "../lib/budget-planned";
 import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
   CATEGORY_GROUP_OF,
@@ -92,6 +97,151 @@ const aggregateMonthly = <K>(
     );
   }
   return result;
+};
+
+// Outgoing spend, the basis every expense chart of a period shares
+
+/**
+ * One value per key: a plain sum for "total", otherwise the average or median
+ * of each key's monthly series across the months that saw activity.
+ */
+const aggregateOutgoing = <T extends { amount: number; date: Date }, K>(
+  transactions: T[],
+  keyOf: (tx: T) => K,
+  aggregation: "average" | "median" | "total",
+  from: Date,
+  to: Date
+): Map<K, number> => {
+  if (aggregation === "total") {
+    const totals = new Map<K, number>();
+    for (const tx of transactions) {
+      const key = keyOf(tx);
+      totals.set(key, (totals.get(key) ?? 0) + Math.abs(tx.amount));
+    }
+    return totals;
+  }
+
+  const activeMonthSet = new Set<string>();
+  const monthly = new Map<K, Map<string, number>>();
+  for (const tx of transactions) {
+    const key = keyOf(tx);
+    const mk = monthKey(tx.date);
+    activeMonthSet.add(mk);
+    let series = monthly.get(key);
+    if (!series) {
+      series = new Map();
+      monthly.set(key, series);
+    }
+    series.set(mk, (series.get(mk) ?? 0) + Math.abs(tx.amount));
+  }
+
+  const active = allMonthKeys(from, to).filter((mk) => activeMonthSet.has(mk));
+  return aggregateMonthly(monthly, active, aggregation);
+};
+
+/** A transaction row as the expense charts read it. */
+interface OutgoingRow {
+  amount: number;
+  bankTransactionCode: string | null;
+  category: string | null;
+  counterpartyName: string | null;
+  date: Date;
+  merchantCategoryCode: string | null;
+  merchantKey: string | null;
+  resolvedCategory: string | null;
+}
+
+/** The outgoing rows every expense chart of a period shares: one WHERE clause. */
+const outgoingRows = (
+  userId: string,
+  from: Date,
+  to: Date
+): Promise<OutgoingRow[]> =>
+  prisma.transaction.findMany({
+    select: {
+      amount: true,
+      bankTransactionCode: true,
+      category: true,
+      counterpartyName: true,
+      date: true,
+      merchantCategoryCode: true,
+      merchantKey: true,
+      resolvedCategory: true,
+    },
+    where: {
+      account: { connection: { userId } },
+      amount: { lt: 0 },
+      date: { gte: from, lte: to },
+    },
+  });
+
+/**
+ * Outgoing spend per category: the one aggregate the breakdown, the budget
+ * comparison and the fixed/variable split all derive from, so they reconcile.
+ */
+const outgoingByCategory = (
+  rows: OutgoingRow[],
+  aggregation: "average" | "median" | "total",
+  from: Date,
+  to: Date
+): Map<SpendingCategory, number> =>
+  aggregateOutgoing(rows, effectiveCategory, aggregation, from, to);
+
+/**
+ * Each category's recurring share of its raw period spend, the weight that
+ * splits that category's aggregate into a fixed and a variable part.
+ */
+const recurringShareByCategory = (
+  rows: OutgoingRow[],
+  recurringKeys: Set<string>
+): Map<SpendingCategory, number> => {
+  const sums = new Map<SpendingCategory, { all: number; recurring: number }>();
+  for (const row of rows) {
+    const category = effectiveCategory(row);
+    let categorySums = sums.get(category);
+    if (!categorySums) {
+      categorySums = { all: 0, recurring: 0 };
+      sums.set(category, categorySums);
+    }
+    const amount = Math.abs(row.amount);
+    categorySums.all += amount;
+    if (row.merchantKey !== null && recurringKeys.has(row.merchantKey)) {
+      categorySums.recurring += amount;
+    }
+  }
+
+  const shares = new Map<SpendingCategory, number>();
+  for (const [category, { all, recurring }] of sums) {
+    shares.set(category, all > 0 ? recurring / all : 0);
+  }
+  return shares;
+};
+
+/**
+ * Outgoing spend per category group. Categories are aggregated before being
+ * folded into groups because a median of medians is not a group's median.
+ */
+const outgoingByGroup = async (
+  userId: string,
+  aggregation: "average" | "median" | "total",
+  from: Date,
+  to: Date
+): Promise<Map<CategoryGroup, number>> => {
+  const categoryAmounts = outgoingByCategory(
+    await outgoingRows(userId, from, to),
+    aggregation,
+    from,
+    to
+  );
+
+  // A 75-slice pie is unreadable, so the expense charts answer "which part of
+  // life" at group level; the Sankey is where per-category detail lives.
+  const groupAmounts = new Map<CategoryGroup, number>();
+  for (const [category, amount] of categoryAmounts) {
+    const group = CATEGORY_GROUP_OF[category];
+    groupAmounts.set(group, (groupAmounts.get(group) ?? 0) + amount);
+  }
+  return groupAmounts;
 };
 
 interface ConnectionWithAccounts {
@@ -431,6 +581,59 @@ export const budgetRouter = {
     };
   }),
 
+  getBudgetVsActual: protectedProcedure
+    .input(
+      z.object({
+        aggregation: aggregationSchema,
+        from: z.coerce.date(),
+        to: z.coerce.date(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const { aggregation, from, to } = input;
+
+      const [lines, actualByGroup] = await Promise.all([
+        prisma.budgetLine.findMany({
+          select: {
+            amount: true,
+            category: { select: { parentSlug: true } },
+            categorySlug: true,
+          },
+          where: { kind: "OUTGOING", userId },
+        }),
+        outgoingByGroup(userId, aggregation, from, to),
+      ]);
+
+      // A declared plan is monthly, so only a period total scales it up: the
+      // average and median aggregations are already per-month figures.
+      const monthCount =
+        aggregation === "total" ? periodMonthCount(from, to, new Date()) : 1;
+      const planned = plannedByGroup(
+        lines.map((line) => ({
+          amount: line.amount,
+          categorySlug: line.categorySlug,
+          parentSlug: line.category?.parentSlug ?? null,
+        })),
+        monthCount
+      );
+
+      // Walking the taxonomy unions both sides in a stable order; a group
+      // neither planned nor spent in has nothing to compare.
+      const groups = CATEGORY_GROUPS.map((group) => ({
+        actual: actualByGroup.get(group) ?? 0,
+        group,
+        planned: planned.get(group) ?? 0,
+      }))
+        .filter((row) => row.planned > 0 || row.actual > 0)
+        .toSorted((a, b) => b.planned - a.planned || b.actual - a.actual);
+
+      return {
+        groups,
+        hasPlan: lines.length > 0,
+      };
+    }),
+
   getCashFlow: protectedProcedure
     .input(
       z.object({
@@ -476,9 +679,50 @@ export const budgetRouter = {
       };
     }),
 
+  getFixedVsVariable: protectedProcedure
+    .input(
+      z.object({
+        aggregation: aggregationSchema,
+        from: z.coerce.date(),
+        to: z.coerce.date(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const { aggregation, from, to } = input;
+
+      const [rows, recurring] = await Promise.all([
+        outgoingRows(userId, from, to),
+        // A cadence is judged from the year on each side of the period, so the
+        // first months of a history do not read their rent as variable.
+        detectRecurringExpenses(userId, cadenceWindow(from, to)),
+      ]);
+
+      // The split decomposes the breakdown's own per-category aggregate, so
+      // fixed + variable equals the breakdown total in every aggregation;
+      // aggregating a fixed and a variable series apart would not, because a
+      // median is not additive.
+      const byCategory = outgoingByCategory(rows, aggregation, from, to);
+
+      const recurringShare = recurringShareByCategory(
+        rows,
+        new Set(recurring.map((e) => e.merchantKey))
+      );
+
+      let fixed = 0;
+      let total = 0;
+      for (const [category, amount] of byCategory) {
+        fixed += Math.round(amount * (recurringShare.get(category) ?? 0));
+        total += amount;
+      }
+
+      // Deriving one side by subtraction keeps the pair summing to the total
+      // whichever way the per-category rounding went.
+      return { fixed, variable: total - fixed };
+    }),
   getRecurringExpenses: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;
-    const expenses = await detectRecurringExpenses(userId);
+    const expenses = await detectRecurringExpenses(userId, trailingYear());
     return {
       expenses: expenses.map((e) => ({
         category: e.category,
@@ -662,65 +906,12 @@ export const budgetRouter = {
       })
     )
     .handler(async ({ context, input }) => {
-      const userId = context.session.user.id;
-      const { aggregation, from, to } = input;
-
-      const transactions = await prisma.transaction.findMany({
-        select: {
-          amount: true,
-          bankTransactionCode: true,
-          category: true,
-          counterpartyName: true,
-          date: true,
-          merchantCategoryCode: true,
-          resolvedCategory: true,
-        },
-        where: {
-          account: { connection: { userId } },
-          amount: { lt: 0 },
-          date: { gte: from, lte: to },
-        },
-      });
-
-      let categoryAmounts: Map<SpendingCategory, number>;
-
-      if (aggregation === "total") {
-        categoryAmounts = new Map();
-        for (const tx of transactions) {
-          const category = effectiveCategory(tx);
-          const abs = Math.abs(tx.amount);
-          categoryAmounts.set(
-            category,
-            (categoryAmounts.get(category) ?? 0) + abs
-          );
-        }
-      } else {
-        const months = allMonthKeys(from, to);
-        const activeMonthSet = new Set<string>();
-        const monthly = new Map<SpendingCategory, Map<string, number>>();
-        for (const tx of transactions) {
-          const category = effectiveCategory(tx);
-          const abs = Math.abs(tx.amount);
-          const mk = monthKey(tx.date);
-          activeMonthSet.add(mk);
-          let catMonths = monthly.get(category);
-          if (!catMonths) {
-            catMonths = new Map();
-            monthly.set(category, catMonths);
-          }
-          catMonths.set(mk, (catMonths.get(mk) ?? 0) + abs);
-        }
-        const active = months.filter((mk) => activeMonthSet.has(mk));
-        categoryAmounts = aggregateMonthly(monthly, active, aggregation);
-      }
-
-      // A 75-slice pie is unreadable, so the breakdown answers "which part of
-      // life" at group level; the Sankey is where per-category detail lives.
-      const groupAmounts = new Map<CategoryGroup, number>();
-      for (const [category, amount] of categoryAmounts) {
-        const group = CATEGORY_GROUP_OF[category];
-        groupAmounts.set(group, (groupAmounts.get(group) ?? 0) + amount);
-      }
+      const groupAmounts = await outgoingByGroup(
+        context.session.user.id,
+        input.aggregation,
+        input.from,
+        input.to
+      );
 
       const groups = [...groupAmounts.entries()]
         .map(([group, amount]) => ({
@@ -743,13 +934,23 @@ export const budgetRouter = {
         groups: z.array(z.enum(CATEGORY_GROUPS)).optional(),
         limit: z.number().min(1).max(100).default(50),
         search: z.string().optional(),
+        sort: z.enum(["date", "amount"]).default("date"),
         to: z.coerce.date(),
       })
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { categories, cursor, direction, from, groups, limit, search, to } =
-        input;
+      const {
+        categories,
+        cursor,
+        direction,
+        from,
+        groups,
+        limit,
+        search,
+        sort,
+        to,
+      } = input;
 
       const dateFilter = { gte: from, lte: to };
       let directionFilter: { gt: number } | { lt: number } | undefined;
@@ -807,7 +1008,15 @@ export const budgetRouter = {
       }
 
       const findManyOpts: Prisma.TransactionFindManyArgs = {
-        orderBy: [{ date: "desc" }, { id: "desc" }],
+        // Outgoing amounts are negative, so ascending leads with the largest
+        // expense; incoming has to descend to lead with the largest credit.
+        orderBy:
+          sort === "amount"
+            ? [
+                { amount: direction === "incoming" ? "desc" : "asc" },
+                { id: "desc" },
+              ]
+            : [{ date: "desc" }, { id: "desc" }],
         select: {
           amount: true,
           bankTransactionCode: true,

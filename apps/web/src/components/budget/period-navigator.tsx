@@ -134,7 +134,7 @@ export const PeriodNavigator = ({
 
   return (
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           disabled={!canGoBack}
@@ -186,7 +186,7 @@ export const PeriodNavigator = ({
           <RiArrowRightSLine />
         </Button>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         {isMultiMonth(range) && (
           <Select
             value={aggregation}

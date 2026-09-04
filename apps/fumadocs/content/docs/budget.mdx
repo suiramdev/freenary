@@ -13,15 +13,45 @@ Every group also carries a catch-all category — Other housing, Other transport
 
 What decides the category is read in order, and the order is deliberate: a cash withdrawal, a cheque or a bank fee is settled from the transaction type itself, then your own past correction for that merchant, then a known merchant, then the data the bank sends with the transaction — the merchant category code, the bank's own transaction code, the wording your country's banks use for rent, salary, tax or insurance. These give the same answer every time for the same transaction, and they settle the common case on their own. Only what they leave open reaches the classifier that reads the description, and only where a trained model is installed. When neither is confident, the transaction stays **Uncategorised** instead of being guessed into a category you would have to correct.
 
-A **cash-flow diagram** draws the whole picture in one pass: income sources on the left, then the groups, then the categories inside each group. Clicking a group filters the transaction list to everything it holds; clicking a single category narrows to just that one. Income the period did not spend sits beside the groups as a grey **Money left** band — it holds no categories and is not clickable, since there are no transactions behind it.
-
 Users can correct automatic classifications and create their own categories and groups. Custom categories are managed in [Settings](/docs/settings). The system learns from these corrections: repeatedly categorizing a merchant the same way makes that preference apply automatically in the future.
 
 A **rules engine** complements this with predictable automation — e.g. "every transaction containing this merchant name is groceries" or "exclude this transfer from spending calculations". Rules handle what can be expressed statically; AI handles the rest.
 
-## Budget periods
+## Choosing the period
 
-Budget cycles are configurable rather than assumed to run from the first to the last day of a calendar month. Users paid on the 25th can budget from the 25th to the 24th. Monthly, quarterly, yearly and arbitrary date ranges are supported.
+Everything on the page reads one period, set in the header: **1M**, **3M** or **1Y**, anchored on a month you pick from the label between the arrows. The arrows step a whole period at a time and stop at your first and last imported transaction.
+
+Over 3M and 1Y a period holds several months, so a selector appears beside the range: **Total** adds those months up, **Monthly avg.** and **Monthly median** reduce them to one representative month. The choice applies to every figure and every chart at once.
+
+## Sharing the view
+
+The page keeps its state in the address bar: the period, the range, the aggregation, both chart views, the Outgoing/Incoming tab, the sort, the search text and the category chips. Copying the URL therefore hands someone the screen you are looking at, and the browser's Back button leaves it — it does not step through every filter you tried. A link only spells out what you changed, so an untouched page has a bare `/budget` URL, and a link whose values no longer make sense opens the default view rather than an error.
+
+## Income, expenses and net
+
+Three figures head the page — **Income**, **Expenses** and **Net** for the selected period — and they name the aggregation they are showing: **Avg. Income**, **Avg. Expenses**, **Avg. Net** under Monthly avg., and **Med. Income**, **Med. Expenses**, **Med. Net** under Monthly median.
+
+## The two charts
+
+The page holds two chart positions and never more. Each one offers a choice of views, so another way of reading the period replaces a chart instead of adding one more thing to scroll past.
+
+The wide position switches between **Flow** and **Categories**, and its title follows the view:
+
+- **Cash Flow** draws the period in one pass: income sources on the left, then the groups, then the categories inside each group. Income the period did not spend sits beside the groups as a grey **Money left** band — it holds no categories and is not clickable, since there are no transactions behind it.
+- **Spending Breakdown** reduces the same spending to a donut, one slice per group.
+
+Clicking a node, a slice or a legend entry filters the transaction list below: a group to everything it holds, a single category to just that one. Clicking the active one again clears the filter.
+
+The narrow position beside it switches between:
+
+- **Fixed vs. variable** — how much of the period's spending went to merchants detected as recurring (**Fixed**) and how much did not (**Variable**). The two cover exactly the spending the donut splits by group. It is a read-only picture; there is no category behind either half to filter on.
+- **Budget vs. actual** — the period's spending per category group against what you planned, as **Planned** and **Actual** figures with the difference read as **left** or **over**; a group you never planned reads **Unplanned** instead of an overrun. Clicking a group filters the transaction list, like a donut slice does, and the group doing the filtering stays highlighted.
+
+Budget vs. actual reads the outgoing lines of your [budgeting profile](/docs/settings), which are monthly amounts: under Total they are multiplied by the months of the period that have elapsed, so a period still running is compared against the plan it has earned so far, and under Monthly avg. or Monthly median they are compared month for month. Until the profile holds at least one outgoing line the view shows **No spending plan yet.** and a **Set a spending plan** link into Settings.
+
+## The transaction list
+
+Below the charts sits the only table on the page. **Outgoing** and **Incoming** tabs each carry the period's total; a search field matches a transaction's description or its merchant; the **Category** filter turns selections into removable chips — the same chips a chart click adds. **Sort** offers **Newest**, the default, or **Largest**, which puts the biggest amounts first and is how you read the period's top expenses. Selecting a row opens the transaction, where you can correct its category.
 
 ## Transfers are not expenses
 
@@ -31,7 +61,14 @@ Cash-flow calculations distinguish real spending from movements between the user
 
 Freenary analyzes historical transactions to detect repeating payments: streaming subscriptions, insurance premiums, rent, utilities, software services, loan payments and memberships.
 
-- **List and calendar views** show when commitments occur during the month and reveal periods of unusually high cash requirements.
-- **AI detection** catches recurring payments whose descriptions or amounts vary slightly.
-- **Change monitoring** flags unexpected increases — e.g. a subscription rising from €12.99 to €15.99 three months ago, an extra €36 per year.
-- Over time, Freenary could help _evaluate_ recurring expenses: unused services, expensive telecom plans or overlapping subscriptions. Such recommendations remain suggestions, never automatic actions.
+Detection groups outgoing transactions by merchant and keeps the merchants whose intervals hold steady — weekly, monthly, quarterly or annual — along with the amount each one typically costs. A period is classified from the twelve months on **each side** of it, because a cadence belongs to the merchant and not to the month you happen to be reading: the same rent must not count as fixed in one month and variable in the month before it.
+
+In the interface that result shows in exactly one place: the **Fixed** share of Fixed vs. variable.
+
+<Callout type="info">
+  There is no subscription list, no calendar of upcoming commitments, and no
+  price-change alert. The detection and the fixed share it feeds are what exists
+  today.
+</Callout>
+
+Over time, Freenary could help _evaluate_ recurring expenses: unused services, expensive telecom plans or overlapping subscriptions. Such recommendations remain suggestions, never automatic actions.

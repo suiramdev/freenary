@@ -109,7 +109,7 @@ export const CategoryPicker = ({
                 <DropdownMenuRadioItem
                   key={entry.key}
                   value={entry.key}
-                  className={cn(section.heading && "pl-8")}
+                  className={cn(section.heading && "ps-8")}
                 >
                   <CategoryIcon
                     color={entry.color}

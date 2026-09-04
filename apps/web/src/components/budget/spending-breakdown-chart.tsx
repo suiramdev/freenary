@@ -1,11 +1,5 @@
 import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
 import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@freenary/ui/components/card";
 import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
 import { cn } from "@freenary/ui/lib/utils";
@@ -15,8 +9,6 @@ import type { PieSectorDataItem } from "recharts";
 
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
-import { aggregationLabel } from "@/lib/budget/period";
-import type { AggregationMode } from "@/lib/budget/period";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
@@ -28,9 +20,7 @@ interface GroupData {
 }
 
 interface SpendingBreakdownChartProps {
-  aggregation: AggregationMode;
   data: GroupData[];
-  className?: string;
   onSelect?: (selection: CategorySelection | null) => void;
 }
 
@@ -99,9 +89,7 @@ const SpendingBreakdownTooltip = ({
  * would carry less than the sixteen do, and the Sankey already shows detail.
  */
 export const SpendingBreakdownChart = ({
-  aggregation,
   data,
-  className,
   onSelect,
 }: SpendingBreakdownChartProps) => {
   const config = buildConfig(data);
@@ -131,85 +119,78 @@ export const SpendingBreakdownChart = ({
     [data, toggleGroup]
   );
 
+  if (data.length === 0) {
+    return (
+      <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
+        {m.budget_breakdown_empty()}
+      </p>
+    );
+  }
+
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>
-          {m.budget_breakdown_title()}
-          {aggregation !== "total" && (
-            <span className="text-muted-foreground font-normal">
-              {" "}
-              · {aggregationLabel(aggregation)}
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <ChartContainer
-          config={config}
-          className="mx-auto aspect-square h-auto w-full max-w-[200px]"
-        >
-          <PieChart>
-            <ChartTooltip
-              content={
-                <SpendingBreakdownTooltip config={config} total={total} />
-              }
-            />
-            <Pie
-              data={data}
-              dataKey="amount"
-              nameKey="group"
-              innerRadius="55%"
-              outerRadius="100%"
-              className={onSelect ? "cursor-pointer" : undefined}
-              onClick={onSelect ? selectSlice : undefined}
-            >
-              {data.map((d) => (
-                <Cell
-                  key={d.group}
-                  fill={config[d.group]?.color}
-                  fillOpacity={
-                    selectedGroup !== null && selectedGroup !== d.group
-                      ? UNSELECTED_OPACITY
-                      : 1
-                  }
+    <div className="flex h-full flex-col gap-3">
+      <ChartContainer
+        config={config}
+        className="mx-auto aspect-square h-auto w-full max-w-[176px] shrink-0"
+      >
+        <PieChart>
+          <ChartTooltip
+            content={<SpendingBreakdownTooltip config={config} total={total} />}
+          />
+          <Pie
+            data={data}
+            dataKey="amount"
+            nameKey="group"
+            innerRadius="55%"
+            outerRadius="100%"
+            className={onSelect ? "cursor-pointer" : undefined}
+            onClick={onSelect ? selectSlice : undefined}
+          >
+            {data.map((d) => (
+              <Cell
+                key={d.group}
+                fill={config[d.group]?.color}
+                fillOpacity={
+                  selectedGroup !== null && selectedGroup !== d.group
+                    ? UNSELECTED_OPACITY
+                    : 1
+                }
+              />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      {/* In flow beside the chart rather than a recharts legend: it carries
+          each group's amount and the click that filters the transaction list. */}
+      <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-x-4 gap-y-1.5 overflow-y-auto px-1">
+        {data.map((d) => {
+          const isSelected = selectedGroup === d.group;
+          return (
+            <li key={d.group}>
+              <button
+                type="button"
+                disabled={!onSelect}
+                aria-pressed={isSelected}
+                onClick={() => toggleGroup(d.group)}
+                className={cn(
+                  "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96]",
+                  onSelect && "hover:text-foreground cursor-pointer",
+                  isSelected ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                <span
+                  className="size-2 rounded-[1px]"
+                  style={{ backgroundColor: config[d.group]?.color }}
                 />
-              ))}
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-        {/* In flow beside the chart rather than a recharts legend: it carries
-            each group's amount and the click that filters the transaction list. */}
-        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 px-1">
-          {data.map((d) => {
-            const isSelected = selectedGroup === d.group;
-            return (
-              <li key={d.group}>
-                <button
-                  type="button"
-                  disabled={!onSelect}
-                  aria-pressed={isSelected}
-                  onClick={() => toggleGroup(d.group)}
-                  className={cn(
-                    "flex items-center gap-1.5 font-mono text-[11px]",
-                    onSelect && "hover:text-foreground cursor-pointer",
-                    isSelected ? "text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  <span
-                    className="size-2 rounded-[1px]"
-                    style={{ backgroundColor: config[d.group]?.color }}
-                  />
-                  <span>{config[d.group]?.label ?? d.group}</span>
-                  <span className="text-foreground">
-                    {formatCurrency(d.amount)}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
+                <span>{config[d.group]?.label ?? d.group}</span>
+                <span className="text-foreground">
+                  {formatCurrency(d.amount)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 };

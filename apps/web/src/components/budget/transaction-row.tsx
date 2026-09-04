@@ -36,7 +36,7 @@ export const TransactionRow = ({
 
   return (
     <Item
-      className="hover:bg-muted/50 border-b-border absolute inset-x-0 cursor-pointer text-left"
+      className="hover:bg-muted/50 border-b-border absolute inset-x-0 cursor-pointer text-start"
       data-index={index}
       ref={measureRef}
       render={

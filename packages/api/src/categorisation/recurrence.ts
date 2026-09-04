@@ -130,7 +130,8 @@ const classifyFrequency = (
 
 // Core
 
-interface RawTransaction {
+/** A transaction as the detector reads it. */
+export interface RecurrenceTransaction {
   amount: number;
   category: string | null;
   counterpartyName: string | null;
@@ -140,13 +141,145 @@ interface RawTransaction {
   resolvedCategory: string | null;
 }
 
+/** The stretch of history a detection run observes. */
+export interface RecurrenceWindow {
+  from: Date;
+  to: Date;
+}
+
 /**
- * Detect recurring expenses for a user from their transaction history.
- * Looks at the last 12 months of outgoing transactions grouped by merchantKey.
+ * Detect recurring expenses among transactions, counting only occurrences
+ * inside the window. The window is enforced here, not left to the caller's
+ * query, so the classification is a property of this function.
  * Returns detected recurring expenses sorted by typicalAmountMinor descending.
  */
+export const recurringInWindow = (
+  transactions: RecurrenceTransaction[],
+  window: RecurrenceWindow
+): RecurringExpense[] => {
+  // 1. Group in-window transactions by merchantKey
+  const groups = new Map<string, RecurrenceTransaction[]>();
+
+  for (const tx of transactions) {
+    if (
+      tx.merchantKey === null ||
+      tx.date < window.from ||
+      tx.date > window.to
+    ) {
+      continue;
+    }
+
+    const existing = groups.get(tx.merchantKey);
+
+    if (existing) {
+      existing.push(tx);
+    } else {
+      groups.set(tx.merchantKey, [tx]);
+    }
+  }
+
+  // 2. Analyse each group
+  const results: RecurringExpense[] = [];
+
+  for (const [merchantKey, txs] of groups) {
+    if (txs.length < 2) {
+      continue;
+    }
+
+    txs.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Compute intervals between consecutive transactions (in days)
+    const intervals: number[] = [];
+
+    let prev: RecurrenceTransaction | undefined;
+
+    for (const curr of txs) {
+      if (prev) {
+        const diffMs = curr.date.getTime() - prev.date.getTime();
+        intervals.push(Math.round(diffMs / MS_PER_DAY));
+      }
+      prev = curr;
+    }
+
+    intervals.sort((a, b) => a - b);
+    const medianInterval = median(intervals);
+
+    // Classify and enforce minimum occurrences
+    const frequency = classifyFrequency(medianInterval, txs.length);
+
+    if (frequency === null) {
+      continue;
+    }
+
+    // Median absolute amount
+    const amounts = txs.map((tx) => Math.abs(tx.amount));
+    amounts.sort((a, b) => a - b);
+    const typicalAmountMinor = median(amounts);
+
+    // Most recent transaction
+    // SAFETY: txs has at least 2 elements
+    const lastTx = txs.at(-1) as RecurrenceTransaction;
+
+    // Most common category (prefer category, fall back to resolvedCategory)
+    const categories = txs
+      .map((tx) => tx.category ?? tx.resolvedCategory)
+      .filter((c): c is string => c !== null);
+
+    // SAFETY: a stored value may predate the hierarchy, so decode it; an
+    // unresolvable one falls back to "uncategorised"
+    const modalCategory =
+      categories.length > 0 ? mode(categories) : "uncategorised";
+    const category: SpendingCategory =
+      resolveCategorySlug(modalCategory) ?? "uncategorised";
+
+    // Currency from the most recent transaction
+    const { currency } = lastTx;
+
+    // Next expected = last seen + median interval
+    const nextExpected = new Date(
+      lastTx.date.getTime() + medianInterval * MS_PER_DAY
+    );
+
+    results.push({
+      category,
+      currency,
+      frequency,
+      intervalDays: Math.round(medianInterval),
+      lastSeen: lastTx.date,
+      merchantKey,
+      merchantName: lastTx.counterpartyName,
+      nextExpected,
+      occurrences: txs.length,
+      typicalAmountMinor: Math.round(typicalAmountMinor),
+    });
+  }
+
+  // 3. Biggest recurring expenses first
+  results.sort((a, b) => b.typicalAmountMinor - a.typicalAmountMinor);
+
+  return results;
+};
+
+/**
+ * The window a period is classified from: the year on each side of it. A
+ * cadence belongs to the merchant, not to where the reader stands, so the same
+ * rent must not read fixed in one month and variable in the month before it.
+ */
+export const cadenceWindow = (from: Date, to: Date): RecurrenceWindow => ({
+  from: new Date(from.getTime() - WINDOW_MS),
+  to: new Date(to.getTime() + WINDOW_MS),
+});
+
+/** The trailing year, which is what a forward-looking commitment list means. */
+export const trailingYear = (to: Date = new Date()): RecurrenceWindow => ({
+  from: new Date(to.getTime() - WINDOW_MS),
+  to,
+});
+
+/** Detect recurring expenses for a user across the given observation window. */
 export const detectRecurringExpenses = async (
-  userId: string
+  userId: string,
+  window: RecurrenceWindow
 ): Promise<RecurringExpense[]> => {
   try {
     // 1. Collect accounts across the user's bank connections
@@ -162,131 +295,31 @@ export const detectRecurringExpenses = async (
     }
 
     const accountIds = accounts.map((a) => a.id);
-    const cutoff = new Date(Date.now() - WINDOW_MS);
 
-    // 2. Fetch outgoing transactions from the last 12 months
-    const transactions: RawTransaction[] = await prisma.transaction.findMany({
-      orderBy: { date: "asc" },
-      select: {
-        amount: true,
-        category: true,
-        counterpartyName: true,
-        currency: true,
-        date: true,
-        merchantKey: true,
-        resolvedCategory: true,
-      },
-      where: {
-        accountId: { in: accountIds },
-        amount: { lt: 0 },
-        date: { gte: cutoff },
-        isInternalTransfer: false,
-        merchantKey: { not: null },
-      },
-    });
-
-    if (transactions.length === 0) {
-      return [];
-    }
-
-    // 3. Group by merchantKey
-    const groups = new Map<string, RawTransaction[]>();
-
-    for (const tx of transactions) {
-      if (tx.merchantKey === null) {
-        continue;
-      }
-
-      const existing = groups.get(tx.merchantKey);
-
-      if (existing) {
-        existing.push(tx);
-      } else {
-        groups.set(tx.merchantKey, [tx]);
-      }
-    }
-
-    // 4. Analyse each group
-    const results: RecurringExpense[] = [];
-
-    for (const [merchantKey, txs] of groups) {
-      if (txs.length < 2) {
-        continue;
-      }
-
-      // Already sorted by date (orderBy above), but ensure within group
-      txs.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-      // Compute intervals between consecutive transactions (in days)
-      const intervals: number[] = [];
-
-      let prev: RawTransaction | undefined;
-
-      for (const curr of txs) {
-        if (prev) {
-          const diffMs = curr.date.getTime() - prev.date.getTime();
-          intervals.push(Math.round(diffMs / MS_PER_DAY));
-        }
-        prev = curr;
-      }
-
-      intervals.sort((a, b) => a - b);
-      const medianInterval = median(intervals);
-
-      // Classify and enforce minimum occurrences
-      const frequency = classifyFrequency(medianInterval, txs.length);
-
-      if (frequency === null) {
-        continue;
-      }
-
-      // Median absolute amount
-      const amounts = txs.map((tx) => Math.abs(tx.amount));
-      amounts.sort((a, b) => a - b);
-      const typicalAmountMinor = median(amounts);
-
-      // Most recent transaction
-      // SAFETY: txs has at least 2 elements
-      const lastTx = txs.at(-1) as RawTransaction;
-
-      // Most common category (prefer category, fall back to resolvedCategory)
-      const categories = txs
-        .map((tx) => tx.category ?? tx.resolvedCategory)
-        .filter((c): c is string => c !== null);
-
-      // SAFETY: a stored value may predate the hierarchy, so decode it; an
-      // unresolvable one falls back to "uncategorised"
-      const modalCategory =
-        categories.length > 0 ? mode(categories) : "uncategorised";
-      const category: SpendingCategory =
-        resolveCategorySlug(modalCategory) ?? "uncategorised";
-
-      // Currency from the most recent transaction
-      const { currency } = lastTx;
-
-      // Next expected = last seen + median interval
-      const nextExpected = new Date(
-        lastTx.date.getTime() + medianInterval * MS_PER_DAY
-      );
-
-      results.push({
-        category,
-        currency,
-        frequency,
-        intervalDays: Math.round(medianInterval),
-        lastSeen: lastTx.date,
-        merchantKey,
-        merchantName: lastTx.counterpartyName,
-        nextExpected,
-        occurrences: txs.length,
-        typicalAmountMinor: Math.round(typicalAmountMinor),
+    // 2. Fetch outgoing transactions from the observed window
+    const transactions: RecurrenceTransaction[] =
+      await prisma.transaction.findMany({
+        orderBy: { date: "asc" },
+        select: {
+          amount: true,
+          category: true,
+          counterpartyName: true,
+          currency: true,
+          date: true,
+          merchantKey: true,
+          resolvedCategory: true,
+        },
+        where: {
+          accountId: { in: accountIds },
+          amount: { lt: 0 },
+          date: { gte: window.from, lte: window.to },
+          isInternalTransfer: false,
+          merchantKey: { not: null },
+        },
       });
-    }
 
-    // 5. Sort by typicalAmountMinor descending (biggest recurring expenses first)
-    results.sort((a, b) => b.typicalAmountMinor - a.typicalAmountMinor);
-
-    return results;
+    // 3. Classify the window
+    return recurringInWindow(transactions, window);
   } catch {
     return [];
   }

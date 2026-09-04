@@ -46,7 +46,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
           {m.budget_detail_sr_description()}
         </DrawerDescription>
         <DrawerClose
-          render={<Button variant="ghost" className="absolute top-4 right-4" />}
+          render={<Button variant="ghost" className="absolute end-4 top-4" />}
         >
           <RiCloseLine />
           <span className="sr-only">{m.budget_detail_close()}</span>

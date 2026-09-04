@@ -28,6 +28,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@freenary/ui/components/tabs";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@freenary/ui/components/toggle-group";
 import { RiCloseLine, RiFilter3Line, RiSearchLine } from "@remixicon/react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
@@ -39,9 +43,16 @@ import {
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TimeRange } from "@/lib/budget/period";
+import { SORT_MODES } from "@/lib/budget/search";
+import type { SortMode, TransactionDirection } from "@/lib/budget/search";
 import type { Transaction } from "@/lib/budget/transaction";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
+
+/** Toggle's sm size sits below the outline trigger beside it, and Toggle
+    carries no press feedback of its own. */
+const SORT_ITEM_CLASS =
+  "h-7 text-xs/relaxed transition-transform duration-150 ease-out active:scale-[0.96]";
 
 export const TransactionList = ({
   transactions,
@@ -52,6 +63,8 @@ export const TransactionList = ({
   onSearchChange,
   filter,
   onFilterChange,
+  sort,
+  onSortChange,
   hasMore,
   onLoadMore,
   isLoading,
@@ -60,12 +73,14 @@ export const TransactionList = ({
 }: {
   transactions: Transaction[];
   totals: { incoming: number; outgoing: number };
-  direction: "incoming" | "outgoing";
-  onDirectionChange: (dir: "incoming" | "outgoing") => void;
+  direction: TransactionDirection;
+  onDirectionChange: (dir: TransactionDirection) => void;
   search: string;
   onSearchChange: (search: string) => void;
   filter: CategoryFilter;
   onFilterChange: (filter: CategoryFilter) => void;
+  sort: SortMode;
+  onSortChange: (sort: SortMode) => void;
   hasMore: boolean;
   onLoadMore: () => void;
   isLoading: boolean;
@@ -110,8 +125,8 @@ export const TransactionList = ({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <InputGroup className="flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <InputGroup className="min-w-40 flex-1">
           <InputGroupAddon>
             <RiSearchLine />
           </InputGroupAddon>
@@ -122,6 +137,26 @@ export const TransactionList = ({
             type="search"
           />
         </InputGroup>
+        <ToggleGroup
+          aria-label={m.budget_sort_label()}
+          value={[sort]}
+          onValueChange={([next]) => {
+            const mode = SORT_MODES.find((candidate) => candidate === next);
+            if (mode) {
+              onSortChange(mode);
+            }
+          }}
+          size="sm"
+          spacing={0}
+          variant="outline"
+        >
+          <ToggleGroupItem className={SORT_ITEM_CLASS} value="date">
+            {m.budget_sort_date()}
+          </ToggleGroupItem>
+          <ToggleGroupItem className={SORT_ITEM_CLASS} value="amount">
+            {m.budget_sort_amount()}
+          </ToggleGroupItem>
+        </ToggleGroup>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" />}>
             <RiFilter3Line data-icon="inline-start" />
@@ -160,7 +195,7 @@ export const TransactionList = ({
                       filter.categories.includes(cat)
                     }
                     disabled={filter.groups.includes(group)}
-                    className="pl-8"
+                    className="ps-8"
                     onCheckedChange={() => toggleCategory(cat)}
                   >
                     <CategoryIcon
@@ -237,8 +272,8 @@ export const TransactionList = ({
 
       <Tabs
         value={direction}
-        // SAFETY: TabsTrigger values are constrained to "incoming" | "outgoing"
-        onValueChange={(v) => onDirectionChange(v as "incoming" | "outgoing")}
+        // SAFETY: TabsTrigger values are constrained to the two directions
+        onValueChange={(v) => onDirectionChange(v as TransactionDirection)}
         className="flex flex-1 flex-col"
       >
         <TabsList variant="line">

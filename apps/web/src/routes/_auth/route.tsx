@@ -29,8 +29,8 @@ const AuthLayout = () => {
           <header className="flex h-16 shrink-0 items-center gap-2 px-4">
             {/* SidebarTrigger's own default is icon-sm; pin the control to the
                 default button size. */}
-            <SidebarTrigger size="default" className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4 !self-auto" />
+            <SidebarTrigger size="default" className="-ms-1" />
+            <Separator orientation="vertical" className="me-2 h-4 !self-auto" />
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
