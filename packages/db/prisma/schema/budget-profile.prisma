@@ -23,15 +23,18 @@ model CustomCategory {
   @@map("custom_category")
 }
 
-/// One declared monthly revenue, investment or outgoing. A user's budget lines are their
-/// budgeting profile; there is no separate profile row because nothing hangs off one.
+/// One declared monthly amount. A user's budget lines are their budgeting
+/// profile; there is no separate profile row because nothing hangs off one.
+/// A line declares a category and nothing else: where it sits in the
+/// revenues → investments → outgoings flow is derived from that category's
+/// group (see `budgetLineKindOf`), so the two can never disagree.
 model BudgetLine {
   id           String          @id @default(cuid())
   userId       String
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind         BudgetLineKind
-  /// Display name, e.g. "Salary" or "Rent".
-  label        String
+  /// Display name, e.g. "Rent"; null when the user gave none, and the
+  /// category's own name stands in at display time.
+  label        String?
   /// Planned amount per month in minor units; always positive.
   amount       Int
   /// Predefined category slug (a leaf of the hierarchy, never a group);
@@ -46,16 +49,7 @@ model BudgetLine {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  @@index([userId, kind, sortOrder])
+  @@index([userId, sortOrder])
   @@index([categoryId])
   @@map("budget_line")
-}
-
-/// Where a budget line sits in the revenues → investments → outgoings flow.
-/// Declaration order is load-bearing: Postgres orders the enum type by it, and
-/// getBudgetProfile relies on `orderBy: { kind: "asc" }` to return the flow order.
-enum BudgetLineKind {
-  REVENUE
-  INVESTMENT
-  OUTGOING
 }

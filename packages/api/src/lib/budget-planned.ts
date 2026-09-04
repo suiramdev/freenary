@@ -5,24 +5,26 @@ import {
 } from "./taxonomy";
 import type { CategoryGroup } from "./taxonomy";
 
-/** A budget line reduced to its monthly amount and the slugs that can name its group. */
-export interface PlannedLine {
-  amount: number;
+/** The slugs that can name a budget line's category group. */
+export interface CategoryRef {
   categorySlug: string | null;
   /** The line's custom category's parentSlug; null for a predefined slug or a group of its own. */
   parentSlug: string | null;
 }
 
-const groupOfLine = (line: PlannedLine): CategoryGroup => {
+/** A budget line reduced to its monthly amount and the slugs that name its group. */
+export interface PlannedLine extends CategoryRef {
+  amount: number;
+}
+
+export const groupOfCategoryRef = (ref: CategoryRef): CategoryGroup => {
   // A stored slug may predate the hierarchy, so decode it before mapping.
-  const slug = line.categorySlug
-    ? resolveCategorySlug(line.categorySlug)
-    : null;
+  const slug = ref.categorySlug ? resolveCategorySlug(ref.categorySlug) : null;
   if (slug) {
     return CATEGORY_GROUP_OF[slug];
   }
-  if (line.parentSlug && isCategoryGroup(line.parentSlug)) {
-    return line.parentSlug;
+  if (ref.parentSlug && isCategoryGroup(ref.parentSlug)) {
+    return ref.parentSlug;
   }
   // A custom category that is a group of its own has no taxonomy group to sit in.
   return "other";
@@ -59,7 +61,7 @@ export const plannedByGroup = (
 ): Map<CategoryGroup, number> => {
   const planned = new Map<CategoryGroup, number>();
   for (const line of lines) {
-    const group = groupOfLine(line);
+    const group = groupOfCategoryRef(line);
     planned.set(group, (planned.get(group) ?? 0) + line.amount * monthCount);
   }
   return planned;

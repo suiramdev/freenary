@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Extended by [ADR-005](005-derived-budget-line-kind.md): a budget line's kind is derived from its category's group rather than declared alongside it.
 
 ## Context
 

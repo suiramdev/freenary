@@ -57,7 +57,9 @@ const SettingsContent = ({
           errors={editor.errors}
           isPending={isPending}
           lines={editor.lines}
+          moveLine={editor.moveLine}
           removeLine={editor.removeLine}
+          reorderLines={editor.reorderLines}
           updateLine={editor.updateLine}
         />
 

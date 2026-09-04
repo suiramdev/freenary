@@ -144,13 +144,12 @@ export const settingsRouter = {
     const userId = context.session.user.id;
 
     const lines = await prisma.budgetLine.findMany({
-      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
+      orderBy: { sortOrder: "asc" },
       select: {
         amount: true,
         categoryId: true,
         categorySlug: true,
         id: true,
-        kind: true,
         label: true,
       },
       where: { userId },
@@ -163,7 +162,6 @@ export const settingsRouter = {
           ? customCategoryKey(line.categoryId)
           : (line.categorySlug ?? "uncategorised"),
         id: line.id,
-        kind: line.kind,
         label: line.label,
       })),
     };
@@ -254,8 +252,9 @@ export const settingsRouter = {
             z.object({
               amount: z.number().int().min(0).max(MAX_AMOUNT_MINOR_UNITS),
               categoryKey: z.string(),
-              kind: z.enum(["INVESTMENT", "OUTGOING", "REVENUE"]),
-              label: z.string().trim().min(1).max(MAX_BUDGET_LINE_LABEL_LENGTH),
+              // Optional: an empty name is stored as null and the category's
+              // own name stands in when the line is displayed.
+              label: z.string().trim().max(MAX_BUDGET_LINE_LABEL_LENGTH),
             })
           )
           .max(MAX_BUDGET_LINES),
@@ -270,8 +269,8 @@ export const settingsRouter = {
       });
       const ownedIds = new Set(owned.map((category) => category.id));
 
-      // A single monotonic sortOrder preserves each kind's relative order under
-      // getBudgetProfile's `orderBy [kind, sortOrder]`.
+      // sortOrder is the row's position in the profile — one flat list, so it
+      // is the whole ordering getBudgetProfile reads back.
       const data = input.lines.map((line, index) => {
         const parsed = parseCategoryKey(line.categoryKey);
 
@@ -285,8 +284,7 @@ export const settingsRouter = {
           amount: line.amount,
           categoryId: parsed.customId,
           categorySlug: parsed.slug,
-          kind: line.kind,
-          label: line.label,
+          label: line.label || null,
           sortOrder: index,
           userId,
         };

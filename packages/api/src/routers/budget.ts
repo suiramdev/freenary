@@ -18,6 +18,7 @@ import {
 } from "../categorisation/user-override";
 import { protectedProcedure } from "../index";
 import { periodMonthCount, plannedByGroup } from "../lib/budget-planned";
+import { budgetLineKindOf } from "../lib/budget-profile";
 import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
   CATEGORY_GROUP_OF,
@@ -600,23 +601,26 @@ export const budgetRouter = {
             category: { select: { parentSlug: true } },
             categorySlug: true,
           },
-          where: { kind: "OUTGOING", userId },
+          where: { userId },
         }),
         outgoingByGroup(userId, aggregation, from, to),
       ]);
+
+      // Income and investment lines are the other side of the profile's flow,
+      // and this view compares outgoings only.
+      const outgoings = lines
+        .map((line) => ({
+          amount: line.amount,
+          categorySlug: line.categorySlug,
+          parentSlug: line.category?.parentSlug ?? null,
+        }))
+        .filter((line) => budgetLineKindOf(line) === "OUTGOING");
 
       // A declared plan is monthly, so only a period total scales it up: the
       // average and median aggregations are already per-month figures.
       const monthCount =
         aggregation === "total" ? periodMonthCount(from, to, new Date()) : 1;
-      const planned = plannedByGroup(
-        lines.map((line) => ({
-          amount: line.amount,
-          categorySlug: line.categorySlug,
-          parentSlug: line.category?.parentSlug ?? null,
-        })),
-        monthCount
-      );
+      const planned = plannedByGroup(outgoings, monthCount);
 
       // Walking the taxonomy unions both sides in a stable order; a group
       // neither planned nor spent in has nothing to compare.
@@ -630,7 +634,7 @@ export const budgetRouter = {
 
       return {
         groups,
-        hasPlan: lines.length > 0,
+        hasPlan: outgoings.length > 0,
       };
     }),
 

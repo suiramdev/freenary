@@ -1,10 +1,9 @@
+import type { BudgetLineKind } from "@freenary/api/lib/budget-profile";
 import type { CategoryColor } from "@freenary/api/lib/taxonomy";
 
 import { apportion } from "@/lib/sankey/apportion";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
 import { m } from "@/paraglide/messages.js";
-
-export type BudgetLineKind = "INVESTMENT" | "OUTGOING" | "REVENUE";
 
 export interface BudgetProfileLine {
   /** Planned amount per month in minor units. */

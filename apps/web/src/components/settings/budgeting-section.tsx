@@ -1,68 +1,46 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
+import { Button } from "@freenary/ui/components/button";
 import { Separator } from "@freenary/ui/components/separator";
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { RiAddLine } from "@remixicon/react";
+import { Reorder } from "motion/react";
 import { useState } from "react";
 
-import { BudgetLineGroup } from "@/components/settings/budget-line-group";
+import { BudgetLineRow } from "@/components/settings/budget-line-row";
 import { BudgetProfilePreview } from "@/components/settings/budget-profile-preview";
 import { CustomCategoryDrawer } from "@/components/settings/custom-category-drawer";
 import { SettingsSection } from "@/components/settings/settings-section";
 import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
 import { useScrollToAnchor } from "@/hooks/shared/use-scroll-to-anchor";
 import { BUDGETING_ANCHOR } from "@/lib/settings/anchors";
-import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
 import { m } from "@/paraglide/messages.js";
 
-/**
- * Message getters rather than strings: resolving them here would pin the
- * locale of whichever request loaded the module first.
- */
-interface GroupDefinition {
-  addLabel: () => string;
-  description: () => string;
-  kind: BudgetLineKind;
-  title: () => string;
-}
-
-/** Ordered to walk the user through revenues → investments → outgoings. */
-const GROUPS: GroupDefinition[] = [
-  {
-    addLabel: m.settings_budgeting_add_revenue,
-    description: m.settings_budgeting_revenues_description,
-    kind: "REVENUE",
-    title: m.settings_budgeting_revenues_title,
-  },
-  {
-    addLabel: m.settings_budgeting_add_investment,
-    description: m.settings_budgeting_investments_description,
-    kind: "INVESTMENT",
-    title: m.settings_budgeting_investments_title,
-  },
-  {
-    addLabel: m.settings_budgeting_add_outgoing,
-    description: m.settings_budgeting_outgoings_description,
-    kind: "OUTGOING",
-    title: m.settings_budgeting_outgoings_title,
-  },
-];
-
 interface BudgetingSectionProps {
-  addLine: (kind: BudgetLineKind) => void;
+  addLine: () => void;
   categories: CategoryEntry[];
   errors: Map<string, string>;
   isPending: boolean;
   lines: EditorLine[];
+  moveLine: (id: string, direction: "down" | "up") => void;
   removeLine: (id: string) => void;
+  reorderLines: (lines: EditorLine[]) => void;
   updateLine: (id: string, patch: Partial<EditorLine>) => void;
 }
 
+/**
+ * One flat list of lines. The category a line carries is what places it in the
+ * flow, so splitting the form into revenue/investment/outgoing sections would
+ * only ask the same question twice.
+ */
 export const BudgetingSection = ({
   addLine,
   categories,
   errors,
   isPending,
   lines,
+  moveLine,
   removeLine,
+  reorderLines,
   updateLine,
 }: BudgetingSectionProps) => {
   const sectionRef = useScrollToAnchor<HTMLDivElement>(
@@ -96,27 +74,37 @@ export const BudgetingSection = ({
             <Skeleton aria-hidden="true" className="h-[120px]" />
           </div>
         ) : (
-          GROUPS.map((group, index) => {
-            const groupLines = lines.filter((line) => line.kind === group.kind);
-            return (
-              <BudgetLineGroup
-                addLabel={group.addLabel()}
-                categories={categories}
-                defaultOpen={groupLines.length > 0 || index === 0}
-                description={group.description()}
-                errors={errors}
-                key={group.kind}
-                kind={group.kind}
-                lines={groupLines}
-                onAdd={addLine}
-                onCreateCategory={setCreatingForLineId}
-                onRemove={removeLine}
-                onUpdate={updateLine}
-                step={index + 1}
-                title={group.title()}
-              />
-            );
-          })
+          <div className="flex flex-col gap-3">
+            {lines.length > 0 ? (
+              <Reorder.Group
+                as="div"
+                axis="y"
+                className="flex flex-col gap-2"
+                onReorder={reorderLines}
+                values={lines}
+              >
+                {lines.map((line) => (
+                  <BudgetLineRow
+                    categories={categories}
+                    error={errors.get(line.id)}
+                    key={line.id}
+                    line={line}
+                    onCreateCategory={setCreatingForLineId}
+                    onMove={moveLine}
+                    onRemove={removeLine}
+                    onUpdate={updateLine}
+                  />
+                ))}
+              </Reorder.Group>
+            ) : null}
+
+            {/* Outline, not ghost: this is the section's primary action and it
+                carries the same weight as Categories' "New category". */}
+            <Button className="self-start" onClick={addLine} variant="outline">
+              <RiAddLine data-icon="inline-start" />
+              {m.settings_budgeting_add_line()}
+            </Button>
+          </div>
         )}
 
         <CustomCategoryDrawer

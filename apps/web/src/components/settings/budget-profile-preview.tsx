@@ -1,3 +1,4 @@
+import { budgetLineKindOfGroup } from "@freenary/api/lib/budget-profile";
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import {
   Empty,
@@ -64,8 +65,7 @@ export const BudgetProfilePreview = ({
 
     // A line names a category; the chart's middle column is its group. A
     // top-level custom category is its own group, so it stands in for itself.
-    const groupOf = (categoryKey: string) => {
-      const entry = entryByKey.get(categoryKey);
+    const groupOf = (entry: CategoryEntry | undefined) => {
       if (!entry) {
         return fallbackGroupOf();
       }
@@ -76,8 +76,12 @@ export const BudgetProfilePreview = ({
     };
 
     return (debouncedLines ?? []).map((line) => {
-      const group = groupOf(line.categoryKey);
+      const entry = entryByKey.get(line.categoryKey);
+      const group = groupOf(entry);
       const amount = amountOf(line.amountInput);
+      // A nameless line is called after its category; a line with no category
+      // yet has neither, and still has to occupy a node.
+      const categoryLabel = entry ? categoryEntryLabel(entry) : "";
 
       return {
         amount: Number.isNaN(amount) ? 0 : amount,
@@ -85,8 +89,9 @@ export const BudgetProfilePreview = ({
         groupKey: group.key,
         groupLabel: categoryEntryLabel(group),
         id: line.id,
-        kind: line.kind,
-        label: line.label.trim() || m.settings_line_untitled(),
+        // Which side of the flow a line falls on is its group's business.
+        kind: budgetLineKindOfGroup(group.key),
+        label: line.label.trim() || categoryLabel || m.settings_line_untitled(),
       };
     });
   }, [categories, debouncedLines]);

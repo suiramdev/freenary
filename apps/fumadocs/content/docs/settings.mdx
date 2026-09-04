@@ -15,17 +15,23 @@ Every prompt elsewhere in freenary that asks you to connect a bank links straigh
 
 ## Budgeting profile
 
-A budgeting profile is what you _plan_ each month, declared in three ordered groups: **revenues**, then **investments**, then **outgoings**. Each line carries a name, a monthly amount, and a category.
+A budgeting profile is what you _plan_ each month, declared as one list of lines. A line carries a monthly amount, a category, and — optionally — a name.
+
+The category is the only thing that places a line in the flow. Pick one from the **Income** group and the line is money coming in; one from **Investments** and it is money you set aside; anything else and it is an outgoing. There is no separate revenue, investment or outgoing list to file it under.
+
+Leave the name empty and the line is called after its category, in whichever language you are reading — a line on **Rent** with no name of its own reads as Rent. Type a name and it wins; the field's placeholder shows what you would get by leaving it blank.
 
 A Sankey diagram above the form updates as you type, reading left to right:
 
 **revenues → category group → line**
 
-The middle column groups your lines by the _group_ the category you picked belongs to, so a Rent line and a Home insurance line meet in one **Housing** band that then splits into its lines. Investment groups are drawn before outgoing ones, matching the order you enter them.
+The middle column groups your lines by the _group_ the category you picked belongs to, so a Rent line and a Home insurance line meet in one **Housing** band that then splits into its lines. Investment groups are drawn before outgoing ones, and within each side a group sits where its first line appears in your list.
 
 Revenue you do not allocate appears as a grey **Money left** band, and the strip under the diagram totals revenues, allocated and money left. Allocate more than you earn and that strip flips to **Over-allocated** — the plan is still saved; nothing is clamped.
 
-Amounts are entered in major units (`500` means €500) and saved as whole cents. Saving replaces the whole profile at once, so reordering or removing a line takes effect on save, not before.
+Reorder the list by dragging a line's grip handle, on its left edge. The handle also takes the keyboard: focus it and the up and down arrow keys move the line one place at a time. Order is part of the profile, so a reorder alone counts as an unsaved change — and because the middle column of the diagram follows the list, moving a line can move the group it belongs to.
+
+Amounts are entered in major units (`500` means €500) and saved as whole cents. Saving replaces the whole profile at once, so a reorder or a removal takes effect on save, not before.
 
 ## Categories
 

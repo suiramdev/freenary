@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useUnsavedChangesWarning } from "@/hooks/shared/use-unsaved-changes-warning";
-import type { BudgetLineKind } from "@/lib/settings/budget-profile-sankey";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
@@ -19,7 +18,7 @@ export interface EditorLine {
   categoryKey: string;
   /** Local id used as a React key; never sent to the server. */
   id: string;
-  kind: BudgetLineKind;
+  /** As typed; empty means the category's own name stands in. */
   label: string;
 }
 
@@ -27,18 +26,10 @@ export interface ServerBudgetLine {
   amount: number;
   categoryKey: string;
   id: string;
-  kind: BudgetLineKind;
-  label: string;
+  label: string | null;
 }
 
 const MINOR_UNITS_PER_MAJOR = 100;
-
-// Leaves, not groups: a group is a heading, so the server would reject it.
-const DEFAULT_CATEGORY_KEY = {
-  INVESTMENT: "savings",
-  OUTGOING: "uncategorised",
-  REVENUE: "salary",
-} satisfies Record<BudgetLineKind, string>;
 
 /**
  * Mirrors saveBudgetProfile's line schema so the row error matches the
@@ -54,11 +45,9 @@ const lineSchema = z.object({
       error: () => m.settings_line_error_amount_too_large(),
     }),
   categoryKey: z.string().min(1, { error: () => m.settings_category_pick() }),
-  kind: z.enum(["INVESTMENT", "OUTGOING", "REVENUE"]),
   label: z
     .string()
     .trim()
-    .min(1, { error: () => m.settings_error_name_required() })
     .max(MAX_BUDGET_LINE_LABEL_LENGTH, {
       error: () =>
         m.settings_error_name_too_long({ max: MAX_BUDGET_LINE_LABEL_LENGTH }),
@@ -80,7 +69,6 @@ export const amountOf = (amountInput: string): number => {
 const toPayload = (line: EditorLine) => ({
   amount: amountOf(line.amountInput),
   categoryKey: line.categoryKey,
-  kind: line.kind,
   label: line.label.trim(),
 });
 
@@ -89,8 +77,7 @@ const toEditorLines = (serverLines: ServerBudgetLine[]): EditorLine[] =>
     amountInput: (line.amount / MINOR_UNITS_PER_MAJOR).toString(),
     categoryKey: line.categoryKey,
     id: line.id,
-    kind: line.kind,
-    label: line.label,
+    label: line.label ?? "",
   }));
 
 const signatureOf = (serverLines: ServerBudgetLine[] | undefined) =>
@@ -159,8 +146,7 @@ export const useBudgetProfileEditor = (
       } else if (
         prev.label !== line.label ||
         prev.amountInput !== line.amountInput ||
-        prev.categoryKey !== line.categoryKey ||
-        prev.kind !== line.kind
+        prev.categoryKey !== line.categoryKey
       ) {
         count += 1;
       }
@@ -170,7 +156,12 @@ export const useBudgetProfileEditor = (
         count += 1;
       }
     }
-    return count;
+    // Order is saved as sortOrder, so a pure reorder is a change the bar has to
+    // offer to save — one, however many rows moved.
+    const isReordered = original.some(
+      (line, index) => lines[index]?.id !== line.id
+    );
+    return count === 0 && isReordered ? 1 : count;
   }, [lines, serverLines]);
 
   const saveMutation = useMutation({
@@ -199,16 +190,17 @@ export const useBudgetProfileEditor = (
     },
   });
 
-  const addLine = useCallback((kind: BudgetLineKind) => {
+  // No category is preselected: it is the line's only structural choice, and a
+  // guessed one would quietly plan against the wrong group.
+  const addLine = useCallback(() => {
     editCount.current += 1;
     setIsDirty(true);
     setLines((current) => [
       ...current,
       {
         amountInput: "",
-        categoryKey: DEFAULT_CATEGORY_KEY[kind],
+        categoryKey: "",
         id: crypto.randomUUID(),
-        kind,
         label: "",
       },
     ]);
@@ -228,6 +220,32 @@ export const useBudgetProfileEditor = (
     );
   }, []);
 
+  /** Whole list as dragging left it; `sortOrder` is written from this order. */
+  const reorderLines = useCallback((next: EditorLine[]) => {
+    editCount.current += 1;
+    setIsDirty(true);
+    setLines(next);
+  }, []);
+
+  /** Keyboard equivalent of one drag step, so reordering is not pointer-only. */
+  const moveLine = useCallback(
+    (id: string, direction: "down" | "up") => {
+      const from = lines.findIndex((line) => line.id === id);
+      const to = direction === "up" ? from - 1 : from + 1;
+      if (from === -1 || to < 0 || to >= lines.length) {
+        return;
+      }
+      const next = [...lines];
+      const [moved] = next.splice(from, 1);
+      if (!moved) {
+        return;
+      }
+      next.splice(to, 0, moved);
+      reorderLines(next);
+    },
+    [lines, reorderLines]
+  );
+
   const reset = useCallback(() => {
     editCount.current = 0;
     setIsDirty(false);
@@ -245,7 +263,9 @@ export const useBudgetProfileEditor = (
     isDirty,
     isSaving: saveMutation.isPending,
     lines,
+    moveLine,
     removeLine,
+    reorderLines,
     reset,
     save,
     updateLine,
