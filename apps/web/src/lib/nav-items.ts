@@ -1,6 +1,5 @@
 import {
   RiBarChartLine,
-  RiBrainLine,
   RiHomeLine,
   RiMoneyDollarCircleLine,
   RiSettings3Line,
@@ -52,13 +51,6 @@ export const NAV_ITEMS = [
     planned: true,
     routeId: "/_auth/goals",
     to: "/goals",
-  },
-  {
-    icon: RiBrainLine,
-    label: m.nav_ai,
-    planned: true,
-    routeId: "/_auth/ai",
-    to: "/ai",
   },
   {
     icon: RiSettings3Line,

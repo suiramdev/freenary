@@ -9,6 +9,7 @@
     "favicon": "bun scripts/generate-favicon.ts"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.65",
     "@better-auth/passkey": "1.7.1",
     "@freenary/api": "workspace:*",
     "@freenary/env": "workspace:*",
@@ -25,11 +26,13 @@
     "@tanstack/react-router-ssr-query": "^1.167.1",
     "@tanstack/react-start": "^1.168.32",
     "@tanstack/react-virtual": "^3.14.10",
+    "ai": "^7.0.62",
     "better-auth": "catalog:",
     "clsx": "^2.1.1",
     "dotenv": "catalog:",
     "evlog": "catalog:",
     "motion": "^13.1.1",
+    "nanoid": "^6.0.1",
     "next-themes": "catalog:",
     "nitro": "^3.0.260610-beta",
     "qrcode.react": "^4.2.0",
@@ -37,8 +40,10 @@
     "react-dom": "catalog:",
     "recharts": "3.8.0",
     "sonner": "catalog:",
+    "streamdown": "^2.6.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "catalog:",
+    "use-stick-to-bottom": "^1.1.6",
     "zod": "catalog:"
   },
   "devDependencies": {

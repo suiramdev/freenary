@@ -50,6 +50,15 @@ const eye = (overrides: Partial<AvatarEye> = {}): AvatarEye => ({
 const SQUINT: AvatarEye = eye({ height: 15, shiftY: 2, tilt: 9, width: 36 });
 
 export const AVATAR_EXPRESSIONS = {
+  /** Lids lowered, outer ends dropped, gaze down: something went wrong. */
+  concerned: {
+    eyeSpread: 22,
+    left: eye({ height: 34, shiftY: -3, tilt: -12, width: 32 }),
+    pitch: -6,
+    right: eye({ height: 34, shiftY: -3, tilt: -12, width: 32 }),
+    roll: 2,
+    yaw: 0,
+  },
   /** Gaze lifted towards the slot, head cocked — the "something is coming" beat. */
   curious: {
     eyeSpread: 22,

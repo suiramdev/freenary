@@ -59,6 +59,9 @@ x-app-env: &app-env
   POWENS_DOMAIN: ${POWENS_DOMAIN:-}
   POWENS_CLIENT_ID: ${POWENS_CLIENT_ID:-}
   POWENS_CLIENT_SECRET: ${POWENS_CLIENT_SECRET:-}
+  AI_BASE_URL: ${AI_BASE_URL:-}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-}
 
 services:
   postgres:

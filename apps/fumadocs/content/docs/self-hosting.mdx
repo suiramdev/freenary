@@ -1,6 +1,6 @@
 ---
 title: Self-hosting
-description: Choosing and configuring a bank provider.
+description: Choosing a bank provider, and giving the assistant a model.
 icon: Server
 ---
 
@@ -39,3 +39,32 @@ Register an application in the [Enable Banking control panel](https://enablebank
   through it, so a switch only decides which provider the next connection uses.
   Both providers' credentials can be set at once.
 </Callout>
+
+## AI assistant
+
+The [assistant](/docs/ai) needs a model, and Freenary ships with none. Point it at any OpenAI-compatible chat-completions endpoint:
+
+```dotenv
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=sk-...
+AI_MODEL=anthropic/claude-3.5-sonnet
+```
+
+`AI_MODEL` is the model id as your endpoint names it, and `AI_BASE_URL` includes the version path the endpoint publishes (`/v1` for every provider below). `AI_API_KEY` is optional, because a model running on your own hardware needs no key:
+
+```dotenv
+AI_BASE_URL=http://ollama:11434/v1
+AI_MODEL=qwen2.5:14b
+```
+
+OpenAI, Groq, Together, vLLM and LM Studio all speak the same protocol, so any of them works with the same three variables. A model without tool calling will answer, but it cannot look anything up — it will talk about your finances without reading them, which is worse than refusing.
+
+Questions are limited to 30 per five minutes per account. Every question is a paid request at your provider, and the limit is keyed on the account rather than the address so one household behind one connection does not share a budget.
+
+<Callout type="info">
+  With `AI_BASE_URL` or `AI_MODEL` unset, Home reports that the assistant is not
+  configured and offers no text box. Nothing is defaulted: an instance with no
+  model never looks connected and then fails at the provider.
+</Callout>
+
+Transactions and account names travel to whichever endpoint you configure. A local model keeps them on your own hardware; a hosted one does not.

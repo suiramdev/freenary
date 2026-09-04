@@ -1,4 +1,5 @@
 import { cors } from "@elysiajs/cors";
+import { handleAssistantChat } from "@freenary/api/assistant/handler";
 import { createContext } from "@freenary/api/context";
 import { appRouter } from "@freenary/api/routers/index";
 import { auth } from "@freenary/auth";
@@ -82,6 +83,17 @@ new Elysia()
       });
       return response ?? new Response("Not Found", { status: 404 });
     },
+    {
+      parse: "none",
+    }
+  )
+  // Token streaming does not fit a unary oRPC procedure, so the assistant's
+  // stream is a raw route; everything it reads still goes through `appRouter`.
+  // `parse: "none"` for the same reason as /rpc*: Elysia would eat the body.
+  .post(
+    "/ai/chat",
+    (context) =>
+      handleAssistantChat({ log: context.log, request: context.request }),
     {
       parse: "none",
     }

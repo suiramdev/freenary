@@ -126,3 +126,10 @@ export const RATE_LIMIT_DEFAULT = { max: 100, window: 60 };
  * hard enough that enumerating a list costs more than it is worth.
  */
 export const ACCOUNT_EXISTS_RATE_LIMIT = { max: 20, window: 60 };
+
+/**
+ * The assistant spends money at a model provider on every question, so the
+ * limit is keyed on the user rather than the caller address: a household behind
+ * one NAT would otherwise share a budget.
+ */
+export const AI_CHAT_RATE_LIMIT = { max: 30, window: 300 };

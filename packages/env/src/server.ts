@@ -9,6 +9,12 @@ export const env = createEnv({
   emptyStringAsUndefined: true,
   runtimeEnv: process.env,
   server: {
+    /** OpenAI-compatible chat-completions API key. Omit for a local endpoint that needs none. */
+    AI_API_KEY: z.string().optional(),
+    /** OpenAI-compatible base URL, e.g. `https://openrouter.ai/api/v1` or `http://ollama:11434/v1`. */
+    AI_BASE_URL: z.url().optional(),
+    /** Model id as the endpoint names it, e.g. `anthropic/claude-3.5-sonnet` or `qwen2.5:14b`. */
+    AI_MODEL: z.string().optional(),
     APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
     APPLE_CLIENT_ID: z.string().optional(),
     APPLE_CLIENT_SECRET: z.string().optional(),

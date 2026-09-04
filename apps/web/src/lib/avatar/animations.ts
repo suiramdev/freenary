@@ -23,6 +23,15 @@ export interface AvatarAnimation {
 }
 
 export const AVATAR_ANIMATIONS = {
+  /** Notices the failure, then holds a concerned face. */
+  alarmed: {
+    coinAt: null,
+    loop: false,
+    steps: [
+      { expression: "surprised", hold: 180, transition: 120 },
+      { expression: "concerned", hold: 0, transition: 280 },
+    ],
+  },
   /** Notices you, takes a coin, is pleased about it. The sidebar's hover reply. */
   greeting: {
     coinAt: 80,
@@ -32,13 +41,31 @@ export const AVATAR_ANIMATIONS = {
       { expression: "delighted", hold: 0, transition: 200 },
     ],
   },
-  /** Working on something: a slow back-and-forth that reads at a glance. */
+  /**
+   * Talking: a small, regular pulse between resting and pleased. `delighted`
+   * comes last because reduced motion holds an animation's final expression,
+   * and ending on `neutral` would leave the resting face while it writes.
+   */
+  speaking: {
+    coinAt: null,
+    loop: true,
+    steps: [
+      { expression: "neutral", hold: 120, transition: 220 },
+      { expression: "delighted", hold: 140, transition: 220 },
+    ],
+  },
+  /**
+   * Working on something: a slow back-and-forth that reads at a glance.
+   * `focused` comes last for the same reason `speaking` ends on `delighted` —
+   * and because `curious` is the face that means "you are typing", which under
+   * reduced motion would leave working and typing indistinguishable.
+   */
   thinking: {
     coinAt: null,
     loop: true,
     steps: [
-      { expression: "focused", hold: 420, transition: 260 },
       { expression: "curious", hold: 320, transition: 260 },
+      { expression: "focused", hold: 420, transition: 260 },
     ],
   },
   /** One-shot acknowledgement. */

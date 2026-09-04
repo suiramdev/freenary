@@ -110,7 +110,7 @@ Avoid vague names (`form.tsx`, `card.tsx`, `section.tsx`) and PascalCase filenam
 
 ## The avatar
 
-The brand mark is a procedural piggy bank, not an asset: a teal sphere with two eyes and a coin slot, drawn from numbers so it can change expression and be animated. It is also the face the assistant is meant to wear, so treat the expression set as a shared vocabulary rather than as sidebar decoration.
+The brand mark is a procedural piggy bank, not an asset: a teal sphere with two eyes and a coin slot, drawn from numbers so it can change expression and be animated. It is also the face the assistant wears on Home, so treat the expression set as a shared vocabulary rather than as sidebar decoration.
 
 ```txt
 @/lib/avatar/geometry.ts       # sphere projection + SVG path builders (pure, no React)
@@ -119,11 +119,15 @@ The brand mark is a procedural piggy bank, not an asset: a teal sphere with two 
 @/lib/avatar/shading.ts        # AVATAR_SHADING: the sphere's lighting, shared with the favicon
 @/components/shared/freenary-avatar.tsx   # the renderer
 @/components/shared/sidebar-brand.tsx     # the shell's mark, greeting on hover and focus
+@/lib/assistant/avatar-state.ts            # agent state -> expression + animation, with precedence
+@/components/assistant/assistant-avatar.tsx  # the assistant's mark, plus the hover greeting
 ```
 
 Every feature is a rounded rectangle laid on the sphere's surface and projected, which is why eyes bulge towards the centre and the slot arches across the crown. Adding a feature means adding a `SurfaceFeature`, never hand-written path data. `avatarPaths` returns paths that fully describe the mark — an expression's `roll` is folded into the projection rather than left to the caller as a `rotate()`, so a second consumer cannot draw it upright by forgetting.
 
 **Expressions are numbers, and animations are lists of expressions.** A new expression is an entry in `AVATAR_EXPRESSIONS`; a new performance is an entry in `AVATAR_ANIMATIONS` naming existing expressions. Nothing else needs to change, and the renderer blends between whatever it is given — including mid-animation, so an interrupted hover picks up from where it stopped rather than snapping.
+
+**The assistant's face is a pure mapping, not scattered conditionals.** `assistantAvatarState` turns `useChat`'s status plus the live tool state into `{ animation, expression, idle }`, and its precedence is the behaviour: a failure outranks everything, a tool call mid-answer reads as working rather than talking, and the acknowledgement wink is time-boxed. Change the mapping there and its test, never by branching inside a component.
 
 `<FreenaryAvatar>` owns the frame loop and writes `d` attributes directly, bypassing React: paths are recomputed per frame, so re-rendering them from React would fight the loop. A render still re-applies the resting paths, which is why the live frame is written back in a layout effect before the browser paints. Under `prefers-reduced-motion` an animation jumps straight to its final expression — no coin, no tilt, no blinking.
 

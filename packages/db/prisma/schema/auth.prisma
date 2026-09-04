@@ -18,6 +18,7 @@ model User {
   merchantOverrides     MerchantOverride[]
   budgetLines           BudgetLine[]
   customCategories      CustomCategory[]
+  conversations         Conversation[]
 
   @@unique([email])
   @@map("user")
