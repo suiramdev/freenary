@@ -14,6 +14,7 @@ model User {
   twoFactors            TwoFactor[]
   passkeys              Passkey[]
   bankConnections       BankConnection[]
+  bankProviderUsers     BankProviderUser[]
   merchantOverrides     MerchantOverride[]
   budgetLines           BudgetLine[]
   customCategories      CustomCategory[]

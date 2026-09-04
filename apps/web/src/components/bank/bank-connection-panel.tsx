@@ -47,6 +47,8 @@ export const BankConnectionPanel = ({
     disconnectingId,
     isConnectionsMissing,
     isConnectionsPending,
+    resync,
+    resyncingId,
   } = useBankConnections({ returnTo });
 
   const rows = useMemo(
@@ -105,7 +107,9 @@ export const BankConnectionPanel = ({
           }
         }}
         onDisconnect={disconnect}
+        onSync={resync}
         rows={filtered}
+        syncingId={resyncingId}
       />
     </div>
   );

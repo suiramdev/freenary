@@ -7,11 +7,22 @@ Freenary supports both synchronization and manual entry. Automatic synchronizati
 
 ## Connecting a provider
 
-When synchronizing, the user chooses a bank or financial institution and establishes a connection through [Enable Banking](https://enablebanking.com) or another configured provider. After authorization, available accounts, balances and transactions are imported. The internal provider layer hides technical differences between providers so the workflow stays consistent regardless of the underlying connector.
+When synchronizing, the user chooses a bank or financial institution and establishes a connection through [Powens](https://www.powens.com) (the default) or [Enable Banking](https://enablebanking.com), whichever the instance is configured with. After authorization, available accounts, balances and transactions are imported. The internal provider layer hides technical differences between providers so the workflow stays consistent regardless of the underlying connector.
 
 Banks are connected in two places, each showing one searchable list of banks with the ones already connected at the top: the **Connect your bank** step during onboarding, and the **Bank accounts** section of [Settings](/docs/settings). Skipping the onboarding step costs nothing — Settings offers the same list afterwards.
 
 A bank counts as connected only once you have authorized it at the bank and been redirected back. Leaving the bank's consent screen without finishing connects nothing.
+
+## Re-syncing on demand
+
+Connected banks are read in the background when you open [Budget](/docs/budget), and only for what has happened since the last read. Two buttons ask for more than that:
+
+- The refresh button in the Budget header re-reads every connected bank.
+- The refresh button on a connected bank's row, wherever banks are listed, re-reads that one bank.
+
+Both force a full pass rather than resuming: they re-read the whole window the provider serves — about three months — and work out every category again from the result. Use one after correcting nothing and still seeing transactions you expect to be categorized, since a re-read is what applies an improved categorization to transactions already imported. Your own category corrections are kept either way; nothing you set by hand is recomputed.
+
+A bank the provider cannot reach is reported, and the other banks still finish.
 
 ## Disconnecting a bank
 

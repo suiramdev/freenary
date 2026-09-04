@@ -1,6 +1,6 @@
 # Freenary — Project Context
 
-Freenary is an open-source, AI-powered personal finance and wealth-management platform. It aggregates financial data from multiple providers (such as Enable Banking), unifies banking, investments, assets, liabilities and transactions into a common financial model, and uses that model to provide budgeting, portfolio analytics, planning, simulations, financial insights and intelligent assistance.
+Freenary is an open-source, AI-powered personal finance and wealth-management platform. It aggregates financial data from multiple providers (such as Powens or Enable Banking), unifies banking, investments, assets, liabilities and transactions into a common financial model, and uses that model to provide budgeting, portfolio analytics, planning, simulations, financial insights and intelligent assistance.
 
 The ambition is a **user-controlled personal financial operating system**, not another isolated finance app. The progression at the heart of the project: connect the financial data → understand the present → analyze what can be improved → define where the user wants to go → simulate possible futures → help the user make informed decisions.
 
@@ -35,7 +35,7 @@ Areas are perspectives on one shared model — never independent mini-applicatio
 Terms defined here are canonical; do not drift to synonyms.
 
 - **Financial model** — the single internal representation of a user's financial life that every area reads from.
-- **Connection** — the external institution/provider link through which data is synchronized (e.g. a bank connected via Enable Banking).
+- **Connection** — the external institution/provider link through which data is synchronized (e.g. a bank connected via Powens).
 - **Account** — a container of holdings within a connection or created manually (bank account, brokerage account, life-insurance contract, crypto account). Hierarchy: Connection → Account → Holding / Transaction.
 - **Asset** — anything contributing to wealth, synchronized or manual: accounts, real estate, private companies, precious metals, vehicles, collectibles, employee equity, loans made to others.
 - **Holding** — an individual security inside an account, with units, cost basis, price and value.
@@ -44,7 +44,7 @@ Terms defined here are canonical; do not drift to synonyms.
 - **Budget period** — configurable cycle for cash-flow analysis (monthly, quarterly, yearly, arbitrary range), not assumed to be the calendar month.
 - **Recurring expense** — a repeating payment detected from transaction history (subscription, insurance, rent).
 - **Goal** — a user-defined financial objective with target amount/date, linked assets and planned contributions; progress computed against contributions, expected returns and inflation. The emergency fund is a specialized goal expressed in months of essential expenses.
-- **Provider adapter** — an interchangeable connector behind a provider abstraction layer (banking, brokerage, market data, FX, crypto, AI). Enable Banking is one banking adapter, not a dependency of the project.
+- **Provider adapter** — an interchangeable connector behind a provider abstraction layer (banking, brokerage, market data, FX, crypto, AI). Powens and Enable Banking are two banking adapters, neither a dependency of the project.
 - **Investor profile** — user context not inferable from accounts (household, horizon, risk tolerance); part of the financial model, evolving over time.
 - **Scope** — a financial perimeter: personal profile or household with per-item ownership attribution.
 

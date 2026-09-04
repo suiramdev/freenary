@@ -27,6 +27,25 @@ export interface DeterministicResult {
 }
 
 /**
+ * A rule hit that survives the direction check. An expense keyword on a credit
+ * describes a refund, not that spending category — and it must not veto the
+ * next source either: a salary credit whose bank code reads "transfer" is a
+ * salary, not an unresolvable transfer.
+ */
+const accept = (
+  category: SpendingCategory | null,
+  amountMinor: number
+): DeterministicResult | null => {
+  if (!category) {
+    return null;
+  }
+  if (amountMinor > 0 && CATEGORY_GROUP_OF[category] !== "income") {
+    return null;
+  }
+  return { category, confidence: RULE_CONFIDENCE, stage: "rules" };
+};
+
+/**
  * Categorise from merchant category code and country rules.
  * Returns null when no rule matches with sufficient confidence — the caller
  * then falls through to the classifier.
@@ -59,21 +78,21 @@ export const deterministicCategory = (
 
   // The counterparty name is the cleaner signal, so it is read first; the
   // descriptor still gets a turn when the bank reports no counterparty or the
-  // name matches nothing.
-  const candidate =
-    (bankCode ? matchKeyword(tables.bankCode, bankCode) : null) ??
-    (payee ? matchKeyword(tables.counterparty, payee) : null) ??
-    (descriptor ? matchKeyword(tables.counterparty, descriptor) : null);
-
-  if (!candidate) {
-    return null;
-  }
-
-  // An expense keyword on a credit describes a refund, not that spending
-  // category. Only an income match survives the direction check.
-  if (amountMinor > 0 && CATEGORY_GROUP_OF[candidate] !== "income") {
-    return null;
-  }
-
-  return { category: candidate, confidence: RULE_CONFIDENCE, stage: "rules" };
+  // name matches nothing. The bank-code table goes last against the
+  // descriptor: "VIREMENT SALAIRE" carries the same rent/salary/tax wording in
+  // its label as another bank sends in its transaction code.
+  return (
+    (bankCode
+      ? accept(matchKeyword(tables.bankCode, bankCode), amountMinor)
+      : null) ??
+    (payee
+      ? accept(matchKeyword(tables.counterparty, payee), amountMinor)
+      : null) ??
+    (descriptor
+      ? accept(matchKeyword(tables.counterparty, descriptor), amountMinor)
+      : null) ??
+    (descriptor
+      ? accept(matchKeyword(tables.bankCode, descriptor), amountMinor)
+      : null)
+  );
 };

@@ -60,7 +60,7 @@ When building UI, still decompose top-down into these levels: split out the smal
 
 ### Rendering
 
-**Routes render on the server.** The only route that opts out is `callback/enable-banking`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
+**Routes render on the server.** The only route that opts out is `callback/$provider`, whose code exchange needs the session cookie the browser holds. Everything else ships real markup in the first response — the sidebar, the header, section titles and descriptions, and any control that needs no data.
 
 The session lives on the API's own origin, so it is unreadable during SSR. Access rules therefore run in `AuthGate` (`@/components/auth/auth-gate.tsx`), never in a route's `beforeLoad`: a `beforeLoad` that awaits the session forces the whole subtree client-only and blanks the shell with it. Give the gate an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects.
 
@@ -107,6 +107,27 @@ dashboard-overview.tsx  → export const DashboardOverview = () => { … }
 ```
 
 Avoid vague names (`form.tsx`, `card.tsx`, `section.tsx`) and PascalCase filenames. Avoid barrel `index.ts` files.
+
+## The avatar
+
+The brand mark is a procedural piggy bank, not an asset: a teal sphere with two eyes and a coin slot, drawn from numbers so it can change expression and be animated. It is also the face the assistant is meant to wear, so treat the expression set as a shared vocabulary rather than as sidebar decoration.
+
+```txt
+@/lib/avatar/geometry.ts       # sphere projection + SVG path builders (pure, no React)
+@/lib/avatar/expressions.ts    # AVATAR_EXPRESSIONS, blending, the blink overlay
+@/lib/avatar/animations.ts     # AVATAR_ANIMATIONS: expression steps with hold + transition
+@/lib/avatar/shading.ts        # AVATAR_SHADING: the sphere's lighting, shared with the favicon
+@/components/shared/freenary-avatar.tsx   # the renderer
+@/components/shared/sidebar-brand.tsx     # the shell's mark, greeting on hover and focus
+```
+
+Every feature is a rounded rectangle laid on the sphere's surface and projected, which is why eyes bulge towards the centre and the slot arches across the crown. Adding a feature means adding a `SurfaceFeature`, never hand-written path data. `avatarPaths` returns paths that fully describe the mark — an expression's `roll` is folded into the projection rather than left to the caller as a `rotate()`, so a second consumer cannot draw it upright by forgetting.
+
+**Expressions are numbers, and animations are lists of expressions.** A new expression is an entry in `AVATAR_EXPRESSIONS`; a new performance is an entry in `AVATAR_ANIMATIONS` naming existing expressions. Nothing else needs to change, and the renderer blends between whatever it is given — including mid-animation, so an interrupted hover picks up from where it stopped rather than snapping.
+
+`<FreenaryAvatar>` owns the frame loop and writes `d` attributes directly, bypassing React: paths are recomputed per frame, so re-rendering them from React would fight the loop. A render still re-applies the resting paths, which is why the live frame is written back in a layout effect before the browser paints. Under `prefers-reduced-motion` an animation jumps straight to its final expression — no coin, no tilt, no blinking.
+
+**The favicon is generated from the same modules.** `bun run favicon` in `apps/web` rewrites `public/favicon.svg` from the `neutral` expression, taking geometry from `avatarPaths` and lighting from `AVATAR_SHADING`, so retuning either cannot leave the tab icon behind. Colors are the one duplication: literal in the script because theme tokens do not exist in a favicon, mirroring `--avatar-*` in `@freenary/ui` — change one and change the other. `public/favicon.png` is the 32px raster fallback for browsers that ignore SVG favicons, and the script rewrites it only when `rsvg-convert` or `resvg` is on PATH.
 
 ## Internationalization
 

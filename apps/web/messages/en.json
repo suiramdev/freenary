@@ -144,7 +144,7 @@
   "bank_callback_declined": "Bank connection cancelled. Nothing was linked.",
   "bank_callback_failed_onboarding": "Bank connection failed. You can try again or skip.",
   "bank_callback_failed_settings": "Bank connection failed. You can try again.",
-  "bank_callback_incomplete": "Missing authorization code.",
+  "bank_callback_incomplete": "The bank sent back an incomplete response.",
   "bank_callback_loading": "Finishing bank connection",
   "bank_callback_success": "Bank connected",
   "bank_callback_success_accounts": [
@@ -199,8 +199,10 @@
   "bank_list_loading": "Loading banks",
   "bank_row_never_synced": "{accounts} · Not synced yet",
   "bank_row_reconnect": "{accounts} · Reconnect to resume importing",
+  "bank_row_sync": "Re-sync {institution}",
   "bank_row_synced": "{accounts} · Synced {date}",
   "bank_search_placeholder": "Search banks…",
+  "bank_sync_success": "{institution} re-synced",
   "budget_aggregation_average": "Monthly avg.",
   "budget_aggregation_median": "Monthly median",
   "budget_aggregation_total": "Total",
@@ -264,7 +266,20 @@
   "budget_summary_net_total": "Net",
   "budget_summary_unavailable": "Unavailable",
   "budget_sync_error": "Failed to sync transactions",
+  "budget_sync_now": "Sync transactions",
   "budget_sync_retry": "Retry",
+  "budget_sync_running": "Syncing…",
+  "budget_sync_success": "Transactions are up to date",
+  "budget_sync_success_categorised": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Up to date · {count} transaction categorised",
+        "countPlural=other": "Up to date · {count} transactions categorised"
+      }
+    }
+  ],
   "budget_tab_incoming": "Incoming · {amount}",
   "budget_tab_outgoing": "Outgoing · {amount}",
   "budget_transaction_paid": "{title}, paid {amount}",
@@ -713,6 +728,8 @@
       }
     }
   ],
+  "shell_brand_name": "Freenary",
+  "shell_brand_tooltip": "Freenary home",
   "shell_dashboard_welcome": "Welcome back, {name}",
   "shell_nav_planned_badge": "Planned",
   "shell_nav_planned_tooltip": "{page} (planned)",

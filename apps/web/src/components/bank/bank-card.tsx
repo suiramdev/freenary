@@ -11,6 +11,7 @@ import { Spinner } from "@freenary/ui/components/spinner";
 import { RiBankLine } from "@remixicon/react";
 
 import { DisconnectBankDialog } from "@/components/bank/disconnect-bank-dialog";
+import { SyncButton } from "@/components/shared/sync-button";
 import type { BankRow } from "@/lib/bank/bank-rows";
 import { m } from "@/paraglide/messages.js";
 
@@ -19,7 +20,9 @@ interface BankCardProps {
   disconnecting: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
+  onSync: () => void;
   row: BankRow;
+  syncing: boolean;
 }
 
 export const BankCard = ({
@@ -27,7 +30,9 @@ export const BankCard = ({
   disconnecting,
   onConnect,
   onDisconnect,
+  onSync,
   row,
+  syncing,
 }: BankCardProps) => (
   <Item
     render={<li />}
@@ -50,12 +55,20 @@ export const BankCard = ({
     </ItemContent>
     <ItemActions>
       {row.connection ? (
-        <DisconnectBankDialog
-          accountCount={row.connection.accounts.length}
-          institutionName={row.name}
-          isDisconnecting={disconnecting}
-          onConfirm={onDisconnect}
-        />
+        <>
+          <SyncButton
+            isSyncing={syncing}
+            label={m.bank_row_sync({ institution: row.name })}
+            onSync={onSync}
+            size="icon-sm"
+          />
+          <DisconnectBankDialog
+            accountCount={row.connection.accounts.length}
+            institutionName={row.name}
+            isDisconnecting={disconnecting}
+            onConfirm={onDisconnect}
+          />
+        </>
       ) : (
         <Button
           disabled={connecting}

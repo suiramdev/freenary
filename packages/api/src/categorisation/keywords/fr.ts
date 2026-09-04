@@ -28,3 +28,15 @@ export const counterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
   [tokens("sci|hlm|opac|bailleurs?"), "rent"],
   [tokens("pharmacies?"), "pharmacy"],
 ];
+
+/** Service words French banks append after a brand ("edf electricite"). */
+export const merchantQualifiers: readonly string[] = [
+  "abonnement",
+  "electricite",
+  "energie",
+  "energies",
+  "fibre",
+  "forfait",
+  "france",
+  "gaz",
+];

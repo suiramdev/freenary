@@ -24,6 +24,7 @@ export const env = createEnv({
      * no route to it at all, so it stays switchable.
      */
     AUTH_PASSWORD_BREACH_CHECK: z.stringbool().default(true),
+    BANKING_PROVIDER: z.enum(["powens", "enable-banking"]).default("powens"),
     BETTER_AUTH_SECRET: z
       .string()
       .min(32)
@@ -68,6 +69,10 @@ export const env = createEnv({
       .transform(Number)
       .pipe(z.number().int().positive().max(65_535))
       .default(3000),
+    POWENS_CLIENT_ID: z.string().optional(),
+    POWENS_CLIENT_SECRET: z.string().optional(),
+    /** Powens API domain, e.g. "acme-sandbox"; a trailing ".biapi.pro" is tolerated. */
+    POWENS_DOMAIN: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     SMTP_HOST: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),

@@ -148,4 +148,27 @@ describe("deterministicCategory", () => {
     );
     expect(result?.category).toBe("salary");
   });
+
+  // Powens sends its own type as the bank code, so a salary credit arrives as
+  // "transfer" — a match the direction check refuses. The label still says
+  // what it is.
+  it("reads the country's wording from the descriptor when the bank code is refused", () => {
+    const result = deterministicCategory(
+      input({
+        amountMinor: 250_000,
+        bankTransactionCode: "transfer",
+        country: "FR",
+        normalisedDescriptor: "salaire",
+      })
+    );
+    expect(result?.category).toBe("salary");
+  });
+
+  it("reads rent wording from the descriptor", () => {
+    expect(
+      deterministicCategory(
+        input({ country: "FR", normalisedDescriptor: "loyer mensuel" })
+      )?.category
+    ).toBe("rent");
+  });
 });

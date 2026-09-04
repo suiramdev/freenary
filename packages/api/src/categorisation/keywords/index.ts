@@ -18,12 +18,14 @@ import * as fr from "./fr";
 interface KeywordModule {
   readonly bankCodeKeywords: readonly [RegExp, SpendingCategory][];
   readonly counterpartyKeywords: readonly [RegExp, SpendingCategory][];
+  readonly merchantQualifiers: readonly string[];
 }
 
-/** The two tables one lookup needs, already in layer order. */
+/** The tables one lookup needs, already in layer order. */
 export interface KeywordTables {
   readonly bankCode: readonly (readonly [RegExp, SpendingCategory])[];
   readonly counterparty: readonly (readonly [RegExp, SpendingCategory])[];
+  readonly merchantQualifiers: ReadonlySet<string>;
 }
 
 /**
@@ -44,6 +46,10 @@ const layer = (country?: KeywordModule): KeywordTables => ({
   counterparty: country
     ? [...country.counterpartyKeywords, ...defaults.counterpartyKeywords]
     : defaults.counterpartyKeywords,
+  merchantQualifiers: new Set([
+    ...(country?.merchantQualifiers ?? []),
+    ...defaults.merchantQualifiers,
+  ]),
 });
 
 // Concatenated once at module load: the lookup runs per transaction, so the

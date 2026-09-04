@@ -1,0 +1,41 @@
+---
+title: Self-hosting
+description: Choosing and configuring a bank provider.
+icon: Server
+---
+
+A self-hosted instance connects banks through one provider, chosen by configuration. Everything else about the bank flow — the searchable bank list, the redirect to your bank, syncing, disconnecting — behaves the same whichever one you pick.
+
+## Bank providers
+
+`BANKING_PROVIDER` selects the provider and defaults to `powens`. The other accepted value is `enable-banking`. An instance with no provider credentials still runs: the bank list reports that bank linking is unavailable, and onboarding skips the connect step.
+
+### Powens
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=12345678
+POWENS_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+`POWENS_DOMAIN` is the domain name you created in the [Powens console](https://console.powens.com) — `acme-sandbox`, not the full API host. Register `https://<your web origin>/callback/powens` as a redirect URL of the same client application; Powens refuses a redirect URL it does not hold, and it must be HTTPS.
+
+Investment accounts, their balances and their holdings need **Wealth & Loans** activated on the domain, which Powens does per domain through your account manager. Without it a connection still works and still syncs transactions — the investment accounts and holdings are simply absent.
+
+### Enable Banking
+
+```dotenv
+BANKING_PROVIDER=enable-banking
+ENABLE_BANKING_APP_ID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+ENABLE_BANKING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----"
+```
+
+Register an application in the [Enable Banking control panel](https://enablebanking.com/sign-in/), download its private key, and add `https://<your web origin>/callback/enable-banking` to its redirect URLs. Enable Banking reports no account kind, balance or holdings, so accounts imported through it carry transactions only.
+
+<Callout type="info">
+  Changing `BANKING_PROVIDER` never touches the banks already connected. Each
+  connection remembers the provider it was created with and keeps syncing
+  through it, so a switch only decides which provider the next connection uses.
+  Both providers' credentials can be set at once.
+</Callout>

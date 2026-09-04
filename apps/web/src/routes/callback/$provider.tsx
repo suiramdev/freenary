@@ -16,18 +16,23 @@ import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
-const callbackSearchSchema = z.object({
-  code: z.string().optional(),
-  error: z.string().optional(),
-  // TanStack Router auto-parses JSON-shaped query values into objects;
-  // Enable Banking sends state as a JSON string, so coerce it back.
-  state: z.preprocess((v) => {
-    if (v === undefined || v === null || v === "") {
-      return;
+/**
+ * Providers append their own query parameters, and TanStack Router auto-parses
+ * JSON-shaped and numeric values — so each one is normalised back to the string
+ * the provider actually sent, for whichever adapter knows what it means.
+ */
+const callbackSearchSchema = z
+  .record(z.string(), z.unknown())
+  .transform((search) => {
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(search)) {
+      if (value !== undefined && value !== null) {
+        params[key] =
+          value instanceof Object ? JSON.stringify(value) : String(value);
+      }
     }
-    return v instanceof Object ? JSON.stringify(v) : String(v);
-  }, z.string().optional()),
-});
+    return params;
+  });
 
 const readReturnTo = (state: string): "onboarding" | "settings" => {
   try {
@@ -55,12 +60,10 @@ const ConnectingBank = () => (
   </div>
 );
 
-const EnableBankingCallback = () => {
+const BankConnectionCallback = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { exchangeResult } = useRouteContext({
-    from: "/callback/enable-banking",
-  });
+  const { exchangeResult } = useRouteContext({ from: "/callback/$provider" });
 
   useEffect(() => {
     // Only a completed exchange creates the connection, so this is the first
@@ -98,37 +101,49 @@ const EnableBankingCallback = () => {
   return <ConnectingBank />;
 };
 
-export const Route = createFileRoute("/callback/enable-banking")({
-  // Exchanging the authorization code needs the session cookie, which only the
+export const Route = createFileRoute("/callback/$provider")({
+  // Exchanging the provider's callback needs the session cookie, which only the
   // browser holds — this route cannot run on the server.
   ssr: false,
   pendingComponent: ConnectingBank,
+  // Every provider appends its own parameters, so they all pass through to the
+  // adapter that knows them.
   validateSearch: callbackSearchSchema,
-  beforeLoad: async ({ search }) => {
+  beforeLoad: async ({ params, search }) => {
     const session = await authClient.getSession();
     if (!session.data) {
       throw redirect({ to: "/login" });
     }
 
-    // No code means nothing to exchange: the user declined or cancelled at the
-    // bank, or landed here bare. The bank still echoes `state`, so the flow can
-    // still return to wherever it started.
-    if (!(search.code && search.state)) {
+    const { error, state } = search;
+
+    // An `error` parameter means the user declined or cancelled at the bank;
+    // the provider still echoes `state`, so the flow returns where it started.
+    if (error) {
       return {
         exchangeResult: {
           ok: false as const,
-          reason: search.error
-            ? ("declined" as const)
-            : ("incomplete" as const),
-          returnTo: search.state ? readReturnTo(search.state) : "onboarding",
+          reason: "declined" as const,
+          returnTo: state ? readReturnTo(state) : "onboarding",
+        },
+      };
+    }
+
+    // Without state there is nothing to verify the callback against.
+    if (!state) {
+      return {
+        exchangeResult: {
+          ok: false as const,
+          reason: "incomplete" as const,
+          returnTo: "onboarding" as const,
         },
       };
     }
 
     try {
       const result = await client.bankConnection.exchangeCode({
-        code: search.code,
-        state: search.state,
+        params: search,
+        providerId: params.provider,
       });
       return {
         exchangeResult: {
@@ -145,10 +160,10 @@ export const Route = createFileRoute("/callback/enable-banking")({
         exchangeResult: {
           ok: false as const,
           reason: "failed" as const,
-          returnTo: readReturnTo(search.state),
+          returnTo: readReturnTo(state),
         },
       };
     }
   },
-  component: EnableBankingCallback,
+  component: BankConnectionCallback,
 });

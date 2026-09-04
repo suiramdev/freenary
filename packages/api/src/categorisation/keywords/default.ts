@@ -30,6 +30,17 @@ export const bankCodeKeywords: readonly [RegExp, SpendingCategory][] = [
   ],
 ];
 
+/**
+ * Service words banks append after a brand ("free mobile"). They are stripped
+ * from the tail of a merchant key that missed the dictionary, never from the
+ * middle: "t mobile" is the brand, "mobile" alone is not.
+ */
+export const merchantQualifiers: readonly string[] = [
+  "internet",
+  "mobile",
+  "telecom",
+];
+
 /** Counterparty-name keywords. */
 export const counterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
   [tokens("uber|lyft|bolt|taxis?|cabify"), "taxi"],

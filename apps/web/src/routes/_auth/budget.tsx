@@ -12,6 +12,7 @@ import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { TransactionDetailDrawer } from "@/components/budget/transaction-detail-drawer";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { SyncButton } from "@/components/shared/sync-button";
 import { useAccountSync } from "@/hooks/budget/use-account-sync";
 import { useBudgetView } from "@/hooks/budget/use-budget-view";
 import { toggleCategoryFilter } from "@/lib/budget/category-selection";
@@ -20,6 +21,7 @@ import type {
   CategorySelection,
 } from "@/lib/budget/category-selection";
 import { budgetSearchSchema } from "@/lib/budget/search";
+import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 const BudgetPage = () => {
@@ -120,7 +122,7 @@ const BudgetPage = () => {
     placeholderData: keepPreviousData,
   });
 
-  useAccountSync(accountsQuery.data?.hasAccounts);
+  const { isSyncing, resync } = useAccountSync(accountsQuery.data?.hasAccounts);
 
   const handleLoadMore = useCallback(() => {
     if (
@@ -167,6 +169,13 @@ const BudgetPage = () => {
   return (
     <div className="@container/budget flex flex-1 flex-col gap-6 p-4">
       <PeriodNavigator
+        actions={
+          <SyncButton
+            isSyncing={isSyncing}
+            label={m.budget_sync_now()}
+            onSync={resync}
+          />
+        }
         aggregation={aggregation}
         from={from}
         to={to}
