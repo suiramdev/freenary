@@ -1,0 +1,36 @@
+/// One assistant conversation. A user has at most one active thread: starting a
+/// new one stamps `archivedAt` on the old rather than deleting it.
+model Conversation {
+  id         String                @id @default(cuid())
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  archivedAt DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  messages   ConversationMessage[]
+
+  @@index([userId, archivedAt])
+  @@map("conversation")
+}
+
+/// One turn, stored as the AI SDK's `UIMessage.parts` array so tool calls and
+/// their results replay exactly as they streamed.
+model ConversationMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           ConversationRole
+  /// Monotonic within a conversation; both messages of one turn can land in the
+  /// same millisecond, so `createdAt` cannot order them.
+  ordinal        Int
+  parts          Json
+  createdAt      DateTime         @default(now())
+
+  @@unique([conversationId, ordinal])
+  @@map("conversation_message")
+}
+
+enum ConversationRole {
+  USER
+  ASSISTANT
+}

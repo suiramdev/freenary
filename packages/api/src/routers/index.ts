@@ -1,6 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { assistantRouter } from "./assistant";
 import { authRouter } from "./auth";
 import { bankConnectionRouter } from "./bank-connection";
 import { budgetRouter } from "./budget";
@@ -8,6 +9,7 @@ import { onboardingRouter } from "./onboarding";
 import { settingsRouter } from "./settings";
 
 export const appRouter = {
+  assistant: assistantRouter,
   auth: authRouter,
   bankConnection: bankConnectionRouter,
   budget: budgetRouter,

@@ -19,7 +19,10 @@ export default defineConfig({
     ".roo/**",
     ".windsurf/**",
     "tools/oxlint/anti-slop/**",
+    // Registry-generated components, re-fetchable with their CLI: linting them
+    // into repo style would have to be redone on every update.
     "packages/ui/**",
+    "apps/web/src/components/ai-elements/**",
     "apps/web/src/paraglide/**",
   ],
   jsPlugins: [

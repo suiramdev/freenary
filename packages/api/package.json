@@ -17,6 +17,7 @@
     "train:model": "bun scripts/train-model.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.43",
     "@freenary/auth": "workspace:*",
     "@freenary/db": "workspace:*",
     "@freenary/env": "workspace:*",
@@ -24,8 +25,10 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "ai": "^7.0.62",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "evlog": "catalog:",
     "fflate": "^0.8.3",
     "zod": "catalog:"
   },

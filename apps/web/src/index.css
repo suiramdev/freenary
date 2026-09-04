@@ -1,1 +1,5 @@
 @import "@freenary/ui/globals.css";
+
+/* Streamdown ships prebuilt classes for the markdown the assistant streams;
+   Tailwind has to scan them or MessageResponse renders unstyled. */
+@source "../node_modules/streamdown/dist/*.js";

@@ -114,15 +114,18 @@ Avoid vague names (`form.tsx`, `card.tsx`, `section.tsx`) and PascalCase filenam
 
 ## The avatar
 
-The brand mark is a procedural character, not an asset: the tricolour donut, drawn from numbers so it can morph into an expression, a loading spinner or a notification dot. **It lives in `@freenary/ui`, not here** — see [The Brand Avatar](../../packages/ui/AGENTS.md#the-brand-avatar) for the engine, the state library and the invariants that hold it together. This app owns three things:
+The brand mark is a procedural character, not an asset: the tricolour donut, drawn from numbers so it can morph into an expression, a loading spinner or a notification dot. **It lives in `@freenary/ui`, not here** — see [The Brand Avatar](../../packages/ui/AGENTS.md#the-brand-avatar) for the engine, the state library and the invariants that hold it together. This app owns four things:
 
 ```txt
 @/components/shared/sidebar-brand.tsx   # the shell's mark, greeting on hover and focus
 @/components/auth/auth-form.tsx         # the sign-in screen's mark, driven by use-auth-avatar
+@/lib/assistant/avatar-state.ts         # agent state -> BrandAvatarState, with precedence
 scripts/generate-favicon.ts             # public/favicon.svg + favicon.png
 ```
 
-**Nothing below the component decides _when_ a state applies; callers pass `state`.** `SidebarBrand` holds `logo` and swaps to `happy` while pointed at or focused. `useAuthAvatar` (`@/hooks/auth/use-auth-avatar.ts`) reads focus and input events bubbling from the sign-in form — `curious` at a field, `listening` while keys land, `shy` at a password, `loading`, `error` and `success` from the flow's outcome — so no field knows the mark exists. The states an assistant would need — `thinking`, `speaking`, `concerned` — exist and are unused on purpose, waiting on the feature that has the context to trigger them. The sign-in screen's other half is `BrandPattern` (`@freenary/ui/components/brand-pattern`), the mark tiled as a decorative field.
+**Nothing below the component decides _when_ a state applies; callers pass `state`.** `SidebarBrand` holds `logo` and swaps to `happy` while pointed at or focused. `useAuthAvatar` (`@/hooks/auth/use-auth-avatar.ts`) reads focus and input events bubbling from the sign-in form — `curious` at a field, `listening` while keys land, `shy` at a password, `loading`, `error` and `success` from the flow's outcome — so no field knows the mark exists. Home's assistant drives `thinking`, `speaking`, `concerned` and `success` the same way, from `assistantAvatarState`. The sign-in screen's other half is `BrandPattern` (`@freenary/ui/components/brand-pattern`), the mark tiled as a decorative field.
+
+**The assistant's face is a pure mapping, not scattered conditionals.** `assistantAvatarState` (`@/lib/assistant/avatar-state.ts`) turns `useChat`'s status plus the live tool state into one `BrandAvatarState`, and its precedence is the behaviour: a failure outranks everything, a tool call mid-answer reads as `thinking` rather than `speaking`, and the `success` acknowledgement is time-boxed. Change the mapping there and its test, never by branching inside a component.
 
 **The favicon is generated from the same modules.** `bun run favicon` rewrites `public/favicon.svg` from `brandAvatarFrame("logo", 0)`, so retuning the mark cannot leave the tab icon behind. `logo` is the one state with no clock in it, which is why a favicon can hold it. The ink colour is the one duplication the generator carries: `currentColor` in the app, two literals plus a `prefers-color-scheme` query in the script, because a tab icon has no theme. `logo` closes its aperture over the face and so emits no ink today, and the script leaves the stylesheet out rather than shipping it dead — which is why the tab icon is identical in light and dark. `public/favicon.png` is the 32px raster fallback for browsers that ignore SVG favicons, and the script rewrites it only when `rsvg-convert` or `resvg` is on PATH.
 

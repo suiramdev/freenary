@@ -3,22 +3,56 @@ title: AI
 description: A core financial layer, not a chatbot bolted on top.
 ---
 
-Artificial intelligence is a fundamental component of Freenary. Because Freenary holds structured information about accounts, transactions, investments, goals and historical behavior, an AI system can reason across the user's complete financial context.
+Because Freenary holds structured information about your accounts, transactions and budget, it can be asked questions in plain language instead of navigated. The assistant lives on [Home](/docs/home): type a question, and it looks the answer up in your own data before writing it.
 
-## Answering questions in plain language
+## Asking a question
 
-- "How much did I spend on restaurants during the last six months?" — translated into an analysis of categorized transactions.
-- "Can I afford a €3,000 holiday in October?" — considering cash balances, expected income, upcoming recurring expenses and other goals.
-- "Why did my net worth decrease this month?" — separating spending, investment losses, debt changes and account movements.
+Home opens on the mark and a text box. Ask anything the financial model can answer:
 
-More sophisticated questions span multiple areas: "If I increase my ETF investment to €800 per month, when could I reach €500,000?" or "Would increasing my mortgage payment or investing the difference have been more advantageous historically?" The AI layer can combine financial calculators, projections and actual financial data into structured scenarios.
+- "How much did I spend on eating out this year?"
+- "Where did my money go last month?"
+- "Which subscriptions am I paying for?"
+- "Am I over my plan on groceries?"
 
-## Proactive insights
+The assistant answers in the language you chose in [Language](/docs/language), and amounts arrive formatted the way the rest of the interface formats them.
 
-Freenary can surface observations without being asked: savings falling for several consecutive months, significant spending shifts, unusually concentrated portfolios, disproportionately high fees, or cash accumulating far beyond the safety target.
+## What it looks up
+
+The assistant cannot see your data directly. It has a fixed set of lookups, and each one asks Freenary the very same question a screen asks:
+
+| Lookup | What it reads |
+| --- | --- |
+| **Checking your accounts** | Which banks are connected, and the period your transactions cover. |
+| **Reading your spending by category** | Outgoing totals per category group, over a period. |
+| **Reading your cash flow** | Money in and money out over time. |
+| **Splitting fixed and variable spending** | Which part of your outgoings recurs and which does not. |
+| **Comparing your plan with what you spent** | Your [budgeting profile](/docs/settings#budgeting-profile) against reality. |
+| **Looking for recurring payments** | Subscriptions and other repeating payments over the trailing year. |
+| **Searching your transactions** | Individual operations, filtered by text, category or direction. |
+
+Each lookup appears in the conversation as a row you can open, named in your language, showing whether it succeeded. That is the point: an answer is traceable to the questions that produced it, and the figures come from the same code that draws the charts in [Budget](/docs/budget) — the assistant and the charts cannot disagree.
+
+## The mark answers with you
+
+The [mark](/docs/avatar) sits beside every answer and shows what the assistant is doing: it shrinks and looks aside while it reads your data, its mouth moves while it writes, the ring goes green when the answer lands, and it shakes and turns red when something fails. It also looks up while you are typing.
+
+## One conversation
+
+Home keeps one conversation, and it survives a reload — reopening Freenary picks up where you left off. **New conversation** starts a fresh one; the old thread is set aside rather than deleted.
 
 ## Explainability
 
-Freenary clearly distinguishes information, mathematical simulation and regulated financial advice. AI responses expose their assumptions, and calculations remain inspectable rather than presenting uncertain projections as guarantees.
+Freenary distinguishes information, mathematical simulation and regulated financial advice. The assistant states figures it read from your data and never invents one: if the period you asked about is outside the data you have, it says so rather than extrapolating. Every answer carries the reminder that it is information and arithmetic, not advice.
 
-Explainability is central: when the AI states spending increased by 22%, the user can open the underlying transactions; when it says a portfolio is concentrated in technology, the holdings responsible are inspectable. The AI functions as **an interface to the underlying financial model**, never as an opaque source of answers.
+<Callout type="info">
+  Not built yet: charts drawn by the assistant, insights it raises without being
+  asked, and a model that runs inside your browser. Today it answers in text,
+  with the lookups above, using whichever model your instance is configured
+  with. Amounts are shown in euros unless a lookup reports another currency.
+</Callout>
+
+## Self-hosted instances
+
+The assistant needs a model, and Freenary ships with none: an instance whose operator has not configured one shows "The assistant is not configured" on Home instead of a text box. Any OpenAI-compatible endpoint works, including a model running on your own hardware — see [Self-hosting](/docs/self-hosting#ai-assistant).
+
+Questions are rate-limited per account, because every question costs the operator money at their provider.

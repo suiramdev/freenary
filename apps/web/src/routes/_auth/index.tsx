@@ -1,31 +1,34 @@
-import { Skeleton } from "@freenary/ui/components/skeleton";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import type { UIMessage } from "ai";
 
+import { AssistantChat } from "@/components/assistant/assistant-chat";
 import { authClient } from "@/lib/auth-client";
-import { m } from "@/paraglide/messages.js";
+import { orpc } from "@/utils/orpc";
 
-const DashboardPage = () => {
-  // The page is server-rendered for a member, but the name is the browser's
-  // to fetch; the heading says so itself, since a nameless heading is what a
-  // reader navigating by headings would land on.
-  const { data: session, isPending } = authClient.useSession();
+const HomePage = () => {
+  // AuthGate only renders this once the session has resolved.
+  const { data: session } = authClient.useSession();
+  const { data, isPending } = useQuery(
+    orpc.assistant.getConversation.queryOptions()
+  );
+
+  // SAFETY: `parts` is the JSON the assistant's own stream wrote, so the stored
+  // shape is `UIMessage["parts"]` by construction; the API cannot type a JSON
+  // column more precisely than that.
+  const initialMessages = data?.messages as UIMessage[] | undefined;
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <h1 aria-busy={isPending || undefined} className="text-2xl font-semibold">
-        {isPending ? (
-          <>
-            <output className="sr-only">{m.shell_dashboard_loading()}</output>
-            <Skeleton aria-hidden="true" className="h-7 w-72 max-w-full" />
-          </>
-        ) : (
-          m.shell_dashboard_welcome({ name: session?.user.name ?? "" })
-        )}
-      </h1>
-    </div>
+    <AssistantChat
+      configured={data?.configured ?? true}
+      conversationId={data?.conversationId}
+      initialMessages={initialMessages}
+      isPending={isPending}
+      userName={session?.user.name ?? ""}
+    />
   );
 };
 
 export const Route = createFileRoute("/_auth/")({
-  component: DashboardPage,
+  component: HomePage,
 });
