@@ -1,0 +1,211 @@
+---
+title: Architecture
+description: The workspaces of the Freenary monorepo, how one request travels from the browser to Postgres, and what each build produces.
+icon: Blocks
+---
+
+Freenary is one Bun workspace repository with three applications and seven packages. The web app renders every screen, the API server exposes one typed procedure set, and the documentation website is a separate application. Turborepo runs the tasks; Prisma owns the database. This page maps the parts and the path a request takes through them.
+
+## Workspaces
+
+The root `package.json` declares two workspace globs, `apps/*` and `packages/*`. Bun pins shared dependency versions in a catalog, so `zod`, `typescript`, `elysia`, `better-auth` and `react` resolve to one version each.
+
+| Workspace | Path | Owns | Depended on by |
+| --- | --- | --- | --- |
+| `web` | `apps/web` | The web app: routes, screens, message catalogs, the oRPC client | nothing |
+| `server` | `apps/server` | The API server: Elysia routes, CORS, the oRPC handlers, log wiring | nothing |
+| `fumadocs` | `apps/fumadocs` | The documentation website | nothing |
+| `@freenary/api` | `packages/api` | oRPC procedures, bank provider adapters, the categorisation pipeline, the category taxonomy | `web`, `server` |
+| `@freenary/auth` | `packages/auth` | Better Auth setup, cookie policy, password and rate-limit policy | `@freenary/api`, `server` |
+| `@freenary/db` | `packages/db` | The Prisma schema, the migrations, the client singleton | `@freenary/api`, `@freenary/auth`, `server` |
+| `@freenary/email` | `packages/email` | The email provider registry and the message templates | `@freenary/auth` |
+| `@freenary/env` | `packages/env` | The two environment schemas | `@freenary/api`, `@freenary/auth`, `@freenary/db`, `@freenary/email`, `server`, `web` |
+| `@freenary/ui` | `packages/ui` | React primitives | `web` |
+| `@freenary/config` | `packages/config` | The shared TypeScript base config | every workspace except `apps/fumadocs`, as a development dependency |
+
+`apps/fumadocs` depends on no workspace package. It is a standalone application.
+
+## A request end to end
+
+This is one real read: the budget page asks for the user's bank accounts.
+
+<Steps>
+
+<Step>
+  A component calls the oRPC query utilities. `apps/web/src/utils/orpc.ts`
+  builds one `RPCLink` with the URL `${getServerUrl(env.VITE_SERVER_URL)}/rpc`
+  and a `fetch` wrapper that sets `credentials: "include"`.
+</Step>
+
+<Step>
+The browser posts `POST /rpc/budget/getAccounts` with the body `{"json":{}}`. The session cookie `better-auth.session_token` rides along. No procedure answers a `GET`.
+</Step>
+
+<Step>
+Elysia routes the request. `apps/server/src/index.ts` declares `.all("/rpc*", …, { parse: "none" })`, so Elysia does not read the body. The `cors()` plugin admits one origin, `env.CORS_ORIGIN`.
+</Step>
+
+<Step>
+The route handler calls `createContext` from `packages/api/src/context.ts`. It returns exactly `{ auth: null, headers, session }`.
+</Step>
+
+<Step>
+  `createContext` resolves the session with `auth.api.getSession({headers})`.
+  Better Auth reads the cookie and loads the `session` row. With no cookie the
+  session is `null`.
+</Step>
+
+<Step>
+  `RPCHandler` matches the procedure and runs the middleware.
+  `protectedProcedure` in `packages/api/src/index.ts` throws
+  `ORPCError("UNAUTHORIZED")` when `context.session?.user` is absent. The caller
+  gets HTTP 401.
+</Step>
+
+<Step>
+The handler in `packages/api/src/routers/budget.ts` queries Prisma. Ownership is an explicit predicate, `where: { account: { connection: { userId } } }`, because Prisma emits no row-level security.
+</Step>
+
+<Step>
+`RPCHandler` wraps the return value as `{"json": …, "meta": […]}` with status 200. When the handler produces no response, the route falls back to `new Response("Not Found", { status: 404 })`.
+</Step>
+
+</Steps>
+
+A server-rendered page takes a shorter path. The browser requests a route path, and `apps/web/src/server.ts` wraps the TanStack Start server entry with `paraglideMiddleware`, then appends `Vary: Accept-Language, Cookie` to the response. TanStack Start renders the matched route from the generated route tree. During that render `getServerUrl` in `apps/web/src/lib/server-url.ts` prefers `SERVER_URL`, so the server-side fetch reaches the API server over the container network instead of `localhost`.
+
+## The runtime
+
+Bun runs everything. The root `package.json` pins `bun@1.3.14` in `packageManager`, and both production images start from `oven/bun:1`.
+
+| Application | Framework | Entry file | Build command | Output |
+| --- | --- | --- | --- | --- |
+| `apps/server` | Elysia | `apps/server/src/index.ts` | `tsdown` | `apps/server/dist/index.mjs`, ESM |
+| `apps/web` | TanStack Start with Nitro, preset `bun` | `apps/web/src/server.ts` | `vite build` | `apps/web/.output/server/index.mjs` |
+| `apps/fumadocs` | TanStack Start with Nitro, preset `vercel` | route files under `apps/fumadocs/src/routes` | `vite build` | Nitro Vercel output, prerender turned on |
+
+`apps/server/tsdown.config.ts` sets `clean: true`, `format: "esm"` and `deps.alwaysBundle: [/@freenary\/.*/u]`, so the server bundle carries the workspace packages inside it. The web app does the opposite: its runner image copies the whole `/app` tree, because the SSR chunks load workspace dependencies at runtime.
+
+The API server listens on `env.PORT`, default `3000`. The web dev server listens on `3001`. The documentation website dev server listens on `4000`, because the `dev` script passes `vite dev --port=4000`.
+
+## Configuration and validation
+
+`packages/env` is the one seam for configuration. It holds two schemas and nothing else.
+
+| File | Key | Reader | Notes |
+| --- | --- | --- | --- |
+| `packages/env/src/server.ts` | `server` | `import { env } from "@freenary/env/server"` | 33 variables, `runtimeEnv: process.env`, `emptyStringAsUndefined: true`, `skipValidation: !!process.env.SKIP_ENV_VALIDATION` |
+| `packages/env/src/web.ts` | `client`, `clientPrefix: "VITE_"` | `import { env } from "@freenary/env/web"` | `VITE_SERVER_URL`, default `http://localhost:3000` |
+
+Both use `@t3-oss/env-core` with Zod. The rule is simple: add the Zod schema here, then read `env`. No other file reads `process.env`.
+
+Eight places break that rule today. Two of them are legitimate.
+
+| Place | Variable | Why |
+| --- | --- | --- |
+| `packages/env/src/server.ts` | `PORT`, `SKIP_ENV_VALIDATION` | The schema itself. `PORT` is digits-only so the raw string can go into the `BETTER_AUTH_URL` default before coercion. |
+| `apps/server/src/index.ts` | `NODE_ENV` | Picks the evlog drain before `env` is in scope for that expression |
+| `apps/web/src/lib/server-url.ts` | `SERVER_URL` | Server-only value with no `VITE_` prefix, read off `globalThis.process` |
+| `packages/api/src/categorisation/verify.ts` | `DICTIONARY_PUBLIC_KEY` | **Not in the schema.** It skips validation and startup failure. See [Transaction categorisation](/docs/development/categorisation). |
+| `packages/db/prisma.config.ts` | `DATABASE_URL` | The Prisma CLI config. A schema read would abort config load, and `postinstall` must work with no `.env` file. |
+| `packages/api/scripts/download-data.ts` | `GITHUB_REPOSITORY`, `GITHUB_TOKEN` | Build-time script, outside the server process |
+| `scripts/dev.ts` | `FREENARY_SLUG` | Development wrapper, outside the server process |
+| `apps/fumadocs/src/routes/api.chat.ts` | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | The documentation website does not depend on `@freenary/env` |
+
+The operator view of every server variable is [Configuration](/docs/self-hosting/configuration).
+
+## Build and cache
+
+`turbo.json` declares the task graph.
+
+| Task | Depends on | Cache | Notes |
+| --- | --- | --- | --- |
+| `build` | `^build` | yes | `inputs`: `$TURBO_DEFAULT$` and `.env*`; `outputs`: `dist/**` |
+| `build:data` | nothing | **no** | Merchant data artifacts |
+| `lint` | `^lint` | yes | Only `apps/fumadocs` defines the script |
+| `check-types` | `^check-types` | yes | Only `apps/server` and `@freenary/ui` define the script |
+| `dev` | nothing | no | `persistent: true` |
+| `db:push`, `db:generate`, `db:migrate` | nothing | no | `interactive: true` |
+| `db:studio` | nothing | no | `persistent: true` |
+| `db:start`, `db:stop`, `db:watch`, `db:down` | nothing | no | The root scripts call `docker compose` directly instead |
+
+`build` has no dependency on `build:data`. The server image build orders them by hand: `apps/server/Dockerfile` runs `cd packages/api && bun run build:data`, then `cd apps/server && bun run build`.
+
+`build:data` is `bun scripts/download-data.ts || bun run build:data:generate`. The download script fetches the newest GitHub release whose tag starts with `data-`, takes the asset `merchant-data.tar.gz`, and extracts it into `packages/api`. When the download fails, the fallback rebuilds the artifacts from the upstream sources, which takes many minutes and much network.
+
+### Generated artifacts
+
+Git ignores every path below except one, marked in the table. Nothing in this table belongs in a commit.
+
+| Artifact | Path | Produced by |
+| --- | --- | --- |
+| Prisma client | `packages/db/prisma/generated` | `prisma generate`, and `postinstall` on every `bun install` |
+| Route tree | `apps/web/src/routeTree.gen.ts` | The TanStack Start Vite plugin |
+| Compiled messages | `apps/web/src/paraglide/` | `paraglide-js compile`, and the Paraglide Vite plugin. **Not ignored** — see below |
+| Place tokens | `packages/api/data/place-tokens.json` | `packages/api/scripts/generate-place-tokens.ts` |
+| Wikidata brands | `packages/api/data/wikidata-brands.json` | `packages/api/scripts/fetch-wikidata-brands.ts` |
+| Merchant dictionary | `packages/api/data/merchants.jsonl.gz` | `packages/api/scripts/build-merchant-dictionary.ts` |
+| Dictionary signature | `packages/api/data/merchants.jsonl.gz.sig` | The same script, when a signing key exists |
+| Dictionary private key | `packages/api/data/dictionary.key` | `packages/api/scripts/generate-signing-key.ts` |
+| Classifier weights | `packages/api/data/model-weights.json` | `packages/api/scripts/train-model.ts`, when its gate passes |
+| Server bundle | `apps/server/dist/index.mjs` | `tsdown` |
+| Web bundle | `apps/web/.output/server/index.mjs` | `vite build` |
+
+No gitignore rule covers `apps/web/src/paraglide/`. Run `git check-ignore -v apps/web/src/paraglide/messages.js` and it exits 1, while every other row above resolves a rule. `oxlint.config.ts` excludes the directory from lint, which is a different thing. The `dev` script of `apps/web` writes the whole compiled catalog there, so it turns up as untracked files. Never commit them.
+
+The one tracked file under `packages/api/data` is `README.md`.
+
+<Callout type="warn">
+
+A stale Prisma client is the common trap. `packages/db/src/index.ts` imports the generated client, so a schema edit without `bun run db:generate` leaves the old field types in place. The query then fails type-check, and at runtime the new column never reaches Postgres.
+
+</Callout>
+
+## Boundaries
+
+Three boundaries hold the code apart. Break one and the failure is quiet, not loud.
+
+**`packages/api` imports the data and identity packages only.** Its dependencies are `@freenary/auth`, `@freenary/db` and `@freenary/env`. It must not import `@freenary/ui`, `apps/web`, or the compiled message modules. `elysia` is a development dependency for one type: `packages/api/src/context.ts` is the only file that touches the server framework, so a framework change stops there.
+
+**`apps/web` imports the router type, never the implementation.** `apps/web/src/utils/orpc.ts` imports `AppRouter` as a type and calls the procedures over HTTP.
+
+**Responses carry slugs and enum members, never display strings.** The web app carries translations. The API server does not. A human-readable `label` in a response is English text. The client cannot translate it. So the API sends the stable key — `"daily-living"`, `"ACTIVE"` — and the web app maps that key to a message. Text that comes from the user, the bank or the bank provider is data, not interface copy, and passes through as-is.
+
+Interface strings live in `apps/web/messages/en.json` and `apps/web/messages/fr.json`. A key in one catalog and absent from the other compiles with no error. Both catalogs change in the same commit.
+
+Each package states its own rules next to its code:
+
+- [`packages/api/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/api/AGENTS.md)
+- [`packages/db/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/db/AGENTS.md)
+- [`packages/env/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/env/AGENTS.md)
+- [`packages/ui/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/ui/AGENTS.md)
+
+The documentation website has its own rules. Read [Write documentation](/docs/development/writing-docs) before you touch a page.
+
+<Cards>
+
+<Card
+  title="Data model"
+  href="/docs/development/data-model"
+  description="Every persisted model, every enum value, and the money representation."
+/>
+
+<Card
+  title="Transaction categorisation"
+  href="/docs/development/categorisation"
+  description="The pipeline, the taxonomy and the offline data artifacts."
+/>
+
+<Card
+  title="Run the stack locally"
+  href="/docs/development/local-stack"
+  description="Bring up Postgres, the API server, the web app and the documentation website."
+/>
+
+<Card
+  title="Procedure reference"
+  href="/docs/integrations/procedures"
+  description="Every oRPC procedure, its input and its output."
+/>
+
+</Cards>

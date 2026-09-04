@@ -1,0 +1,163 @@
+---
+title: Logs and monitoring
+description: What Freenary logs, where the lines land, and what an operator can watch with no extra service.
+icon: ScrollText
+---
+
+Freenary writes one structured log line per request. This page shows where those lines go, and what you can watch on a live instance.
+
+## What Freenary logs
+
+Both apps use [evlog](https://github.com/HugoRCD/evlog). The API server registers itself under the service name `freenary-server`.
+
+evlog writes **wide events**. One request produces one self-contained JSON object, on one line. The file format is NDJSON, so you can read it line by line with any tool.
+
+Every line carries the same core fields:
+
+| Field | Type | What it holds |
+| --- | --- | --- |
+| `timestamp` | string | The ISO 8601 time of the event. |
+| `level` | string | `info`, `warn`, `error` or `debug`. |
+| `service` | string | `freenary-server` for the API server. |
+| `environment` | string | `development` or `production`. |
+| `method` | string | The HTTP method, for example `POST`. |
+| `path` | string | The request path, for example `/api-reference/budget/getTransactions`. |
+| `status` | number | The HTTP status code of the answer. |
+| `duration` | string | How long the request took, for example `234ms`. |
+| `requestId` | string | One identifier per request. |
+| `error` | object | Present on a failure. It holds `name`, `message`, `stack` and `statusCode`. |
+
+The API server adds the caller identity to each line, and it masks the email address first. It adds no identity to the `/api/auth/**` paths.
+
+## Where the lines land
+
+The file drain runs outside production only. This is the single most important fact on this page.
+
+| `NODE_ENV`    | API server                 | Web app                    |
+| ------------- | -------------------------- | -------------------------- |
+| `development` | `.evlog/logs/<date>.jsonl` | `.evlog/logs/<date>.jsonl` |
+| `production`  | no file drain              | no file drain              |
+
+In development, read the newest file:
+
+```bash
+cat apps/server/.evlog/logs/2026-09-04.jsonl | jq 'select(.status >= 400)'
+```
+
+Files carry one date each, for example `2026-09-04.jsonl`. A monorepo also writes under `apps/*/.evlog/logs/`. Git ignores the whole `.evlog` directory.
+
+<Callout type="warn">
+
+A production instance writes no log file. The container output is the only production path. Read it with Docker Compose:
+
+```bash
+docker compose logs -f server
+```
+
+</Callout>
+
+Follow one service, or all of them:
+
+```bash
+docker compose logs -f            # every service
+docker compose logs -f web        # the web app only
+docker compose logs --tail 200 server
+```
+
+## Health endpoints
+
+| Target     | Request | Answer                         |
+| ---------- | ------- | ------------------------------ |
+| API server | `GET /` | The plain string `OK`          |
+| Web app    | `GET /` | The rendered application shell |
+
+The web app has no dedicated health endpoint. Its healthcheck fetches `/`, the root of the rendered app.
+
+Check both by hand:
+
+```bash
+curl -fsS http://localhost:3000/     # prints OK
+curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:3001/
+```
+
+`docker-compose.yml` uses the same two requests. Each healthcheck runs `bun -e "fetch(...)"` inside the container against its own port. Each one exits non-zero when the answer is not OK.
+
+| Service | Test | Interval | Timeout | Retries | Start period |
+| --- | --- | --- | --- | --- | --- |
+| `server` | fetch `http://localhost:3000/` | 10 s | 5 s | 5 | 10 s |
+| `web` | fetch `http://localhost:3001/` | 10 s | 5 s | 5 | 10 s |
+| `postgres` | `pg_isready -U postgres` | 10 s | 5 s | 5 | none |
+
+The start order follows those checks. PostgreSQL must report healthy before the API server starts, and the API server must report healthy before the web app starts.
+
+## What you can monitor with no extra service
+
+Four things need no extra service at all.
+
+**1. The container health state.** Docker Compose reports it per service.
+
+```bash
+docker compose ps
+```
+
+A healthy stack shows `Up (healthy)` on all three services. Watch for `Up (unhealthy)` and for a restart count that climbs.
+
+**2. The two endpoints.** Point any uptime checker at them.
+
+```bash
+curl -fsS http://localhost:3000/ && curl -fsS -o /dev/null http://localhost:3001/
+```
+
+**3. PostgreSQL.** Ask the database itself.
+
+```bash
+docker compose exec postgres pg_isready -U postgres
+```
+
+**4. Disk use of the volume.** The database volume grows with the transaction history.
+
+```bash
+docker compose exec postgres du -sh /var/lib/postgresql
+docker system df -v | grep freenary_postgres_data
+```
+
+## What is missing
+
+<Callout type="info">
+
+Freenary ships no observability stack. Four gaps matter to an operator:
+
+- **No log rotation.** In development the file drain starts a new file each day and deletes nothing. Prune the `.evlog/logs` directory yourself.
+- **No metrics endpoint.** There is no `/metrics` path and no Prometheus exporter.
+- **No trace export.** Nothing sends spans to an OTLP collector.
+- **No production log drain.** The container output is all you get. Collect it with your Docker log driver, and set a size limit there.
+
+</Callout>
+
+A Docker log driver limit keeps the container output bounded. Add it per service in `docker-compose.yml`:
+
+```yaml
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+```
+
+<Cards>
+  <Card
+    title="Troubleshooting"
+    href="/docs/self-hosting/troubleshooting"
+    description="Match a symptom to its cause and its fix."
+  />
+  <Card
+    title="Maintenance"
+    href="/docs/self-hosting/maintenance"
+    description="Migrations, restarts and routine work."
+  />
+  <Card
+    title="Configuration reference"
+    href="/docs/self-hosting/configuration"
+    description="NODE_ENV and every other variable."
+  />
+</Cards>

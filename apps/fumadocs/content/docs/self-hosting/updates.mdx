@@ -1,0 +1,176 @@
+---
+title: Updates
+description: Move a Freenary instance to a newer commit, apply the pending migrations, and roll back when the update fails.
+icon: RefreshCw
+---
+
+This page moves one instance to a newer version of the code. Freenary has no application release, so an update is a git checkout plus a rebuild. Back up the database first.
+
+## Update an instance
+
+<Steps>
+
+<Step>
+
+### Back up the database
+
+Do this every time. A migration can change data, and only a dump takes you back. Read [Backup and restore](/docs/self-hosting/backup-and-restore).
+
+Record the commit you run now, so you can roll back to it and read the diff:
+
+```bash
+git rev-parse HEAD > ../freenary-previous-commit
+```
+
+</Step>
+
+<Step>
+
+### Pull the new code
+
+```bash
+git pull
+```
+
+Then read what changed in the two files you own:
+
+```bash
+git diff "$(cat ../freenary-previous-commit)" HEAD -- .env.example docker-compose.yml
+```
+
+A new variable in `.env.example` needs a new line in `apps/server/.env`. A change in `docker-compose.yml` can overwrite your `CORS_ORIGIN` and your `VITE_SERVER_URL` edits, so put them back. Read [Configuration](/docs/self-hosting/configuration).
+
+</Step>
+
+<Step>
+
+### Rebuild the images
+
+```bash
+docker compose up -d --build
+```
+
+This rebuilds both images from the new source and recreates the two containers. The `postgres` container and its volume stay as they are.
+
+</Step>
+
+<Step>
+
+### Apply the pending migrations
+
+The stack applies no migrations, so run them yourself after every update:
+
+```bash
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+The command applies each new migration in order and exits `0`. An update that adds no migration still exits `0` and changes nothing.
+
+</Step>
+
+<Step>
+
+### Check the result
+
+```bash
+docker compose ps
+curl http://localhost:3000/
+```
+
+All three services must show `healthy`, and the API server must answer `OK`. Then sign in and open one page that reads transactions.
+
+</Step>
+
+</Steps>
+
+## When the web image needs a rebuild
+
+One change always needs a new `web` image: a change of the public URL of the API server.
+
+Vite inlines `VITE_SERVER_URL` into the browser bundle when it builds the web app. The value becomes a literal string inside the JavaScript files the browser downloads. A container restart re-runs the same bundle, so it keeps the old URL.
+
+| Command                            | Picks up a new `VITE_SERVER_URL`     |
+| ---------------------------------- | ------------------------------------ |
+| `docker compose restart web`       | No                                   |
+| `docker compose up -d web`         | No, because the image did not change |
+| `docker compose up -d --build web` | Yes                                  |
+
+Change the `args` block of the `web` service in `docker-compose.yml`, then run the third command. Every other variable is a runtime value, and a restart is enough for it.
+
+## Rollback
+
+An update has two halves, and only one of them rolls back.
+
+| Part of the update | Rolls back |
+| --- | --- |
+| The two container images | Yes. Check out the old commit and rebuild. |
+| The database schema and data | No. The repository ships no reverse migration. |
+
+Prisma applies migrations forward only. A migration can also rewrite rows: one of the six shipped migrations remaps every category value, and another drops a column. After such a migration, the old code meets a schema it does not expect.
+
+So the database dump is the only safe path back. Do these four steps in order.
+
+| Step | Command or action |
+| --- | --- |
+| 1 | Stop the two apps with `docker compose stop web server` |
+| 2 | Restore the dump you took before the update, as [Backup and restore](/docs/self-hosting/backup-and-restore) describes |
+| 3 | Check out the old commit with `git checkout "$(cat ../freenary-previous-commit)"` |
+| 4 | Rebuild and start with `docker compose up -d --build` |
+
+<Callout type="warn">
+
+A rollback without a restore leaves the new schema under the old code. Do not skip step 2.
+
+</Callout>
+
+## Version and release
+
+Freenary publishes no application version. The root `package.json` carries no version field, and the repository holds no application tag. One commit is the whole identity of an instance, so keep the commit you ran.
+
+The only releases in the repository carry merchant data. Their tags have the form `data-YYYY-MM-DD`.
+
+| Fact | Value |
+| --- | --- |
+| What the release holds | One asset, `merchant-data.tar.gz`, with the merchant dictionary, the place tokens and the brand list |
+| Who builds it | The GitHub Actions workflow `Generate merchant data` |
+| When | Every Monday at 03:00 UTC, on manual dispatch, and on a push to `main` that touches the categorisation scripts |
+| Who downloads it | The API server image build, in the step `bun run build:data` |
+| Which release | The newest tag that starts with `data-`, among the 20 most recent releases of `suiramdev/freenary` |
+
+The workflow signs nothing, so the published data carries no signature. A set `DICTIONARY_PUBLIC_KEY` therefore makes the loader refuse the dictionary. Read [Configuration](/docs/self-hosting/configuration#categorisation).
+
+The classifier weights are separate. The workflow attaches `model-weights.json` only when the model trainer passes its own quality gate. When the gate refuses, the release carries no weights, and the classifier stays inert. The rest of the categorisation pipeline still runs. Read [Categorisation](/docs/development/categorisation).
+
+### When the image build cannot reach the release
+
+`build:data` is one download with one fallback: `bun scripts/download-data.ts || bun run build:data:generate`.
+
+| Case | What the build does |
+| --- | --- |
+| The download succeeds | It unpacks the release asset. This is the fast path. |
+| The download fails | It builds the data locally: place tokens from GeoNames, brands from Wikidata, then the merchant dictionary. This takes much longer and needs those two sources. |
+| Both fail, and a dictionary already exists in the tree | The dictionary script warns and exits `0`, and keeps the old file. A stale dictionary can survive a build that looks successful. |
+
+The build runs inside Docker with no `.git` directory, so it always queries the repository slug `suiramdev/freenary`. A fork does not change that. A host with no outbound internet access cannot complete either path.
+
+<Cards>
+
+<Card
+  title="Backup and restore"
+  href="/docs/self-hosting/backup-and-restore"
+  description="Dump the database before every update, and restore it when one fails."
+/>
+
+<Card
+  title="Maintenance"
+  href="/docs/self-hosting/maintenance"
+  description="Routine operator commands, and what Freenary never does for you."
+/>
+
+<Card
+  title="Troubleshooting"
+  href="/docs/self-hosting/troubleshooting"
+  description="What to do when a service stays unhealthy after an update."
+/>
+
+</Cards>

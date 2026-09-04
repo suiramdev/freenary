@@ -1,0 +1,399 @@
+---
+title: Troubleshooting
+description: Match the symptom you see to its cause, and to the command that fixes it.
+icon: LifeBuoy
+---
+
+Find your symptom below. Each entry names the cause and gives the exact command. Every symptom here comes from real behavior of the code, not from guesswork.
+
+Two commands answer most questions before you read further:
+
+```bash
+docker compose ps
+docker compose logs --tail 100 server
+```
+
+## The API server exits at startup
+
+**Symptom.** The `server` container never reaches `healthy`. The log ends with a block like this:
+
+```bash
+❌ Invalid environment variables: [
+  {
+    origin: "string",
+    code: "invalid_format",
+    format: "regex",
+    pattern: "/^\\d+$/u",
+    path: [ "PORT" ],
+    message: "PORT must be a decimal number between 1 and 65535",
+  }
+]
+error: Invalid environment variables
+```
+
+**Cause.** One variable failed the schema. The `path` array names it, and `message` says what the schema wanted.
+
+**Fix.** Correct that one variable, then start the service again.
+
+```bash
+docker compose up -d server
+docker compose logs -f server
+```
+
+An empty value counts as unset, so `PORT=` uses the default `3000`. See the [configuration reference](/docs/self-hosting/configuration) for every default.
+
+<Callout type="error">
+
+Do not set `SKIP_ENV_VALIDATION` to get past this. It hides the mistake and the server then runs with a broken configuration.
+
+</Callout>
+
+## The server refuses a proxy address
+
+**Symptom.** The startup block names `TRUSTED_PROXIES`:
+
+```bash
+❌ Invalid environment variables: [
+  {
+    code: "custom",
+    path: [ "TRUSTED_PROXIES", 0 ],
+    message: "write an IPv4-mapped address in its IPv4 form, e.g. 10.0.0.0/24",
+  }
+]
+```
+
+**Cause.** The list holds an IPv4-mapped IPv6 address such as `::ffff:10.0.0.1`. Better Auth would drop that entry and then treat the whole chain as unresolvable, so Freenary refuses it at startup instead.
+
+**Fix.** Write the plain IPv4 form. The index in the `path` array tells you which entry to change.
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.1,10.0.0.0/24
+```
+
+## Every request fails with a CORS error
+
+**Symptom.** The web app renders, and every query fails. The browser console names the API origin and says the response has no `Access-Control-Allow-Origin` header.
+
+**Cause.** `CORS_ORIGIN` does not match the origin the browser loaded the web app from. That one variable is the whole allow-list.
+
+**Fix.** `docker-compose.yml` sets `CORS_ORIGIN` on the `server` service as an `environment:` key, so a value in `apps/server/.env` cannot win. Edit the compose file:
+
+```yaml
+services:
+  server:
+    environment:
+      CORS_ORIGIN: https://app.example.com
+```
+
+Then restart the service:
+
+```bash
+docker compose up -d server
+```
+
+Match the origin exactly: the same scheme, the same host and the same port, with no trailing slash.
+
+## Sign-in works and the next request is anonymous
+
+**Symptom.** The sign-in call answers 200. The next page load shows the sign-in screen again.
+
+**Cause.** The browser drops the session cookie. Three configurations cause it:
+
+| Configuration | What the cookie gets |
+| --- | --- |
+| The API server and the web app on different host names, `AUTH_COOKIE_DOMAIN` unset | `SameSite=None`, which a browser that blocks third-party cookies drops |
+| `BETTER_AUTH_URL` on plain `http` while the web app runs on `https` | no `Secure` flag, so the browser refuses a `SameSite=None` cookie |
+| `AUTH_COOKIE_DOMAIN` set to a domain that is not a parent of both host names | the server refuses to start, with `is not a parent of both` |
+
+**Fix.** Name the shared parent domain and serve the API server over TLS.
+
+```dotenv
+BETTER_AUTH_URL=https://api.example.com
+AUTH_COOKIE_DOMAIN=.example.com
+```
+
+**Check.** Read the `Set-Cookie` header the server sends:
+
+```bash
+curl -isS -X POST https://api.example.com/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}' | grep -i set-cookie
+```
+
+A correct answer names `__Secure-better-auth.session_token`, `SameSite=Lax`, `Secure` and your `Domain`.
+
+## The web app calls `http://localhost:3000` in production
+
+**Symptom.** The browser network panel shows calls to `http://localhost:3000/rpc` and `http://localhost:3000/api/auth`, from a page served on your real domain. Every call fails.
+
+**Cause.** `VITE_SERVER_URL` is a build argument of `apps/web/Dockerfile`. Vite inlines it into the client bundle at image build time, and `docker-compose.yml` defaults it to `http://localhost:3000`. A restart cannot change a value that is already inside the bundle.
+
+**Fix.** Change the build argument, then rebuild the image.
+
+```yaml
+services:
+  web:
+    build:
+      args:
+        VITE_SERVER_URL: https://api.example.com
+```
+
+```bash
+docker compose build web
+docker compose up -d web
+```
+
+Give it the same value as `BETTER_AUTH_URL`.
+
+## No sign-in button for Google, Apple or single sign-on
+
+**Symptom.** The sign-in screen shows the email and password fields only. No provider button appears, and no divider above it.
+
+**Cause.** Each provider needs both of its variables. The web app asks the server what it supports and renders nothing else.
+
+| Provider       | Needs                                         |
+| -------------- | --------------------------------------------- |
+| Google         | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
+| Apple          | `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET`   |
+| Single sign-on | `OIDC_DISCOVERY_URL` and `OIDC_CLIENT_ID`     |
+
+**Fix.** Set both variables of the provider you want, then restart the API server.
+
+```bash
+docker compose up -d server
+```
+
+**Check.** Ask the server what it reports:
+
+```bash
+curl -fsS -X POST http://localhost:3000/api-reference/auth/capabilities \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+The answer lists each provider the server accepts. An empty list means the variables did not reach the process. [Authentication](/docs/self-hosting/authentication) covers the redirect URLs each provider needs.
+
+## No one-time code arrives
+
+**Symptom.** Sign-up or password reset asks for a 6-digit code, and no message arrives. Or the "Forgot password?" link is absent.
+
+**Cause and fix**, in order of how often each one happens:
+
+| Cause | What you see | Fix |
+| --- | --- | --- |
+| `EMAIL_PROVIDER` unset | Freenary sends nothing, and the "Forgot password?" link disappears | Set `EMAIL_PROVIDER` to `resend` or `smtp` |
+| `EMAIL_PROVIDER=log` in production | The server refuses to start | Set `resend` or `smtp` |
+| An incomplete provider | The server refuses to start and names the variable | Set the named variable |
+
+The production refusal for `log` is exact:
+
+```bash
+EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
+```
+
+An incomplete provider names what it wants, for example:
+
+```bash
+EMAIL_PROVIDER=smtp requires SMTP_HOST to be set.
+```
+
+**Check.** In development, `EMAIL_PROVIDER=log` prints each code to the log:
+
+```bash
+docker compose logs server | grep 'email:log'
+```
+
+[Email delivery](/docs/self-hosting/email) covers both real adapters.
+
+## Every query fails or returns nothing
+
+**Symptom.** The API server answers `OK` on `GET /`, and every data query fails. The server log names a table that does not exist.
+
+**Cause.** The production Docker Compose stack applies no migrations. There is no bootstrap service and no migrate step in the server image. A fresh volume gives you an empty schema.
+
+**Fix.** Run the migrations once, inside the server container:
+
+```bash
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+The command is idempotent. It exits 0 when the schema is already current, so it is safe to repeat. Run it again after every update. [Maintenance](/docs/self-hosting/maintenance) covers the routine.
+
+## Bank linking is unavailable
+
+**Symptom.** Settings shows the empty state **Bank linking is unavailable**. Its text reads: "This instance has no banking provider configured, so there is nothing to link against yet". Onboarding skips the bank step, and the bank list comes back empty.
+
+**Cause.** The bank provider credentials are incomplete. Freenary checks them as a set.
+
+| `BANKING_PROVIDER` | Needs all of |
+| --- | --- |
+| `powens` | `POWENS_DOMAIN`, `POWENS_CLIENT_ID`, `POWENS_CLIENT_SECRET` |
+| `enable-banking` | `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_PRIVATE_KEY` |
+
+**Fix.** Set every variable of the provider you chose, then restart the API server.
+
+```bash
+docker compose up -d server
+```
+
+[Bank providers](/docs/self-hosting/bank-providers) covers both accounts.
+
+## A bank redirect comes back with an error
+
+**Symptom.** The bank sends the user back to Freenary and a toast reports a failure. The wording tells you which case you hit.
+
+| Toast | Cause | Fix |
+| --- | --- | --- |
+| "Bank connection cancelled. Nothing was linked." | The user declined or cancelled at the bank. | Start again. |
+| "The bank sent back an incomplete response." | The callback carried no state parameter. | Check the redirect URL you registered at the provider. |
+| "Bank connection failed. You can try again." | The state failed its check: a different session, the wrong provider, or a changed `BETTER_AUTH_SECRET`. | Keep the secret stable, and connect again from the same signed-in session. |
+
+The registered redirect URL must match what Freenary builds, character for character:
+
+| Provider       | Redirect URL                            |
+| -------------- | --------------------------------------- |
+| Powens         | `<CORS_ORIGIN>/callback/powens`         |
+| Enable Banking | `<CORS_ORIGIN>/callback/enable-banking` |
+
+An Enable Banking consent lasts 90 days. After that the bank refuses the account calls, and the sync reports a per-account error. The user must connect the bank again.
+
+<Callout type="info">
+
+A consent that expires does not change the bank connection row. It keeps its `ACTIVE` status and its old sync date, because no code writes the `EXPIRED` or `ERROR` status yet. A sync error toast is the only signal.
+
+</Callout>
+
+## Every caller shares one rate-limit bucket
+
+**Symptom.** Users hit the rate-limit error after one try each. The problem follows the instance, not one person.
+
+**Cause.** Freenary reads the caller address from `x-forwarded-for`. With `TRUSTED_PROXIES` unset, a header that carries more than one address resolves to nothing, and every request keys on the literal `no-trusted-ip` plus the path. One bucket then covers the whole instance.
+
+**Fix.** List every proxy in front of the API server, as an address or a CIDR range.
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/24,192.0.2.10
+```
+
+```bash
+docker compose up -d server
+```
+
+The counters live in the database, so a restart alone does not clear a lockout. Clear it by hand:
+
+```bash
+docker compose exec postgres psql -U postgres -d freenary -c 'DELETE FROM rate_limit;'
+```
+
+[Security](/docs/self-hosting/security) lists every limit.
+
+## Holdings never appear
+
+**Symptom.** A bank connection syncs accounts and transactions, and no holding arrives.
+
+**Cause.** It depends on the bank provider.
+
+| `BANKING_PROVIDER` | Why |
+| --- | --- |
+| `enable-banking` | The Enable Banking adapter has no holdings call and no accounts call at all. An Enable Banking instance can never store a holding. |
+| `powens` | Powens serves holdings from its investment product. Without that product, Powens drops the investment banks from the list, and the investments call fails with `Powens investments failed: <status>`. |
+
+**Fix.** Use Powens and ask Powens to activate the Wealth product on your domain.
+
+```dotenv
+BANKING_PROVIDER=powens
+```
+
+**Check.** The sync error names the failed call:
+
+```bash
+docker compose logs server | grep -i investments
+```
+
+<Callout type="info">
+
+The Portfolio screen is not built. `/portfolio` renders a placeholder page, and the sidebar marks it "Planned". Freenary can store holdings today, and no screen shows them.
+
+</Callout>
+
+## A transaction stays Uncategorised
+
+**Symptom.** A transaction keeps the Uncategorised category after a sync.
+
+**Cause.** Freenary matches in fixed stages: the channel, your own override, the shared merchant dictionary, the card code and keyword rules, then the local classifier. None of them matched.
+
+The last stage is inert as shipped. The trained weights ship only when the quality gate of the trainer passes, and on the current data release that gate refuses. Freenary then skips the stage and leaves the transaction Uncategorised, rather than guess.
+
+**Fix.** Set the category by hand in the Budget screen. Freenary keeps your choice as a merchant override, and later transactions of the same merchant use it.
+
+**Check one more cause.** A set `DICTIONARY_PUBLIC_KEY` makes the loader refuse the shared dictionary, because the published data carries no signature. The whole dictionary stage then misses every time.
+
+```bash
+docker compose exec server printenv DICTIONARY_PUBLIC_KEY
+docker compose logs server | grep -i dictionary
+```
+
+Leave the variable unset unless you sign your own dictionary. [Categorisation](/docs/development/categorisation) covers every stage.
+
+## The development stack is unreachable
+
+**Symptom.** `bun run dev:up` starts every container, and no URL answers. `curl http://localhost:3001/` refuses the connection.
+
+**Cause.** No service in `compose.dev.yml` publishes a host port. PostgreSQL uses `expose` only, and the three app services declare no `ports:` block. The host names come from OrbStack labels, and those labels do nothing outside OrbStack.
+
+**Fix.** Run the development stack under [OrbStack](https://orbstack.dev), and open the URLs the wrapper prints:
+
+```bash
+bun run dev:up
+```
+
+```bash
+[freenary dev] worktree "<slug>"
+  web     https://web.<slug>.freenary.orb.local
+  server  https://server.<slug>.freenary.orb.local
+  docs    https://docs.<slug>.freenary.orb.local
+  project freenary-<slug>
+```
+
+Without OrbStack, add your own `ports:` mapping to each service. [The development stack](/docs/development/local-stack) covers the whole workflow.
+
+## How to report a problem
+
+Open an issue at [github.com/suiramdev/freenary/issues/new/choose](https://github.com/suiramdev/freenary/issues/new/choose). Three forms exist: **Bug report**, **Feature request** and **Other**. Blank issues are off, so pick the form that fits.
+
+The bug form asks for two things first:
+
+| Field | What to put |
+| --- | --- |
+| Area | `Web app`, `Server / API`, `Database / migrations`, `Docker / local setup` or `Other` |
+| Version or commit | The branch or commit you run, for example `main @ abc1234` |
+
+Add these to the details, and your report needs no follow-up question:
+
+- What you did, what you expected, and what happened.
+- The exact error text, or the log lines around it.
+- The output of `docker compose ps`.
+- Your `NODE_ENV`, and how you serve TLS.
+- The variables you set, with every secret removed.
+
+<Cards>
+  <Card
+    title="Configuration reference"
+    href="/docs/self-hosting/configuration"
+    description="Every variable, its default and its effect."
+  />
+  <Card
+    title="Logs and monitoring"
+    href="/docs/self-hosting/logs"
+    description="Read the log lines this page asks for."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Cookies, rate limits and exposure in full."
+  />
+  <Card
+    title="Maintenance"
+    href="/docs/self-hosting/maintenance"
+    description="Migrations and routine operator work."
+  />
+</Cards>

@@ -1,0 +1,251 @@
+---
+title: Bank providers
+description: Choose between Powens and Enable Banking, register the redirect URL, and understand what each one imports.
+icon: Landmark
+---
+
+Freenary never talks to a bank itself. One bank provider holds that connection, and `BANKING_PROVIDER` picks which one. This page covers the choice, the setup at each provider, and what happens when a user connects a bank.
+
+## What a bank provider does
+
+A bank provider does four jobs for Freenary:
+
+- It lists the banks of one country.
+- It runs the consent flow at the bank, with the strong customer authentication the bank demands.
+- It holds the consent and answers later calls for data.
+- It returns transactions, and — for one of the two providers — accounts, balances and holdings.
+
+| Variable           | Default  | Accepted values            |
+| ------------------ | -------- | -------------------------- |
+| `BANKING_PROVIDER` | `powens` | `powens`, `enable-banking` |
+
+An instance with no provider credentials still runs and still signs users in. The API server reports the provider as unavailable, and the user then sees this:
+
+- Settings shows an empty state that says bank connections are unavailable.
+- The bank step disappears from `/onboarding`, and the wizard finishes on the country screen.
+- The bank list answers with an empty list, so no bank is selectable anywhere.
+
+<Callout type="info">
+  Freenary has no fallback provider. An unknown value in `BANKING_PROVIDER`
+  fails the environment check at startup. A known value with no credentials
+  turns bank connections off rather than half on.
+</Callout>
+
+## Choose a provider
+
+|  | Powens | Enable Banking |
+| --- | --- | --- |
+| Transactions | yes | yes |
+| Accounts and account kind | yes | no |
+| Balances | yes | no |
+| Holdings for an investment account | yes | no |
+| Per-user identity at the provider | yes | no |
+| Bank name in the bank list | yes | yes |
+| BIC, logo and bank group in the bank list | no | yes |
+| Setup you must do | a domain and a client application | an application and a private key |
+| Callback path | `/callback/powens` | `/callback/enable-banking` |
+| Consent lifetime Freenary asks for | the provider decides | 90 days |
+
+**Enable Banking reports no account kind, no balance and no holdings**. Freenary keeps every account of such a connection at the kind `UNKNOWN` with an empty balance, forever. Freenary asks for holdings only for an investment account kind, so an Enable Banking instance never stores holdings. It also never picks up an account that the user activated at the bank after the connection.
+
+**Country coverage.** Both providers list banks per country. Freenary asks the provider for the country of the user, and it lets a user pick only France today. Which banks a provider covers inside a country is a fact of that provider, not of Freenary. Read the bank catalogue of the provider before you choose.
+
+## Powens
+
+Create the account and the objects below in the [Powens console](https://console.powens.com).
+
+<Steps>
+
+<Step>
+
+Create a **domain**. Note its short name, for example `acme-sandbox`.
+
+</Step>
+
+<Step>
+
+Create a **client application** on that domain. Note the client id and the client secret.
+
+</Step>
+
+<Step>
+
+Register the redirect URL of the same client application, exactly `<CORS_ORIGIN>/callback/powens`. Powens refuses a redirect URL it does not hold.
+
+</Step>
+
+<Step>
+
+Ask Powens to activate the **Wealth** product on the domain when you want investment accounts and holdings. Powens does that per domain through your account manager.
+
+</Step>
+
+</Steps>
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=12345678
+POWENS_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `POWENS_DOMAIN` | unset | Needed. The short domain name, never the full API host. |
+| `POWENS_CLIENT_ID` | unset | Needed. |
+| `POWENS_CLIENT_SECRET` | unset | Needed. |
+
+All three must hold a value. One empty variable turns Powens off.
+
+**What `POWENS_DOMAIN` means.** Give the short name you created, such as `acme-sandbox`. Freenary trims the value, strips `.biapi.pro` from the end, then appends `.biapi.pro` again. So `acme-sandbox` and `acme-sandbox.biapi.pro` both give the host `acme-sandbox.biapi.pro`, and the API base becomes `https://acme-sandbox.biapi.pro/2.0`. Only that one subdomain is yours to set. The code fixes the rest of the host.
+
+**Which banks reach the bank list.** Freenary drops a Powens connector that carries `hidden` or `restricted`. It keeps a connector whose `products` hold `bank` or `wealth`. Without the Wealth product, the investment connectors drop out of the list. A bank connection still works and still imports transactions.
+
+## Enable Banking
+
+Create the application in the [Enable Banking control panel](https://enablebanking.com/sign-in/).
+
+<Steps>
+
+<Step>
+
+Register an **application**. Note its application id.
+
+</Step>
+
+<Step>
+
+Download the **private key** of the application. Enable Banking gives it once.
+
+</Step>
+
+<Step>
+
+Register the redirect URL of the application, exactly `<CORS_ORIGIN>/callback/enable-banking`.
+
+</Step>
+
+</Steps>
+
+```dotenv
+BANKING_PROVIDER=enable-banking
+ENABLE_BANKING_APP_ID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+ENABLE_BANKING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----"
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ENABLE_BANKING_APP_ID` | unset | Needed. Freenary sends it as the `kid` of every request. |
+| `ENABLE_BANKING_PRIVATE_KEY` | unset | Needed. The PEM private key of the application. |
+
+Both must hold a value. One empty variable turns Enable Banking off.
+
+**How to write the private key.** Freenary replaces every literal two-character sequence `\n` with a real newline before it uses the key. So you can put the whole PEM on one line, with `\n` between the PEM lines, as the fence above shows. A real multi-line PEM also works, because the replacement then changes nothing. Freenary supports no passphrase, and it checks no key format before it signs.
+
+**The signature scheme.** Freenary mints a fresh JSON Web Token for every request to `https://api.enablebanking.com`. It signs with `RSA-SHA256` and sends the token as `Authorization: Bearer <jwt>`.
+
+| Part      | Value                    |
+| --------- | ------------------------ |
+| Algorithm | `RS256`                  |
+| `kid`     | `ENABLE_BANKING_APP_ID`  |
+| `aud`     | `api.enablebanking.com`  |
+| `iss`     | `enablebanking.com`      |
+| `sub`     | `ENABLE_BANKING_APP_ID`  |
+| `exp`     | 3600 seconds after `iat` |
+
+The token lives one hour, but Freenary mints one per call, so no expiry is observable.
+
+**The consent lifetime.** When a user starts a bank connection, Freenary asks Enable Banking for access until 90 days ahead. The bank can grant less. Freenary handles no shortened consent, so a bank that caps the window ends the connection earlier than 90 days.
+
+## What happens when a user connects a bank
+
+The sequence is the same for both providers. Only steps 4, 6 and 9 differ.
+
+| # | What happens |
+| --- | --- |
+| 1 | The user picks a bank in Settings or in the bank step of `/onboarding`. |
+| 2 | The web app calls the procedure `bankConnection.startConnection` with the bank and the country. |
+| 3 | The API server lists the banks of that country again and demands an exact match. An unknown bank answers `BAD_REQUEST`. |
+| 4 | Powens only: the API server creates a provider user with `POST /auth/init` and stores its token in `bank_provider_user`. Enable Banking needs no such identity. |
+| 5 | The API server builds the redirect URL `<CORS_ORIGIN><callback path>` and signs a `state` payload. The signature is HMAC-SHA256 keyed by `BETTER_AUTH_SECRET` and bound to the user id. |
+| 6 | The API server asks the provider for a URL. Powens: mint a single-access code, then build a `https://webview.powens.com/connect` URL. Enable Banking: `POST /auth`, and use the URL it returns. |
+| 7 | The browser leaves for that URL. The user authenticates at the bank and grants consent. Freenary marks nothing connected yet. |
+| 8 | The provider redirects to `<CORS_ORIGIN>/callback/powens` or `<CORS_ORIGIN>/callback/enable-banking`. The web app serves one route for both, with SSR off, because the next call needs the session cookie. |
+| 9 | The web app calls `bankConnection.exchangeCode`. The API server checks the `state` signature against the session of this user, checks the provider id, and checks that the bank is still in the list. |
+| 10 | The provider completes the connection. Powens: `GET /users/me/connections/<id>`. Enable Banking: `POST /sessions`. |
+| 11 | One database transaction writes the `bank_connection` row with the status `ACTIVE`, plus one `bank_account` row per returned account. |
+| 12 | No sync runs here. The first sync runs when the user opens the budget page, or when the user presses a sync button. |
+
+A callback that carries an `error` parameter never reaches the API server. The web app shows a cancelled message and sends the user back.
+
+<Callout type="warn">
+  **Freenary stores the provider token in the database in plain text**. The
+  Powens token per user sits in `bank_provider_user.accessToken`, and the
+  provider session id of a connection sits in `bank_connection`. Anybody with
+  read access to the database can pull bank data through the provider. Read
+  [Security](/docs/self-hosting/security) before you host an instance for other
+  people.
+</Callout>
+
+## Switch provider
+
+A change of `BANKING_PROVIDER` never touches a bank connection that already exists. Each `bank_connection` row remembers the provider that created it, and Freenary uses that provider for every later sync and for the disconnect. So the variable only decides which provider the next connection uses.
+
+Both providers can hold credentials at the same time. That is the supported way to move: set the new provider, keep the old credentials, and let each user connect the bank again when they choose.
+
+## Limits and failures
+
+**No automatic refresh.** Freenary ships no scheduler, no cron entry and no webhook receiver. A sync runs in three cases only:
+
+| Trigger | Scope |
+| --- | --- |
+| The user opens the budget page and at least one account exists | one background pass |
+| The user presses the sync button on the budget page | every active connection |
+| The user presses re-sync on one bank row | that connection |
+
+The first sync of an account reads 90 days of history. A later sync reads from the date of the last successful sync. A forced sync reads 90 days again.
+
+**Consent expiry is silent.** Freenary writes only the connection state `ACTIVE`, at row creation.
+
+| State | Who writes it | What the user reads |
+| --- | --- | --- |
+| `ACTIVE` | Freenary, when it creates the row | `{n} accounts · Synced {date}` |
+| `EXPIRED` | nothing in the code | `{n} accounts · Reconnect to resume importing` |
+| `ERROR` | nothing in the code | the same reconnect line |
+
+The web app renders that reconnect line for any state other than `ACTIVE`, and the sync skips such a connection. But nothing sets either state, so a user whose consent ended keeps an `ACTIVE` row with a stale date. Only a manual database update reaches the other two states.
+
+| Failure | Fix |
+| --- | --- |
+| The bank list is empty | Freenary swallows a failed institution list, answers with an empty list, and logs nothing. The failure is silent, so check the credentials and the provider host by hand. |
+| Settings says bank connections are unavailable | One credential is absent. Powens needs all three variables, Enable Banking both. |
+| The callback ends in a failure message | The redirect URL at the provider must equal `<CORS_ORIGIN>/callback/<id>` exactly. A change of `CORS_ORIGIN` breaks it. |
+| The user reads "The bank sent back an incomplete response" | The provider sent no `state`. The user must start the connection again. |
+| The sync error names "needs the user's attention" | The bank asks for strong customer authentication again, or the password expired. The user must connect that bank again. |
+| The sync error reads `Enable Banking transactions failed: <status>` | The consent ended, or the bank revoked it. The user must connect that bank again. |
+| No holding ever appears | Holdings need Powens with the Wealth product. Enable Banking reports no account kind, so no account is ever an investment account. |
+| A disconnect warns about revocation | Freenary asked the provider to close the consent and the request failed. Freenary deleted the local rows anyway. The user must revoke the consent at the bank. |
+| The same bank appears twice | Freenary writes a new connection on every completed flow. Disconnect the duplicate. |
+
+<Cards>
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable an instance reads, with its default."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Provider tokens at rest, secrets and the checks before you expose an instance."
+  />
+  <Card
+    title="Bank connections"
+    href="/docs/guides/bank-connections"
+    description="What a user does to connect, sync and disconnect a bank."
+  />
+  <Card
+    title="Write a bank provider"
+    href="/docs/development/bank-provider"
+    description="The adapter interface a third provider must implement."
+  />
+</Cards>

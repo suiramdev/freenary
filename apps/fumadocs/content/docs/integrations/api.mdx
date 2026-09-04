@@ -1,0 +1,282 @@
+---
+title: API
+description: The endpoints of the Freenary API server, its two transports, sign-in with curl, its error shape and its limits.
+icon: Webhook
+---
+
+Read this page before your first call. It covers the routes the API server mounts, the two request shapes over one router, how a caller signs in, and what the limits are.
+
+You need a live instance and one user account. To create the account and the instance, read [Docker Compose](/docs/self-hosting/docker-compose).
+
+## Base URL
+
+The API server binds the port in `PORT`. The default is `3000`, so the default base URL is `http://localhost:3000`.
+
+In a real install the reverse proxy decides the public base URL. Set `BETTER_AUTH_URL` to that URL, and set `CORS_ORIGIN` to the origin of the web app. Read [Configuration](/docs/self-hosting/configuration) for both variables.
+
+Every path below is relative to the base URL.
+
+## Endpoints
+
+The API server mounts four route prefixes and nothing else.
+
+| Route | Handler | What it is for |
+| --- | --- | --- |
+| `GET /` | Inline Elysia handler | Returns the plain text `OK`. Use it as a liveness probe. |
+| `/api/auth/*` | Better Auth `auth.handler` | Sign-up, sign-in, sign-out, session, one-time code, two-factor and passkey routes. |
+| `/rpc*` | `RPCHandler` from `@orpc/server/fetch` | The oRPC transport over the whole router. |
+| `/api-reference*` | `OpenAPIHandler` from `@orpc/openapi/fetch` | The plain-JSON transport, plus the reference page and the OpenAPI document. |
+
+Two details decide what a wrong request gets back:
+
+- `/api/auth/*` answers only `POST` and `GET`. A `PUT`, a `PATCH` or a `DELETE` request returns HTTP 405 with no `Allow` header. An `OPTIONS` request never reaches the route, because the CORS layer answers the preflight itself with HTTP 204.
+- A path under `/rpc` or `/api-reference` that matches no procedure returns HTTP 404 with the plain text `Not Found`.
+
+## Two shapes, one router
+
+Both handlers wrap the same router and the same context function. The procedure set is the same, and so are the permission rules. Only the wire format differs.
+
+No procedure in `packages/api` declares route metadata. There is no `.route()` call anywhere in the package, so oRPC maps every procedure with its own defaults. The default method is `POST`, and the default path joins the dot path with slashes.
+
+Worked example. The procedure `budget.getTransactions` becomes `POST /api-reference/budget/getTransactions`. A root-level procedure keeps one segment, so `healthCheck` becomes `POST /api-reference/healthCheck`. No procedure answers a `GET` request.
+
+|  | `/rpc` | `/api-reference` |
+| --- | --- | --- |
+| Method | `POST` | `POST` |
+| Path | `/rpc/<router>/<procedure>` | `/api-reference/<router>/<procedure>` |
+| Request body | `{"json": <input>}` | `<input>` |
+| Body for a procedure with no input | `{"json":null}` | `{}` |
+| Success body | `{"json": <output>}` | `<output>` |
+| Extra surface | none | reference page and `spec.json` |
+
+Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` when you use the oRPC client, because that client speaks the envelope for you.
+
+<Callout type="warn">
+  `/api-reference` is a live API, not only a document. Any holder of a session
+  cookie can call all 30 procedures there, and the reference page has a
+  send-request button. Block the prefix at the reverse proxy when you do not
+  want it public. Read [Security](/docs/self-hosting/security).
+</Callout>
+
+## Sign in as a caller
+
+`createContext` reads exactly three things. It keeps the raw request headers. It asks Better Auth for the session behind those headers. It sets a third field to `null`, and no procedure reads that field.
+
+A session cookie named `better-auth.session_token` identifies the caller. The cookie is `HttpOnly`, so hold it in a cookie jar and replay it. Over an https `BETTER_AUTH_URL` the name gains the `__Secure-` prefix, so it becomes `__Secure-better-auth.session_token`. A cookie jar handles that for you.
+
+Three procedures are public: `healthCheck`, `auth.accountExists` and `auth.capabilities`. Every other procedure needs a session. With no session it returns HTTP 401 and this exact body:
+
+```json
+{
+  "defined": false,
+  "code": "UNAUTHORIZED",
+  "status": 401,
+  "message": "Unauthorized"
+}
+```
+
+<Callout type="error">
+  A bearer token does not work. Freenary registers no `bearer` plugin, so
+  `Authorization: Bearer <token>` returns HTTP 401. The CORS configuration
+  advertises the `Authorization` header, but no code reads it.
+</Callout>
+
+### Two steps with curl
+
+<Steps>
+
+<Step>
+
+Sign in and write the cookie to a jar. Use `-c` for that.
+
+```bash
+curl -c jar.txt -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}'
+```
+
+The response carries `token` and `user`, and it sets the session cookie. `POST /api/auth/sign-up/email` with `name`, `email` and `password` creates the account. It sets the same cookie only on an instance with no email provider. With an email provider set, sign-up returns `token: null` and no cookie. Confirm the address with the emailed one-time code, which signs you in, or sign in with the password after that confirmation.
+
+</Step>
+
+<Step>
+
+Call a protected procedure with the same jar. Use `-b` for that.
+
+```bash
+curl -b jar.txt -X POST http://localhost:3000/api-reference/onboarding/getStatus \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+# 200 {"completed":false,"country":null}
+```
+
+A public procedure needs no jar at all:
+
+```bash
+curl -X POST http://localhost:3000/api-reference/healthCheck \
+  -H 'Content-Type: application/json' -d '{}'
+# 200 "OK"
+```
+
+</Step>
+
+</Steps>
+
+### CORS
+
+The API server sets one origin, not a list.
+
+| Option           | Value                                          |
+| ---------------- | ---------------------------------------------- |
+| `origin`         | `CORS_ORIGIN`, default `http://localhost:3001` |
+| `credentials`    | `true`                                         |
+| `methods`        | `GET`, `POST`, `OPTIONS`                       |
+| `allowedHeaders` | `Content-Type`, `Authorization`                |
+
+A browser client must run on the `CORS_ORIGIN` origin, and it must send credentials. A server-to-server caller ignores CORS.
+
+## Errors
+
+An error body is flat JSON with four fields.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `defined` | boolean | `true` when the procedure declared the error. Every Freenary error is `false`. |
+| `code` | string | The oRPC error code from the table below. |
+| `status` | number | The HTTP status, repeated inside the body. |
+| `message` | string | An English literal. No message key, no translation. |
+| `data` | object | Present on input validation failure. `data.issues` holds the Zod issues. |
+
+On `/api-reference` that object is the whole body. On `/rpc` it sits inside the `json` field.
+
+| Code | HTTP | When a router throws it |
+| --- | --- | --- |
+| `BAD_REQUEST` | 400 | Input validation failed, or a router refused the input. Read `message`. |
+| `UNAUTHORIZED` | 401 | No session cookie on a protected procedure. |
+| `NOT_FOUND` | 404 | A bank connection, a transaction, a category or a bank provider does not exist. |
+| `METHOD_NOT_SUPPORTED` | 405 | A `GET` request reached `/rpc`. |
+| `CONFLICT` | 409 | A custom category label clashes with one the user already has. |
+| `TOO_MANY_REQUESTS` | 429 | `auth.accountExists` went over its cap. |
+| `INTERNAL_SERVER_ERROR` | 500 | An unhandled failure, such as a bank provider network error. |
+
+[Procedure reference](/docs/integrations/procedures) names the exact message each procedure throws.
+
+## Limits
+
+### Rate limits
+
+Better Auth limits `/api/auth/*` per caller IP address and per path. The counters live in the database, so a restart does not clear them.
+
+The limiter resolves three layers for each path. It reads the built-in rules of Better Auth first, then the rules of a plugin, then the `RATE_LIMIT_RULES` map of `packages/auth/src/policy.ts`. Each layer overwrites the one before it, so the last match wins. A path that no layer names gets the residual default of 100 per 60 seconds.
+
+Freenary sets these seven paths, and each entry replaces the built-in rule:
+
+| Path                                              | Limit              |
+| ------------------------------------------------- | ------------------ |
+| `/api/auth/sign-in/email`                         | 10 per 60 seconds  |
+| `/api/auth/sign-in/social`                        | 10 per 60 seconds  |
+| `/api/auth/sign-up/email`                         | 5 per 300 seconds  |
+| `/api/auth/two-factor/verify-totp`                | 10 per 300 seconds |
+| `/api/auth/two-factor/verify-backup-code`         | 5 per 300 seconds  |
+| `/api/auth/passkey/generate-authenticate-options` | 20 per 60 seconds  |
+| `/api/auth/passkey/verify-authentication`         | 20 per 60 seconds  |
+
+Every other credential path keeps a much tighter cap, which Freenary never raises:
+
+| Path | Limit | Set by |
+| --- | --- | --- |
+| Any path under `/api/auth/sign-in` or `/api/auth/sign-up` that no other row names, plus `/api/auth/change-password` and `/api/auth/change-email` | 3 per 10 seconds | A built-in rule of Better Auth |
+| `/api/auth/request-password-reset`, `/api/auth/send-verification-email`, and any path under `/api/auth/forget-password` | 3 per 60 seconds | A built-in rule of Better Auth |
+| The nine one-time-code paths: the seven under `/api/auth/email-otp/`, plus `/api/auth/sign-in/email-otp` and `/api/auth/forget-password/email-otp` | 3 per 60 seconds | The one-time-code plugin, which loads only with an email provider |
+| Any other `/api/auth/*` path, such as `/api/auth/get-session` | 100 per 60 seconds | The residual default |
+
+That limiter never covers `/rpc*` or `/api-reference*`. One procedure caps itself: `auth.accountExists` accepts 20 calls per 60 seconds per caller, and then throws `TOO_MANY_REQUESTS`. The other 29 procedures have no cap.
+
+<Callout type="warn">
+  Three procedures cost real work and have no cap: `budget.syncAccounts` calls
+  the bank provider, `budget.recategorise` re-runs the pipeline over every
+  transaction, and `budget.getSankeyData` reads every transaction in the date
+  range you pass. Pace your own calls.
+</Callout>
+
+### Size and page limits
+
+| Limit | Value |
+| --- | --- |
+| Request body size | None. The API server sets no cap. |
+| Transaction page | `limit` 1 to 100, default 50 |
+| Date range on `from` and `to` | None. No maximum span, and no check that `from` is before `to`. |
+| Budget lines per profile | 200 |
+| Custom category label | 1 to 40 characters |
+
+Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list procedure returns all rows in one response.
+
+## The interactive reference
+
+`GET /api-reference` returns an HTML page. The page loads the Scalar reader from a CDN at render time, so a browser with no internet access shows an empty page.
+
+`GET /api-reference/spec.json` returns the OpenAPI document. Measured values:
+
+| Field            | Value                      |
+| ---------------- | -------------------------- |
+| `openapi`        | `3.1.1`                    |
+| `info.title`     | `API Reference`            |
+| `info.version`   | `0.0.0`                    |
+| `servers[0].url` | `<base URL>/api-reference` |
+
+Open it with a browser at `http://localhost:3000/api-reference`, or read the raw document:
+
+```bash
+curl http://localhost:3000/api-reference/spec.json
+```
+
+The document declares no security scheme and no tags, and it needs no session cookie. It therefore does not tell you which procedures need a session. [Procedure reference](/docs/integrations/procedures) does.
+
+## Client libraries
+
+There is no published Freenary SDK. The web app talks to `/rpc` with the oRPC client, and you can do the same.
+
+The packages are `@orpc/client` and `@orpc/server`. This browser client is enough for a caller that holds the session cookie:
+
+```ts
+import type { AppRouter } from "@freenary/api/routers/index";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { RouterClient } from "@orpc/server";
+
+const link = new RPCLink({
+  fetch: (url, options) => fetch(url, { ...options, credentials: "include" }),
+  url: "http://localhost:3000/rpc",
+});
+
+const client = createORPCClient(link) as RouterClient<AppRouter>;
+
+const status = await client.onboarding.getStatus();
+```
+
+The `AppRouter` type lives in the workspace package `@freenary/api`, so only code inside this repository can import it. Outside code drops the type and calls `/rpc` or `/api-reference` with plain `fetch`.
+
+The web app adds one thing to that link: a per-call context that carries a `cookie` header. A browser needs none, because `credentials: "include"` sends the cookie already. A call made on the server has no cookie jar. The web app therefore passes the visitor's own cookie header through that context while it renders a page. Read `apps/web/src/utils/orpc.ts` for the full shape.
+
+<Cards>
+  <Card
+    title="Procedure reference"
+    href="/docs/integrations/procedures"
+    description="All 30 procedures, their inputs, outputs and errors."
+  />
+  <Card
+    title="MCP and AI tools"
+    href="/docs/integrations/mcp"
+    description="Why no MCP server ships, and how to bridge this API yourself."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Cookie attributes, the reference prefix, and what to block at the proxy."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="PORT, BETTER_AUTH_URL, CORS_ORIGIN and the rest."
+  />
+</Cards>

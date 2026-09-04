@@ -1,0 +1,176 @@
+---
+title: Backup and restore
+description: What holds state in a Freenary instance, how to dump the database, how to restore it, and what a dump never contains.
+icon: DatabaseBackup
+---
+
+This page backs up and restores one Freenary instance. Freenary keeps all of its state in PostgreSQL, so one dump holds everything a restore needs. It also tells you which secret you must keep next to that dump.
+
+## What holds state
+
+| State | Where it lives | Back it up |
+| --- | --- | --- |
+| The whole database | The Docker volume `freenary_freenary_postgres_data`, at the container path `/var/lib/postgresql`. The dev stack uses `freenary-<slug>_pgdata` at the same path. | Yes |
+| The generated merchant data | The files `packages/api/data/*` inside the API server image layer. No volume holds them. | No. An image rebuild recreates them. |
+
+`docker-compose.yml` declares the volume as `freenary_postgres_data`, and Compose prefixes it with the project name `freenary`. So Docker reports it as `freenary_freenary_postgres_data`. The dev stack replaces `<slug>` with the name of your worktree.
+
+Nothing else on the host holds user data. The API server writes no log file in production. Read [Logs](/docs/self-hosting/logs).
+
+## Back up the database
+
+The `postgres` service holds the database `freenary` and the role `postgres`. Both names are literal values in `docker-compose.yml`, and neither one reads an environment variable.
+
+Take a custom-format dump. It restores selectively and it compresses:
+
+```bash
+docker compose exec -T postgres pg_dump -U postgres -d freenary -Fc > freenary.dump
+```
+
+Take a plain SQL dump instead when you want to read the file or restore it with `psql`:
+
+```bash
+docker compose exec -T postgres pg_dump -U postgres -d freenary > freenary.sql
+```
+
+| Format    | Flag  | Restore with |
+| --------- | ----- | ------------ |
+| Custom    | `-Fc` | `pg_restore` |
+| Plain SQL | none  | `psql`       |
+
+<Callout type="warn">
+
+Use `exec -T`, not `exec`. Without `-T` Docker attaches a terminal to the command, and the terminal corrupts the bytes of a custom-format dump.
+
+</Callout>
+
+The stack also publishes port 5432 to the host, so a host tool can dump the database directly. The host `pg_dump` must be version 18 or newer:
+
+```bash
+pg_dump "postgresql://postgres:<database-password>@localhost:5432/freenary" -Fc > freenary.dump
+```
+
+A dump carries its own `CREATE EXTENSION` statement for `citext`, so a restore into an empty database needs no manual setup.
+
+## Restore
+
+Stop the two apps first. An open connection blocks the restore, and a half-restored database serves wrong answers.
+
+<Steps>
+
+<Step>
+
+### Stop the web app and the API server
+
+```bash
+docker compose stop web server
+```
+
+Leave `postgres` up. Every command below runs inside that container.
+
+</Step>
+
+<Step>
+
+### Restore the dump
+
+For a custom-format dump, `pg_restore` drops each object before it recreates it:
+
+```bash
+docker compose exec -T postgres pg_restore -U postgres -d freenary --clean --if-exists < freenary.dump
+```
+
+For a plain SQL dump, create an empty database first, because the file drops nothing:
+
+```bash
+docker compose exec -T postgres dropdb -U postgres freenary
+docker compose exec -T postgres createdb -U postgres -O postgres freenary
+docker compose exec -T postgres psql -U postgres -d freenary < freenary.sql
+```
+
+</Step>
+
+<Step>
+
+### Start the API server and apply the migrations
+
+```bash
+docker compose start server
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+The migration command needs a live `server` container, so start the service first. When the dump comes from the same commit you run now, the command applies nothing and exits `0`. When the dump is older than the code, it applies every migration the restored database does not hold.
+
+</Step>
+
+<Step>
+
+### Start the web app
+
+```bash
+docker compose start web
+docker compose ps
+```
+
+All three services must show `healthy`.
+
+</Step>
+
+</Steps>
+
+## Check the restore
+
+Count the rows of two tables that a live instance must fill. SQL treats `user` and `transaction` as keywords, so quote each table name:
+
+```bash
+docker compose exec -T postgres psql -U postgres -d freenary -c 'SELECT count(*) FROM "user";'
+docker compose exec -T postgres psql -U postgres -d freenary -c 'SELECT count(*) FROM "transaction";'
+```
+
+The `user` count must match the number of accounts you had. A count of `0` means the restore hit the wrong database.
+
+Then sign in as one of those users in the web app, and open a page that lists transactions. A successful sign-in proves two more things: the session tables restored, and your `BETTER_AUTH_SECRET` still matches the data.
+
+## What a backup does not contain
+
+A database dump holds no configuration. It carries no environment file, and it carries no secret from one.
+
+| Not in the dump | Where it lives | What you must do |
+| --- | --- | --- |
+| `apps/server/.env` | The host filesystem, outside every container and every image | Copy it to your backup location with each dump |
+| The root `.env` | The host filesystem | Copy it too. It holds `POSTGRES_PASSWORD`. |
+| `BETTER_AUTH_SECRET` | Inside `apps/server/.env` | Keep the value that matches the dump |
+
+`.dockerignore` keeps every `.env` file out of the image, so the images hold no copy of them either.
+
+<Callout type="error">
+
+Keep `BETTER_AUTH_SECRET` with the backup. That one value signs every session cookie, and it encrypts the `secret` and `backupCodes` columns of the `two_factor` table. It also signs the state of a bank connection flow. A restore under a new secret signs every user out, and it breaks every two-factor enrolment in the restored data.
+
+</Callout>
+
+Bank provider credentials and email provider credentials live in `apps/server/.env` too. A restore without that file leaves an instance that cannot sync a bank or send a one-time code.
+
+Freenary runs no scheduled job, so it takes no backup for you. Read [Maintenance](/docs/self-hosting/maintenance).
+
+<Cards>
+
+<Card
+  title="Maintenance"
+  href="/docs/self-hosting/maintenance"
+  description="Routine commands, a suggested schedule, and what Freenary never does for you."
+/>
+
+<Card
+  title="Updates"
+  href="/docs/self-hosting/updates"
+  description="Back up, pull, rebuild, migrate, and roll back when an update fails."
+/>
+
+<Card
+  title="Security"
+  href="/docs/self-hosting/security"
+  description="The published database port, the default password, and secret rotation."
+/>
+
+</Cards>

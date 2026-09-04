@@ -1,0 +1,75 @@
+---
+title: Overview
+description: The areas of the Freenary sidebar, the state of each one, and where every user guide starts.
+icon: Compass
+---
+
+Freenary imports your bank data and shows you where your money goes. This page names every area of the sidebar, tells you which ones work today, and points you to the right guide.
+
+## What you can do today
+
+- Create an account, and protect it with a second factor or a passkey.
+- Connect a bank, and import bank accounts, balances and transactions.
+- Read the Budget screen, and correct the category of a transaction.
+- Declare a monthly plan, and add your own categories.
+- Choose a language and an appearance.
+
+## The sidebar
+
+The sidebar lists seven areas. Three of them work. Four of them open a placeholder screen.
+
+| Area | Address | State | Guide |
+| --- | --- | --- | --- |
+| Home | `/` | Built. It shows one welcome line and nothing else. | [First steps](/docs/guides/first-steps) |
+| Portfolio | `/portfolio` | Planned | — |
+| Budget | `/budget` | Built | [Budget](/docs/guides/budget) |
+| Analysis | `/analysis` | Planned | — |
+| Goals | `/goals` | Planned | — |
+| AI | `/ai` | Planned | — |
+| Settings | `/settings` | Built | [Settings](/docs/guides/settings) |
+
+<Callout type="info">
+
+Freenary marks Portfolio, Analysis, Goals and AI with a **Planned** badge in the sidebar, and dims their labels. Each one opens a single placeholder screen with a title and one line of text. These four areas hold no data. You cannot enter data into them, and no other screen reads from them.
+
+</Callout>
+
+## What a page cannot do
+
+Two limits apply to every screen.
+
+| Limit | What it means for you |
+| --- | --- |
+| Freenary imports data from a bank only. | You cannot add an account, a transaction or an asset by hand. |
+| Freenary has no scheduler. | A sync runs when you open the Budget screen, or when you press a sync button. |
+
+## Where the operator decides
+
+An operator runs the Freenary instance you sign in to. Three of their choices change what you see:
+
+- The bank provider. With no bank provider, the bank list stays empty. See [Bank connections](/docs/guides/bank-connections).
+- The email delivery settings. With no email delivery, Freenary sends no one-time code. See [Signing in](/docs/guides/signing-in).
+- The sign-in providers. Freenary hides a button for a provider the operator left unset.
+
+<Cards>
+  <Card
+    title="Signing in"
+    href="/docs/guides/signing-in"
+    description="Every way into your account, and what to do when one fails."
+  />
+  <Card
+    title="First steps"
+    href="/docs/guides/first-steps"
+    description="From a new account to a Budget screen with real data."
+  />
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="The one area that is built end to end."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="Every setting you can change, group by group."
+  />
+</Cards>

@@ -1,0 +1,139 @@
+---
+title: Categories and budget lines
+description: The fixed category groups, your own custom categories, and the monthly plan Freenary calls the budgeting profile.
+icon: Tags
+---
+
+Freenary sorts every transaction into a category, and every category sits in a group. On top of that vocabulary you declare a monthly plan. This page covers both.
+
+## The category groups
+
+Freenary ships **16 category groups** and **75 categories** inside them. Both sets are permanent. You cannot add a group, rename one, or remove one.
+
+The groups follow the flow of money, from income to outgoings:
+
+| #   | Group         | Catch-all category |
+| --- | ------------- | ------------------ |
+| 1   | Income        | Other income       |
+| 2   | Investments   | Other investment   |
+| 3   | Housing       | Other housing      |
+| 4   | Utilities     | Other utilities    |
+| 5   | Daily living  | Other daily living |
+| 6   | Transport     | Other transport    |
+| 7   | Travel        | Other travel       |
+| 8   | Leisure       | Other leisure      |
+| 9   | Shopping      | Other shopping     |
+| 10  | Subscriptions | Other subscription |
+| 11  | Health        | Other health       |
+| 12  | Education     | Other education    |
+| 13  | Financial     | Other financial    |
+| 14  | Taxes         | Other taxes        |
+| 15  | Transfers     | Other transfer     |
+| 16  | Other         | Uncategorised      |
+
+Each group holds several categories. The catch-all category of a group takes a movement that Freenary places in the group but not in one exact category.
+
+A category has no colour and no icon of its own. It takes the colour and the icon of its group.
+
+<Callout type="info">
+
+The interface holds the full list. Open Settings, group **Budgeting**, section **Categories**. Each group opens as a collapsible row with a count. A category that ships with Freenary carries a **Built-in** badge and offers no actions.
+
+The category picker of the transaction drawer and the category filter of the Budget screen list the same set. See [Budget](/docs/guides/budget).
+
+</Callout>
+
+## Custom categories
+
+A custom category is one you create yourself. Freenary offers it beside the built-in ones.
+
+| Field | Rule |
+| --- | --- |
+| Label | 1 to 40 characters. Unique per user, and Freenary ignores letter case in that check |
+| Colour | One of 7 colours |
+| Icon | One of 18 icons |
+| Parent group | One of the 16 groups, or none |
+| Order | Move up and move down inside the group |
+
+A new category starts blue, with a neutral icon, and with no parent group. A custom category with no parent group stands as a group of its own in the list.
+
+To create one, open Settings, section **Categories**, and press the create button. You can also create one from a budget line: pick **New category…** on the category picker, and Freenary writes the new category straight onto that line.
+
+<Callout type="warn">
+
+A custom category serves budget lines only. You cannot file a transaction under a custom category. The transaction picker offers the built-in categories alone.
+
+</Callout>
+
+### Delete a custom category
+
+Freenary never leaves a budget line without a category. When you delete a custom category:
+
+1. Freenary moves every budget line of that category to the catch-all of its parent group.
+2. The confirmation dialog names that catch-all before you confirm.
+3. The result message names the catch-all and counts the lines it moved.
+
+A custom category with no parent group has no group catch-all. Its lines move to **Uncategorised**.
+
+## The budgeting profile
+
+Your budgeting profile is the monthly plan you declare by hand. It is a list of budget lines, and nothing else. There is no separate profile to create.
+
+A budget line holds three things:
+
+| Part | Rule |
+| --- | --- |
+| Name | Optional. With no name, Freenary shows the label of the category |
+| Amount | The planned amount per month. Always positive. Type a comma or a dot |
+| Category | One built-in category, or one custom category. A new line starts with none |
+
+### How a line becomes revenue, investment or outgoing
+
+You never choose the side of the flow. The group of the category decides it, so the two can never disagree.
+
+| Category group                         | Side of the flow |
+| -------------------------------------- | ---------------- |
+| Income                                 | Revenue          |
+| Investments                            | Investment       |
+| Every other group                      | Outgoing         |
+| A custom category with no parent group | Outgoing         |
+
+### Edit the profile
+
+Open Settings, group **Budgeting**, section **Budgeting profile**.
+
+- Add a line, and pick its category.
+- Drag a line by its handle to reorder it. The handle also answers the up and down arrow keys.
+- Delete a line with the button at its end.
+
+Above the editor, Freenary draws your plan as a live flow diagram, with a summary of revenue, allocated amount and the amount left.
+
+A bar appears at the foot of the page as soon as you change something. It counts the changes, and offers **Cancel** and **Save**. A reorder of the whole list counts as one change. **Save** replaces the whole list at once, and the order on screen becomes the stored order.
+
+<Callout type="info">
+
+Freenary warns you before you leave the page with unsaved changes. A language change reloads the page, so Freenary warns you then too. See [Language and appearance](/docs/guides/interface).
+
+</Callout>
+
+## What the plan turns on
+
+One budget line or more ticks **Set up your budget** in the sidebar checklist. It also turns on the **Budget vs. actual** chart of the Budget screen, which measures each category group against its planned amount.
+
+<Cards>
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="Where the plan meets your real transactions."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="The screen that holds the category tree and the profile editor."
+  />
+  <Card
+    title="First steps"
+    href="/docs/guides/first-steps"
+    description="The three-item checklist this plan belongs to."
+  />
+</Cards>

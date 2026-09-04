@@ -1,0 +1,113 @@
+---
+title: Overview
+description: What one Freenary instance needs, what the Docker Compose stack runs, and the decisions to make before you install.
+icon: Server
+---
+
+This page tells an operator what one Freenary instance needs. It lists the host, the services of the Docker Compose stack, and the four decisions you must make first. Read it before you install.
+
+## What you get, and what you supply
+
+Freenary is source code plus two production Dockerfiles and one Docker Compose file. It has no hosted edition and no installer.
+
+| Freenary gives you | You supply |
+| --- | --- |
+| The web app, the API server and a PostgreSQL service, as one Docker Compose stack | A Linux host with Docker |
+| Two production Dockerfiles that build both apps from source | A public domain and TLS termination |
+| Six database migrations that create the whole schema | The command that applies them |
+| A merchant dictionary, built into the API server image | An account at a bank provider, for bank data |
+| Password sign-in, passkeys, and three optional sign-in providers | An email provider, for one-time codes |
+
+Freenary has no version number and no application release. The repository publishes only merchant data releases with tags of the form `data-YYYY-MM-DD`. You move an instance forward with a git checkout. Read [Updates](/docs/self-hosting/updates).
+
+## Requirements
+
+| Requirement | Value | Note |
+| --- | --- | --- |
+| Docker Engine | Any version with the `docker compose` plugin, version 2 | Every command on these pages starts with `docker compose` |
+| Docker Compose features | The `env_file` long form with `required:` | `docker-compose.yml` uses it for both apps |
+| PostgreSQL | 18, from the image `postgres:18` | The stack runs it for you. Do not install PostgreSQL on the host |
+| Bun | `1.3.14` | Needed only for a build from source without Docker |
+| Published port 3001 | The web app | The port a browser opens |
+| Published port 3000 | The API server | The port the browser calls for data and sign-in |
+| Published port 5432 | PostgreSQL | Published on every host interface |
+| Domain and TLS | One hostname for the web app, one for the API server | Needed for every instance that is not local |
+
+<Callout type="warn">
+
+`docker-compose.yml` publishes port 5432 to the host, and the database password falls back to the literal value `password`. Close the port or set a real password before the host reaches the internet. Read [Security](/docs/self-hosting/security).
+
+</Callout>
+
+## What the stack runs
+
+`docker-compose.yml` declares the Compose project `freenary`, three services and one named volume.
+
+| Service | Image or build | Published port | Waits for | Healthcheck |
+| --- | --- | --- | --- | --- |
+| `web` | Build of `apps/web/Dockerfile`, context the repository root | `3001:3001` | `server`, healthy | A fetch of `http://localhost:3001/` inside the container |
+| `server` | Build of `apps/server/Dockerfile`, context the repository root | `3000:3000` | `postgres`, healthy | A fetch of `http://localhost:3000/` inside the container |
+| `postgres` | `postgres:18`, container name `freenary-postgres` | `5432:5432` | — | `pg_isready -U postgres` |
+
+All three healthchecks use a 10 second interval, a 5 second timeout and 5 retries. The two apps add a 10 second start period. Docker starts `postgres` first, then `server`, then `web`. Each service restarts unless you stop it.
+
+The named volume `freenary_postgres_data` holds the database at the container path `/var/lib/postgresql`. It is the only state on disk. Read [Backup and restore](/docs/self-hosting/backup-and-restore).
+
+<Callout type="warn">
+
+The stack applies no database migrations. A fresh stack starts an API server against an empty schema, and it serves no data. You must apply the migrations by hand. [Install with Docker Compose](/docs/self-hosting/docker-compose) gives the command.
+
+</Callout>
+
+## What Freenary needs from outside
+
+Two external accounts, and nothing else. Freenary calls no other third party at runtime.
+
+| Account | What it gives | Page |
+| --- | --- | --- |
+| A bank provider, Powens or Enable Banking | Bank connections, bank accounts and transactions | [Bank providers](/docs/self-hosting/bank-providers) |
+| An email provider, Resend or SMTP | Delivery of the emailed one-time codes | [Email](/docs/self-hosting/email) |
+
+An instance runs with neither account. The parts that need them then stop:
+
+| Missing account | What stops |
+| --- | --- |
+| No bank provider | A user cannot open a bank connection. Onboarding skips the bank step. Every screen that reads transactions stays empty. |
+| No email provider | The web app hides the **Forgot password?** link. Password reset does not work. Email verification does not work. A new user signs up with an email address and a password, and gets a session at once. |
+
+The value `EMAIL_PROVIDER=log` prints one-time codes to the server log. The API server refuses that value when `NODE_ENV=production`, so it is not a production option.
+
+## Before you start
+
+Make these four decisions first. Each one lands in a different file, and two of them are hard to change later.
+
+| Decision | Where it lands | Later change |
+| --- | --- | --- |
+| The public URL of the web app | `CORS_ORIGIN` in `docker-compose.yml` | Restart the `server` service |
+| The public URL of the API server | `BETTER_AUTH_URL` in `apps/server/.env`, and the `VITE_SERVER_URL` build argument in `docker-compose.yml` | Rebuild the `web` image, because the value enters the browser bundle at build time |
+| The database password | `POSTGRES_PASSWORD`, read by Compose | Change it in PostgreSQL too, and restart both services |
+| The sign-in methods | `apps/server/.env` | Restart the `server` service |
+
+Password sign-in and passkeys always work. Google, Apple and one OpenID Connect provider stay off until you give their credentials. Read [Authentication](/docs/self-hosting/authentication).
+
+<Cards>
+
+<Card
+  title="Install with Docker Compose"
+  href="/docs/self-hosting/docker-compose"
+  description="Clone, configure, start the stack, apply the migrations, and check the result."
+/>
+
+<Card
+  title="Configuration"
+  href="/docs/self-hosting/configuration"
+  description="Every environment variable, its schema and its default."
+/>
+
+<Card
+  title="Bank providers"
+  href="/docs/self-hosting/bank-providers"
+  description="Set up Powens or Enable Banking so users can connect a bank."
+/>
+
+</Cards>

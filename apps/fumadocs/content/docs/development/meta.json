@@ -1,0 +1,14 @@
+{
+  "title": "Development",
+  "icon": "Code",
+  "pages": [
+    "index",
+    "local-stack",
+    "monorepo",
+    "data-model",
+    "categorisation",
+    "bank-provider",
+    "writing-docs",
+    "decisions"
+  ]
+}

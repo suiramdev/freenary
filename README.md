@@ -1,129 +1,135 @@
 # Freenary
 
-**Freenary** is an open-source personal finance and wealth-management platform. It aggregates banking, investments, assets, liabilities and transactions from multiple providers into a single financial model, and uses that model to provide budgeting, portfolio analytics, planning, simulations and AI-assisted financial insights.
+Freenary is an open-source personal finance and wealth-management platform that you host yourself. It connects your banks, imports your accounts and transactions, categorises them, and shows you where your money goes. Your financial data stays in your own PostgreSQL database.
 
-The goal is a user-controlled **financial operating system**: connect your financial data, understand the present, analyze what can be improved, define where you want to go, simulate possible futures and make better-informed decisions — all from one open platform that you can host, extend and customize.
+Freenary is under active development. The Budget area works end to end. Four areas — Portfolio, Analysis, Goals and AI — appear in the sidebar with a **Planned** badge and hold no data yet.
 
-## Built with
+## The problem it solves
 
-This project uses [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Elysia, ORPC, and more.
+- Your money sits in many bank apps, and no app shows the complete picture.
+- A proprietary aggregator holds your financial data on its own servers.
+- A spreadsheet needs manual work every month, and it goes stale.
 
-## Features
+Freenary puts the accounts, the transactions and the categories in one place that you control.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Elysia** - Type-safe, high-performance framework
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Bun** - Runtime environment
-- **Prisma** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Turborepo** - Optimized monorepo build system
+## What Freenary does today
 
-## Getting Started
+| Capability | State | Documentation |
+| --- | --- | --- |
+| Connect a bank through one bank provider (Powens or Enable Banking) | Built | [Bank connections](apps/fumadocs/content/docs/guides/bank-connections.mdx) |
+| Import bank accounts, balances and transactions; import holdings with Powens | Built | [Bank providers](apps/fumadocs/content/docs/self-hosting/bank-providers.mdx) |
+| Categorise transactions with deterministic rules and a merchant dictionary | Built | [Categorisation](apps/fumadocs/content/docs/development/categorisation.mdx) |
+| Budget: periods, cash flow, spending breakdown, fixed against variable, budget against actual, transaction list | Built | [Budget](apps/fumadocs/content/docs/guides/budget.mdx) |
+| Budgeting profile and custom categories | Built | [Categories and budget lines](apps/fumadocs/content/docs/guides/categories.mdx) |
+| Sign in with a password, an emailed one-time code, a passkey, Google, Apple or single sign-on, plus two-factor authentication | Built | [Signing in](apps/fumadocs/content/docs/guides/signing-in.mdx) |
+| English and French interface, light and dark appearance | Built | [Language and appearance](apps/fumadocs/content/docs/guides/interface.mdx) |
+| Programmatic access over RPC and OpenAPI | Built | [API](apps/fumadocs/content/docs/integrations/api.mdx) |
+| Portfolio, Analysis, Goals, AI | Planned | [Introduction](apps/fumadocs/content/docs/index.mdx) |
 
-First, install the dependencies:
+Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](apps/fumadocs/content/docs/integrations/mcp.mdx) for the API path that replaces it.
+
+## Requirements
+
+| Item | Version | Note |
+| --- | --- | --- |
+| Docker Engine and Docker Compose | Compose v2 or later | The supported install path |
+| PostgreSQL | 18 | The Compose stack runs it for you |
+| Bun | 1.3.14 | Only for a source install or for development |
+| Bank provider account | — | Optional. Without one, Freenary runs and imports no bank data. |
+| Email provider account | — | Optional. Without one, Freenary sends no one-time code. |
+
+## Quick start
+
+These five commands give you a local instance. Do not expose this instance to the internet: it keeps development defaults. Read [Install with Docker Compose](apps/fumadocs/content/docs/self-hosting/docker-compose.mdx) for a real deployment.
+
+```bash
+git clone https://github.com/suiramdev/freenary.git
+cd freenary
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > .env
+docker compose up -d --build
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+The last command applies the database migrations. The Compose stack does not apply them for you, and the API server serves no data before this command succeeds.
+
+Now check the two services:
+
+```bash
+curl http://localhost:3000/          # the API server answers: OK
+curl -o /dev/null -w '%{http_code}\n' http://localhost:3001/   # the web app answers: 200
+```
+
+Open http://localhost:3001 and create the first account. Then follow [First steps](apps/fumadocs/content/docs/guides/first-steps.mdx).
+
+## Documentation
+
+The complete documentation lives in [`apps/fumadocs`](apps/fumadocs). Run it with `cd apps/fumadocs && bun run dev`, then open http://localhost:4000.
+
+| Section | Read it for |
+| --- | --- |
+| [Introduction](apps/fumadocs/content/docs/index.mdx) | What Freenary is, and what it does today |
+| [Concepts](apps/fumadocs/content/docs/concepts.mdx) | The vocabulary the rest of the documentation uses |
+| [Using Freenary](apps/fumadocs/content/docs/guides/index.mdx) | Sign in, connect a bank, read the Budget area |
+| [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx) | Install, configure, update, back up and monitor an instance |
+| [Configuration reference](apps/fumadocs/content/docs/self-hosting/configuration.mdx) | Every environment variable, with its default |
+| [Troubleshooting](apps/fumadocs/content/docs/self-hosting/troubleshooting.mdx) | A symptom, its cause and its fix |
+| [Integrations](apps/fumadocs/content/docs/integrations/index.mdx) | The API, the procedure reference and MCP |
+| [Development](apps/fumadocs/content/docs/development/index.mdx) | Set up the code, run the checks, open a pull request |
+| [Architecture](apps/fumadocs/content/docs/development/monorepo.mdx) | Workspaces, request flow and build |
+
+## Development
 
 ```bash
 bun install
+bun run dev:up     # the containerised stack: PostgreSQL, migrations, API server, web app, docs
 ```
 
-## Database Setup
-
-This project uses PostgreSQL with Prisma.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
+`dev:up` needs [OrbStack](https://orbstack.dev) because the dev stack publishes no host port and reaches you through OrbStack hostnames. Without OrbStack, run the local path:
 
 ```bash
-bun run db:push
+bun run db:start   # PostgreSQL in a container
+bun run db:push    # apply the Prisma schema
+bun run dev        # web app on 3001, API server on 3000, docs on 4000
 ```
 
-Then, run the development server:
+Run the same checks as continuous integration before you open a pull request:
 
 ```bash
-bun run dev
+bun run check         # Oxlint and Oxfmt through Ultracite
+bun run check-types   # TypeScript
+bun run build         # every app
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application. The API is running at [http://localhost:3000](http://localhost:3000).
+More detail: [Development](apps/fumadocs/content/docs/development/index.mdx) and [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx).
 
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@freenary/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Docker Compose
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: bun run docker:build
-- Start: bun run docker:up
-- Logs: bun run docker:logs
-- Stop: bun run docker:down
-
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
-
-For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
+## Repository layout
 
 ```
 freenary/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Start)
-│   └── server/      # Backend API (Elysia, ORPC)
+│   ├── web/         # web app (React, TanStack Start)
+│   ├── server/      # API server (Elysia, oRPC)
+│   └── fumadocs/    # documentation website
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── api/         # procedures, bank providers, categorisation
+│   ├── auth/        # Better Auth configuration and policy
+│   ├── db/          # Prisma schema, migrations, client
+│   ├── email/       # email adapters: log, Resend, SMTP
+│   ├── env/         # environment-variable schemas
+│   ├── ui/          # shared interface primitives
+│   └── config/      # shared TypeScript configuration
+└── docs/adr/        # architecture decision records
 ```
 
-## Available Scripts
+## Contributing
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Oxlint and Oxfmt
-- `bun run docker:build`: Build the Docker Compose images
-- `bun run docker:up`: Build and start the Docker Compose stack
-- `bun run docker:logs`: Tail logs from the Docker Compose stack
-- `bun run docker:down`: Stop the Docker Compose stack
+Read [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) first, then [`CONTEXT.md`](CONTEXT.md) for the product vocabulary and [`AGENTS.md`](AGENTS.md) for the code standards. Every pull request uses [the template](.github/pull_request_template.md).
+
+## Support
+
+- Report a problem or ask for a feature: [GitHub issues](https://github.com/suiramdev/freenary/issues/new/choose).
+- Read [Troubleshooting](apps/fumadocs/content/docs/self-hosting/troubleshooting.mdx) before you open an issue about a deployment.
+
+## License
+
+This repository does not include a license file yet. Open an issue if you need the reuse terms.

@@ -1,0 +1,14 @@
+{
+  "title": "Using Freenary",
+  "icon": "Compass",
+  "pages": [
+    "index",
+    "signing-in",
+    "first-steps",
+    "bank-connections",
+    "budget",
+    "categories",
+    "settings",
+    "interface"
+  ]
+}

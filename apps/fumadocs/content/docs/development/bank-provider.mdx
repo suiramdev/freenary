@@ -1,0 +1,540 @@
+---
+title: Add a bank provider
+description: The BankingProvider interface, the capability model, the registration steps, the connect flow and how to test an adapter with no live credentials.
+icon: PlugZap
+---
+
+A bank provider adapter is one object that satisfies the `BankingProvider` interface. It translates one aggregation API into the shapes the core understands, and nothing else. Freenary ships two adapters, Powens and Enable Banking. This page holds everything a third one needs.
+
+The registry picks the adapter. `packages/api/src/providers/registry.ts` is the whole selection logic:
+
+```ts
+const providers = {
+  [enableBankingProvider.id]: enableBankingProvider,
+  [powensProvider.id]: powensProvider,
+} as const satisfies Record<string, BankingProvider>;
+
+export const getProvider = (id: string): BankingProvider => {
+  const provider = providers[id];
+  if (!provider) {
+    throw new Error(`Unknown banking provider: ${id}`);
+  }
+  return provider;
+};
+
+export const getDefaultProvider = (): BankingProvider =>
+  getProvider(env.BANKING_PROVIDER);
+```
+
+`BANKING_PROVIDER` chooses which adapter a **new** bank connection uses. Every `bank_connection` row already in the database keeps its own `provider` column, so sync and disconnect resolve the adapter per row. Both adapters can hold live connections at the same time.
+
+## The interface
+
+This is `packages/api/src/providers/types.ts`, in full.
+
+```ts
+export interface ProviderInstitution {
+  id: string;
+  name: string;
+  country: string;
+  logoUrl?: string;
+  bic?: string;
+  group?: string;
+}
+
+export interface ProviderCreditorIdentification {
+  schemeName: string;
+  identification: string;
+}
+
+export interface ProviderTransaction {
+  /** Stable dedup key. Never randomly generated. */
+  providerTransactionId: string;
+  bookingDate: string;
+  valueDate?: string;
+  transactionDate?: string;
+  /** Signed amount in minor units; negative = outgoing. */
+  amountMinor: number;
+  currency: string;
+  /** Raw remittance lines exactly as provided. Order is NOT guaranteed. */
+  remittanceLines: string[];
+  creditorName?: string;
+  debtorName?: string;
+  creditorIban?: string;
+  debtorIban?: string;
+  /** Creditor agent BIC — identifies the acquiring bank, a useful intermediary signal. */
+  creditorAgentBic?: string;
+  creditorTown?: string;
+  creditorCountry?: string;
+  creditorIdentifications?: ProviderCreditorIdentification[];
+  merchantCategoryCode?: string;
+  /** ISO 20022 family code where the provider exposes or derives one. */
+  bankTransactionFamilyCode?: string;
+  bankTransactionSubCode?: string;
+  /** ASPSP-proprietary free-text classification. */
+  bankTransactionDescription?: string;
+  referenceNumber?: string;
+  referenceNumberScheme?: string;
+  balanceAfterMinor?: number;
+  status: string;
+  exchangeRate?: string;
+  /** The PSU's own note, where the bank exposes it. */
+  psuNote?: string;
+}
+
+/** Identity at a provider that scopes data per user (Powens). Persisted by the core, opaque to it. */
+export interface ProviderUserSession {
+  providerUserId: string;
+  accessToken: string;
+}
+
+export interface StartConnectionRequest {
+  institutionId: string;
+  country: string;
+  redirectUrl: string;
+  state: string;
+  user: ProviderUserSession | null;
+}
+
+export interface CompleteConnectionRequest {
+  /** Every query parameter the provider appended to the callback URL, stringified. */
+  callbackParams: Record<string, string>;
+  user: ProviderUserSession | null;
+}
+
+export interface ConnectionRequest {
+  providerSessionId: string;
+  user: ProviderUserSession | null;
+}
+
+export interface FetchTransactionsRequest extends ConnectionRequest {
+  providerAccountId: string;
+  /** Sync cursor: the day of the last successful sync, or the history floor on first sync. */
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface FetchHoldingsRequest extends ConnectionRequest {
+  providerAccountId: string;
+}
+
+/** Mirrors the Prisma enum `BankAccountType` member names so sync writes them without a mapping. */
+export type ProviderAccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CARD"
+  | "LOAN"
+  | "BROKERAGE"
+  | "LIFE_INSURANCE"
+  | "RETIREMENT"
+  | "EMPLOYEE_SAVINGS"
+  | "REAL_ESTATE"
+  | "CROWDLENDING"
+  | "UNKNOWN";
+
+const INVESTMENT_ACCOUNT_TYPES = {
+  BROKERAGE: true,
+  CROWDLENDING: true,
+  EMPLOYEE_SAVINGS: true,
+  LIFE_INSURANCE: true,
+  REAL_ESTATE: true,
+  RETIREMENT: true,
+} satisfies Partial<Record<ProviderAccountType, true>>;
+
+/** True for account types whose contents are holdings rather than cash movements. */
+export const isInvestmentAccountType = (type: string): boolean =>
+  Object.hasOwn(INVESTMENT_ACCOUNT_TYPES, type);
+
+export interface ProviderAccount {
+  providerAccountId: string;
+  name?: string;
+  iban?: string;
+  type: ProviderAccountType;
+  currency?: string;
+  /** Signed balance in minor units of `currency`; undefined when the provider has none. */
+  balanceMinor?: number;
+  /** ISO 8601 datetime of the balance. */
+  balanceAt?: string;
+}
+
+export interface ProviderHolding {
+  providerHoldingId: string;
+  label: string;
+  /** ISIN when `codeType` is "ISIN". */
+  code?: string;
+  codeType?: "ISIN" | "AMF";
+  /** Decimal strings: units can be fractional and must not go through a float. */
+  quantity: string;
+  unitCost?: string;
+  unitValue?: string;
+  valuationMinor: number;
+  unrealisedGainMinor?: number;
+  currency: string;
+  /** YYYY-MM-DD valuation date. */
+  valuedAt?: string;
+}
+
+export interface CompletedConnection {
+  providerSessionId: string;
+  institutionName: string;
+  institutionGroup?: string;
+  accounts: {
+    providerAccountId: string;
+    iban?: string;
+    identificationHash?: string;
+    name?: string;
+  }[];
+}
+
+export interface BankingProvider {
+  readonly id: string;
+  /** Web route the provider redirects back to, appended to CORS_ORIGIN; registered at the provider. */
+  readonly callbackPath: `/callback/${string}`;
+  isConfigured: () => boolean;
+  /** Present only when the provider scopes data per user. The core persists and echoes the session. */
+  createUser?: () => Promise<ProviderUserSession>;
+  deleteUser?: (user: ProviderUserSession) => Promise<void>;
+  listInstitutions: (country: string) => Promise<ProviderInstitution[]>;
+  startConnection: (
+    request: StartConnectionRequest
+  ) => Promise<{ url: string }>;
+  completeConnection: (
+    request: CompleteConnectionRequest
+  ) => Promise<CompletedConnection>;
+  /**
+   * Deletes the provider session and asks the bank to close its consent.
+   * Resolving means the request landed — banks confirm no more than that.
+   */
+  closeConnection: (request: ConnectionRequest) => Promise<void>;
+  fetchTransactions: (
+    request: FetchTransactionsRequest
+  ) => Promise<ProviderTransaction[]>;
+  /** Wealth capability. Absent when the provider exposes neither balances nor holdings. */
+  fetchAccounts?: (request: ConnectionRequest) => Promise<ProviderAccount[]>;
+  fetchHoldings?: (request: FetchHoldingsRequest) => Promise<ProviderHolding[]>;
+}
+```
+
+### What each member owes the caller
+
+| Member | Needed? | What it must do | What the caller does with the result |
+| --- | --- | --- | --- |
+| `id` | yes | A stable, lower-case identifier. It becomes the key in the registry and the value of `bank_connection.provider`. | `getProvider(id)` and every per-row adapter lookup |
+| `callbackPath` | yes | `` `/callback/${string}` ``. The web route the bank provider redirects to. | `startConnection` builds `redirectUrl` as `env.CORS_ORIGIN + callbackPath` |
+| `isConfigured` | yes | Return `true` only when every credential is present and non-empty. Never call the network here. | `bankConnection.getProviderAvailability` gates the settings section and the onboarding bank step |
+| `createUser` | optional | Create the per-user identity at the bank provider and return its id and token. | `ensureProviderUser` inserts one `bank_provider_user` row per `(userId, provider)`. It tolerates a concurrent duplicate. |
+| `deleteUser` | optional | Delete that identity. | `releaseProviderUser` calls it when the user's last connection for this bank provider goes away |
+| `listInstitutions` | yes | Return the banks for one ISO 3166-1 alpha-2 country. Return `[]` on failure instead of a throw. | The bank picker, and the exact `(id, country)` match at start and at exchange |
+| `startConnection` | yes | Return the URL the browser must open. | The web app calls `window.location.assign(url)` |
+| `completeConnection` | yes | Read the callback parameters, finish the consent, and return the session handle plus the accounts. | `exchangeCode` writes one `bank_connection` row and one `bank_account` row per account |
+| `closeConnection` | yes | Delete the provider session and ask the bank to close its consent. Treat a 404 as success. | `disconnect` swallows a failure into `revocationRequested: false`, then deletes the row anyway |
+| `fetchTransactions` | yes | Return every transaction in the day range for one account. | `upsertTransaction` writes each one and derives its merchant key |
+| `fetchAccounts` | optional | Return the current account set with kind, currency and balance. | `syncProviderAccounts` upserts on `(connectionId, providerAccountId)` |
+| `fetchHoldings` | optional | Return the current holdings of one investment account. | `syncHoldings` replaces that account's snapshot |
+
+## The capability model
+
+Four members are optional: `createUser`, `deleteUser`, `fetchAccounts` and `fetchHoldings`. The last two travel together as one wealth capability.
+
+| Omitted member | What the product loses |
+| --- | --- |
+| `createUser` and `deleteUser` | Nothing. `user` arrives as `null` on every request, and the core writes no `bank_provider_user` row. Omit both when the bank provider needs no per-user identity. |
+| `fetchAccounts` | The account set freezes at link time. `bank_account.type` stays `UNKNOWN` and `currency`, `balanceMinor` and `balanceAt` stay null forever. An account the user activates at the bank after the link never appears. |
+| `fetchHoldings` | No `Holding` row ever exists for that bank provider. |
+
+The two losses compound. `syncConnection` calls `fetchHoldings` only when `isInvestmentAccountType(account.type)` is true. With no `fetchAccounts`, every account type reads `UNKNOWN`, so `fetchHoldings` never runs even when the adapter has it.
+
+### Enable Banking, the worked partial adapter
+
+Enable Banking implements eight of the twelve members and omits four. The table below compares the ten function members; both adapters also declare `id` and `callbackPath`.
+
+| Member                        | Enable Banking | Powens |
+| ----------------------------- | -------------- | ------ |
+| `isConfigured`                | yes            | yes    |
+| `listInstitutions`            | yes            | yes    |
+| `startConnection`             | yes            | yes    |
+| `completeConnection`          | yes            | yes    |
+| `closeConnection`             | yes            | yes    |
+| `fetchTransactions`           | yes            | yes    |
+| `createUser` and `deleteUser` | **absent**     | yes    |
+| `fetchAccounts`               | **absent**     | yes    |
+| `fetchHoldings`               | **absent**     | yes    |
+
+An Enable Banking instance therefore imports transactions and nothing else. Its accounts carry only the `uid`, `iban`, `identification_hash` and `name` that the link returned. No balance, no account kind, no holdings, ever. Powens honours a per-account `currency.precision`, and Enable Banking assumes 2 decimals for every currency.
+
+<Callout type="info">
+
+Freenary shows investment holdings nowhere today. `bank-sync.ts` writes `Holding` rows, and no router reads them. The same holds for `bank_account.balanceMinor`. A new adapter that implements `fetchHoldings` fills correct rows with no read path, so implement `fetchTransactions` first.
+
+</Callout>
+
+## Register an adapter
+
+<Steps>
+
+<Step>
+
+### Implement the interface
+
+Create `packages/api/src/providers/<id>/index.ts` and export one object that satisfies `BankingProvider`. Keep the HTTP layer in a sibling `client.ts`, and keep each mapper in its own file. Both shipped adapters follow that split:
+
+<Files>
+  <Folder name="packages/api/src/providers" defaultOpen>
+    <Folder name="powens" defaultOpen>
+      <File name="index.ts" />
+      <File name="client.ts" />
+      <File name="map-account.ts" />
+      <File name="map-connection.ts" />
+      <File name="map-holding.ts" />
+      <File name="map-transaction.ts" />
+    </Folder>
+    <Folder name="enable-banking">
+      <File name="index.ts" />
+      <File name="client.ts" />
+      <File name="map-connection.ts" />
+      <File name="map-transaction.ts" />
+    </Folder>
+    <File name="registry.ts" />
+    <File name="types.ts" />
+  </Folder>
+</Files>
+
+An adapter reads `env` from `@freenary/env/server` and nothing else from the core. It never touches Prisma. `packages/api/src/lib/bank-provider-user.ts` owns the per-user identity, never an adapter.
+
+</Step>
+
+<Step>
+
+### Add the registry entry
+
+Add one line to `providers` in `packages/api/src/providers/registry.ts`:
+
+```ts
+const providers = {
+  [enableBankingProvider.id]: enableBankingProvider,
+  [myBankProvider.id]: myBankProvider,
+  [powensProvider.id]: powensProvider,
+} as const satisfies Record<string, BankingProvider>;
+```
+
+No router, no sync code and no web route changes.
+
+</Step>
+
+<Step>
+
+### Add the environment variables
+
+Two edits in `packages/env/src/server.ts`. Add your credential variables under the `server` key with a Zod schema, `optional()` unless the adapter is mandatory. Then add your `id` to the `BANKING_PROVIDER` enum:
+
+```ts
+BANKING_PROVIDER: z
+  .enum(["powens", "enable-banking", "my-bank"])
+  .default("powens"),
+```
+
+</Step>
+
+<Step>
+
+### Register the callback URL at the provider
+
+**No new web route.** `apps/web/src/routes/callback/$provider.tsx` is one dynamic route that serves every bank provider. It renders with `ssr: false`, because the exchange needs the session cookie.
+
+Register `<CORS_ORIGIN><callbackPath>` at the bank provider as an allowed redirect URL. For `callbackPath: "/callback/my-bank"` and `CORS_ORIGIN: https://money.example.com`, that is `https://money.example.com/callback/my-bank`.
+
+</Step>
+
+<Step>
+
+### Add the compose entries and document the variables
+
+Add one line per variable to the `x-app-env` anchor in `compose.dev.yml`, in the `${VAR:-}` form the block uses:
+
+```yaml
+MY_BANK_APP_ID: ${MY_BANK_APP_ID:-}
+MY_BANK_APP_SECRET: ${MY_BANK_APP_SECRET:-}
+```
+
+`docker-compose.yml` needs no edit. The `server` service reads `apps/server/.env` through `env_file`, so an operator sets the variables there.
+
+Then document each variable in `.env.example`, commented out, next to the Powens and Enable Banking blocks. Say what an operator must do at the bank provider, and name the redirect URL to whitelist.
+
+</Step>
+
+<Step>
+
+### Write the mapper tests
+
+Copy the pattern from the mapper tests already in the repository. See [Test an adapter](#test-an-adapter-with-no-live-credentials).
+
+</Step>
+
+</Steps>
+
+## The connect flow the adapter must satisfy
+
+Sixteen hops run from a click to a categorised transaction. The **Adapter** column marks the ones your code answers.
+
+| # | Hop | What happens | Adapter |
+| --- | --- | --- | --- |
+| 1 | The user opens the bank list | Onboarding "Connect your bank", or Settings, Bank accounts. `getProviderAvailability` gates both surfaces. | `isConfigured` |
+| 2 | The user clicks a bank | The web app calls `bankConnection.startConnection({ bankCountry, institutionId, returnTo, state })` | — |
+| 3 | The API validates | `getDefaultProvider()`, then re-list the institutions for that country and demand an exact `(id, country)` match. A miss is `BAD_REQUEST "Unknown bank institution"`. | `listInstitutions` |
+| 4 | The API resolves the identity | `ensureProviderUser`. With `createUser` it inserts a `bank_provider_user` row. Without it, `user` is `null`. | `createUser` |
+| 5 | The API builds the redirect and the state | `redirectUrl = env.CORS_ORIGIN + provider.callbackPath`, then `encodeBankConnectionState(...)` | `callbackPath` |
+| 6 | The API asks the provider | The adapter returns the URL the browser must open | `startConnection` |
+| 7 | The browser leaves | `window.location.assign(result.url)`. Nothing is marked connected yet. | — |
+| 8 | The provider redirects back | The provider hits `<CORS_ORIGIN><callbackPath>`. The app serves `/callback/$provider`. | — |
+| 9 | The callback triages | No session gives a redirect to `/login`. An `error` parameter means the user declined. No `state` means an incomplete response. Everything else goes to the exchange. | — |
+| 10 | The API exchanges | `bankConnection.exchangeCode({ params, providerId })` resolves the provider, demands `state`, parses it, checks `providerId`, checks the HMAC against this session's user, re-lists the institutions, and demands a stored provider user when the adapter has `createUser` | `listInstitutions` |
+| 11 | The provider completes | The adapter reads the callback parameters and finishes the consent | `completeConnection` |
+| 12 | The API stores the state | One `prisma.$transaction`: the `bank_connection` row, then `bankAccount.createMany` for the returned accounts | — |
+| 13 | The response returns | `{ accounts, connectionId, institutionName, returnTo, sessionId }`. The page toasts, invalidates its queries, then navigates. | — |
+| 14 | Sync starts later | **The callback triggers no sync.** Sync runs from the budget page: once in the background when accounts exist, or on demand. There is no scheduler, no cron and no webhook receiver. | — |
+| 15 | The sync body | Per connection: refresh the accounts, then per account fetch the transactions and upsert them, then fetch the holdings for an investment account. Finally set `lastSyncedAt`. | `fetchAccounts`, `fetchTransactions`, `fetchHoldings` |
+| 16 | The passes after sync | `matchInternalTransfers`, then `categoriseUncategorised` | — |
+
+The sync window is `SYNC_HISTORY_DAYS = 90`. `dateFrom` is `lastSyncedAt`, or 90 days back on a first or forced sync. `dateTo` is today. Both arrive as `YYYY-MM-DD`.
+
+### The signed state parameter
+
+`packages/api/src/routers/bank-connection-state.ts` builds the `state` value that round-trips through the bank provider. The adapter passes it through untouched.
+
+The payload is a JSON object with four keys: `institution` (`country`, `id`, `name`), `original`, `providerId` and `returnTo`. `returnTo` is `"onboarding"` or `"settings"`.
+
+```ts
+const computeHmac = (payload: string, userId: string, secret: string): string =>
+  createHmac("sha256", secret).update(`${userId}:${payload}`).digest("hex");
+```
+
+The HMAC is SHA-256, keyed by `BETTER_AUTH_SECRET`, over `` `${userId}:${JSON.stringify(payload)}` ``. It therefore binds three things: the payload, the signing secret, and the user id of the session that started the flow. `verifyBankConnectionState` strips `hmac`, recomputes over the re-serialised payload, checks the length, then compares with `timingSafeEqual`.
+
+<Callout type="warn">
+
+The HMAC covers a **re-serialised** object, so verification depends on a parsed key order equal to the encode order. Any new state field inherits that constraint. Add a field in alphabetical position, and add it to the Zod schema in the same place.
+
+</Callout>
+
+## Data mapping rules
+
+| Rule | Detail |
+| --- | --- |
+| Money is minor units | `amountMinor`, `balanceMinor`, `valuationMinor` and `unrealisedGainMinor` are integers in the minor unit of their `currency`. Negative is outgoing. Never send a float amount. |
+| Currency is a per-row code | Every money field pairs with an ISO 4217 code on the same object. There is no base currency and no conversion anywhere in Freenary. |
+| Quantities are decimal strings | `quantity`, `unitCost` and `unitValue` travel as strings, because units can be fractional and must not pass through a float. They land in `Decimal(24, 8)` and `Decimal(24, 6)`. |
+| Holdings are a snapshot | `syncHoldings` deletes the account's holdings that the bank provider no longer reports, then upserts the rest. The table is the last sync, not a history. A sold position disappears. |
+| Transactions deduplicate on the provider id | The unique key is `(accountId, providerTransactionId)`. `providerTransactionId` must be **stable across syncs** and never random. |
+| An unknown account kind is `UNKNOWN` | `ProviderAccountType` mirrors the Prisma enum member names, so sync writes `account.type` straight through with no mapping. Map an unrecognised kind to `"UNKNOWN"` rather than guess. |
+
+<Callout type="warn">
+
+Postgres treats `NULL` values as distinct inside a unique index. A `providerTransactionId` that the adapter leaves empty defeats deduplication, so the same movement inserts again on every sync.
+
+When the bank provider gives no stable id, derive one. Enable Banking hashes the stable fields and appends a repeat index, so two rows with the same fingerprint in one batch stay distinct: `derived:<sha256(stableFields).slice(0,32)>:<occurrence>`.
+
+</Callout>
+
+## Errors
+
+**Throw a plain `Error` with a message an operator can read.** No adapter throws `ORPCError`. The routers own the translation to an oRPC error code, and the sync path owns the collection into a user-visible string.
+
+| Where the throw lands | What happens to it |
+| --- | --- |
+| Inside `syncConnection`, per account | `errors.push("Account <providerAccountId>: <message>")`. The other accounts keep going. |
+| Inside `syncConnection`, connection level | `errors.push("Connection <institutionName>: <message>")`. No account of that connection syncs, and `lastSyncedAt` does not advance. |
+| In the connect flow | `bank-connection.ts` maps the failure to an oRPC error. The callback route catches everything and toasts one failure message. |
+
+`syncAccounts` joins the collected messages with `"; "` and returns `{ success: false, error }`. The web app shows that string with a Retry action, so keep messages short and free of secrets.
+
+Two rules both shipped adapters follow:
+
+- `listInstitutions` never throws. It returns `[]` on a non-OK response and on a thrown error.
+- `closeConnection` and `deleteUser` treat a 404 as success. The record is already gone.
+
+### Connection states
+
+`BankConnection.status` is the connection state machine. The enum is `ACTIVE`, `EXPIRED`, `ERROR`.
+
+<Callout type="warn">
+
+Only `ACTIVE` is reachable. Row creation is its one writer, and no code in `packages/api`, `packages/db` or `scripts` ever writes `EXPIRED` or `ERROR`. A sync failure changes no status.
+
+So a user whose consent ran out keeps an `ACTIVE` row that reads "Synced &lt;old date&gt;" and quietly imports nothing more. A new adapter cannot fix that from its own side. The reconnect and SCA-repair path is out of scope in `docs/adr/006-bank-provider-abstraction.md`.
+
+</Callout>
+
+## Test an adapter with no live credentials
+
+You do not need a sandbox account to prove an adapter correct. Split the work in two.
+
+### 1. Test the mappers directly
+
+The mappers are pure functions from a provider payload to a `Provider*` object. Test them with a captured payload and no network at all. Six test files already do this, and they are the pattern to copy:
+
+| File | Covers |
+| --- | --- |
+| `packages/api/src/providers/powens/map-account.test.ts` | Both type payload shapes, four of the 25 mapped account kinds, the `UNKNOWN` fallback, precision-based balance conversion, the UTC balance date, the `original_name` fallback |
+| `packages/api/src/providers/powens/map-connection.test.ts` | `CompletedConnection`, and the drop of deleted accounts |
+| `packages/api/src/providers/powens/map-holding.test.ts` | Decimal strings, the `codeType` filter, the drop of unreported quantities |
+| `packages/api/src/providers/powens/map-transaction.test.ts` | Sign, status, remittance lines, the ISO 20022 family code table |
+| `packages/api/src/providers/enable-banking/map-connection.test.ts` | `identificationHash` and the account fields |
+| `packages/api/src/providers/enable-banking/map-transaction.test.ts` | Minor-unit parsing, the derived dedup key, the defaults |
+
+Assert the mapped object, not the internals. A mapper test that passes is proof the shape is right.
+
+### 2. Stub the HTTP layer, then run the real sync path
+
+For anything above the mappers, replace `globalThis.fetch` with a stub that answers your recorded payloads. Then run the real `syncConnection` against a throwaway Postgres database and read the rows.
+
+That gives you three things a mapper test cannot:
+
+1. **Request construction.** Assert the URL, the method, the headers and the body your adapter builds. A wrong `Authorization` header or an absent query parameter shows up here.
+2. **Persistence.** Assert the `bank_account`, `transaction` and `holding` rows the sync wrote, plus the merchant key the upsert derived.
+3. **Idempotence.** Run the sync twice against the same stub. The row counts must not change. This is the test that catches an unstable `providerTransactionId`.
+
+A throwaway database is cheap. `bun run db:start` gives you the compose Postgres, and `bun run db:migrate:deploy` from `packages/db` applies the schema. [Run the stack locally](/docs/development/local-stack) covers the dev stack, which does the same thing per worktree.
+
+<Callout type="info">
+
+The repository has no `test` script and no test task in Turborepo, and CI runs no tests. Run a test file directly with `bun test <path>`.
+
+</Callout>
+
+### What a stub cannot prove
+
+Be honest about the limit. A stub proves your adapter reads a payload correctly. It cannot prove the payload is what the bank provider sends. Consent expiry, strong customer authentication, rate limits, pagination cursors that change shape and per-bank field gaps all need live credentials. Record real payloads once, then keep them as fixtures.
+
+## The decision record
+
+`BankingProvider` exists because of one decision. Read it before you change the interface: [`docs/adr/006-bank-provider-abstraction.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/006-bank-provider-abstraction.md).
+
+It also records one accepted cost: `bank_provider_user.accessToken` holds a permanent bearer token in plain text.
+
+<Cards>
+
+<Card
+  title="Data model"
+  href="/docs/development/data-model#bank-connections-and-accounts"
+  description="The tables an adapter fills, with every column and constraint."
+/>
+
+<Card
+  title="Bank providers"
+  href="/docs/self-hosting/bank-providers"
+  description="The operator view: credentials, redirect URLs and what each provider gives."
+/>
+
+<Card
+  title="Transaction categorisation"
+  href="/docs/development/categorisation"
+  description="What the pipeline does with the fields an adapter maps."
+/>
+
+<Card
+  title="Decision records"
+  href="/docs/development/decisions"
+  description="Every architecture decision, with ADR-006."
+/>
+
+</Cards>

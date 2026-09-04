@@ -1,0 +1,158 @@
+---
+title: Bank connections
+description: Connect a bank to Freenary, keep the data current, and disconnect it again.
+icon: Landmark
+---
+
+A bank connection is the link between Freenary and one bank. Freenary imports your bank accounts and transactions through it. This page covers the whole life of a connection.
+
+**Before you start:** the operator must configure a bank provider. A bank provider is the service that talks to your bank for Freenary. Freenary supports Powens and Enable Banking.
+
+## Where to start a connection
+
+Two screens offer the same panel:
+
+- The **Connect your bank** step of the onboarding wizard. See [First steps](/docs/guides/first-steps).
+- Settings, group **Connections**, section **Bank accounts**. The address is `/settings#bank-accounts`.
+
+## The bank list
+
+The panel shows one row per bank, with a search box above. Search matches the name of the bank and its BIC. Freenary puts the banks you already connected at the top.
+
+A connected row carries one row per connection, and a subtitle:
+
+| Subtitle | Meaning |
+| --- | --- |
+| _n_ accounts · Synced _date_ | Freenary imported data at that date |
+| _n_ accounts · Not synced yet | The connection exists. No sync ran yet |
+| _n_ accounts · Reconnect to resume importing | Not reachable today. See the note below |
+
+Freenary marks a bank connection active when it creates it, and no code path changes that state. The third subtitle therefore never appears today. See [Connection states](/docs/concepts#connection-states).
+
+An unconnected row carries a **Connect** button.
+
+<Callout type="info">
+
+With Powens, the list shows no bank logos and no BIC. Powens does not report them. With Enable Banking, the list shows both.
+
+</Callout>
+
+## Connect a bank
+
+<Steps>
+
+<Step>
+
+### Press Connect
+
+Freenary asks the bank provider for a one-time link, and sends your browser to it. Freenary links nothing at this point.
+
+</Step>
+
+<Step>
+
+### Answer your bank
+
+The page belongs to your bank or to the bank provider, never to Freenary. You sign in there, pass any strong authentication your bank asks for, and choose which accounts to share.
+
+</Step>
+
+<Step>
+
+### Come back to Freenary
+
+The bank sends your browser to a Freenary page that reads **Finishing bank connection**. Freenary checks the answer, creates the connection, and records the accounts the bank returned.
+
+You then see the message **Bank connected**, with the number of accounts. Freenary returns you to Settings, or to the onboarding wizard if you started there.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+Freenary does not detect a bank you already connected. If you run the flow twice for the same bank, you get two connections and two sets of accounts.
+
+</Callout>
+
+## What Freenary imports
+
+The bank provider decides what arrives.
+
+| Data | Powens | Enable Banking |
+| --- | --- | --- |
+| Transactions | Yes | Yes |
+| Bank account type, currency and balance | Yes | No. Each account keeps the type **Unknown** and no balance |
+| Holdings | Yes, for investment accounts only | No |
+
+Freenary imports **90 days** of transactions on the first sync. Each later sync reads from the date of the last sync.
+
+Holdings need two things at once: Powens as the bank provider, and the Powens investment product turned on for the instance. Your operator does that. See [Bank providers](/docs/self-hosting/bank-providers).
+
+<Callout type="info">
+
+Freenary stores holdings, but no screen shows them today. Portfolio is a planned area. See [Using Freenary](/docs/guides).
+
+</Callout>
+
+## Sync
+
+Freenary has **no scheduler**. No job wakes up at night and refreshes your data. A sync runs only in one of three cases:
+
+| Trigger | What runs |
+| --- | --- |
+| You open the Budget screen and you have bank accounts | One background sync, once per visit |
+| You press **Sync transactions** on the Budget screen | A full re-read of the last 90 days, for every active connection |
+| You press the re-sync button on one row of the bank list | A full re-read of the last 90 days, for that connection only |
+
+A full re-read also derives every category again. The Budget screen reports the result: **Transactions are up to date**, and the count of the transactions it categorised.
+
+## Disconnect a bank
+
+Press **Disconnect** on a connected row. Freenary opens a dialog that names the bank and counts what it removes.
+
+On confirmation Freenary does three things:
+
+1. It asks the bank to revoke the access of Freenary.
+2. It deletes the connection, its bank accounts, and their transactions and holdings.
+3. It releases the identity Freenary holds at the bank provider, once no connection of that provider remains.
+
+What a disconnect **keeps**: your budgeting profile, your custom categories, and your own category corrections.
+
+If step 1 fails, Freenary still deletes the data and warns you. The message tells you to revoke the access yourself, at your bank.
+
+## When a connection fails
+
+| What happened | What you see | What to do |
+| --- | --- | --- |
+| The operator configured no bank provider | **Bank linking is unavailable.** This instance has no banking provider configured. | Ask your operator |
+| You cancel at the bank | Bank connection cancelled. Nothing was linked. | Press **Connect** again |
+| The bank sends back a partial answer | The bank sent back an incomplete response. | Press **Connect** again |
+| The exchange fails, or the bank left the list | Bank connection failed. You can try again. | Press **Connect** again |
+| The bank list does not load | Could not load banks | Reload the page |
+| Your bank asks for a new strong authentication | Failed to sync transactions | Disconnect the bank and connect it again |
+| One account refuses the read | Failed to sync transactions | Press **Retry** on the message. Other connections still synced |
+
+<Callout type="warn">
+
+A consent that expires at your bank leaves the row unchanged. It still reads **Synced _date_**, and the date does not change. If your figures stop at one day, disconnect the bank and connect it again.
+
+</Callout>
+
+<Cards>
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="Read the transactions the sync imported."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="Where the bank list lives, and what sits beside it."
+  />
+  <Card
+    title="Categories and budget lines"
+    href="/docs/guides/categories"
+    description="Organise the imported transactions."
+  />
+</Cards>

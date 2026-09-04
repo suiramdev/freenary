@@ -1,0 +1,274 @@
+---
+title: Configuration reference
+description: Every environment variable Freenary reads, with its type, default and effect.
+icon: SlidersHorizontal
+---
+
+Freenary takes all of its configuration from environment variables. This page lists every variable the code reads.
+
+## Where an instance reads its configuration
+
+The API server reads `process.env`. The schema file imports `dotenv/config`, so the process also loads a `.env` file from its working directory.
+
+The Docker Compose stack builds that environment in three steps, in this order:
+
+| Step | What happens | File |
+| --- | --- | --- |
+| 1 | Docker Compose expands the `${VAR}` placeholders inside the compose file | `.env` next to `docker-compose.yml` |
+| 2 | The `server` service loads its own file, declared `required: false` | `apps/server/.env` |
+| 3 | The `environment:` keys of the compose file override that file | `docker-compose.yml` |
+
+The `web` service loads `apps/web/.env` the same way, also `required: false`.
+
+<Callout type="warn">
+
+Neither `apps/server/.env` nor `apps/web/.env` exists in the repository. You create them. The root [`.env.example`](https://github.com/suiramdev/freenary/blob/main/.env.example) file is the template for the root `.env` alone: copy it there and set `POSTGRES_PASSWORD`. Write `apps/server/.env` as a new file, because that template carries the PostgreSQL container variables and none of `NODE_ENV`, `BETTER_AUTH_URL` or `CORS_ORIGIN`.
+
+</Callout>
+
+Step 3 is easy to miss. `docker-compose.yml` sets `CORS_ORIGIN` and `DATABASE_URL` on the `server` service as `environment:` keys. A different value in `apps/server/.env` has no effect on those two variables. Edit the compose file to change them.
+
+## How validation works
+
+The API server validates its environment once, at startup. The schema lives in [`packages/env/src/server.ts`](https://github.com/suiramdev/freenary/blob/main/packages/env/src/server.ts) and uses `@t3-oss/env-core` with Zod.
+
+Two rules follow from that schema:
+
+- An empty string counts as unset. `PORT=` in a file is the same as no `PORT` at all, so the default applies.
+- A bad value stops the process. The server prints the failed variable and exits before it opens a port.
+
+`PORT=abc` gives this exact output:
+
+```bash
+❌ Invalid environment variables: [
+  {
+    origin: "string",
+    code: "invalid_format",
+    format: "regex",
+    pattern: "/^\\d+$/u",
+    path: [ "PORT" ],
+    message: "PORT must be a decimal number between 1 and 65535",
+  }
+]
+error: Invalid environment variables
+```
+
+`SKIP_ENV_VALIDATION` turns the whole check off. `apps/server/Dockerfile` sets `SKIP_ENV_VALIDATION=1` in the `builder` stage, because the build must compile the server with no database and no secret. The `runner` stage does not set it, so the shipped image still validates at startup.
+
+<Callout type="error">
+
+Never set `SKIP_ENV_VALIDATION` at runtime. It hides every mistake in this reference, and the server then starts with a broken configuration.
+
+</Callout>
+
+## Core
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `NODE_ENV` | `development`, `production`, `test` | `development` | `production` stops the log file drain, refuses `EMAIL_PROVIDER=log`, and makes a cookie-policy refusal fatal. `test` turns rate limits off. |
+| `PORT` | decimal digits, 1 to 65535 | `3000` | The port the API server listens on. It also fills the `BETTER_AUTH_URL` default. |
+| `DATABASE_URL` | string, 1 character or more | `postgresql://postgres:password@localhost:5432/freenary` | The PostgreSQL connection string the Prisma driver adapter opens. |
+| `CORS_ORIGIN` | URL | `http://localhost:3001` | The web app origin. It sets the CORS allow-list, the passkey relying party, the cookie same-site test, and the bank redirect base. |
+| `BETTER_AUTH_URL` | URL | `http://localhost:3000` | The public origin of the API server. It builds the sign-in callback URLs and decides the cookie `Secure` flag. The default follows `PORT`. |
+| `BETTER_AUTH_SECRET` | string, 32 characters or more | `dev_secret_change_me_at_least_32chars` | Signs session cookies, encrypts two-factor secrets and backup codes, and signs the bank connection state. |
+
+Read [Security](/docs/self-hosting/security) before you keep the `BETTER_AUTH_SECRET` default.
+
+## Web app
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `VITE_SERVER_URL` | URL | `http://localhost:3000` | The API server origin the browser calls. Vite inlines the value into the client bundle at image build time. |
+| `SERVER_URL` | string | unset | The API server origin the web app uses during server-side render. `docker-compose.yml` sets `http://server:3000`. |
+
+`VITE_SERVER_URL` is a build argument of `apps/web/Dockerfile`, not a runtime variable. A new value needs a new image:
+
+```bash
+docker compose build web && docker compose up -d web
+```
+
+`SERVER_URL` is the one variable `apps/web/.env` can still change at runtime. Neither variable belongs to the validated server schema.
+
+## Email
+
+Set `EMAIL_PROVIDER` to turn email delivery on. Without it, Freenary sends no one-time code, and the account recovery flows stop. [Email delivery](/docs/self-hosting/email) covers the setup.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `EMAIL_PROVIDER` | `log`, `resend`, `smtp` | unset | Picks the adapter. Unset means no email at all. `log` prints codes to the server log and throws in production. |
+| `EMAIL_FROM` | string | unset | The envelope sender, for example `Freenary <no-reply@example.com>`. Needed by `resend` and `smtp`. |
+| `RESEND_API_KEY` | string | unset | The Resend API key. Needed by `resend`. |
+| `SMTP_HOST` | string | unset | The mail host. Needed by `smtp`. |
+| `SMTP_PORT` | number, 1 to 65535 | `465` with `SMTP_SECURE=true`, else `587` | The mail port. |
+| `SMTP_SECURE` | boolean string | `false` | `true` uses implicit TLS. `false` uses STARTTLS. |
+| `SMTP_USER` | string | unset | The SMTP user. Unset means Freenary sends no SMTP credentials at all. |
+| `SMTP_PASSWORD` | string | unset | The SMTP password. The adapter reads it only when `SMTP_USER` is set. |
+
+An incomplete provider throws at startup and names the variable, for example `EMAIL_PROVIDER=smtp requires SMTP_HOST to be set.`
+
+## Sign-in providers
+
+Each provider stays inert until you set its variables. [Authentication](/docs/self-hosting/authentication) covers the redirect URLs and the provider consoles.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | string | unset | With `GOOGLE_CLIENT_SECRET`, adds the Google button. |
+| `GOOGLE_CLIENT_SECRET` | string | unset | With `GOOGLE_CLIENT_ID`, adds the Google button. |
+| `APPLE_CLIENT_ID` | string | unset | With `APPLE_CLIENT_SECRET`, adds the Apple button. |
+| `APPLE_CLIENT_SECRET` | string | unset | With `APPLE_CLIENT_ID`, adds the Apple button. |
+| `APPLE_APP_BUNDLE_IDENTIFIER` | string | unset | Overrides the Apple identity-token audience. Alone it does nothing. |
+| `OIDC_DISCOVERY_URL` | URL | unset | With `OIDC_CLIENT_ID`, adds the single sign-on button. Point it at the `.well-known/openid-configuration` document. |
+| `OIDC_CLIENT_ID` | string | unset | With `OIDC_DISCOVERY_URL`, adds the single sign-on button. |
+| `OIDC_CLIENT_SECRET` | string | unset | The client secret. Unset means a public client. |
+| `OIDC_PROVIDER_NAME` | string | unset | The button label. Unset renders a translated "single sign-on". |
+| `OIDC_SCOPES` | comma-separated string | unset | Extra scopes. Freenary always asks for `openid`, `email` and `profile`. |
+
+## Session and password policy
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `AUTH_COOKIE_DOMAIN` | string | unset | The parent domain the API server and the web app share, for example `.example.com`. It keeps the session cookie at `SameSite=Lax`, and it lets the web app resolve the visitor while it renders a page. `bun run dev:up` derives one per worktree. |
+| `AUTH_PASSWORD_BREACH_CHECK` | boolean string | `true` | `true` checks each new password against Have I Been Pwned. `false` removes the check. |
+| `TRUSTED_PROXIES` | comma-separated IPv4, IPv6, CIDRv4 or CIDRv6 | unset | The reverse proxies in front of the API server. Rate limits key on the caller address behind them. |
+
+`TRUSTED_PROXIES` refuses an IPv4-mapped IPv6 address at startup. Write `10.0.0.1`, not `::ffff:10.0.0.1`. [Security](/docs/self-hosting/security) explains what breaks without this list.
+
+## Bank providers
+
+One bank provider supplies bank accounts and transactions. [Bank providers](/docs/self-hosting/bank-providers) covers the accounts, the keys and the redirect URLs.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `BANKING_PROVIDER` | `powens`, `enable-banking` | `powens` | Picks the provider new bank connections use. |
+| `POWENS_DOMAIN` | string | unset | The Powens domain, for example `acme-sandbox`. A trailing `.biapi.pro` is fine. |
+| `POWENS_CLIENT_ID` | string | unset | The Powens client identifier. |
+| `POWENS_CLIENT_SECRET` | string | unset | The Powens client secret. |
+| `ENABLE_BANKING_APP_ID` | string | unset | The Enable Banking application identifier. |
+| `ENABLE_BANKING_PRIVATE_KEY` | string | unset | The Enable Banking PEM private key. Freenary turns each literal `\n` into a real newline, so a single-line value works. |
+
+Powens needs all three of its variables. Enable Banking needs both of its variables. With an incomplete set, Freenary reports no bank provider and hides the bank step.
+
+## Categorisation
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `DICTIONARY_PUBLIC_KEY` | Ed25519 public key PEM | unset | Turns on signature checks of the merchant dictionary. Unset means Freenary loads the dictionary with no check. |
+
+`DICTIONARY_PUBLIC_KEY` is read straight from `process.env`, so it skips the validated schema.
+
+<Callout type="warn">
+
+The published merchant data carries no signature. A set `DICTIONARY_PUBLIC_KEY` therefore makes the loader refuse the dictionary, and merchant matches stop. Leave it unset unless you sign your own dictionary. The key command lives in `packages/api`: `cd packages/api && bun run generate:key`.
+
+</Callout>
+
+## PostgreSQL container
+
+Only `POSTGRES_PASSWORD` reaches the production stack. Put it in the root `.env` file, next to `docker-compose.yml`.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `POSTGRES_PASSWORD` | string | `password` | The database password. It fills both the container password and the `DATABASE_URL` the `server` service gets. |
+| `POSTGRES_DB` | string | — | **No effect.** `docker-compose.yml` hard-codes the database name `freenary`. |
+| `POSTGRES_USER` | string | — | **No effect.** `docker-compose.yml` hard-codes the user `postgres`. |
+| `POSTGRES_PORT` | number | — | **No effect.** `docker-compose.yml` hard-codes the port mapping `5432:5432`. |
+
+## Development only
+
+These five variables belong to the development stack. `scripts/dev.ts` injects `AUTH_COOKIE_DOMAIN`, `DOCS_HOST`, `FREENARY_SLUG`, `SERVER_HOST` and `WEB_HOST`. `AUTH_COOKIE_DOMAIN` is not development-only, so it keeps its row in the session policy above. `scripts/dev.ts` derives `.<slug>.freenary.orb.local` for it, and a value of your own wins. `compose.dev.yml` interpolates every injected key except `FREENARY_SLUG`. That one reaches Compose as the project name through the `-p` flag. `compose.dev.yml` also sets `SERVER_URL` for the web service, and it defaults to `http://server:3000`. `DOCS_PORT` is yours to set, and it reaches the documentation container environment only. The production stack ignores the five variables below.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `FREENARY_SLUG` | string | the git branch, else the directory name, else `dev` | Names the Compose project and every host name of one worktree stack. |
+| `SERVER_HOST` | host name | `server.<slug>.freenary.orb.local` | The API server host name. It fills `BETTER_AUTH_URL` and `VITE_SERVER_URL`. |
+| `WEB_HOST` | host name | `web.<slug>.freenary.orb.local` | The web app host name. It fills `CORS_ORIGIN`. |
+| `DOCS_HOST` | host name | `docs.<slug>.freenary.orb.local` | The documentation website host name, in the OrbStack label only. |
+| `DOCS_PORT` | number | `4000` | **No effect.** No source file reads it. `apps/fumadocs/package.json` hard-codes `vite dev --port=4000`. |
+
+[The development stack](/docs/development/local-stack) covers these in context.
+
+## Documentation website
+
+The documentation website runs its own chat route. Both variables are read straight from `process.env`.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `OPENROUTER_API_KEY` | string | unset | The OpenRouter key the documentation chat route uses. |
+| `OPENROUTER_MODEL` | string | `anthropic/claude-3.5-sonnet` | The model the documentation chat route asks for. |
+
+## Build only
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `SKIP_ENV_VALIDATION` | any non-empty value | unset | Skips the whole server schema. `apps/server/Dockerfile` sets it in the `builder` stage only. |
+| `GITHUB_TOKEN` | string | unset | Authenticates the merchant-data download against the GitHub API. It helps a private fork. |
+
+`GITHUB_TOKEN` has no effect inside `docker compose build`, because no Dockerfile declares it as a build argument. It works when you run `bun run build:data` on the host.
+
+## Variables with no effect today
+
+An operator can lose hours on these. Each one is settable, documented somewhere, and inert.
+
+| Variable or file | Why it does nothing |
+| --- | --- |
+| `POSTGRES_DB` | `docker-compose.yml` hard-codes `freenary`. |
+| `POSTGRES_USER` | `docker-compose.yml` hard-codes `postgres`. |
+| `POSTGRES_PORT` | `docker-compose.yml` hard-codes the mapping `5432:5432`. |
+| `DOCS_PORT` | No source file reads it; `apps/fumadocs/package.json` hard-codes `vite dev --port=4000`. |
+| `DOCS_HOST` | It reaches the OrbStack label, never the documentation container environment. |
+| `apps/web/.env`, except `SERVER_URL` | Vite inlines `VITE_*` values at build time, and `.dockerignore` keeps every `.env` file out of the build context. |
+| `GITHUB_TOKEN` during an image build | No Dockerfile declares the matching build argument. |
+
+## Minimum production configuration
+
+A real deployment needs the values below. Put them in `apps/server/.env`, and put `POSTGRES_PASSWORD` in the root `.env` file.
+
+```dotenv
+NODE_ENV=production
+BETTER_AUTH_SECRET=<64 hex characters from: openssl rand -hex 32>
+BETTER_AUTH_URL=https://api.example.com
+EMAIL_PROVIDER=smtp
+EMAIL_FROM=Freenary <no-reply@example.com>
+SMTP_HOST=smtp.example.com
+SMTP_USER=no-reply@example.com
+SMTP_PASSWORD=<mail password>
+POSTGRES_PASSWORD=<database password>
+```
+
+One sentence per line:
+
+- `NODE_ENV=production` turns on the production refusals and stops the log files.
+- `BETTER_AUTH_SECRET` replaces the development default that every checkout shares.
+- `BETTER_AUTH_URL` is the public origin of the API server, and it makes the session cookie `Secure`.
+- `EMAIL_PROVIDER` turns on the one-time codes that email verification and password reset need.
+- `EMAIL_FROM` is the sender address, and both real adapters need it.
+- `SMTP_HOST`, `SMTP_USER` and `SMTP_PASSWORD` reach your mail host. With Resend, swap the three for `RESEND_API_KEY`.
+- `POSTGRES_PASSWORD` replaces the default database password `password`.
+
+Two more values live in `docker-compose.yml`, not in a `.env` file, because the stack sets them directly:
+
+- `CORS_ORIGIN` must equal the real web app origin, for example `https://app.example.com`.
+- The `VITE_SERVER_URL` build argument must equal `BETTER_AUTH_URL`, and a change needs an image rebuild.
+
+<Cards>
+  <Card
+    title="Run the stack"
+    href="/docs/self-hosting/docker-compose"
+    description="The compose services, the ports and the first start."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Secrets, cookies, rate limits and exposure."
+  />
+  <Card
+    title="Bank providers"
+    href="/docs/self-hosting/bank-providers"
+    description="Set up Powens or Enable Banking."
+  />
+  <Card
+    title="Troubleshooting"
+    href="/docs/self-hosting/troubleshooting"
+    description="Symptoms, causes and the command that fixes each one."
+  />
+</Cards>

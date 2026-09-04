@@ -1,0 +1,277 @@
+---
+title: Overview
+description: The tools a contributor needs, the two setup paths, the checks CI runs, and the pull request rules.
+icon: Code
+---
+
+This section is for contributors. It covers the tools you need, the two ways to set up Freenary, the checks CI runs, and what a pull request must contain.
+
+## What you need
+
+| Tool | Version | Why you need it |
+| --- | --- | --- |
+| Bun | `1.3.14` | The runtime, the package manager and the test runner. The root `package.json` pins it in `packageManager`. |
+| Docker | Any current release | The containerised dev stack. See [Local development stack](/docs/development/local-stack). |
+| PostgreSQL | `18` | Only for a stack-free setup. `bun run db:start` starts one in Docker for you. |
+
+The repository holds a `.nvmrc` file that names `v25.6.1`. No script and no workflow reads it. Every runtime here is Bun.
+
+## Set up
+
+<Steps>
+
+<Step>
+
+### Clone the repository
+
+```bash
+git clone https://github.com/suiramdev/freenary.git
+cd freenary
+```
+
+</Step>
+
+<Step>
+
+### Install the dependencies
+
+```bash
+bun install
+```
+
+`bun install` also runs the `postinstall` script of `@freenary/db`. That script runs `prisma generate`. Prisma writes the client to `packages/db/prisma/generated/`. The client needs the schema files only, not a live database.
+
+</Step>
+
+<Step>
+
+### Copy the environment file
+
+```bash
+cp .env.example .env
+```
+
+Docker Compose interpolates this root `.env` file, and `scripts/dev.ts` reads it. Every variable in it has a default, so an unedited copy works for local work. For the full variable list, see [Configuration](/docs/self-hosting/configuration).
+
+</Step>
+
+</Steps>
+
+### The two setup paths
+
+Both paths work. Pick one, then use the literal commands below.
+
+<Tabs items={["Containerised dev stack", "Local PostgreSQL"]}>
+
+<Tab value="Containerised dev stack">
+
+```bash
+bun run dev:up
+```
+
+One command builds the images, applies the migrations and starts five services. The stack serves the web app, the API server and the documentation website over OrbStack hostnames on ports `3001`, `3000` and `4000`.
+
+This path needs OrbStack. No dev service publishes a host port. [Local development stack](/docs/development/local-stack) has the service table, the hostnames and the file sync rules.
+
+</Tab>
+
+<Tab value="Local PostgreSQL">
+
+```bash
+bun run db:start
+bun run db:push
+bun run dev
+```
+
+| Command | What it does |
+| --- | --- |
+| `bun run db:start` | `docker compose up -d postgres`. It starts the `postgres` service of `docker-compose.yml` and publishes port `5432`. |
+| `bun run db:push` | `prisma db push`. It writes the current schema to that database and creates no migration file. |
+| `bun run dev` | `turbo run dev`. The web app serves port `3001`, the API server port `3000`, and the documentation website port `4000`. |
+
+`bun run db:push` and the other `db:*` commands read `DATABASE_URL`. The default is `postgresql://postgres:password@localhost:5432/freenary`, which matches the container `bun run db:start` starts.
+
+</Tab>
+
+</Tabs>
+
+## The checks CI runs
+
+`.github/workflows/ci.yml` defines one job named `ci`. It runs on `ubuntu-latest`. GitHub starts it on every pull request, and on every push to `main`. The job timeout is 10 minutes.
+
+Run the same four commands before you open a pull request:
+
+```bash
+bun install --frozen-lockfile
+bun run check
+bun run check-types
+bun run build
+```
+
+| Order | CI step name  | Command                         |
+| ----- | ------------- | ------------------------------- |
+| 1     | _(unnamed)_   | `bun install --frozen-lockfile` |
+| 2     | Lint & format | `bun run check`                 |
+| 3     | Type check    | `bun run check-types`           |
+| 4     | Build         | `bun run build`                 |
+
+Those four commands are the whole reproduction. CI runs nothing else.
+
+### CI runs no tests
+
+The repository defines no `test` script, in the root `package.json` and in all ten workspaces. `turbo.json` declares no `test` task. `ci.yml` has no test step. About 40 test files exist, named `*.test.ts` or `*.test.tsx`. Run them by hand with Bun:
+
+```bash
+bun test scripts/dev-identity.test.ts
+bun test packages/api/src
+```
+
+<Callout type="warn">
+  `bun run check-types` covers two workspaces today. Only `apps/server` defines
+  it, as `tsc -b`, and `packages/ui` defines it, as `tsc --noEmit`. `apps/web`
+  defines no such script. `apps/fumadocs` names its script `types:check`, so
+  `turbo run check-types` skips it. Check the types of those workspaces by hand
+  before you push.
+</Callout>
+
+## Format and lint
+
+```bash
+bun run fix     # writes the fixes
+bun run check   # reports and writes nothing
+```
+
+`bun run fix` runs `ultracite fix`. `bun run check` runs `ultracite check`. Both skip Turborepo and cover the whole repository.
+
+Ultracite wraps two tools: Oxlint for the lint rules and Oxfmt for the format rules. Two config files tune them:
+
+| File | What it sets |
+| --- | --- |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Adds a local plugin, `anti-slop`, with 15 rules at `error`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
+| `oxfmt.config.ts` | Spreads the Ultracite config. It does not ignore `packages/ui/**`, so Oxfmt formats that package but Oxlint does not lint it. |
+
+`lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:
+
+| Job      | Command                            |
+| -------- | ---------------------------------- |
+| `oxlint` | `bun oxlint --fix {staged_files}`  |
+| `oxfmt`  | `bun oxfmt --write {staged_files}` |
+
+Both jobs re-stage the files they change, because both set `stage_fixed: true`. The repository declares no `pre-push` hook and no `commit-msg` hook.
+
+## Repository layout
+
+Bun workspaces cover `apps/*` and `packages/*`. Turborepo runs the tasks across them.
+
+<Files>
+  <Folder name="apps" defaultOpen>
+    <File name="web — the web app. TanStack Start and React 19." />
+    <File name="server — the API server. Elysia and oRPC." />
+    <File name="fumadocs — the documentation website. This site." />
+  </Folder>
+  <Folder name="packages" defaultOpen>
+    <File name="api — oRPC routers, the categorisation pipeline, bank provider adapters." />
+    <File name="auth — the Better Auth setup and the auth policy thresholds." />
+    <File name="db — the Prisma schema, the migrations and the generated client." />
+    <File name="email — the email provider registry." />
+    <File name="env — the validated environment schema." />
+    <File name="ui — shared React components." />
+    <File name="config — the shared TypeScript base config." />
+  </Folder>
+</Files>
+
+[Architecture](/docs/development/monorepo) covers what each workspace owns and how they depend on each other.
+
+## Branches, commits and pull requests
+
+### Branch names
+
+Pick a name that describes the change. `.github/CONTRIBUTING.md` names these good examples:
+
+- `fix/login-redirect-loop`
+- `feat/portfolio-holdings-view`
+- `chore/update-contributor-guide`
+
+It names `test`, `misc` and `changes` as names to avoid.
+
+### Commit messages
+
+The repository documents no commit message convention. It holds no commitlint config and no `commit-msg` hook. Write a clear subject line that says what changed.
+
+### Pull requests
+
+`.github/pull_request_template.md` has five headings. Fill every one, and keep each one short:
+
+| Section | What it carries |
+| --- | --- |
+| Summary | What changed, and what a reviewer must look at first. |
+| Motivation | Why the change is worth it. |
+| Drawbacks | The honest costs. |
+| Prior art | The alternatives you rejected. |
+| Notes | One line per fact: linked issue, visual change, tests, docs pages, migration or breaking change. |
+
+`.github/CONTRIBUTING.md` adds four review expectations:
+
+- Explain the user-visible change.
+- Keep the pull request to a single topic.
+- Attach screenshots or a screen capture for new interface work.
+- Say so explicitly when there is no visual change.
+
+Check any interface change in the browser, in light mode and in dark mode. Version bumps, tags and releases are maintainer work. Leave them out of a normal contribution.
+
+### Issues
+
+`.github/ISSUE_TEMPLATE/config.yml` sets `blank_issues_enabled: false`, so every issue starts from one of three forms.
+
+| Form | Title prefix | Labels | Required fields | Optional fields |
+| --- | --- | --- | --- | --- |
+| Bug report | `[Bug]: ` | `bug` | Area, Details | Version or commit |
+| Feature request | `[Feature]: ` | `enhancement` | Problem, Proposal | Alternatives |
+| Other | `[Other]: ` | none | Details | none |
+
+The Area dropdown on the bug form has five options: Web app, Server / API, Database / migrations, Docker / local setup, and Other.
+
+## Where the rules live
+
+Three kinds of file hold the rules a contributor must follow.
+
+| Source | Scope |
+| --- | --- |
+| [`CONTEXT.md`](https://github.com/suiramdev/freenary/blob/main/CONTEXT.md) | The glossary and the settled definition of each domain term. |
+| [`docs/adr/`](https://github.com/suiramdev/freenary/blob/main/docs/adr) | The architecture decision records. See [Architecture decisions](/docs/development/decisions). |
+| [`.github/CONTRIBUTING.md`](https://github.com/suiramdev/freenary/blob/main/.github/CONTRIBUTING.md) | Branch names, the pre-pull-request checks and the pull request rules. |
+
+Each workspace also carries its own `AGENTS.md` with the rules for that workspace:
+
+- [`apps/web/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/web/AGENTS.md)
+- [`apps/server/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/server/AGENTS.md)
+- [`apps/fumadocs/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/fumadocs/AGENTS.md)
+- [`packages/api/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/api/AGENTS.md)
+- [`packages/auth/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/auth/AGENTS.md)
+- [`packages/db/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/db/AGENTS.md)
+- [`packages/email/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/email/AGENTS.md)
+- [`packages/env/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/env/AGENTS.md)
+- [`packages/ui/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/ui/AGENTS.md)
+
+<Cards>
+  <Card
+    title="Local development stack"
+    href="/docs/development/local-stack"
+    description="The containerised workflow: services, hostnames, file sync and database commands."
+  />
+  <Card
+    title="Architecture"
+    href="/docs/development/monorepo"
+    description="What each workspace owns and how the pieces fit."
+  />
+  <Card
+    title="Writing documentation"
+    href="/docs/development/writing-docs"
+    description="The rules for this site, and what the build does not catch."
+  />
+  <Card
+    title="Architecture decisions"
+    href="/docs/development/decisions"
+    description="Every record in docs/adr, and when to write a new one."
+  />
+</Cards>

@@ -1,0 +1,18 @@
+{
+  "title": "Self-hosting",
+  "icon": "Server",
+  "pages": [
+    "index",
+    "docker-compose",
+    "configuration",
+    "email",
+    "authentication",
+    "bank-providers",
+    "updates",
+    "backup-and-restore",
+    "maintenance",
+    "security",
+    "logs",
+    "troubleshooting"
+  ]
+}

@@ -1,0 +1,65 @@
+---
+title: Overview
+description: The ways code outside the web app can reach a Freenary instance.
+icon: Plug
+---
+
+This section is for a developer who calls Freenary from outside the web app. It lists the surfaces the API server exposes today, and it names the ones that do not exist.
+
+## What code can reach today
+
+The API server is one process. It mounts four route prefixes, and two of them carry the same router.
+
+| Surface | Request | What it is for |
+| --- | --- | --- |
+| oRPC endpoint | `POST /rpc/<router>/<procedure>` | The transport the web app uses. Input and output travel inside an oRPC envelope. |
+| OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | The same procedures with plain JSON in and plain JSON out. |
+| Interactive API reference | `GET /api-reference` | An HTML page that lists every procedure and its schema. |
+| OpenAPI document | `GET /api-reference/spec.json` | The OpenAPI 3.1.1 JSON document for the whole router. |
+| Better Auth routes | `POST` or `GET /api/auth/*` | Sign-up, sign-in, sessions, one-time codes, two-factor, passkeys. |
+| Health check | `GET /` | Plain text `OK`. Nothing else. |
+
+A session cookie named `better-auth.session_token` is the only credential. A bearer token returns HTTP 401.
+
+## What does not exist
+
+Do not plan around any of these. No code in `apps/` or `packages/` implements them.
+
+| Absent | Detail |
+| --- | --- |
+| Webhooks | You cannot register a URL. The API server never calls back into your code. |
+| Outbound events | No event stream, no server-sent events, no message queue, no audit feed. |
+| API keys and tokens | No API-key table, no personal access token, no bearer plugin. |
+| MCP server | No Model Context Protocol server for the application. |
+| Plugin system | No extension points, no hook registry, no third-party module loader. |
+
+<Callout type="info">
+  Freenary calls one bank provider outward, and that traffic is internal to the
+  sync path. It is not an integration surface you can subscribe to. Read [Bank
+  providers](/docs/self-hosting/bank-providers) for the operator view.
+</Callout>
+
+## Where to go next
+
+<Cards>
+  <Card
+    title="API"
+    href="/docs/integrations/api"
+    description="Endpoints, the two transports, sign-in with curl, errors and limits."
+  />
+  <Card
+    title="Procedure reference"
+    href="/docs/integrations/procedures"
+    description="All 30 procedures with their inputs, outputs and errors."
+  />
+  <Card
+    title="MCP and AI tools"
+    href="/docs/integrations/mcp"
+    description="What Freenary does not ship, and how to bridge the API yourself."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="The environment variables that decide the base URL and the origin the API server accepts."
+  />
+</Cards>

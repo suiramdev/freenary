@@ -8,22 +8,26 @@ The rest of this file covers how to get a working stack, what every change owes 
 
 ## Getting a Working Stack
 
-Two commands give you a workspace you can actually exercise end to end — no external accounts, no GitHub App, no callback URLs to register:
-
 ```bash
-bun run dev:up     # the whole stack, including a seeded Forgejo instance
-bun run dev:seed   # a demo workspace inside it
+bun install
+bun run dev:up     # PostgreSQL, migrations, API server, web app, docs site
 ```
 
-`dev:up` prints the per-worktree URLs, including the forge. Neither command needs a `.env`: the QA identity the seed builds on defaults to `melitta@freenary.local` / `freenary-dev-password`, and `FREENARY_QA_EMAIL` / `FREENARY_QA_PASSWORD` override either half independently. Nothing is defaulted into production — there the two are refused.
+`dev:up` runs `compose.dev.yml` under a per-worktree Compose project and prints the URLs it serves. No dev service publishes a host port: the stack reaches you through OrbStack hostnames (`web.<slug>.freenary.orb.local`, `server.<slug>.freenary.orb.local`, `docs.<slug>.freenary.orb.local`), and the slug comes from the git branch. Without OrbStack, use the local path instead:
 
-After seeding, sign in as that QA user and you have: the dev forge connected as a forge connection, the projects `Demo` and `Playground` each linked to a real repository, the agents `Otto` and `Iris` carrying Briefs and forge grants, a weekly Schedule, and an organization Brief. Re-running converges instead of duplicating, so it is safe at any time; `dev:reset` wipes the volumes and starts over.
+```bash
+bun run db:start   # PostgreSQL container from docker-compose.yml
+bun run db:push    # apply the Prisma schema
+bun run dev        # web 3001, server 3000, docs 4000
+```
 
-**The dev forge is a real forge, not a mock** — `codeberg.org/forgejo/forgejo`, seeded on first boot, reachable at the `forge` URL `dev:up` prints. Connect it by hand with forge type **Forgejo**, that host, and the access token `0123456789abcdef0123456789abcdef01234567`; its web UI signs in as `freenary` / `freenary-dev-password`. The host must be that exact origin — plain `http`, no trailing path — because it is the one origin exempted from the forge-host network guard, and that exemption is inert in production.
+The dev stack needs no `.env`: `compose.dev.yml` defaults every variable, and `EMAIL_PROVIDER` defaults to `log`, so the one-time-code flows print the code to the server log instead of sending mail. `createEmailProvider` refuses `log` in production. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
 
-Two things the seed deliberately does **not** fake. It stores a model-provider key only when you supply a real one in `FREENARY_SEED_PROVIDER_API_KEY`, so seeded agents exist but are not dispatchable until a provider is connected — a placeholder key would look connected and fail at the provider. And it never invents repository metadata: every link is fetched from the forge, exactly as the link route does.
+**There is no seed script.** Create an account through the sign-in screen; with no email provider configured, email verification stays off and sign-up returns a session immediately. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
 
-Full walkthrough, including what each seeded record is for: [Local development](apps/fumadocs/content/docs/self-hosting/local-development.mdx).
+The production stack is `docker-compose.yml` (`bun run docker:up`). It applies **no** migrations — run `docker compose exec -w /app/packages/db server bun x prisma migrate deploy` after every deploy.
+
+Full walkthrough: [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx).
 
 ## Documentation: Ship It With the Change
 
@@ -35,7 +39,7 @@ Full walkthrough, including what each seeded record is for: [Local development](
 - A public API route, its input schema, or its auth/permission rules.
 - A domain concept, status enum, or any vocabulary in `packages/db` — the docs quote these verbatim, so a renamed enum value silently makes a page wrong.
 - An environment variable, `compose*.yml` service, or root `package.json` script.
-- A model provider or git-forge integration, or the scopes/permissions it needs.
+- A bank provider or email provider integration, or the credentials it needs.
 - Architecture a new contributor would have to reverse-engineer from the diff.
 - The contributor workflow itself: tooling, tests, hooks, or review expectations.
 
@@ -45,11 +49,11 @@ Pure refactors, internal helpers, and dependency bumps that change no documented
 
 | Section | Audience | Never contains |
 | --- | --- | --- |
-| `guides/` | Teams using freenary | Env vars, Docker, file paths, package names |
+| `index.mdx`, `concepts.mdx` | Everyone | Instructions |
+| `guides/` | Users of a running instance | Env vars, Docker, file paths, package names |
 | `self-hosting/` | Operators | Product walkthroughs |
-| `integrations/` | Developers wiring it | Internal design rationale |
-| `architecture/` | Engineers on the code | Step-by-step instructions |
-| `contributing/` | Contributors | Anything an end user needs |
+| `integrations/` | Developers calling the API | Internal design rationale |
+| `development/` | Contributors and engineers | Anything an end user needs |
 
 A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent.
 
@@ -61,16 +65,16 @@ A fact lives in **exactly one** section; everywhere else links to it. Duplicated
 | --- | --- |
 | Missing or malformed frontmatter | Fails |
 | Unknown code-fence language | Fails |
-| Frontmatter `icon` that is not a real lucide export | **Passes** — renders nothing |
+| Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing, warns in the console |
 | MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing |
 
-A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`apps/fumadocs/content/docs/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change.
+A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/development/writing-docs.mdx`](apps/fumadocs/content/docs/development/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
 
 ## Interface Text: Every String Is a Message Key
 
 `apps/web` ships in English and French. Every user-facing string it renders is a key in `apps/web/messages/en.json` and `messages/fr.json`, and **a change that adds or edits UI adds or edits both catalogs in the same commit**. A key present in `en.json` and missing from `fr.json` compiles with no error and no warning — the French branch aliases to the English one, so English reaches French readers and no build step catches it.
 
-The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. What readers see is documented at [`content/docs/language.mdx`](apps/fumadocs/content/docs/language.mdx).
+The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. The mechanism is Paraglide: `apps/web/src/paraglide/` is generated, and every component imports the message functions as `m`. What readers see is documented at [`content/docs/guides/interface.mdx`](apps/fumadocs/content/docs/guides/interface.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 
@@ -84,7 +88,7 @@ The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGE
 
 **Review gate.** This rule binds the top-level agent that owns an integration. A subagent returns its result to whoever spawned it and never runs the gate itself; the `reviewer` never invokes another reviewer.
 
-Once an integration is implemented and smoke-tested, the owning agent runs the `reviewer` agent (`.omp/agents/reviewer.md`) over the change before yielding or opening a pull request. It is read-only and returns a `verdict` plus a `findings[]` list; any finding at any severity means `changes_requested`. Fix every finding, then rerun the reviewer. If you believe a finding is wrong, send your counter-evidence back to the reviewer and let it re-judge — never overrule it yourself. The work is not complete until the reviewer returns `approved` with an empty `findings` list.
+Once an integration is implemented and smoke-tested, the owning agent runs the `reviewer` agent over the change before yielding or opening a pull request. It is read-only and returns a `verdict` plus a `findings[]` list; any finding at any severity means `changes_requested`. Fix every finding, then rerun the reviewer. If you believe a finding is wrong, send your counter-evidence back to the reviewer and let it re-judge — never overrule it yourself. The work is not complete until the reviewer returns `approved` with an empty `findings` list.
 
 ---
 
@@ -181,23 +185,19 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Use top-level regex literals instead of creating them in loops
 - Prefer specific imports over namespace imports
 - Avoid barrel files (index files that re-export everything)
-- Use proper image components (e.g., Next.js `<Image>`) over `<img>` tags
+- Serve images from `public/` and set explicit `width`/`height` to avoid layout shift
 
 ### Framework-Specific Guidance
 
-**Next.js:**
+**TanStack Start (both `apps/web` and `apps/fumadocs`):**
 
-- Use Next.js `<Image>` component for images
-- Use `next/head` or App Router metadata API for head elements
-- Use Server Components for async data fetching instead of async Client Components
+- Declare document metadata in a route's `head` option, never with a raw `<head>` write
+- Load route data in `loader` or a `useQuery`, never in a component body
+- Declare a component as an arrow function assigned to a `const`, before the `Route` that references it
 
 **React 19+:**
 
 - Use ref as a prop instead of `React.forwardRef`
-
-**Solid/Svelte/Vue/Qwik:**
-
-- Use `class` and `for` attributes (not `className` or `htmlFor`)
 
 ---
 
@@ -207,6 +207,7 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Avoid done callbacks in async tests - use async/await instead
 - Don't use `.only` or `.skip` in committed code
 - Keep test suites reasonably flat - avoid excessive `describe` nesting
+- Tests run with `bun test <path>`. There is no root `test` script and CI runs no tests, so run the files your change touches by hand.
 
 ## When Oxlint + Oxfmt Can't Help
 

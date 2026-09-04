@@ -1,0 +1,104 @@
+---
+title: First steps
+description: The path from a new Freenary account to a Budget screen that holds your own bank data.
+icon: Footprints
+---
+
+Freenary asks you two questions the first time you sign in, then puts a short checklist in the sidebar. This page walks that path from end to end.
+
+**Before you start:** you need an account. See [Signing in](/docs/guides/signing-in).
+
+## The onboarding wizard
+
+Freenary sends every new account to a wizard at `/onboarding`. You cannot reach the rest of the app before you finish it. The header of the wizard carries a theme control, a language control and a **Sign out** button.
+
+<Steps>
+
+<Step>
+
+### Choose your country
+
+The first step reads **Where are you based?**. It lists **196** countries with a search box above them.
+
+Only **France** works today. Freenary hoists France to the top of the list. Every other country renders as a disabled button with the badge **Not supported yet**, and you cannot select it.
+
+Under the list, Freenary asks: Want to add support for your country? The link goes to the project repository.
+
+Press **Continue** once you select France. The button stays disabled before that.
+
+</Step>
+
+<Step>
+
+### Connect a bank
+
+The second step reads **Connect your bank**. It appears **only** when the operator configured a bank provider. With no bank provider, the wizard has one step, and step 1 finishes it.
+
+The step shows a searchable list of banks. Press **Connect** on one, answer your bank, and come back. See [Bank connections](/docs/guides/bank-connections) for the whole flow.
+
+Three buttons sit at the bottom:
+
+| Button | What it does |
+| --- | --- |
+| Back | Returns to the country step |
+| Skip for now | Finishes onboarding with no bank |
+| Finish | Finishes onboarding. The label counts your connections, as in **Finish (1)** |
+
+**Skip for now** and **Finish** do the same thing. Freenary keeps no "finish later" state, so you can connect a bank from Settings at any time.
+
+</Step>
+
+<Step>
+
+### Land on Home
+
+Freenary saves your country, shows the message **You’re all set!**, and opens the Home screen.
+
+</Step>
+
+</Steps>
+
+<Callout type="info">
+
+Home shows one line: **Welcome back, _your name_**. Before your name arrives, the line shows a placeholder and announces **Loading greeting** to a screen reader. Home holds no figures, no charts and no accounts. Every number lives on the Budget screen.
+
+</Callout>
+
+## The First steps checklist
+
+The sidebar footer carries a panel titled **First steps** with a counter, as in `1/3`. Each row links into Settings and marks itself **Done** or **To do**.
+
+| Row | Freenary ticks it when | Where the link goes |
+| --- | --- | --- |
+| Connect your bank | You have one bank connection or more | Settings, Bank accounts |
+| Set up your budget | Your budgeting profile holds one line or more | Settings, Budgeting profile |
+| Protect your account | You turn on two-factor authentication, **or** you add one passkey | Settings, Security |
+
+The panel renders nothing until all three answers arrive. Once all three rows read **Done**, the panel holds for a moment and then disappears. It comes back if a row turns to **To do** again, as when you disconnect your last bank or empty your budgeting profile.
+
+## What to do next
+
+Work the checklist in order. A bank connection fills the Budget screen with real transactions. A budgeting profile turns on the **Budget vs. actual** chart. A second factor protects the account.
+
+<Cards>
+  <Card
+    title="Bank connections"
+    href="/docs/guides/bank-connections"
+    description="Connect a bank, sync it, and disconnect it."
+  />
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="Read the charts and correct a category."
+  />
+  <Card
+    title="Categories and budget lines"
+    href="/docs/guides/categories"
+    description="Declare a monthly plan and add your own categories."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="Protect the account and manage your connections."
+  />
+</Cards>

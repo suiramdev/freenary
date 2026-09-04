@@ -1,48 +1,108 @@
 ---
 title: Introduction
-description: What Freenary is and the problem it solves.
+description: What Freenary is, what it does today, and where to go next.
 icon: Rocket
 ---
 
-Freenary is an open-source personal finance and wealth-management platform inspired by applications such as Finary, but aiming to go significantly further in openness, extensibility, financial coverage and artificial intelligence.
+Freenary is an open-source platform for personal finance and wealth management. You host your own instance, and the financial data stays in your own database. Freenary reads your bank data, imports the transactions, and sorts them into categories. The Budget area then shows where the money goes.
 
-It is not a clone with a different interface. Freenary reproduces the strongest ideas behind modern wealth-management applications and transforms them into an open financial platform that users can host, extend, customize and connect to the financial services of their choice.
+## The problem it solves
 
-## A personal financial operating system
+- Your financial life sits in many bank apps, spreadsheets and budget apps.
+- No single screen shows all of it.
+- Each bank app groups the same purchase in its own way.
+- A proprietary service holds the data, and that service decides what you can do with it.
 
-Instead of managing your financial life across separate banking apps, brokerage platforms, cryptocurrency exchanges, budgeting apps, spreadsheets and calculators, Freenary brings these sources together into one coherent environment. Bank accounts, savings accounts, investment portfolios, cryptocurrencies, real estate, loans, private assets, recurring expenses, income and financial goals all become part of the same financial model.
+Freenary puts the bank accounts, the transactions and the plan in one place that you own.
 
-The project can be summarized through three questions:
+## What Freenary does today
 
-- **What** — a unified open-source platform for managing, understanding and improving an individual's or household's finances.
-- **How** — aggregation from banking APIs and other providers, manual asset management, normalized transactions and holdings, portfolio analytics, budgeting, financial planning, and an AI layer that reasons across all of it.
-- **Why** — a clear understanding of your complete financial position, plus useful assistance for virtually any financial question or decision.
+Every row below exists in the code today.
 
-## More than a portfolio tracker
+| Feature | What it does | Page |
+| --- | --- | --- |
+| Sign-in | Password, emailed one-time code, passkey, Google, Apple and single sign-on. | [Sign in](/docs/guides/signing-in) |
+| Bank connections | Open a link to one bank through the bank provider, and remove it later. | [Bank connections](/docs/guides/bank-connections) |
+| Data import | Sync writes bank accounts, balances, transactions and holdings into the database. | [Bank connections](/docs/guides/bank-connections) |
+| Automatic categorisation | A pipeline gives each transaction a category with no user input. | [Categories](/docs/guides/categories) |
+| Category correction | Set the category of one transaction. Freenary remembers your choice for that merchant. | [Categories](/docs/guides/categories) |
+| Budget area | Period navigator, income and expense figures, cash-flow chart, category breakdown, fixed against variable, budget against actual, and a transaction list with search and filters. | [Budget](/docs/guides/budget) |
+| Budgeting profile | Declare one planned monthly amount per category. | [Settings](/docs/guides/settings) |
+| Custom categories | Add your own categories under one of the fixed groups. | [Categories](/docs/guides/categories) |
+| Account protection | Two-factor codes from an app, backup codes, passkeys, and a list of your sessions. | [Settings](/docs/guides/settings) |
+| Language | English and French. Each user picks one. | [Interface](/docs/guides/interface) |
+| Appearance | Light, dark, or follow the system. | [Interface](/docs/guides/interface) |
 
-A portfolio tracker answers one question: "What are my investments worth?" Freenary is designed to also answer:
+The operator turns each sign-in method on. The bank provider decides which data arrives. Powens reports account types, balances, transactions and holdings. Enable Banking reports transactions, but no account types, no balances and no holdings. Import runs when you open the Budget page, and when you press the sync button.
 
-- Where is my money going?
-- How much can I safely spend?
-- What subscriptions could I cancel?
-- Am I investing enough? How diversified am I?
-- Can I afford this purchase?
-- When could I reach financial independence?
-- How would buying a property affect my finances? What happens if my income falls?
+## Planned areas
 
-## The progression
+The sidebar lists four more areas. Each one renders a placeholder screen with a title and one line of text. The sidebar dims the four rows and adds a "Planned" badge to each one. Each title reads `{page} is planned`.
 
-Connect the financial data → understand the present → analyze what can be improved → define where you want to go → simulate possible futures → make better-informed decisions.
+<Callout type="info">
+
+Portfolio, Analysis, Goals and AI are not built. The four screens hold no data and no controls.
+
+</Callout>
+
+| Area | The text the screen shows |
+| --- | --- |
+| Portfolio | "Track your holdings, accounts and net worth across all your connections — coming soon." |
+| Analysis | "Evaluate whether your financial setup is healthy and efficient — coming soon." |
+| Goals | "Define financial objectives, track progress and plan contributions — coming soon." |
+| AI | "AI-assisted financial insights that reason across your entire financial model — coming soon." |
+
+## Who Freenary is for
 
 <Cards>
   <Card
-    title="Application areas"
-    href="/docs/home"
-    description="Home, Portfolio, Budget, Analysis, Goals, AI and Invest."
+    title="Try Freenary"
+    href="/docs/guides"
+    description="You want to sign in, connect a bank and read your budget."
   />
   <Card
-    title="Architecture"
-    href="/docs/architecture"
-    description="Provider adapters, modularity and self-hosting."
+    title="Host an instance"
+    href="/docs/self-hosting"
+    description="You run the Docker Compose stack for yourself or for other people."
+  />
+  <Card
+    title="Change the code"
+    href="/docs/development"
+    description="You want the monorepo layout, the local stack and the data model."
+  />
+  <Card
+    title="Call the API"
+    href="/docs/integrations/api"
+    description="You want the HTTP surface, the OpenAPI document and the auth rules."
+  />
+</Cards>
+
+## How it works
+
+One instance runs three parts. The web app renders each screen on the server first, then in the browser. The API server answers the web app over HTTP, and it holds all the business rules. PostgreSQL keeps every row, from users and bank connections to transactions, holdings and budget lines.
+
+The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs, so your transactions do not leave the instance.
+
+The web app asks the API server who you are before it sends the first response. A signed-in visitor therefore lands on Home, and a signed-out visitor lands on the sign-in form, with no intermediate screen.
+
+The [monorepo page](/docs/development/monorepo) lists every application and package.
+
+## Next
+
+<Cards>
+  <Card
+    title="Concepts"
+    href="/docs/concepts"
+    description="The words this documentation uses, and what each one means."
+  />
+  <Card
+    title="Self-hosting"
+    href="/docs/self-hosting"
+    description="Run your own instance with Docker Compose."
+  />
+  <Card
+    title="User guides"
+    href="/docs/guides"
+    description="Sign in, connect a bank, and read the Budget area."
   />
 </Cards>

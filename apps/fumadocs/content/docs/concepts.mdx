@@ -1,0 +1,106 @@
+---
+title: Concepts
+description: The words the rest of this documentation uses, and what each one means.
+icon: BookOpen
+---
+
+This page defines the terms the rest of the documentation uses.
+
+## The data model in one picture
+
+- A user owns bank connections, custom categories, budget lines and merchant overrides.
+- A bank connection holds bank accounts.
+- A bank account holds transactions and holdings.
+- A transaction carries one category, or none.
+
+A holding lands in an investment bank account only. When you delete a bank connection, Freenary deletes its bank accounts, transactions and holdings with it.
+
+## Definitions
+
+| Term | Meaning | More |
+| --- | --- | --- |
+| instance | One installed copy of Freenary, with its own database and its own users. | [Self-hosting](/docs/self-hosting) |
+| operator | The person who runs an instance. | [Self-hosting](/docs/self-hosting) |
+| user | A person who signs in to an instance. Every financial row belongs to one user. | [Sign in](/docs/guides/signing-in) |
+| bank provider | The service that reads bank data for Freenary: Powens or Enable Banking. One instance picks one for new bank connections. | [Bank providers](/docs/self-hosting/bank-providers) |
+| bank connection | One link to one bank, the `BankConnection` row. It carries the institution name, the country and a status. | [Bank connections](/docs/guides/bank-connections) |
+| bank account | One account inside a bank connection, the `BankAccount` row. It carries a type, a currency and a balance. | [Bank connections](/docs/guides/bank-connections) |
+| transaction | One entry the bank booked on a bank account, the `Transaction` row. A negative amount goes out of the account. | [Budget](/docs/guides/budget) |
+| holding | One security inside an investment bank account, the `Holding` row. It is a snapshot of the last sync, not a history. | [Data model](/docs/development/data-model) |
+| category | One of the 75 predefined categories, or one custom category. Freenary stores the slug, such as `groceries`. | [Categories](/docs/guides/categories) |
+| category group | One of the 16 fixed groups that a category sits under, such as `housing`. | [Categories](/docs/guides/categories) |
+| custom category | A category the user creates, with a label, a colour, an icon and an optional parent group. Only a budget line can point at it. | [Categories](/docs/guides/categories) |
+| catch-all category | The category a group falls back to when a signal names the group but not the leaf, such as `other-housing` for `housing`. | [Categories](/docs/guides/categories) |
+| budget line | One planned monthly amount for one category, the `BudgetLine` row. The amount is always positive. | [Settings](/docs/guides/settings) |
+| budgeting profile | The whole set of budget lines of one user. No separate row holds it. | [Settings](/docs/guides/settings) |
+| budget period | The date range the Budget screen reads: one month, three months or one year, anchored on a calendar month. | [Budget](/docs/guides/budget) |
+| merchant override | The category one user chose for one merchant key, the `MerchantOverride` row. It wins over every automatic layer. | [Categories](/docs/guides/categories) |
+| one-time code | A 6-digit code that Freenary sends by email to check an address or to reset a password. Other tools call it an OTP. | [Sign in](/docs/guides/signing-in) |
+| passkey | A key pair that the browser or the device holds. The user signs in with it and sends no password. | [Sign in](/docs/guides/signing-in) |
+| two-factor authentication | A second step after the password: a 6-digit code from an authenticator app, or one backup code. | [Settings](/docs/guides/settings) |
+| single sign-on | Sign-in through the OpenID Connect provider that the operator configured. | [Authentication](/docs/self-hosting/authentication) |
+| migration | One SQL file that changes the database schema. The operator applies the pending ones on every update. | [Updates](/docs/self-hosting/updates) |
+
+## Money and currency
+
+| Concern | Fact |
+| --- | --- |
+| Transaction amount | A signed integer in the minor units of the currency of that row. Negative goes out, positive comes in. |
+| Account balance | A signed integer in minor units, plus the time of the balance. |
+| Holding valuation | An integer in minor units. |
+| Holding quantity | `Decimal(24, 8)`, so eight decimal places. |
+| Holding unit prices | `Decimal(24, 6)`, so six decimal places. |
+| Largest amount | `2147483647` minor units, the PostgreSQL `INTEGER` maximum. A larger amount fails at insert time. |
+| Currency | One ISO 4217 string per row, such as `EUR`. |
+| Base currency | None. No user setting and no table holds one. |
+
+<Callout type="warn">
+
+Freenary does not convert currencies today. A total adds the amount of every row, whatever currency each row carries. Two accounts in two currencies therefore give one total that mixes them.
+
+</Callout>
+
+## Category vocabulary
+
+The category taxonomy lives in code, not in the database. It holds 16 category groups and 75 categories. The 16 groups never change. No screen, no procedure and no migration adds a group or renames a predefined category.
+
+Each group owns one catch-all category. The group `housing` falls back to `other-housing`, and the group `other` falls back to `uncategorised`. A user can add custom categories on top of the 75. A custom category carries a label of 1 to 40 characters, one of 7 colours, one of 18 icons, and an optional parent group.
+
+The [Categories](/docs/guides/categories) guide lists every group and every category.
+
+## Connection states
+
+Every bank connection carries a status. The `BankConnectionStatus` type holds three values.
+
+| Value | What it means for the user |
+| --- | --- |
+| `ACTIVE` | Freenary syncs the bank connection. The row shows the account count and the last sync date. |
+| `EXPIRED` | Freenary skips the bank connection. The row asks the user to reconnect to resume the import. |
+| `ERROR` | The same as `EXPIRED`. |
+
+Freenary writes `ACTIVE` when it creates the bank connection. No code path writes `EXPIRED` or `ERROR` today. A bank connection therefore keeps the value `ACTIVE` until the user removes it. A bank that withdraws the consent leaves an `ACTIVE` row that shows the old sync date and imports nothing more.
+
+## Next
+
+<Cards>
+  <Card
+    title="User guides"
+    href="/docs/guides"
+    description="Sign in, connect a bank, and read the Budget area."
+  />
+  <Card
+    title="Categories"
+    href="/docs/guides/categories"
+    description="How Freenary picks a category, and how you correct it."
+  />
+  <Card
+    title="Data model"
+    href="/docs/development/data-model"
+    description="Every Prisma model, field and enum value."
+  />
+  <Card
+    title="Self-hosting"
+    href="/docs/self-hosting"
+    description="Run your own instance with Docker Compose."
+  />
+</Cards>

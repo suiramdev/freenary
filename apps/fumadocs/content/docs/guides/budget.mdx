@@ -1,0 +1,178 @@
+---
+title: Budget
+description: The Budget screen — period navigator, charts, transaction list, and how to correct a category.
+icon: ChartColumn
+---
+
+Freenary builds one area end to end, and this is it. Budget answers where your money came from and where it went, over a period you pick. This page walks the screen from top to bottom.
+
+**Before you start:** you need one bank connection. See [Bank connections](/docs/guides/bank-connections).
+
+## The empty state
+
+With no bank account, the screen shows one card: **Connect a bank account**. The button **Connect a bank** takes you to Settings, Bank accounts. Nothing else renders.
+
+## The period navigator
+
+The top of the screen carries the period controls.
+
+| Control | Choices | Default |
+| --- | --- | --- |
+| Range | `1M`, `3M`, `1Y` | `1M` |
+| Anchor month | A month picker | The last month that holds data, else this month |
+| Anchor year | A grid of 12 years | Same rule |
+| Aggregation | Total, Monthly avg., Monthly median | Total |
+
+The Aggregation control appears on the `3M` and `1Y` ranges only. A return to `1M` hides it and sets the value back to Total.
+
+A range ends at the last day of the anchor month. `1M` covers that month. `3M` covers the anchor month and the two before it. `1Y` covers the anchor month and the eleven before it.
+
+The label reads **August 2026** for one month, **Jun – Aug 2026** for three, and **2026** for a full calendar year.
+
+<Callout type="info">
+
+Freenary offers these three ranges only. You cannot type a free date range.
+
+</Callout>
+
+## The KPI strip
+
+Three cells sit under the navigator: **Income**, **Expenses** and **Net**. The aggregation you pick renames them, as in **Avg. Income** or **Med. Expenses**.
+
+When a figure fails to load, the cell prints no number. Freenary prefers an empty cell to a zero it did not measure.
+
+## The charts
+
+The screen holds exactly two chart slots. The wide slot on the left takes one of two views. The narrow slot on the right takes one of two more.
+
+| Slot | View | Question it answers | Control |
+| --- | --- | --- | --- |
+| Wide | **Flow** (default) | Which income feeds which category group? | A two-button toggle |
+| Wide | **Categories** | What share does each category group take? | The same toggle |
+| Narrow | **Fixed vs. variable** (default) | How much of what I pay repeats? | A dropdown |
+| Narrow | **Budget vs. actual** | Did I keep to my plan, group by group? | The same dropdown |
+
+### Flow
+
+Flow is a Sankey diagram. It draws income sources on the left, category groups in the middle, and their categories on the right. Click a node and Freenary filters the transaction list to that category. Click it again to clear the filter.
+
+With no movement in the period, the card reads: No money moved in this period.
+
+### Categories
+
+Categories is a donut over the **16 category groups**, not over the 75 individual categories. Sixteen slices tell you more than seventy-five. Click a slice to filter the list.
+
+### Fixed vs. variable
+
+This chart splits the period into a fixed share and a variable share, with an amount and a percentage for each.
+
+<Callout type="info">
+
+Fixed vs. variable is read-only. You cannot click it, and it does not filter the list. No category maps onto the fixed and variable split, so a filter would lie.
+
+</Callout>
+
+### Budget vs. actual
+
+One row per category group, planned against actual, on one shared scale. A row reads `<amount> left` or `<amount> over`. Click a row to filter the list.
+
+With no plan the card reads **No spending plan yet.** and offers **Set a spending plan**, which opens Settings. See [Categories and budget lines](/docs/guides/categories).
+
+<Callout type="warn">
+
+A chart that fails to load says **Could not load this chart.** It never draws the numbers of the previous period under the new title.
+
+</Callout>
+
+## The transaction list
+
+Under the charts sits the list of transactions in the period.
+
+| Control         | What it does                                              |
+| --------------- | --------------------------------------------------------- |
+| Search box      | Filters on the text of the transaction                    |
+| Sort            | **Newest** or **Largest**                                 |
+| Category filter | A searchable menu over the 16 groups and their categories |
+| Tabs            | `Outgoing · <amount>` and `Incoming · <amount>`           |
+
+Each active filter renders as a removable badge above the list. With two filters or more, a **Clear all** button appears.
+
+The list groups rows by the range you picked: by day on `1M`, by week on `3M`, and by month on `1Y`. **Today** and **Yesterday** head the first two groups on `1M` only. It loads 50 rows at a time as you scroll.
+
+## Correct a category
+
+Click a row to open the transaction drawer. It shows the amount, the counterparty or the description, the date, and the category.
+
+1. Open the category picker.
+2. Pick the right category. Freenary saves at once.
+3. To undo, press **Reset to auto-detected category**.
+
+<Callout type="info">
+
+A correction is not local to one transaction. Freenary records the merchant of that transaction. It then applies your choice to every other transaction of the same merchant. A transaction you corrected by hand keeps your earlier choice. Later imports of that merchant get the same category.
+
+</Callout>
+
+## How Freenary picks a category
+
+Freenary works down a fixed order and stops at the first answer.
+
+| Order | Source | Example |
+| --- | --- | --- |
+| 1 | The kind of movement | A cash machine withdrawal, a bank fee |
+| 2 | Your own past correction for that merchant | You filed a shop under `groceries` once |
+| 3 | A shared merchant dictionary that ships with Freenary | A known supermarket chain |
+| 4 | The merchant category code your bank sent, then keyword rules | A code in the airline range gives `flights` |
+| 5 | A built-in classifier, when it reaches enough confidence | A wording close to one it learnt |
+| 6 | `uncategorised` | Nothing above matched |
+
+The classifier answers only above a fixed confidence bar, and only when your instance carries the trained model. No released instance carries one, so the classifier stays silent. In practice a transaction that no rule matches lands in `uncategorised` and waits for you. See [Categorisation](/docs/development/categorisation).
+
+Freenary also pairs transfers between two of your own bank accounts. It matches two opposite amounts of the same size, in the same currency, within 24 hours, and files both as `internal-transfer`.
+
+## The address bar holds the view
+
+Every control on this screen writes to the address. Copy the address and you copy the exact view. Freenary strips a value that equals its default.
+
+| Parameter       | Meaning              | Values                       |
+| --------------- | -------------------- | ---------------------------- |
+| `range`         | Time range           | `1M`, `3M`, `1Y`             |
+| `month`, `year` | Anchor of the period | `1970` to `2999`             |
+| `agg`           | Aggregation          | `total`, `average`, `median` |
+| `view`          | Wide chart           | `flow`, `categories`         |
+| `companion`     | Narrow chart         | `fixed`, `planned`           |
+| `dir`           | Tab                  | `outgoing`, `incoming`       |
+| `sort`          | Sort mode            | `date`, `amount`             |
+| `q`             | Search text          | Free text                    |
+| `grp`           | Group filter         | Group slugs                  |
+| `cat`           | Category filter      | Category slugs               |
+
+A broken address opens the default view. It never raises an error page.
+
+## Sync from this screen
+
+The screen runs one background sync the first time it opens with bank accounts. The **Sync transactions** button re-reads the last 90 days and derives every category again. See [Bank connections](/docs/guides/bank-connections#sync).
+
+<Callout type="info">
+
+Freenary computes repeated spend and exposes it through the API. No screen lists those expenses today. The only view of repetition is the read-only **Fixed vs. variable** chart.
+
+</Callout>
+
+<Cards>
+  <Card
+    title="Categories and budget lines"
+    href="/docs/guides/categories"
+    description="The category vocabulary, and the plan the Budget vs. actual chart measures."
+  />
+  <Card
+    title="Bank connections"
+    href="/docs/guides/bank-connections"
+    description="Where the transactions come from."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="Everything you can change."
+  />
+</Cards>

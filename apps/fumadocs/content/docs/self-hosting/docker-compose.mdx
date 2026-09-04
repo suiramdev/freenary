@@ -1,0 +1,293 @@
+---
+title: Install with Docker Compose
+description: Clone Freenary, write the environment files, start the three services, apply the migrations, and check the result.
+icon: Container
+---
+
+This page installs one Freenary instance with the Docker Compose stack. It covers the environment files, the one build argument, the migration command, and the two health checks. Follow the steps in order.
+
+Before you start you need a Linux host with Docker and `git`, and the four decisions from [Self-hosting](/docs/self-hosting).
+
+Every command is complete. A value in angle brackets, such as `<database-password>`, is yours to choose. Replace the brackets with it.
+
+## Install
+
+<Steps>
+
+<Step>
+
+### Clone the repository
+
+```bash
+git clone https://github.com/suiramdev/freenary.git
+cd freenary
+```
+
+Every command below runs from that directory.
+
+</Step>
+
+<Step>
+
+### Create the environment files
+
+`docker-compose.yml` reads two environment files: `apps/server/.env` for the API server and `apps/web/.env` for the web app. **Neither file exists in the repository.** Compose marks both `required: false`, so it starts the stack without them. The API server then falls back to its development defaults, and the development value of `BETTER_AUTH_SECRET` reaches production.
+
+Copy the template to the root `.env`, then set the database password in it:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+POSTGRES_PASSWORD=<database-password>
+```
+
+The root `.env` gives Compose that password, and the production stack reads no other line of it. Do not copy the same template into `apps/server/.env`: it carries the PostgreSQL container variables, and none of `NODE_ENV`, `BETTER_AUTH_URL` or `CORS_ORIGIN`. Create `apps/server/.env` as a new file instead.
+
+Generate a real secret. `BETTER_AUTH_SECRET` needs 32 characters or more:
+
+```bash
+openssl rand -base64 48
+```
+
+Now write `apps/server/.env`. These lines are the minimum for a real instance:
+
+```dotenv
+NODE_ENV=production
+BETTER_AUTH_SECRET=<output-of-openssl-rand>
+BETTER_AUTH_URL=https://api.example.com
+CORS_ORIGIN=https://app.example.com
+EMAIL_PROVIDER=smtp
+EMAIL_FROM="Freenary <no-reply@example.com>"
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=no-reply@example.com
+SMTP_PASSWORD=<smtp-password>
+```
+
+Replace `api.example.com` with the public hostname of the API server, and `app.example.com` with the public hostname of the web app. For a purely local instance, use `http://localhost:3000` and `http://localhost:3001`.
+
+`EMAIL_PROVIDER=resend` needs `RESEND_API_KEY` and `EMAIL_FROM` instead of the five `SMTP_*` lines. Read [Email](/docs/self-hosting/email) for both adapters. Read [Configuration](/docs/self-hosting/configuration) for every other variable.
+
+<Callout type="warn">
+
+`docker-compose.yml` also sets `CORS_ORIGIN` and `DATABASE_URL` in the `environment` block of the `server` service. Compose gives that block priority over `env_file`, so those two lines win over `apps/server/.env`. Change `CORS_ORIGIN` to your public web app URL in `docker-compose.yml`, or delete the line there to let your own file supply it.
+
+</Callout>
+
+<Callout type="info">
+
+Do not create `apps/web/.env`. Values in it never reach the browser: `.dockerignore` keeps every `.env` file out of the build context, and the browser bundle takes its API server URL at image build time. The one runtime value the web app needs is `SERVER_URL`. `docker-compose.yml` already sets it to `http://server:3000`, and the web app uses it when it renders a page on the server.
+
+</Callout>
+
+</Step>
+
+<Step>
+
+### Set the build argument
+
+The browser bundle holds the API server URL as a literal string. Vite inlines `VITE_SERVER_URL` when it builds the web app, so a new value needs a new image, not a restart.
+
+Change one line in `docker-compose.yml`:
+
+```diff
+   web:
+     build:
+       context: .
+       dockerfile: apps/web/Dockerfile
+       args:
+-        VITE_SERVER_URL: http://localhost:3000
++        VITE_SERVER_URL: https://api.example.com
+```
+
+Use the same public API server URL as `BETTER_AUTH_URL`. Keep `http://localhost:3000` for a purely local instance.
+
+</Step>
+
+<Step>
+
+### Start the stack
+
+Build both images and start the stack:
+
+```bash
+docker compose up -d --build
+```
+
+Compose reads `POSTGRES_PASSWORD` from the root `.env` of step 2. It substitutes that value into the `postgres` service and into the `DATABASE_URL` of the API server. A prefix overrides the file for one start:
+
+```bash
+POSTGRES_PASSWORD=<database-password> docker compose up -d --build
+```
+
+With neither, the password falls back to the literal value `password`. The first build takes several minutes, because it builds the merchant dictionary into the API server image.
+
+</Step>
+
+<Step>
+
+### Apply the migrations
+
+The stack applies no migrations. Docker starts the API server against an empty schema, and it serves no data until the migrations succeed. Run them once, after the stack is up:
+
+```bash
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+The command runs inside the `server` container, which already holds the schema, the six migration folders and the `DATABASE_URL` of the stack. It prints each migration it applies and exits `0`. It is idempotent: a second run applies nothing and still exits `0`.
+
+</Step>
+
+<Step>
+
+### Check the result
+
+Ask the API server for its health endpoint. It answers with the plain string `OK`:
+
+```bash
+curl http://localhost:3000/
+```
+
+```http
+OK
+```
+
+Ask the web app for its root page. It answers `200`:
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' http://localhost:3001/
+```
+
+```http
+200
+```
+
+Read the service state with `docker compose ps`. All three services must show `healthy`. If one does not, read [Troubleshooting](/docs/self-hosting/troubleshooting).
+
+</Step>
+
+<Step>
+
+### Create the first account
+
+Open the web app in a browser and sign up with an email address and a password. Freenary has no separate admin account and no owner role: the first account is an ordinary user.
+
+The new user then walks through onboarding. Read [First steps](/docs/guides/first-steps).
+
+</Step>
+
+</Steps>
+
+## Behind a reverse proxy
+
+Put a TLS terminator in front of the two published ports. Send the web app hostname to port 3001, and the API server hostname to port 3000.
+
+Three variables must hold the public URLs, not the container ports:
+
+| Variable | Value | Where you set it |
+| --- | --- | --- |
+| `BETTER_AUTH_URL` | The public URL of the API server | `apps/server/.env` |
+| `CORS_ORIGIN` | The public URL of the web app | The `environment` block of `server` in `docker-compose.yml` |
+| `VITE_SERVER_URL` | The public URL of the API server | The `args` block of `web` in `docker-compose.yml` |
+
+Use `https://` in all three. The session cookie takes its `Secure` flag from the scheme of `BETTER_AUTH_URL`.
+
+### Two subdomains
+
+A split like `app.example.com` and `api.example.com` needs one more variable. Set `AUTH_COOKIE_DOMAIN` to the shared parent domain:
+
+```dotenv
+AUTH_COOKIE_DOMAIN=.example.com
+```
+
+With it, the session cookie stays `SameSite=Lax` and carries `Domain=.example.com`. Without it, the cookie drops to `SameSite=None`, and a browser that blocks third-party cookies drops the session. The API server refuses a value that is a single label, ends in a dot, or is not a parent of both hostnames.
+
+### Trusted proxies
+
+Set `TRUSTED_PROXIES` to the addresses or CIDR ranges of every proxy in front of the API server:
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/24,192.0.2.10
+```
+
+The rate limiter keys each counter on the caller address, which it reads from the `x-forwarded-for` header. With the list empty and more than one address in that header, the API server resolves no caller address. In production it then keys every request as `no-trusted-ip` plus the path. One shared bucket per path serves the whole instance, so one visitor can spend the whole sign-in allowance of every user. Read [Security](/docs/self-hosting/security).
+
+## Run from source without Docker
+
+This path suits a host that already runs its own PostgreSQL and its own process supervisor. You need Bun `1.3.14` and a PostgreSQL 18 server with a database and a role.
+
+Install the dependencies:
+
+```bash
+bun install
+```
+
+Write `apps/server/.env` as in step 2 above, plus the URL of your own database:
+
+```dotenv
+DATABASE_URL=postgresql://freenary:<database-password>@127.0.0.1:5432/freenary
+```
+
+Apply the migrations. The Prisma CLI reads `apps/server/.env` for `DATABASE_URL`:
+
+```bash
+cd packages/db && bun x prisma migrate deploy && cd ../..
+```
+
+Fetch the merchant data, then build all three apps:
+
+```bash
+cd packages/api && bun run build:data && cd ../..
+VITE_SERVER_URL=https://api.example.com bun run build
+```
+
+Start the API server on port 3000:
+
+```bash
+cd apps/server && bun run start
+```
+
+Start the web app on port 3001, in a second shell:
+
+```bash
+cd apps/web && HOST=0.0.0.0 PORT=3001 bun .output/server/index.mjs
+```
+
+`PORT` sets the API server port too. Change it in `apps/server/.env`, and keep `BETTER_AUTH_URL` in step with it.
+
+<Callout type="info">
+
+This is not the contributor workflow. A contributor runs the dev stack, which watches files and applies migrations for you. Read [Local stack](/docs/development/local-stack).
+
+</Callout>
+
+<Cards>
+
+<Card
+  title="Configuration"
+  href="/docs/self-hosting/configuration"
+  description="Every environment variable, its schema and its default."
+/>
+
+<Card
+  title="Authentication"
+  href="/docs/self-hosting/authentication"
+  description="Turn on Google, Apple, an OpenID Connect provider, or passkeys."
+/>
+
+<Card
+  title="Backup and restore"
+  href="/docs/self-hosting/backup-and-restore"
+  description="Dump the database, restore it, and check the result."
+/>
+
+<Card
+  title="Troubleshooting"
+  href="/docs/self-hosting/troubleshooting"
+  description="What to do when a service stays unhealthy or a page shows no data."
+/>
+
+</Cards>

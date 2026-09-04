@@ -3,22 +3,13 @@
   "defaultOpen": true,
   "pages": [
     "index",
-    "home",
-    "portfolio",
-    "adding",
-    "budget",
-    "analysis",
-    "goals",
-    "ai",
-    "invest",
-    "profiles",
-    "signing-in",
-    "settings",
-    "language",
-    "appearance",
-    "avatar",
+    "concepts",
+    "---Use Freenary---",
+    "guides",
+    "---Run Freenary---",
     "self-hosting",
-    "architecture",
-    "configuring-authentication"
+    "---Build on Freenary---",
+    "integrations",
+    "development"
   ]
 }

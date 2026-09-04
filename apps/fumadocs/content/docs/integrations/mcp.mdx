@@ -1,0 +1,112 @@
+---
+title: MCP and AI tools
+description: Freenary ships no MCP server. What exists instead, how to bridge the API yourself, and the one AI feature that is real.
+icon: Bot
+---
+
+Freenary does not ship an MCP server today. No code in `apps/` or `packages/` implements the Model Context Protocol. No AI client can connect to a Freenary instance and call tools on it.
+
+MCP is an open protocol that lets an AI client discover and call tools on a server. Read the [protocol site](https://modelcontextprotocol.io) for the specification.
+
+<Callout type="info">
+  This page documents an absence. It exists because the question comes up, and a
+  clear no saves you a search through the code. Ask for the feature at the
+  [issue tracker](https://github.com/suiramdev/freenary/issues).
+</Callout>
+
+## What exists instead
+
+The API server describes itself, and every procedure is callable over HTTP.
+
+| Surface | Request | Use |
+| --- | --- | --- |
+| OpenAPI document | `GET /api-reference/spec.json` | The machine-readable list of procedures and their schemas. |
+| Reference page | `GET /api-reference` | The same list for a human, in a browser. |
+| OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | Plain JSON in, plain JSON out. |
+| oRPC endpoint | `POST /rpc/<router>/<procedure>` | The same procedures inside an oRPC envelope. |
+
+So you can write an MCP server that sits in front of the API. Freenary does not give you that bridge, but nothing blocks you from one.
+
+## The shape of a bridge
+
+You write and run this yourself. It is not part of Freenary.
+
+| Step | What your bridge does |
+| --- | --- |
+| 1. Sign in | `POST /api/auth/sign-in/email` with an email address and a password. |
+| 2. Hold the cookie | Keep the `better-auth.session_token` cookie. It is the only credential. A bearer token returns HTTP 401. |
+| 3. Read the schemas | Fetch `GET /api-reference/spec.json` and turn each path into one tool. |
+| 4. Expose one tool per procedure | Give the tool the procedure input schema, and call `POST /api-reference/<router>/<procedure>`. |
+| 5. Respect the limits | Sign-in is capped at 10 calls per 60 seconds. Three procedures are expensive and uncapped. |
+| 6. Renew the session | The cookie lasts 7 days. Sign in again when a call returns `UNAUTHORIZED`. |
+
+Read [API](/docs/integrations/api) for the exact error shape, the CORS rules and the limits. Read [Procedure reference](/docs/integrations/procedures) for the input fields, because the OpenAPI document carries no descriptions and declares no security scheme.
+
+<Callout type="warn">
+  A bridge holds a user password or a live session cookie. That cookie can call
+  all 30 procedures. Treat it as the full account credential it is.
+</Callout>
+
+## The MCP configuration that does exist
+
+The repository root holds a `.mcp.json` file. It configures MCP servers for the AI tools a contributor runs on their own machine. It is a contributor convenience, and nothing more.
+
+| Server           | Type    | Command or URL                           |
+| ---------------- | ------- | ---------------------------------------- |
+| `better-t-stack` | command | `bunx create-better-t-stack@latest mcp`  |
+| `context7`       | command | `npx -y @upstash/context7-mcp`           |
+| `shadcn`         | command | `npx -y shadcn@latest mcp`               |
+| `better-auth`    | http    | `https://mcp.inkeep.com/better-auth/mcp` |
+
+Two facts about this file:
+
+- It changes nothing about a live instance. The API server never reads it.
+- An operator does not need it. It is not part of any Docker image, and the Docker Compose stack ignores it.
+
+The contributor view is [Development](/docs/development).
+
+## Ask AI on the documentation website
+
+One AI feature is real, and it belongs to the documentation website, not to the product. The **Ask AI** button opens a chat panel that searches these pages and answers from them.
+
+The route behind it is `/api/chat` in `apps/fumadocs`. It reads two environment variables.
+
+<TypeTable
+  type={{
+    OPENROUTER_API_KEY: {
+      description:
+        "The OpenRouter API key the chat route sends its requests with. No default.",
+      type: "string",
+    },
+    OPENROUTER_MODEL: {
+      description: "The OpenRouter model id the chat route asks.",
+      type: "string",
+      default: "anthropic/claude-3.5-sonnet",
+    },
+  }}
+/>
+
+Two things to know:
+
+- The button renders even with no key. The panel opens, and the answer then fails at the model call.
+- The chat sends page text to OpenRouter. Leave `OPENROUTER_API_KEY` unset when you do not want that.
+
+The product itself has no AI feature. The `/ai` screen of the web app is a placeholder, and the sidebar marks it **Planned**.
+
+<Cards>
+  <Card
+    title="API"
+    href="/docs/integrations/api"
+    description="Endpoints, sign-in with curl, errors and limits."
+  />
+  <Card
+    title="Procedure reference"
+    href="/docs/integrations/procedures"
+    description="The 30 procedures a bridge would expose as tools."
+  />
+  <Card
+    title="Development"
+    href="/docs/development"
+    description="The contributor view, including the local stack and the tooling."
+  />
+</Cards>

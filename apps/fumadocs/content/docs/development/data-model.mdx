@@ -1,0 +1,574 @@
+---
+title: Data model
+description: Every Prisma model, every enum value, the money representation, and the migration rules for a schema change.
+icon: Database
+---
+
+This page lists the complete persisted model of Freenary. Every field, default, constraint and enum value below comes from the schema files in `packages/db`.
+
+## Where the schema lives
+
+Prisma reads a schema directory, not one file. Four files split the model by domain.
+
+<Files>
+  <Folder name="packages/db" defaultOpen>
+    <Folder name="prisma" defaultOpen>
+      <Folder name="schema" defaultOpen>
+        <File name="schema.prisma" />
+        <File name="auth.prisma" />
+        <File name="budget.prisma" />
+        <File name="budget-profile.prisma" />
+      </Folder>
+      <Folder name="migrations" />
+    </Folder>
+    <File name="prisma.config.ts" />
+  </Folder>
+</Files>
+
+`schema.prisma` carries the generator and the datasource and no models.
+
+| Setting | Value |
+| --- | --- |
+| generator provider | `prisma-client` |
+| client output | `../generated`, so `packages/db/prisma/generated` |
+| `moduleFormat` | `esm` |
+| `runtime` | `bun` |
+| `previewFeatures` | `["postgresqlExtensions"]` |
+| datasource provider | `postgresql` |
+| `extensions` | `[citext]` |
+| driver adapter | `PrismaPg` from `@prisma/adapter-pg`, built from `env.DATABASE_URL` |
+
+The datasource block declares no `url`. Two other places supply it. `packages/db/prisma.config.ts` gives it to the Prisma CLI, and `packages/db/src/index.ts` gives it to the driver adapter at runtime. `packages/db` exports the default singleton `prisma`, the `createPrismaClient` factory and the `Prisma` namespace.
+
+`prisma.config.ts` also sets `schema` to `prisma/schema` and `migrations.path` to `prisma/migrations`, and it loads `../../apps/server/.env` with dotenv.
+
+## Identity and sign-in
+
+Better Auth owns these seven tables. `packages/auth` configures the plugins that write them.
+
+### `User` — table `user`
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | none | The caller supplies it |
+| `name` | `String` | no | — |  |
+| `email` | `String` | no | — | Better Auth folds the address to lower case |
+| `emailVerified` | `Boolean` | no | `false` |  |
+| `twoFactorEnabled` | `Boolean` | no | `false` |  |
+| `image` | `String?` | yes | — |  |
+| `country` | `String?` | yes | — | ISO 3166-1 alpha-2, set at onboarding |
+| `onboardingCompletedAt` | `DateTime?` | yes | — | Null means onboarding is open |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique: `@@unique([email])`. Nine one-to-many relations hang off it, and every child cascades on delete: `sessions`, `accounts`, `twoFactors`, `passkeys`, `bankConnections`, `bankProviderUsers`, `merchantOverrides`, `budgetLines`, `customCategories`.
+
+### `Session` — table `session`
+
+| Field       | Type           | Optional | Default      |
+| ----------- | -------------- | -------- | ------------ |
+| `id`        | `String` `@id` | no       | none         |
+| `expiresAt` | `DateTime`     | no       | —            |
+| `token`     | `String`       | no       | —            |
+| `createdAt` | `DateTime`     | no       | `now()`      |
+| `updatedAt` | `DateTime`     | no       | `@updatedAt` |
+| `ipAddress` | `String?`      | yes      | —            |
+| `userAgent` | `String?`      | yes      | —            |
+| `userId`    | `String`       | no       | —            |
+
+Unique `@@unique([token])`. Index `@@index([userId])`. Foreign key to `user`, cascade on delete.
+
+### `Account` — table `account`
+
+This is the credential and OAuth link table. It is not a bank account.
+
+| Field                   | Type           | Optional | Default      |
+| ----------------------- | -------------- | -------- | ------------ |
+| `id`                    | `String` `@id` | no       | none         |
+| `issuer`                | `String`       | no       | —            |
+| `accountId`             | `String`       | no       | —            |
+| `providerId`            | `String`       | no       | —            |
+| `userId`                | `String`       | no       | —            |
+| `accessToken`           | `String?`      | yes      | —            |
+| `refreshToken`          | `String?`      | yes      | —            |
+| `idToken`               | `String?`      | yes      | —            |
+| `accessTokenExpiresAt`  | `DateTime?`    | yes      | —            |
+| `refreshTokenExpiresAt` | `DateTime?`    | yes      | —            |
+| `scope`                 | `String?`      | yes      | —            |
+| `password`              | `String?`      | yes      | —            |
+| `createdAt`             | `DateTime`     | no       | `now()`      |
+| `updatedAt`             | `DateTime`     | no       | `@updatedAt` |
+
+Unique `@@unique([issuer, accountId], map: "account_issuer_accountId_uidx")`. Index `@@index([userId])`. Foreign key to `user`, cascade. The password hash lives in `password`.
+
+<Callout type="info">
+
+No repository code writes `Account.issuer`, and no repository code reads it. The column is `NOT NULL` and it is half of the unique index. Better Auth's Prisma adapter must populate it.
+
+</Callout>
+
+### `Verification` — table `verification`
+
+| Field        | Type           | Optional | Default      |
+| ------------ | -------------- | -------- | ------------ |
+| `id`         | `String` `@id` | no       | none         |
+| `identifier` | `String`       | no       | —            |
+| `value`      | `String`       | no       | —            |
+| `expiresAt`  | `DateTime`     | no       | —            |
+| `createdAt`  | `DateTime`     | no       | `now()`      |
+| `updatedAt`  | `DateTime`     | no       | `@updatedAt` |
+
+Index `@@index([identifier])`. No user column, and no foreign key.
+
+### `TwoFactor` — table `two_factor`
+
+One TOTP enrolment for one user. `secret` and `backupCodes` are ciphertext, and `BETTER_AUTH_SECRET` is the key.
+
+| Field                     | Type           | Optional | Default |
+| ------------------------- | -------------- | -------- | ------- |
+| `id`                      | `String` `@id` | no       | none    |
+| `secret`                  | `String`       | no       | —       |
+| `backupCodes`             | `String`       | no       | —       |
+| `userId`                  | `String`       | no       | —       |
+| `verified`                | `Boolean`      | no       | `true`  |
+| `failedVerificationCount` | `Int`          | no       | `0`     |
+| `lockedUntil`             | `DateTime?`    | yes      | —       |
+
+Indexes `@@index([secret])` and `@@index([userId])`. Foreign key to `user`, cascade.
+
+### `RateLimit` — table `rate_limit`
+
+Request counters for Better Auth's rate limiter. The table exists so a server restart cannot clear a sign-in or one-time-code lockout.
+
+| Field         | Type           | Optional | Default |
+| ------------- | -------------- | -------- | ------- |
+| `id`          | `String` `@id` | no       | none    |
+| `key`         | `String`       | no       | —       |
+| `count`       | `Int`          | no       | —       |
+| `lastRequest` | `BigInt`       | no       | —       |
+
+Unique `@@unique([key])`. No user column. `packages/api/src/lib/rate-limit.ts` also writes this table with raw SQL.
+
+### `Passkey` — table `passkey`
+
+| Field          | Type           | Optional | Default |
+| -------------- | -------------- | -------- | ------- |
+| `id`           | `String` `@id` | no       | none    |
+| `name`         | `String?`      | yes      | —       |
+| `publicKey`    | `String`       | no       | —       |
+| `userId`       | `String`       | no       | —       |
+| `credentialID` | `String`       | no       | —       |
+| `counter`      | `Int`          | no       | —       |
+| `deviceType`   | `String`       | no       | —       |
+| `backedUp`     | `Boolean`      | no       | —       |
+| `transports`   | `String?`      | yes      | —       |
+| `aaguid`       | `String?`      | yes      | —       |
+| `createdAt`    | `DateTime`     | no       | `now()` |
+
+Indexes `@@index([credentialID])` and `@@index([userId])`. Foreign key to `user`, cascade.
+
+## Bank connections and accounts
+
+The hierarchy is one chain: user, then bank connection, then bank account, then transaction or holding.
+
+### `BankConnection` — table `bank_connection`
+
+One link to one bank through one bank provider.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `provider` | `String` | no | — | Provider identifier, `"powens"` or `"enable-banking"` |
+| `providerSessionId` | `String` | no | — | Provider-level handle for refresh: an Enable Banking `session_id`, a Powens connection id |
+| `institutionId` | `String?` | yes | — | Provider-level institution identifier |
+| `institutionName` | `String` | no | — | The name the interface shows |
+| `institutionCountry` | `String?` | yes | — | ISO 3166-1 alpha-2 |
+| `institutionBic` | `String?` | yes | — | SWIFT or BIC code |
+| `institutionGroup` | `String?` | yes | — | Banking group identifier, such as `Credit Agricole` for a regional caisse |
+| `status` | `BankConnectionStatus` | no | `ACTIVE` |  |
+| `lastSyncedAt` | `DateTime?` | yes | — | Also the next sync cursor |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Index `@@index([userId])`. Relations: `user` cascade, and `accounts BankAccount[]`.
+
+<Callout type="warn">
+
+There is no unique constraint on `(userId, provider, providerSessionId)`. `exchangeCode` always inserts a new row. Run the connect flow twice for the same bank, and the user gets two bank connections and two sets of bank accounts.
+
+</Callout>
+
+### `BankProviderUser` — table `bank_provider_user`
+
+A user's identity at a bank provider that scopes data per user. Powens has one. Enable Banking has none.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `provider` | `String` | no | — |  |
+| `providerUserId` | `String` | no | — |  |
+| `accessToken` | `String` | no | — | Permanent user-scoped bearer token, in plain text |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique `@@unique([userId, provider])`. Foreign key to `user`, cascade. There is no separate index on `userId`.
+
+### `BankAccount` — table `bank_account`
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `connectionId` | `String` | no | — |  |
+| `providerAccountId` | `String` | no | — |  |
+| `iban` | `String?` | yes | — |  |
+| `identificationHash` | `String?` | yes | — | Only Enable Banking supplies it |
+| `name` | `String?` | yes | — |  |
+| `type` | `BankAccountType` | no | `UNKNOWN` |  |
+| `currency` | `String?` | yes | — | ISO 4217 |
+| `balanceMinor` | `Int?` | yes | — | Signed balance in minor units of `currency` |
+| `balanceAt` | `DateTime?` | yes | — |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique `@@unique([connectionId, providerAccountId])`. Index `@@index([connectionId])`. Relations: `connection` cascade, `transactions Transaction[]`, `holdings Holding[]`.
+
+<Callout type="info">
+
+The sync path writes `balanceMinor` and `balanceAt`, and no router reads either column. The same holds for every `Holding` row. Account balances and investment holdings persist with no read path today.
+
+</Callout>
+
+## Transactions and holdings
+
+### `Transaction` — table `transaction`
+
+The largest model. Fields appear in schema order.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `accountId` | `String` | no | — |  |
+| `providerTransactionId` | `String?` | yes | — | The provider's dedup key |
+| `date` | `DateTime` | no | — | Booking date |
+| `amount` | `Int` | no | — | Signed minor units; negative is outgoing |
+| `currency` | `String` | no | — | ISO 4217 |
+| `description` | `String` | no | `""` |  |
+| `counterpartyName` | `String?` | yes | — |  |
+| `merchantCategoryCode` | `String?` | yes | — | ISO 18245 |
+| `bankTransactionCode` | `String?` | yes | — |  |
+| `bankTransactionSubCode` | `String?` | yes | — |  |
+| `status` | `String` | no | `"BOOK"` |  |
+| `valueDate` | `DateTime?` | yes | — |  |
+| `transactionDate` | `DateTime?` | yes | — |  |
+| `balanceAfterTransaction` | `Int?` | yes | — | Minor units |
+| `creditorAccountIban` | `String?` | yes | — |  |
+| `debtorAccountIban` | `String?` | yes | — |  |
+| `referenceNumber` | `String?` | yes | — |  |
+| `exchangeRate` | `String?` | yes | — | Foreign exchange rate, as a string |
+| `category` | `String?` | yes | — | The user's choice; null means automatic resolution |
+| `categoryOverride` | `Boolean` | no | `false` |  |
+| `resolvedCategory` | `String?` | yes | — | The pipeline's answer |
+| `normalisedDescriptor` | `String?` | yes | — |  |
+| `merchantKey` | `String?` | yes | — |  |
+| `remittanceLines` | `String[]` | list | — | Order is not guaranteed |
+| `bankTransactionFamilyCode` | `String?` | yes | — | ISO 20022 family code |
+| `creditorAgentBic` | `String?` | yes | — |  |
+| `creditorTown` | `String?` | yes | — |  |
+| `creditorCountry` | `String?` | yes | — |  |
+| `creditorIdentifications` | `Json?` | yes | — | `JSONB`; SIREN, SIRET, CPAN and the like |
+| `referenceNumberScheme` | `String?` | yes | — |  |
+| `psuNote` | `String?` | yes | — | The user's own note at the bank |
+| `intermediaryName` | `String?` | yes | — | A payment service provider in the middle |
+| `channel` | `String?` | yes | — |  |
+| `transactionPath` | `String?` | yes | — |  |
+| `resolutionStage` | `String?` | yes | — | Which pipeline stage answered |
+| `resolutionConfidence` | `Float?` | yes | — | `DOUBLE PRECISION`, range 0 to 1 |
+| `isInternalTransfer` | `Boolean` | no | `false` |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+
+Unique `@@unique([accountId, providerTransactionId])`. Indexes `@@index([accountId, date])`, `@@index([accountId, amount])`, `@@index([merchantKey])`. Foreign key to `bank_account`, cascade.
+
+Two facts to hold on to. `Transaction` has no `updatedAt`, so a re-categorised row records no modification time. And Postgres treats `NULL` values as distinct in a unique index, so the composite unique does not deduplicate rows whose `providerTransactionId` is null.
+
+### `Holding` — table `holding`
+
+A security inside an investment account. The table is a snapshot of the last sync, not a history.
+
+| Field | Type | Optional | Default or database type | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `accountId` | `String` | no | — |  |
+| `providerHoldingId` | `String` | no | — |  |
+| `label` | `String` | no | — |  |
+| `code` | `String?` | yes | — | An ISIN when `codeType` is `"ISIN"`, a provider code otherwise |
+| `codeType` | `String?` | yes | — |  |
+| `quantity` | `Decimal` | no | `@db.Decimal(24, 8)` |  |
+| `unitCost` | `Decimal?` | yes | `@db.Decimal(24, 6)` | Average purchase price per unit, account currency |
+| `unitValue` | `Decimal?` | yes | `@db.Decimal(24, 6)` |  |
+| `valuationMinor` | `Int` | no | — | Current value in minor units of `currency` |
+| `unrealisedGainMinor` | `Int?` | yes | — | As the bank provider reports it |
+| `currency` | `String` | no | — |  |
+| `valuedAt` | `DateTime?` | yes | — |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique `@@unique([accountId, providerHoldingId])`. Index `@@index([accountId])`. Foreign key to `bank_account`, cascade.
+
+### `MerchantOverride` — table `merchant_override`
+
+A user's category choice for one merchant key. The user wins over every other layer, permanently, with no reconciliation prompt.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `merchantKey` | `String` | no | — | A creditor IBAN or a normalised descriptor |
+| `category` | `String` | no | — | A category slug |
+| `merchantName` | `String?` | yes | — |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique `@@unique([userId, merchantKey])`. Index `@@index([userId])`. Foreign key to `user`, cascade. [Transaction categorisation](/docs/development/categorisation) covers how the pipeline reads it.
+
+## Budget and categories
+
+### `CustomCategory` — table `custom_category`
+
+A category the user creates. It sits beside the predefined set.
+
+| Field | Type | Optional | Default or database type | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `label` | `String` | no | `@db.Citext` | Case-insensitive, unique per user |
+| `color` | `String` | no | — | One of `CATEGORY_COLOR_VALUES` |
+| `icon` | `String` | no | — | One of `CATEGORY_ICON_NAMES` |
+| `parentSlug` | `String?` | yes | — | The category group it nests under; null makes it a group of its own |
+| `sortOrder` | `Int` | no | `0` |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Unique `@@unique([userId, label])`. Index `@@index([userId, parentSlug, sortOrder])`. Relations: `user` cascade, `budgetLines BudgetLine[]`.
+
+### `BudgetLine` — table `budget_line`
+
+One declared monthly amount. A user's budget lines **are** their budgeting profile. There is no separate profile row.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `label` | `String?` | yes | — | Null when the user gave none; the category name stands in at display time |
+| `amount` | `Int` | no | — | Planned amount per month in minor units, always positive |
+| `categorySlug` | `String?` | yes | — | A predefined leaf slug, never a group; null when `categoryId` is set |
+| `categoryId` | `String?` | yes | — | A `CustomCategory` id |
+| `sortOrder` | `Int` | no | `0` |  |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` |  |
+
+Indexes `@@index([userId, sortOrder])` and `@@index([categoryId])`. Relations: `user` cascade, and `category CustomCategory?` with **`onDelete: Restrict`**. `Restrict` is safe because `deleteCustomCategory` moves every line that points at the category before it deletes the category.
+
+A line declares a category and nothing else. Its place in the revenues, investments and outgoings flow comes from that category's group through `budgetLineKindOf`, so the two can never disagree.
+
+<Callout type="warn">
+
+No database constraint enforces the exclusive category. The comments say `categorySlug` is null when `categoryId` is set, and the reverse. But Postgres accepts a row with both set, and a row with neither.
+
+</Callout>
+
+## Enums
+
+Postgres holds exactly two enum types.
+
+### `BankConnectionStatus`
+
+`BankConnection.status` uses it. The default is `ACTIVE`.
+
+| Value | Meaning |
+| --- | --- |
+| `ACTIVE` | The connection imports data. Row creation is the only writer of this value. |
+| `EXPIRED` | The consent ran out. **No code writes it.** |
+| `ERROR` | The connection failed. **No code writes it.** |
+
+<Callout type="warn">
+
+The interface renders "Reconnect to resume importing" for any status other than `ACTIVE`, and `syncAccounts` skips those rows. But nothing in `packages/api`, `packages/db` or `scripts` ever sets `EXPIRED` or `ERROR`. A manual database update is the only path into either state.
+
+</Callout>
+
+### `BankAccountType`
+
+`BankAccount.type` uses it. The default is `UNKNOWN`. `ProviderAccountType` in `packages/api/src/providers/types.ts` mirrors these member names, so sync writes the value straight through with no mapping.
+
+| Value | Meaning | Holdings? |
+| --- | --- | --- |
+| `CHECKING` | A current account | no |
+| `SAVINGS` | A savings account | no |
+| `CARD` | A card account | no |
+| `LOAN` | A loan or credit account | no |
+| `BROKERAGE` | A securities account | yes |
+| `LIFE_INSURANCE` | A life-insurance contract | yes |
+| `RETIREMENT` | A retirement plan | yes |
+| `EMPLOYEE_SAVINGS` | An employee savings plan | yes |
+| `REAL_ESTATE` | A real-estate investment | yes |
+| `CROWDLENDING` | A crowdlending position | yes |
+| `UNKNOWN` | The bank provider reported no kind, or a kind with no mapping | no |
+
+The "Holdings?" column is `isInvestmentAccountType` in `packages/api/src/providers/types.ts`. Sync calls `fetchHoldings` only for a `yes` row.
+
+### One dropped enum
+
+`BudgetLineKind` was a Postgres type with the values `REVENUE`, `INVESTMENT` and `OUTGOING`. The migration `20260904120000_derive_budget_line_kind` dropped the type together with the column `budget_line.kind`. It survives as a TypeScript union in `packages/api/src/lib/budget-profile.ts`, and `budgetLineKindOfGroup` derives it from a category's group.
+
+### Free-text domains
+
+Three `String` columns on `Transaction` carry a fixed vocabulary that the schema comments define. Postgres does not enforce them.
+
+| Column | Values |
+| --- | --- |
+| `status` | `BOOK` (the default), `PDNG`, `HOLD`, `SCHD`, `RJCT`, `OTHR` |
+| `channel` | `card`, `transfer`, `direct-debit`, `atm`, `fee`, `cheque`, `loan`, `unknown` |
+| `transactionPath` | `iban` for direct debits and transfers, `card` for card movements |
+
+The category slugs in `Transaction.category`, `Transaction.resolvedCategory`, `MerchantOverride.category`, `BudgetLine.categorySlug` and `CustomCategory.parentSlug` come from `packages/api/src/lib/taxonomy.ts`. [Transaction categorisation](/docs/development/categorisation#the-taxonomy) lists them.
+
+## Money and precision
+
+| Concern | Representation |
+| --- | --- |
+| Transaction amount | `Int`, signed minor units of `currency`. Negative is outgoing. Postgres `INTEGER`. |
+| Account balance | `balanceMinor Int?` with `balanceAt DateTime?`, minor units of `BankAccount.currency` |
+| Balance after a transaction | `balanceAfterTransaction Int?`, minor units |
+| Holding valuation | `valuationMinor Int` required, `unrealisedGainMinor Int?`, minor units |
+| Holding quantity | `Decimal @db.Decimal(24, 8)` — precision 24, **8 decimal places** |
+| Holding unit prices | `unitCost` and `unitValue`, `Decimal? @db.Decimal(24, 6)` — **6 decimal places** |
+| Budget line amount | `Int`, minor units, always positive |
+| Maximum amount | `MAX_AMOUNT_MINOR_UNITS = 2_147_483_647`, the Postgres `INTEGER` ceiling |
+| Currency | A plain `String` ISO 4217 code per row: `Transaction.currency` required, `BankAccount.currency` nullable, `Holding.currency` required |
+
+There is no currency table and no per-user base currency column. A bank provider reports decimal values, and `toMinorUnits(value, precision)` rounds them with `Math.round(value * 10 ** precision)`.
+
+<Callout type="warn">
+
+Two limits follow from that design, and both are real today.
+
+**The stored exchange rate is dead storage.** The Enable Banking adapter maps a rate into `Transaction.exchangeRate`, and `bank-sync.ts` persists it. No code reads the column. There is no conversion, no rate table and no base-currency normalisation.
+
+**Sums cross currencies.** Every aggregation adds `Transaction.amount` over rows without a filter on `currency` and without conversion. A user with a euro account and a pound account gets one number that mixes both.
+
+</Callout>
+
+## Ownership and deletion
+
+Nine models carry their own `userId` column with a foreign key to `user` and `ON DELETE CASCADE`:
+
+`Session`, `Account`, `TwoFactor`, `Passkey`, `BankConnection`, `BankProviderUser`, `MerchantOverride`, `CustomCategory`, `BudgetLine`.
+
+Three models have no user column and inherit ownership through a relation:
+
+| Model         | Path to the user                            |
+| ------------- | ------------------------------------------- |
+| `BankAccount` | `BankConnection.userId`                     |
+| `Transaction` | `BankAccount`, then `BankConnection.userId` |
+| `Holding`     | `BankAccount`, then `BankConnection.userId` |
+
+Two models have no owner at all: `Verification` and `RateLimit`.
+
+Prisma emits no row-level security, so every query states the ownership predicate itself. The code uses two shapes:
+
+```ts
+// one hop — a bank account, or anything joined to a connection
+where: {
+  connection: {
+    userId;
+  }
+}
+
+// two hops — a transaction or a holding
+where: {
+  account: {
+    connection: {
+      userId;
+    }
+  }
+}
+```
+
+Deletion leans on the foreign-key chain. `disconnect` deletes the `bank_connection` row, and the bank accounts, transactions and holdings go with it. `BudgetLine.category` is the one exception: it uses `onDelete: Restrict`, and `deleteCustomCategory` moves the affected lines to the group fallback slug first.
+
+## Onboarding state
+
+There is no onboarding model. Two nullable columns on `User` hold the whole state.
+
+| Column | Written by | Read by |
+| --- | --- | --- |
+| `country` | `onboarding.completeOnboarding` | `onboarding.getStatus`, and the bank institution list |
+| `onboardingCompletedAt` | `onboarding.completeOnboarding` | `onboarding.getStatus`, which returns `completed: onboardingCompletedAt !== null` |
+
+## Migrations
+
+Six migration directories exist under `packages/db/prisma/migrations`, oldest first.
+
+| Directory | What it does |
+| --- | --- |
+| `20260828132959_init` | The baseline. Creates the `citext` extension, the enums `BudgetLineKind` and `BankConnectionStatus`, and the tables `user`, `session`, `account`, `verification`, `custom_category`, `budget_line`, `bank_connection`, `bank_account`, `transaction` and `merchant_override`. |
+| `20260830101500_bank_connection_institution_id` | Adds `bank_connection.institutionId`, then backfills it from `institutionName` for Enable Banking rows, because Enable Banking identifies an institution by its own name. |
+| `20260831120000_category_hierarchy` | Moves the flat category set to the two-level hierarchy. Retargets `internal-transfer`, `cash-withdrawal` and `bank-fees`, maps 17 legacy slugs across four columns, re-parents `custom_category.parentSlug` to a group, and renumbers `sortOrder` per parent. |
+| `20260904090000_auth_second_factors_and_rate_limit` | Adds `user.twoFactorEnabled`, then creates `two_factor`, `rate_limit` and `passkey` with their indexes and foreign keys. |
+| `20260904120000_derive_budget_line_kind` | Drops `budget_line.kind` and the type `BudgetLineKind`, swaps the index, and makes `budget_line.label` nullable. |
+| `20260904154129_bank_provider_abstraction` | Creates the enum `BankAccountType`, adds `bank_account.type`, `currency`, `balanceMinor` and `balanceAt`, then creates `bank_provider_user` and `holding`. Backfills nothing: Enable Banking reports no account kind, so every existing row reads `UNKNOWN`. |
+
+### Commands
+
+| Command | Run from | Literal | Purpose |
+| --- | --- | --- | --- |
+| `bun run db:migrate --name <snake_case_name>` | `packages/db` | `prisma migrate dev` | Author a migration from a schema edit |
+| `bun run db:generate` | repository root or `packages/db` | `prisma generate` | Regenerate the client |
+| `bun run db:migrate:deploy` | `packages/db` | `prisma migrate deploy` | Apply pending migrations |
+| `bun run db:studio` | repository root or `packages/db` | `prisma studio` | Browse the data |
+| `bun run db:push` | repository root or `packages/db` | `prisma db push` | Diff the schema onto a database with no history. Not a setup mechanism. |
+
+`db:migrate:deploy` has no root passthrough script and no Turborepo task. It runs from `packages/db` only. The dev stack runs the same command in its one-shot `bootstrap` service.
+
+### The rule for a pull request
+
+1. Edit the schema file under `packages/db/prisma/schema`.
+2. Run `bun run db:migrate --name <descriptive_snake_case>` from `packages/db`. Always pass `--name`.
+3. Read the generated SQL. Never hand-write, hand-edit or hand-rename a migration.
+4. Never edit or delete a migration that already shipped. Fix forward with a new one.
+5. Commit the schema edit and the migration together, in the same pull request.
+6. Update this page when you add a model, a column or an enum value.
+
+A schema change also carries a documentation duty. The pages quote enum values verbatim, so a renamed enum member makes a page silently wrong.
+
+The operator side of a migration — when to run it and what breaks when nobody does — is [Update an instance](/docs/self-hosting/updates).
+
+<Cards>
+
+<Card
+  title="Architecture"
+  href="/docs/development/monorepo"
+  description="The workspaces, the request path and the generated artifacts."
+/>
+
+<Card
+  title="Transaction categorisation"
+  href="/docs/development/categorisation"
+  description="What writes resolvedCategory, merchantKey and resolutionStage."
+/>
+
+<Card
+  title="Add a bank provider"
+  href="/docs/development/bank-provider"
+  description="The adapter interface that fills these tables."
+/>
+
+<Card
+  title="Update an instance"
+  href="/docs/self-hosting/updates"
+  description="How an operator applies these migrations."
+/>
+
+</Cards>

@@ -1,0 +1,207 @@
+---
+title: Security
+description: What you must do to run Freenary safely, and what Freenary already does for you.
+icon: ShieldCheck
+---
+
+Freenary holds bank data. This page states what the code protects by itself, and what an operator must add.
+
+## Secrets
+
+`BETTER_AUTH_SECRET` is the one secret the whole instance depends on. It does three jobs:
+
+| Job | What breaks when the value changes |
+| --- | --- |
+| Signs the session cookie | Every user signs out. |
+| Encrypts the two-factor secret and the backup codes in the `two_factor` table | Every two-factor enrolment stops. Each user must enrol again. |
+| Signs the bank connection state that round-trips through the bank provider | A bank connection in flight fails at the callback. |
+
+The schema needs 32 characters or more. Generate a real value:
+
+```bash
+openssl rand -hex 32
+```
+
+<Callout type="warn">
+
+The default value is the literal string `dev_secret_change_me_at_least_32chars`. It is 37 characters long, so it passes validation, and no production check refuses it. An instance that keeps it lets anyone forge a session cookie. Set your own value before the first sign-in.
+
+</Callout>
+
+A rotation is not free. It signs every user out and it invalidates every two-factor enrolment at the same time. Plan it, and tell your users first.
+
+The database password is the second secret. `POSTGRES_PASSWORD` defaults to the literal `password`. See [Exposure](#transport-and-exposure) below.
+
+## Cookies and origins
+
+Freenary derives the cookie policy from two variables, `CORS_ORIGIN` and `BETTER_AUTH_URL`. The session cookie is `better-auth.session_token`. It gains the `__Secure-` prefix when `BETTER_AUTH_URL` starts with `https://`.
+
+| Attribute | Value | Source |
+| --- | --- | --- |
+| `HttpOnly` | always `true` | fixed in the code |
+| `Secure` | `true` when `BETTER_AUTH_URL` uses `https:` | `BETTER_AUTH_URL` |
+| `SameSite` | `Lax` when the two host names match, or when `AUTH_COOKIE_DOMAIN` is set. `None` otherwise. | `CORS_ORIGIN`, `BETTER_AUTH_URL`, `AUTH_COOKIE_DOMAIN` |
+| `Domain` | set only when `AUTH_COOKIE_DOMAIN` is set | `AUTH_COOKIE_DOMAIN` |
+| `Path` | `/` | fixed in the code |
+| `Max-Age` | 604800 seconds, which is 7 days | fixed in the code |
+
+Only the host names count, never the ports. `localhost:3000` and `localhost:3001` match, so a local stack gets `SameSite=Lax`.
+
+A session rolls forward, so seven days is a floor and not a ceiling. Read [Sessions](/docs/self-hosting/authentication#sessions) for the refresh rule.
+
+**`AUTH_COOKIE_DOMAIN` fixes the split-host case.** Put the API server on `api.example.com` and the web app on `app.example.com`, then set `AUTH_COOKIE_DOMAIN=.example.com`. The cookie stays `SameSite=Lax` and browsers keep it. Without the value, the cookie drops to `SameSite=None`, and a browser that blocks third-party cookies drops the session.
+
+Freenary checks the value at startup and refuses four mistakes:
+
+| Refusal | Example | Message fragment |
+| --- | --- | --- |
+| A trailing dot | `.example.com.` | `ends in a dot` |
+| A single label | `.com`, `.local` | `single label` |
+| Not a parent of both host names | `.other.com` with `api.example.com` | `is not a parent of both` |
+| `SameSite=None` with no `Secure` flag | split host names, no domain, plain `http` API server | throws in production, warns in development |
+
+The last refusal is the important one. In production it stops the server. It means your configuration would ship a cross-site cookie that no browser keeps.
+
+<Callout type="info">
+
+Freenary does not detect a multi-label public suffix. `AUTH_COOKIE_DOMAIN=.co.uk` passes the four checks and no browser accepts it. Name the domain you own.
+
+</Callout>
+
+`CORS_ORIGIN` does more than CORS. It is the first trusted origin, and it sets the passkey relying party identifier. A passkey enrolled under one `CORS_ORIGIN` host name does not work under another one.
+
+## Rate limits
+
+Better Auth stores its counters in the `rate_limit` database table. Two facts follow. A restart does not clear a lockout, and every worker of the instance shares one counter. Rate limits run in `development` and `production`, and stop in `test`.
+
+Each key is the caller address plus the path.
+
+| Path | Limit |
+| --- | --- |
+| `/sign-in/email` | 10 per 60 s |
+| `/sign-in/social` | 10 per 60 s |
+| `/sign-up/email` | 5 per 300 s |
+| `/two-factor/verify-totp` | 10 per 300 s |
+| `/two-factor/verify-backup-code` | 5 per 300 s |
+| `/passkey/generate-authenticate-options` | 20 per 60 s |
+| `/passkey/verify-authentication` | 20 per 60 s |
+| any other `/two-factor/*` path | 3 per 10 s |
+| every `/email-otp/*` path | 3 per 60 s |
+| any other `/sign-in`, `/sign-up`, `/change-password` or `/change-email` path | 3 per 10 s |
+| everything else under `/api/auth` | 100 per 60 s |
+| the `auth.accountExists` procedure | 20 per 60 s |
+
+### Behind a reverse proxy, set `TRUSTED_PROXIES`
+
+Freenary reads the caller address from the `x-forwarded-for` header, and from no other header. With `TRUSTED_PROXIES` set, it walks that chain from right to left and takes the first hop outside your list. That hop is the caller.
+
+With `TRUSTED_PROXIES` unset, a header that carries more than one address resolves to nothing. In production every request then keys on the literal `no-trusted-ip` plus the path.
+
+<Callout type="error">
+
+That is one shared bucket per path for the whole instance. The 10 sign-in requests per minute become the total allowance of your deployment, for every user together. One caller can spend it on purpose and lock everybody out.
+
+</Callout>
+
+List each proxy as an address or a CIDR range:
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/24,192.0.2.10
+```
+
+Write an IPv4 address in its IPv4 form. `::ffff:10.0.0.1` stops the server at startup.
+
+## Passwords
+
+| Rule              | Value                                           |
+| ----------------- | ----------------------------------------------- |
+| Minimum length    | 12 characters                                   |
+| Maximum length    | 128 characters                                  |
+| Character classes | none needed, by design                          |
+| Hash              | scrypt, with a random 16-byte salt per password |
+
+None of the three is configurable.
+
+`AUTH_PASSWORD_BREACH_CHECK` defaults to `true`. Freenary then checks each new password against Have I Been Pwned. The check runs on sign-up, on a password change and on a password reset.
+
+Exactly one thing leaves the server: the first five hexadecimal characters of the uppercase SHA-1 hash of the password. Freenary sends them as `GET https://api.pwnedpasswords.com/range/<prefix>` and compares the answer locally. The password never leaves the server, and neither does its full hash.
+
+<Callout type="warn">
+
+The check fails closed. An instance with no route to `api.pwnedpasswords.com` cannot complete a sign-up, a password change or a password reset. The web app then shows only a generic error. Turn the check off for an air-gapped instance.
+
+</Callout>
+
+```dotenv
+AUTH_PASSWORD_BREACH_CHECK=false
+```
+
+## Transport and exposure
+
+Put TLS in front of both apps. The API server listens on port 3000 and the web app listens on port 3001, both over plain HTTP. Neither one handles TLS. `BETTER_AUTH_URL` must then start with `https://`, because that is what makes the session cookie `Secure`.
+
+Two facts about `docker-compose.yml` need your action.
+
+<Callout type="warn">
+
+The compose file publishes PostgreSQL as `5432:5432`, which binds every interface of the host, and `POSTGRES_PASSWORD` defaults to the literal `password`. Both production images also declare no `USER`, so the web app and the API server run as root inside their containers.
+
+</Callout>
+
+| Fact | Mitigation |
+| --- | --- |
+| PostgreSQL reachable on every host interface | Change the mapping to `127.0.0.1:5432:5432`, or delete the whole `ports:` block of the `postgres` service. The other services reach it over the compose network with no published port. |
+| The default database password | Set `POSTGRES_PASSWORD` in the root `.env` file before the first start. |
+| Both images run as root | Publish no application port to the internet. Put a reverse proxy in front, and bind ports 3000 and 3001 to `127.0.0.1` as well. |
+
+## What the data contains
+
+The database holds the financial history of every user: bank accounts, balances, transactions and holdings.
+
+It also holds the bank provider access token of each user, in `bank_provider_user.accessToken`, as plain text. Anyone who reads that column can call the bank provider as that user until the token expires.
+
+<Callout type="warn">
+
+Treat the database and every backup of it as the financial data itself. Encrypt the backup files, restrict who can read them, and store them apart from the instance. [Backup and restore](/docs/self-hosting/backup-and-restore) covers the commands.
+
+</Callout>
+
+## Deployment checklist
+
+Tick each line before you open the instance to real users.
+
+- [ ] `BETTER_AUTH_SECRET` holds your own 32-character value or longer.
+- [ ] `POSTGRES_PASSWORD` holds your own value.
+- [ ] `NODE_ENV=production`.
+- [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` name the real public origins, both over `https`.
+- [ ] The `VITE_SERVER_URL` build argument equals `BETTER_AUTH_URL`, and you rebuilt the web image after the change.
+- [ ] `AUTH_COOKIE_DOMAIN` names the shared parent domain, if the two apps sit on different subdomains.
+- [ ] `TRUSTED_PROXIES` lists every proxy in front of the API server.
+- [ ] `EMAIL_PROVIDER` is `resend` or `smtp`, so password reset works.
+- [ ] No `ports:` block publishes the PostgreSQL port, or the mapping binds to `127.0.0.1`.
+- [ ] A TLS reverse proxy fronts both apps, and no application port faces the internet.
+- [ ] The six migrations ran once, with the command on the [maintenance page](/docs/self-hosting/maintenance).
+- [ ] A backup runs on a schedule, and you restored one to check it.
+
+<Cards>
+  <Card
+    title="Configuration reference"
+    href="/docs/self-hosting/configuration"
+    description="Every variable named on this page, with its default."
+  />
+  <Card
+    title="Authentication"
+    href="/docs/self-hosting/authentication"
+    description="Sign-in providers, one-time codes and the login screen."
+  />
+  <Card
+    title="Backup and restore"
+    href="/docs/self-hosting/backup-and-restore"
+    description="Dump the database and put it back."
+  />
+  <Card
+    title="Troubleshooting"
+    href="/docs/self-hosting/troubleshooting"
+    description="The cookie, CORS and rate-limit symptoms in practice."
+  />
+</Cards>

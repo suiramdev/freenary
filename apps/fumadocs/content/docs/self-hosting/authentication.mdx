@@ -1,0 +1,382 @@
+---
+title: Sign-in methods
+description: The sign-in methods every instance carries, the optional providers you can add, and the session, password and rate-limit rules an operator controls.
+icon: KeyRound
+---
+
+Three sign-in methods work on a fresh instance with no variables at all. The emailed one-time code needs an email provider. Three more providers turn on when you set their credentials. This page covers every sign-in setting an operator controls, and the thresholds nobody can change.
+
+The walkthrough for users is [the sign-in guide](/docs/guides/signing-in).
+
+## What is always on
+
+| Method | Turns off with | Needs |
+| --- | --- | --- |
+| Email and password | nothing | nothing |
+| Emailed one-time code | an unset `EMAIL_PROVIDER` | an email provider |
+| Two-factor with an authenticator app | nothing | nothing |
+| Passkeys | nothing | an `https` web origin |
+
+No variable removes email and password, two-factor or passkeys. An instance can never end up with no way in.
+
+Every threshold below sits in `packages/auth/src/policy.ts`. None of them reads a variable.
+
+| Threshold | Value |
+| --- | --- |
+| Password minimum length | 12 characters |
+| Password maximum length | 128 characters |
+| Character classes in a password | none |
+| One-time code length | 6 digits |
+| One-time code lifetime | 600 seconds (10 minutes) |
+| Wrong code tries before Freenary burns the code | 3 |
+| Two-factor issuer name | `Freenary` |
+| Trusted device lifetime | 2 592 000 seconds (30 days) |
+| Session lifetime | 604 800 seconds (7 days) |
+| Re-authentication window | 900 seconds (15 minutes) |
+| Relying party name for a passkey | `Freenary` |
+
+### Email and password
+
+Every account carries a password. Freenary hashes it with scrypt and stores the hash in the `account` table. Length is the only rule: 12 characters at least, 128 at most, and no character class. The web app checks those bounds when a user picks a password. It reads both numbers from the API server, never from a build-time constant.
+
+### The emailed one-time code
+
+The code confirms an address and resets a password. It cannot open an account. Freenary registers the one-time-code plugin only with an email provider set, so both flows need [Email delivery](/docs/self-hosting/email) first.
+
+### Two-factor with an authenticator app
+
+The plugin runs on every instance. An authenticator app shows the issuer `Freenary`. A user enrols in Settings, and the form asks for the account password first. An account with no password — a provider identity only — reads a note instead of the switch.
+
+A user confirms the second factor with a 6-digit app code or with one backup code. Both paths can mark the device as trusted for 2 592 000 seconds (30 days), and every later sign-in inside that window extends it.
+
+### Passkeys
+
+The plugin runs on every instance and reads no variable of its own. The web app draws the button only when the browser reports WebAuthn support. The relying party comes from the web origin, which has consequences for any operator who moves an instance — read [Passkeys and the web origin](#passkeys-and-the-web-origin).
+
+## Optional sign-in providers
+
+Each provider stays inert until you set both halves of its credentials. The web app asks the API server which providers exist, so an unset provider draws no button rather than a button that fails on click.
+
+Every provider needs one redirect URI, and you register it on the provider side. The shape never changes:
+
+```http
+<BETTER_AUTH_URL>/api/auth/callback/<id>
+```
+
+`<id>` is `google`, `apple` or `oidc`. `BETTER_AUTH_URL` is the public origin of the API server. It defaults to `http://localhost:3000`, because `PORT` defaults to `3000`. That default suits a laptop and fits nothing you register with a provider.
+
+What the sign-in screen draws:
+
+| Variables you set | Sign-in screen |
+| --- | --- |
+| none, and no usable passkey | No provider button, and no `or` divider either |
+| none, and a browser with WebAuthn | The passkey button alone, under the divider |
+| one pair, for example both Google variables | One button for that provider |
+| many pairs | One button per provider |
+| one half of a pair | Nothing — Freenary registers a provider only with both halves |
+
+### Google
+
+```dotenv
+GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+| Variable               | Default | Notes                                     |
+| ---------------------- | ------- | ----------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | unset   | Needed. One half alone leaves Google off. |
+| `GOOGLE_CLIENT_SECRET` | unset   | Needed.                                   |
+
+Create the OAuth client in the Google Cloud console. Add `<BETTER_AUTH_URL>/api/auth/callback/google` to its authorized redirect URIs.
+
+### Apple
+
+```dotenv
+APPLE_CLIENT_ID=com.example.freenary.web
+APPLE_CLIENT_SECRET=eyJhbGciOiJFUzI1NiIsImtpZCI6...
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `APPLE_CLIENT_ID` | unset | Needed. The Services ID. |
+| `APPLE_CLIENT_SECRET` | unset | Needed. The signed client-secret JWT that Apple expects. |
+| `APPLE_APP_BUNDLE_IDENTIFIER` | unset | It overrides the audience Freenary expects in the Apple ID token. Set it when a native app signs in against this instance. |
+
+Create the Services ID in the Apple developer portal. Add `<BETTER_AUTH_URL>/api/auth/callback/apple` as a return URL.
+
+Apple posts its callback from `https://appleid.apple.com`. Freenary adds that origin to its own trusted list as soon as Apple holds both halves. You do not add it yourself.
+
+<Callout type="info">
+  `APPLE_APP_BUNDLE_IDENTIFIER` alone does nothing. Freenary hands it to Better
+  Auth even with Apple off, and no check ties it to `APPLE_CLIENT_ID`.
+</Callout>
+
+### OpenID Connect
+
+This provider covers every identity provider that speaks OpenID Connect discovery: Authentik, Keycloak, Zitadel, Entra and others. Freenary registers all of them under the single provider id `oidc`, so the redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/oidc`.
+
+```dotenv
+OIDC_DISCOVERY_URL=https://idp.example.com/.well-known/openid-configuration
+OIDC_CLIENT_ID=freenary
+OIDC_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+OIDC_PROVIDER_NAME=Acme SSO
+OIDC_SCOPES=groups,offline_access
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `OIDC_DISCOVERY_URL` | unset | Needed. The discovery document of your identity provider. |
+| `OIDC_CLIENT_ID` | unset | Needed. |
+| `OIDC_CLIENT_SECRET` | unset | Leave it unset for a public client. |
+| `OIDC_PROVIDER_NAME` | unset | The button label a user reads. |
+| `OIDC_SCOPES` | unset | Comma-separated extra scopes. |
+
+Freenary registers the provider only when both `OIDC_DISCOVERY_URL` and `OIDC_CLIENT_ID` hold a value.
+
+**Scopes.** Freenary always asks for `openid`, `email` and `profile`. It adds every entry of `OIDC_SCOPES` to that set and drops duplicates. You never repeat the three base scopes.
+
+**Button label.** `OIDC_PROVIDER_NAME` is the text on the button, for example `Acme SSO`. Leave it unset and the button falls back to a translated "single sign-on". The web app never draws the raw id `oidc`.
+
+<Callout type="warn">
+  Freenary always checks the ID token, so the discovery document must carry an
+  `issuer` and a usable `jwks_uri`. The account keys on the `sub` claim of the
+  checked token. Freenary reads the discovery document at every process start
+  and caches nothing between starts. An identity provider that is down at that
+  moment therefore stops the API server, and a restart policy turns that into a
+  loop. Keep the discovery URL reachable from the API server, or leave
+  `OIDC_DISCOVERY_URL` unset until it is.
+</Callout>
+
+## Account linking
+
+Freenary lets a provider identity join an account that already exists. Three rules govern it, and no variable changes them.
+
+| Rule                                      | Value |
+| ----------------------------------------- | ----- |
+| Join a provider identity to an account    | on    |
+| Join across two different email addresses | off   |
+| Unlink the last sign-in method            | off   |
+
+The rule fits one sentence. **A provider identity joins an account only when both sides carry the same email address, and both sides confirmed it**. So a Google sign-in after a password sign-up lands in the account the user already has, not in a second empty one. That holds as long as Google confirmed the address and the local account confirmed it too.
+
+When the two addresses differ, the provider sends the user back to `/login` with an `error` query parameter. The screen shows a message and the user stays signed out. Freenary maps six codes to a message:
+
+- `email_does_not_match`
+- `account_not_linked`
+- `account_already_linked_to_different_user`
+- `email_not_found`
+- `email_not_verified`
+- `unable_to_link_account`
+
+A user who cancels at the provider sees nothing at all. Freenary clears `access_denied` and `user_cancelled_authorize` without a message. Any other code falls back to one generic message. The web app never renders the message text of the API server.
+
+In Settings a user can join a provider to the account, and detach one. Freenary refuses to detach the last method and answers `FAILED_TO_UNLINK_LAST_ACCOUNT`.
+
+## Sessions
+
+The session cookie is the only credential Freenary accepts. No bearer token exists — read [API access](/docs/integrations/api) before you script against an instance.
+
+| Cookie property | Value |
+| --- | --- |
+| Name | `better-auth.session_token`, with the prefix `__Secure-` when `BETTER_AUTH_URL` starts with `https://` |
+| `HttpOnly` | always on |
+| `Path` | `/` |
+| `Max-Age` | 604 800 seconds (7 days) |
+| `Secure` | on when the protocol of `BETTER_AUTH_URL` is `https:` |
+| `SameSite` | `Lax` when both hostnames match, or when you declare `AUTH_COOKIE_DOMAIN`. `None` otherwise. |
+| `Domain` | present only when you declare `AUTH_COOKIE_DOMAIN` |
+
+Two variables decide the last three rows. `BETTER_AUTH_URL` is the origin of the API server. `CORS_ORIGIN` is the origin of the web app. Freenary compares their hostnames at startup.
+
+| API server against web app | `AUTH_COOKIE_DOMAIN` | Session cookie |
+| --- | --- | --- |
+| the same hostname, whatever the ports | either | `SameSite=Lax` |
+| different hostnames | declared, and a parent of both | `SameSite=Lax` plus `Domain=<value>` |
+| different hostnames | unset | `SameSite=None`, which browsers honour only over HTTPS |
+
+The two-factor cookie and the trusted-device cookie inherit the same three attributes. Their lifetimes differ: 600 seconds for a two-factor challenge in progress, 2 592 000 seconds for a trusted device.
+
+**The shared cookie also decides where a visitor lands.** The web app renders each page on its own server. It forwards the request cookie to the API server to learn who the visitor is. A signed-in visitor therefore gets Home in the first response. The browser sends the session cookie to the web app origin only in the first two rows above. In the third row the web app resolves nobody, treats every page load as undecided, and leaves the browser to redirect. The instance still works, with that extra hop. The API server reports the case as `sessionCookieShared` on `auth.capabilities`.
+
+### `AUTH_COOKIE_DOMAIN`
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `AUTH_COOKIE_DOMAIN` | unset | The parent domain the API server and the web app share, for example `.example.com`. |
+
+Set it for a split-subdomain instance. A browser judges same-site by registrable domain, and a hostname alone does not give one. `api.example.com` and `app.example.com` are same-site, and so are `api.example.co.uk` and `app.example.co.uk`. The declared parent domain is the evidence Freenary uses instead of a guess.
+
+Four shapes stop the process at startup:
+
+1. A value that is not a parent of both hostnames.
+2. A single label, for example `.com` or `.local`.
+3. A value that ends in a dot.
+4. Split hostnames, no declared domain, and an API server on plain HTTP.
+
+The fourth shape yields `SameSite=None` with no `Secure`, and a browser drops such a cookie. Freenary throws in production and warns in development. A dropped cookie makes sign-in answer `200` with nobody signed in, so each shape fails at startup instead.
+
+<Callout type="info">
+  Freenary does not detect a multi-label public suffix such as `.co.uk`. To tell
+  one from a real domain, it needs a public-suffix list, and this project ships
+  none. A value of `.co.uk` therefore passes the check and the browser then
+  drops the cookie.
+</Callout>
+
+The development stack is itself a split-hostname instance over HTTPS. `compose.dev.yml` serves the API server at `server.<slug>.freenary.orb.local` and the web app at `web.<slug>.freenary.orb.local`, where `<slug>` is the worktree slug. `bun run dev:up` therefore derives `AUTH_COOKIE_DOMAIN=.<slug>.freenary.orb.local` and passes it to Compose, so the dev stack runs on `SameSite=Lax`. A value of your own in the shell or in the worktree `.env` wins.
+
+### Lifetime and refresh
+
+| Fact | Value |
+| --- | --- |
+| Session and cookie lifetime | 604 800 seconds (7 days) |
+| Refresh age | Freenary sets none, so the Better Auth default of 86 400 seconds (1 day) applies |
+| Refresh behaviour | On the first request more than one day after the last session write, the API server writes a new session and a new cookie |
+| Cookie cache | none — every request reads the session from the database |
+| Cookie signature | `BETTER_AUTH_SECRET` |
+
+A session therefore lives seven days from its last write, so seven days is a floor and not a ceiling. A user who visits weekly never signs in again on a schedule. A rotation of `BETTER_AUTH_SECRET` signs everybody out — read [Security](/docs/self-hosting/security).
+
+### The re-authentication window
+
+A change to which credentials open an account needs a session that Freenary created in the last 900 seconds (15 minutes). Outside the window, five paths answer `403` with `SESSION_NOT_FRESH`:
+
+- `/link-social`
+- `/unlink-account`
+- `/passkey/delete-passkey`
+- `/passkey/generate-register-options`
+- `/passkey/verify-registration`
+
+A passkey rename is not on the list, because it changes nothing about how the account opens. The session list is not on it either: the screen a user opens because they suspect a problem must still answer. Freenary raises `freshAge` to the full 7-day session lifetime for that reason, and the 15-minute rule comes from a policy hook instead.
+
+### What a user manages in Settings
+
+| Area | Actions |
+| --- | --- |
+| Active sessions | Read the list, revoke one session, revoke every other session |
+| Connected accounts | Join a provider, detach one — never the last method |
+| Passkeys | Add, rename, delete |
+| Two-factor | Enrol with the account password, disable, regenerate backup codes |
+
+## Password policy
+
+| Variable                     | Default | Notes                             |
+| ---------------------------- | ------- | --------------------------------- |
+| `AUTH_PASSWORD_BREACH_CHECK` | `true`  | `false` removes the breach check. |
+
+With the check on, Freenary refuses a password that Have I Been Pwned lists. It runs on sign-up, on a password change and on a password reset, right before Freenary hashes the password.
+
+**Exactly what leaves the API server.** Freenary takes the SHA-1 of the new password as uppercase hex. It sends the first 5 characters of that hex, and nothing else:
+
+```http
+GET https://api.pwnedpasswords.com/range/<5-hex-prefix>
+Add-Padding: true
+User-Agent: BetterAuth Password Checker
+```
+
+The password never leaves the API server. The full hash never leaves it either. Freenary compares the returned suffixes on the server and answers `400` with `PASSWORD_COMPROMISED` on a match.
+
+Turn the check off with one line:
+
+```dotenv
+AUTH_PASSWORD_BREACH_CHECK=false
+```
+
+<Callout type="warn">
+  The check fails closed. Any network error against `api.pwnedpasswords.com`
+  becomes a `500`, and the web app has no message for that code — the user reads
+  a generic failure. An instance with no route to that API cannot complete a
+  sign-up, a password change or a password reset. Turn the check off on an
+  air-gapped instance.
+</Callout>
+
+## Rate limits
+
+Freenary enforces limits on every instance except `NODE_ENV=test`, development included. Counters live in the `rate_limit` table of the database, never in process memory. A restart therefore does not clear a lockout, and every worker of a multi-process instance shares one counter.
+
+| Path | Limit | Source |
+| --- | --- | --- |
+| `/sign-in/email` | 10 per 60 s | Freenary rules |
+| `/sign-in/social` | 10 per 60 s | Freenary rules |
+| `/sign-up/email` | 5 per 300 s | Freenary rules |
+| `/two-factor/verify-totp` | 10 per 300 s | Freenary rules |
+| `/two-factor/verify-backup-code` | 5 per 300 s | Freenary rules |
+| `/passkey/generate-authenticate-options` | 20 per 60 s | Freenary rules |
+| `/passkey/verify-authentication` | 20 per 60 s | Freenary rules |
+| every other `/two-factor/` path | 3 per 10 s | `twoFactor` plugin |
+| every one-time-code path — `/email-otp/*`, `/forget-password/email-otp` | 3 per 60 s | `emailOTP` plugin |
+| any other path under `/sign-in`, `/sign-up`, `/change-password`, `/change-email` | 3 per 10 s | Better Auth built-in |
+| `/request-password-reset`, `/send-verification-email`, `/forget-password*` | 3 per 60 s | Better Auth built-in |
+| everything else under `/api/auth` | 100 per 60 s | the default bucket |
+
+**Read the third column, because the last row is narrower than it looks.** Better Auth resolves a limit in three passes: its own built-in rules, then plugin rules, then the Freenary rules. Each pass that matches overwrites the previous one outright, tighter or looser. The default bucket of 100 per 60 seconds is only the first value. It survives on a path that no built-in rule and no plugin rule matched. An unlisted path under one of those four prefixes therefore caps at 3, not 100.
+
+`/link-social` matches no rule at any pass, so it sits on that 100 per 60 seconds default. Its real guard is the 15-minute re-authentication window above.
+
+### The account-existence limit
+
+One procedure carries its own limit outside the auth handler. `auth.accountExists` accepts 20 calls per 60 seconds per caller. Freenary counts it in the same `rate_limit` table, under keys with the prefix `account-exists:`.
+
+The limit exists because the progressive sign-in form asks whether an address has an account before it decides which fields to draw. That answer is therefore readable to any caller. The cap makes a long list of addresses expensive to walk. It does not make one lookup private.
+
+### Who the caller is
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `TRUSTED_PROXIES` | unset | The proxies in front of the API server, as addresses or CIDR ranges, comma-separated. |
+
+Set it when anything sits in front of the API server. With an empty list, Freenary refuses an `x-forwarded-for` header that carries more than one address. Then every caller shares one bucket per path, and the whole instance spends the 10 sign-in tries together. [Security](/docs/self-hosting/security) covers the chain walk, the startup checks and the shared-bucket failure in full.
+
+## Passkeys and the web origin
+
+Passkeys read no variable. Freenary derives the relying party from `CORS_ORIGIN`, the origin of the web app.
+
+| Relying party field | Value                         |
+| ------------------- | ----------------------------- |
+| `rpID`              | the hostname of `CORS_ORIGIN` |
+| `origin`            | `CORS_ORIGIN` itself          |
+| `rpName`            | `Freenary`                    |
+
+WebAuthn binds a credential to the origin that created it. The ceremony runs in the browser on the web app, never on the API server. The hostname of `BETTER_AUTH_URL` would be the wrong answer for any split instance, so Freenary never reads it here.
+
+Two consequences follow.
+
+**A change of `CORS_ORIGIN` invalidates every registered passkey, and the port counts.** Freenary hands `CORS_ORIGIN` to the plugin as the expected origin. The library then compares it to the origin in the signed browser response as an exact string. So `https://app.example.com` and `https://app.example.com:8443` are two different relying parties. The browser offers a credential and the API server then refuses it. The rows stay in the `passkey` table, and each user must register again on the new origin.
+
+**WebAuthn needs a secure context.** A browser treats an `https` origin and `localhost` as secure, and nothing else. An instance on plain `http` for real users cannot offer passkeys at all.
+
+## Why an emailed code cannot open an account
+
+A one-time code confirms an address or resets a password. It never signs a user in, and that takes three refusals rather than one.
+
+| Refusal | Answer |
+| --- | --- |
+| `/sign-in/email-otp` on every instance | `404` / `NOT_FOUND` |
+| A request for a code of type `sign-in` on `/email-otp/send-verification-otp` | `400` / `INVALID_OTP_TYPE` |
+| A confirmation of an address somebody already confirmed | `400` / `INVALID_OTP` |
+
+The middle refusal matters most. Without it, an unauthenticated caller could mail a code to any address it names. Nothing would accept that code, so the route would be a free mailer and a lure for an attacker. The third refusal matters because a confirmation creates a session. Without it, an emailed code would walk past both the password and the second factor.
+
+A mailbox is never the whole security of an account. The full rationale, and the account-existence cost the progressive form brings, sit in [ADR-005](https://github.com/suiramdev/freenary/blob/main/docs/adr/005-sign-in-methods-and-account-linking.md).
+
+<Cards>
+  <Card
+    title="Email delivery"
+    href="/docs/self-hosting/email"
+    description="Connect the provider that carries confirmation and reset codes."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Secrets, trusted proxies, tokens at rest and the checks before you expose an instance."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable an instance reads, with its default."
+  />
+  <Card
+    title="Signing in"
+    href="/docs/guides/signing-in"
+    description="What a user sees on the sign-in screen and in Settings."
+  />
+</Cards>

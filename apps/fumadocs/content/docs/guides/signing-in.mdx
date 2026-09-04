@@ -1,0 +1,178 @@
+---
+title: Signing in
+description: Every way into a Freenary account — password, one-time code, passkey, Google, Apple, single sign-on — and what to do when one fails.
+icon: LogIn
+---
+
+Freenary puts every sign-in path on one screen. The screen changes step by step as you answer it. This page walks each path and names what you see.
+
+## One screen, five steps
+
+There is no separate sign-up page, reset page or confirmation page. The screen at `/login` moves between five steps.
+
+| Step | Heading you see | What you do |
+| --- | --- | --- |
+| `credentials` | Welcome to Freenary | Type an email address, then a password |
+| `confirm` | Confirm your email | Type the 6-digit code Freenary emailed you |
+| `reset-request` | Reset your password | Type the address that needs a new password |
+| `reset` | Choose a new password | Type the code, then the new password |
+| `two-factor` | Two-factor authentication | Type an authenticator code or a recovery code |
+
+## Email and password
+
+Freenary asks for your address first, and for nothing else.
+
+1. Type your email address.
+2. Wait about half a second. Freenary asks the server whether the address has an account.
+3. The rest of the form appears.
+
+What appears next depends on the answer:
+
+| Answer | Text you see | Fields |
+| --- | --- | --- |
+| The address has an account | This address has an account. Enter your password to sign in. | Password |
+| The address has no account | This address has no account yet. Enter your name and a password to create one. | Name, Password |
+
+The name needs 2 characters or more. The password needs **12 characters or more**, and 128 characters or fewer. Freenary applies that length rule only when you choose a new password. It never applies the rule to a password you already have.
+
+Freenary can also refuse a password that appears in a public breach list. The message reads: That password appears in a known data breach. Choose another one. Pick a different password.
+
+If you edit the address again, the form collapses and Freenary checks the new address.
+
+## The emailed one-time code
+
+Freenary emails a one-time code to confirm a new address. A one-time code is 6 digits long. It stays valid for 10 minutes. Three wrong tries burn it.
+
+You reach the `confirm` step in two ways:
+
+- You create an account, and the operator turned on email delivery. Freenary withholds the session and sends a code.
+- You sign in with an address you never confirmed. Freenary sends a fresh code first, then asks for it.
+
+On this step you can press **Send a new code** or **Use a different email**. A correct code confirms the address and signs you in at once.
+
+<Callout type="info">
+
+Freenary never emails a sign-in link. Every message carries a 6-digit code, and you type it into the screen.
+
+</Callout>
+
+### When the operator configured no email provider
+
+Freenary then sends no message at all, and three things change:
+
+- The **Forgot password?** link disappears from the password field.
+- No `confirm` step appears. A new account signs in straight away.
+- The password reset path does not exist.
+
+Your operator turns email delivery on. See [Email delivery](/docs/self-hosting/email).
+
+## Password reset
+
+The **Forgot password?** link sits under the password field.
+
+1. Press **Forgot password?**.
+2. Type your address, then press **Send reset code**.
+3. Read the 6-digit code from your mailbox.
+4. Type the code and a new password, then press **Save new password**.
+
+<Callout type="warn">
+
+A password reset does **not** sign you in. Freenary returns you to the first step with the message: Password updated. Sign in with it. Type the new password to continue.
+
+</Callout>
+
+## Passkey
+
+A passkey signs you in with the unlock of your own device, and no password. Press **Sign in with a passkey**, then answer your browser.
+
+The button appears only when your browser supports passkeys. If you cancel the browser prompt, Freenary stays quiet and the screen does not change. You add a passkey later, from Settings. See [Settings](/docs/guides/settings#passkeys).
+
+## Google, Apple and single sign-on
+
+Under the password form, Freenary can show one button per sign-in provider:
+
+| Button | Condition |
+| --- | --- |
+| Continue with Google | The operator configured Google |
+| Continue with Apple | The operator configured Apple |
+| Continue with single sign-on | The operator configured an OpenID Connect provider and gave it no name |
+| Continue with _name_ | The operator configured an OpenID Connect provider and named it |
+
+A button you do not see belongs to a provider the operator left unset. When no provider works and your browser has no passkey support, the whole block disappears, and the **or** divider with it.
+
+Press a button and the provider takes over. It sends you back to Freenary at the end. If you cancel at the provider, Freenary shows no error.
+
+## Two-factor authentication
+
+A second factor asks for one more proof after your password. Freenary supports an authenticator app, and recovery codes. You turn both on from Settings. See [Settings](/docs/guides/settings#two-factor-authentication).
+
+Once you turn it on, a correct password moves the screen to the `two-factor` step.
+
+| Field              | Value                                             |
+| ------------------ | ------------------------------------------------- |
+| Authenticator code | The 6-digit code your authenticator app shows now |
+| Recovery code      | One of the codes Freenary gave you at enrolment   |
+
+Press **Use a recovery code** to switch, and **Use your authenticator app** to switch back. Each recovery code works once.
+
+The step also carries a checkbox: **Remember this device for 30 days**. Tick it, and Freenary skips the second factor in that browser for 30 days. Freenary refreshes the 30 days at each later sign-in from that browser.
+
+If the challenge expires, Freenary sends you back to the first step with: That sign-in challenge expired. Sign in again to get a new one.
+
+## When sign-in fails
+
+| What happened | What you see | What to do |
+| --- | --- | --- |
+| Wrong password | Email or password is incorrect. | Type the password again, or reset it |
+| Wrong one-time code | That code is not right. Check it and try again. | Two more tries remain on that code |
+| Third wrong code | Too many wrong codes. Request a new one. | Press **Send a new code** |
+| Expired code | That code has expired. Request a new one. | Press **Send a new code**. A code lasts 10 minutes |
+| Wrong recovery code | That recovery code is not right. Check it and try again. | Try another saved code |
+| Unconfirmed address | Confirm your email address to continue. Enter the code we sent you, or ask for a new one. | Read your mailbox. Freenary already sent a fresh code |
+| Rate limit reached | Too many attempts. Wait a moment and try again. | Wait out the window in the table below |
+| Address check blocked | Too many address checks just now. Wait a moment, then check this address again to go on. | Press **Check this address again** |
+
+### The rate limits
+
+Freenary counts tries per caller address, per path. Each row is a separate counter.
+
+| Action                           | Limit                       |
+| -------------------------------- | --------------------------- |
+| Sign in with a password          | 10 attempts per 60 seconds  |
+| Sign in with a provider          | 10 attempts per 60 seconds  |
+| Create an account                | 5 attempts per 300 seconds  |
+| Send or check a one-time code    | 3 attempts per 60 seconds   |
+| Type an authenticator code       | 10 attempts per 300 seconds |
+| Type a recovery code             | 5 attempts per 300 seconds  |
+| Passkey sign-in                  | 20 attempts per 60 seconds  |
+| Address check on the first field | 20 attempts per 60 seconds  |
+
+A restart of the instance does not clear a counter. Wait for the window to pass.
+
+## How long a session lasts
+
+A session lasts 7 days, and Freenary starts the 7 days over on your first visit more than a day after the last refresh. See [Sessions](/docs/self-hosting/authentication#sessions). You see and revoke every open session from Settings. See [Settings](/docs/guides/settings#active-sessions).
+
+<Callout type="info">
+
+Your operator picks which sign-in methods exist, and whether Freenary can send email at all. The operator page is [Authentication](/docs/self-hosting/authentication).
+
+</Callout>
+
+<Cards>
+  <Card
+    title="First steps"
+    href="/docs/guides/first-steps"
+    description="What to do right after your first sign-in."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="Add a passkey, turn on two-factor, review your sessions."
+  />
+  <Card
+    title="Bank connections"
+    href="/docs/guides/bank-connections"
+    description="Connect a bank and import your transactions."
+  />
+</Cards>

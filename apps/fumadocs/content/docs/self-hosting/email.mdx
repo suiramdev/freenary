@@ -1,0 +1,223 @@
+---
+title: Email delivery
+description: Connect an email provider so Freenary can send confirmation codes and password reset codes.
+icon: Mail
+---
+
+Freenary sends email for two flows only. This page shows how to connect a provider, and what stops when you connect none.
+
+## What Freenary sends
+
+| Trigger | Subject |
+| --- | --- |
+| A user signs up with an email address and a password | `Confirm your Freenary email address` |
+| A user signs in with an address that nobody confirmed yet | `Confirm your Freenary email address` |
+| A user opens **Forgot password?** on the sign-in screen | `Reset your Freenary password` |
+
+The second row is not an error path. A sign-in against an unconfirmed address answers `403` with the code `EMAIL_NOT_VERIFIED`, and the API server sends a fresh confirmation code first.
+
+Each message carries one 6-digit code. The body reads `Your Freenary confirmation code is <code>.` or `Your Freenary password reset code is <code>.` Every message ends with the same footer:
+
+```md
+This code expires in 10 minutes. If you did not request it, ignore this email — nothing has changed.
+```
+
+Three more facts about the message:
+
+- Freenary sends plain text. No HTML version exists.
+- The copy is English only. The locale of the user does not change it.
+- Freenary hashes each code before it stores it. A database dump holds no code that still opens an account.
+
+An emailed code can confirm an address or reset a password. It can never open an account. Read [Sign-in methods](/docs/self-hosting/authentication) for the three refusals that hold that line.
+
+## What stops with no provider
+
+An unset `EMAIL_PROVIDER` means no adapter, and Freenary does not register the one-time-code plugin at all.
+
+These sign-in paths still work:
+
+- Email and password.
+- Passkeys.
+- Two-factor with an authenticator app.
+
+These paths stop:
+
+- Address confirmation. No account ever becomes confirmed.
+- Password reset. The **Forgot password?** link disappears from the sign-in screen, because the API server reports `emailDelivery: false`.
+
+One setting follows the email provider, and it changes what sign-up tells a stranger. `requireEmailVerification` tracks whether email is on, so an instance with no provider has it off. Sign-up then returns a session at once. It also answers differently for a taken address and a free one: the taken address fails and the free one signs in. With confirmation on, both answers look the same.
+
+Nothing else waits on a confirmed address. Every account stays unverified, and each protected procedure of the API server still accepts the session.
+
+<Callout type="warn">
+  Connect an email provider before you open an instance to the internet. With no
+  provider, a user who forgets a password needs an operator with database
+  access.
+</Callout>
+
+## Choose an adapter
+
+`EMAIL_PROVIDER` takes one of three values. The full variable reference is [Configuration](/docs/self-hosting/configuration).
+
+| Value | Delivery | Needs |
+| --- | --- | --- |
+| `log` | none — it prints to the server log | nothing |
+| `resend` | the Resend REST API | `RESEND_API_KEY`, `EMAIL_FROM` |
+| `smtp` | any SMTP relay | `SMTP_HOST`, `EMAIL_FROM` |
+
+A named but half-configured adapter stops the process at startup. The error names the variable it wants, for example `EMAIL_PROVIDER=smtp requires EMAIL_FROM to be set.` The process refuses to start rather than accept a sign-up and then drop the code.
+
+### `log`
+
+```dotenv
+EMAIL_PROVIDER=log
+```
+
+| Variable         | Default | Notes            |
+| ---------------- | ------- | ---------------- |
+| `EMAIL_PROVIDER` | unset   | Set it to `log`. |
+
+The adapter reads no other variable. It does not need `EMAIL_FROM`.
+
+For each message the adapter calls `console.info` once. The first line reads `[email:log] to=<address> subject=<subject>`. The message text follows on the next line. The API server writes both to standard output, so the code lands in the container log.
+
+The development stack uses this adapter by default. `compose.dev.yml` sets `EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}`, so address confirmation and password reset work with no mail account.
+
+<Callout type="error">
+  `EMAIL_PROVIDER=log` and `NODE_ENV=production` together stop the process at
+  startup. Startup is the last cheap moment to catch an adapter that writes
+  codes to a log file.
+</Callout>
+
+The refusal message reads:
+
+```md
+EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
+```
+
+### `resend`
+
+```dotenv
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+| Variable         | Default | Notes                                      |
+| ---------------- | ------- | ------------------------------------------ |
+| `RESEND_API_KEY` | unset   | Needed. Create it in the Resend dashboard. |
+| `EMAIL_FROM`     | unset   | Needed.                                    |
+
+The adapter posts to `https://api.resend.com/emails` with the header `Authorization: Bearer <RESEND_API_KEY>`. The body carries `from`, `subject`, `text` and one recipient. A response outside the 2xx range throws `Resend rejected the message (<status>): <body>`.
+
+### `smtp`
+
+```dotenv
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=freenary
+SMTP_PASSWORD=xxxxxxxx
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SMTP_HOST` | unset | Needed. |
+| `SMTP_PORT` | `465` when `SMTP_SECURE=true`, otherwise `587` | An integer up to 65535. |
+| `SMTP_SECURE` | `false` | `true` turns on implicit TLS. |
+| `SMTP_USER` | unset | Leave it unset to skip authentication. |
+| `SMTP_PASSWORD` | unset | The adapter reads it only when `SMTP_USER` holds a value. |
+| `EMAIL_FROM` | unset | Needed. |
+
+`SMTP_SECURE` picks the TLS mode, and the TLS mode picks the default port:
+
+- `SMTP_SECURE=true` means implicit TLS on port 465. TLS wraps the session from the first byte.
+- `SMTP_SECURE=false` is the default. It means STARTTLS on port 587. The client opens a plain session, then upgrades it.
+
+`SMTP_PORT` overrides both defaults. Set it when your relay listens elsewhere.
+
+The adapter opens one pooled transport. Leave `SMTP_USER` unset and it sends no credentials at all, which suits a relay that trusts the network position of the caller.
+
+## `EMAIL_FROM`
+
+Write the sender as a display name and an address:
+
+```dotenv
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+Freenary hands the value to the adapter untouched, so the provider decides which shapes it accepts.
+
+Both `resend` and `smtp` need the variable. An unset `EMAIL_FROM` stops the process at startup with `EMAIL_PROVIDER=resend requires EMAIL_FROM to be set.` or the `smtp` equivalent. The `log` adapter never reads it.
+
+## Test delivery
+
+You need an instance that runs with `EMAIL_PROVIDER` set. Then walk one real sign-up.
+
+<Steps>
+
+<Step>
+
+Open the web app and go to the sign-in screen.
+
+</Step>
+
+<Step>
+
+Type an email address that has no account. The form opens the sign-up fields.
+
+</Step>
+
+<Step>
+
+Give a name and a password of 12 characters or more. Submit the form. The screen asks for a 6-digit code.
+
+</Step>
+
+<Step>
+
+Read the code where your adapter puts it. Type it into the form. Freenary signs the new user in.
+
+</Step>
+
+</Steps>
+
+Where to read the result:
+
+| Adapter | Where to look |
+| --- | --- |
+| `log` | The API server log. Development stack: `bun run dev:logs`. Production stack: `docker compose logs -f server`. Search for `[email:log]`. |
+| `resend` | The target mailbox first, then the Resend dashboard for the delivery record. |
+| `smtp` | The target mailbox first, then the log of your relay. |
+
+For an address that already has an account, open **Forgot password?** on the sign-in screen instead. That path sends the reset code.
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| No message arrives | Read the API server log for a startup error, then check `EMAIL_PROVIDER`. The `log` adapter delivers nothing to a mailbox by design. |
+| The message lands in spam | Publish SPF, DKIM and DMARC records for the domain in `EMAIL_FROM`. Register that domain at your provider. |
+| The provider refuses the sender | Freenary reports the provider answer, for example `Resend rejected the message (403): <body>`. Use an address on a domain you registered at the provider. |
+| The code stops working | A code lives 600 seconds (10 minutes). Three wrong tries burn it. The user must ask for a new code. |
+| A new code does not arrive | Each one-time-code path accepts at most 3 calls per 60 seconds per caller. The user must wait. See [Rate limits](/docs/self-hosting/authentication#rate-limits). |
+
+<Cards>
+  <Card
+    title="Sign-in methods"
+    href="/docs/self-hosting/authentication"
+    description="Passwords, two-factor, passkeys, Google, Apple and OpenID Connect."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable an instance reads, with its default."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Secrets, proxies, tokens at rest and what an operator must lock down."
+  />
+</Cards>

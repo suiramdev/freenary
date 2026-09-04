@@ -1,0 +1,420 @@
+---
+title: Transaction categorisation
+description: The seven-stage categorisation pipeline, the category taxonomy, the merchant dictionary, the offline data scripts and the classifier gate.
+icon: Waypoints
+---
+
+Categorisation turns a bank descriptor into a category slug. It is the largest engineered subsystem in Freenary, and four decision records govern it. The code lives in `packages/api/src/categorisation`, and the offline scripts live in `packages/api/scripts`.
+
+The pipeline is a batch pass over stored rows. It never runs when the web app reads a transaction. Two callers drive it, both inside `packages/api/src/routers/budget.ts`:
+
+| Caller | When | What it does first |
+| --- | --- | --- |
+| `budget.syncAccounts` | After a sync imports transactions | Runs `matchInternalTransfers`, then categorises |
+| `budget.recategorise` | The user asks for a fresh pass | Clears `resolvedCategory`, `resolutionStage` and `resolutionConfidence` first |
+
+`categoriseUncategorised(userId)` selects the rows where `resolvedCategory` is null, `categoryOverride` is false and `isInternalTransfer` is false. It then writes `resolvedCategory`, `resolutionStage`, `resolutionConfidence` and `intermediaryName` back per row. A failed row update does not stop the pass.
+
+<Callout type="info">
+
+A second, independent cascade answers at read time. `budget.getTransactions` calls `effectiveCategory`, which falls back to `deriveCategory` in `packages/api/src/lib/mcc-categories.ts`. That function re-runs merchant category code, then income-by-sign, then the flattened keyword tables, and it defaults to `uncategorised` instead of an abstention. It has no country to dispatch on, so it can disagree with the pipeline.
+
+</Callout>
+
+## The stages
+
+`categoriseBatch(transactions, countries)` loads the dictionary and the classifier once with `Promise.all`, iterates the transactions in order, and unloads both in a `finally` block. Each transaction goes through `categoriseTransaction`, which catches every error and returns the unknown result.
+
+<Steps>
+
+<Step>
+
+### Stage 0 — merchant key
+
+**Runs at sync, not inside the pipeline.** `deriveMerchantKey` in `merchant-key.ts` reads one input record. That record carries:
+
+- The remittance lines, the creditor name and the debtor name.
+- The creditor IBAN, and the ISO 20022 family and sub code.
+- The amount.
+- The institution name, BIC and group, and the country.
+- The creditor identifications.
+
+`parseDescriptor` picks the first institution parser whose `matches()` returns true, else the generic parser. Seven French institution parsers exist: `boursorama`, `bnp-paribas`, `credit-agricole`, `societe-generale`, `credit-mutuel`, `lcl` and `la-banque-postale`.
+
+The IBAN path applies when a non-blank creditor IBAN is present **and** the family code is `ICDT`, `PMNT`, `RCDT` or `RDDT`. It also applies when there is no family code and the raw text does not look like a card descriptor. The key is then the trimmed, upper-cased IBAN.
+
+The card path normalises the sub-merchant or payee text. It then strips trailing place tokens, one at a time, down to the last token. On any throw the function returns an empty key with `channel: "unknown"` and `path: "card"`.
+
+`upsertTransaction` persists the result into `merchantKey`, `normalisedDescriptor`, `channel`, `transactionPath` and `intermediaryName`. It stores an empty string as `null`.
+
+</Step>
+
+<Step>
+
+### Stage 1 — channel short-circuit
+
+Input: `input.channel`. The rule is one constant table.
+
+| Channel  | Category          | Confidence | Stage     |
+| -------- | ----------------- | ---------- | --------- |
+| `atm`    | `cash-withdrawal` | `0.9`      | `channel` |
+| `cheque` | `uncategorised`   | `0.9`      | `channel` |
+| `fee`    | `bank-fees`       | `0.9`      | `channel` |
+
+A hit returns band `auto` and no merchant name. A miss falls to stage 2. The channel value itself comes from the ISO 20022 family code or the institution parser.
+
+</Step>
+
+<Step>
+
+### Stage 2 — user override
+
+The pipeline skips this stage when the merchant key is empty. `lookupUserOverride(userId, merchantKey)` does a `findUnique` on `MerchantOverride` by `userId_merchantKey`. Any database error returns `null` instead of an exception.
+
+A hit returns confidence `1`, stage `user-override`, band `auto`, and the stored merchant name.
+
+</Step>
+
+<Step>
+
+### Stage 3 — shared dictionary
+
+An exact-match table. The relaxation is in the key, not in the lookup. `merchantKeyCandidates` yields the key itself, then the key minus one trailing merchant-qualifier token at a time. It stops at the first non-qualifier tail, or when the candidate falls below `MIN_STRIPPED_KEY = 3`.
+
+Qualifiers come in two layers. The default layer is `internet`, `mobile`, `telecom`. The French layer adds `abonnement`, `electricite`, `energie`, `energies`, `fibre`, `forfait`, `france`, `gaz`.
+
+The first hit returns confidence `0.85`, stage `dictionary`, band `auto`, and the entry's name.
+
+</Step>
+
+<Step>
+
+### Stage 4 — deterministic layer
+
+`deterministicCategory(input)` runs two sub-layers in a fixed order.
+
+**4a, merchant category code.** `categoryFromMcc` checks three ranges first. `3000-3299` gives `flights`, `3300-3499` gives `other-travel`, and `3500-3999` gives `accommodation`. After the ranges comes a flat table of 221 keys. A hit returns confidence `0.8` and stage `mcc`. There is no direction check, so a merchant category code on a credit lands in the merchant's own category as a refund.
+
+**4b, keyword rules**, in exactly this order:
+
+1. Bank code against the `bankCode` table.
+2. Counterparty name against the `counterparty` table.
+3. Normalised descriptor against the `counterparty` table.
+4. Normalised descriptor against the `bankCode` table.
+
+Every candidate passes `accept()`, which rejects a non-income category on a positive amount. A hit returns confidence `0.75` and stage `rules`. The tables concatenate the country layer before the default layer once, at module load. An unknown country falls back to the default layer alone. The patterns are token-anchored.
+
+</Step>
+
+<Step>
+
+### Stage 5 — local classifier
+
+`predict(normalisedDescriptor, country)` returns `null` when no weights loaded or the descriptor is empty. The classifier itself abstains below `CONFIDENCE_THRESHOLD = 0.5`. The pipeline then discards anything below `MODEL_ACCEPT_THRESHOLD = 0.7`.
+
+An accepted answer gets stage `model`, band `auto` at `0.85` and above, and band `suggest` below that.
+
+**This stage ships inert.** No weights file reaches an instance today. See [The classifier](#the-classifier).
+
+</Step>
+
+<Step>
+
+### Stage 6 — opt-in cloud tail
+
+**Not implemented.** Three comment lines sit where the stage would be, and execution falls straight through. The type `ResolutionStage` declares `"cloud"` and `CategoriseInput` declares `allowCloudInference`, but no code reads that flag. The one producer hard-codes it to `false`.
+
+</Step>
+
+<Step>
+
+### Stage 7 — unknown
+
+`UNKNOWN_RESULT`: `{ band: "unknown", category: null, confidence: 0, intermediaryName: null, merchantName: null, stage: "none" }`.
+
+</Step>
+
+</Steps>
+
+Two passes sit beside the pipeline and are not stages of it.
+
+| Pass | File | What it writes |
+| --- | --- | --- |
+| Internal transfers | `internal-transfer.ts` | Pairs opposite-sign, equal-absolute-amount, same-currency transactions on **different** accounts of one user within 24 hours, then sets `isInternalTransfer: true`, `resolvedCategory: "internal-transfer"`, `resolutionStage: "channel"`, `resolutionConfidence: 0.95` |
+| Recurrence | `recurrence.ts` | Nothing. It groups outgoing transactions by merchant key and classifies the median interval into `weekly`, `monthly`, `quarterly`, `annual` or `irregular`. The result is computed per request, never stored. |
+
+## The taxonomy
+
+`packages/api/src/lib/taxonomy.ts` defines the taxonomy once, in code. Nothing in the database defines the predefined set.
+
+| Thing | Symbol | Count |
+| --- | --- | --- |
+| Category groups, in flow order | `CATEGORY_GROUPS` | 16 |
+| Category slugs | `SPENDING_CATEGORIES` | 75 |
+| Category to group | `CATEGORY_GROUP_OF` | exhaustive |
+| Group colors | `CATEGORY_GROUP_COLORS` | 7 color values |
+| Group icons | `CATEGORY_GROUP_ICONS` | 16 entries, one per group, each drawn from the 18 names in `CATEGORY_ICON_NAMES` |
+| Group fallbacks | `CATEGORY_GROUP_FALLBACKS` | one `other-*` slug per group; `other` gives `uncategorised` |
+| Legacy slugs | `LEGACY_CATEGORY_SLUGS` | 17 pre-hierarchy slugs |
+| Slug decoder | `resolveCategorySlug` | current slug to itself, legacy slug to its mapped slug, anything else to `null` |
+
+The 16 groups are `income`, `investments`, `housing`, `utilities`, `daily-living`, `transport`, `travel`, `leisure`, `shopping`, `subscriptions`, `health`, `education`, `financial`, `taxes`, `transfers`, `other`.
+
+**The hierarchy has exactly two levels.** A group holds leaves. A leaf holds nothing. Leaves carry no appearance of their own: `categoryColor` and `categoryIcon` resolve through the leaf's group.
+
+**A signal maps to the most precise category it supports, and no further.** A merchant category code for a supermarket gives `groceries`. A bank code that proves only "this is housing" gives `other-housing`, the group fallback, not a guessed leaf. The pipeline never invents precision the signal does not carry.
+
+A user cannot add or rename a predefined category. `SPENDING_CATEGORIES` is an `as const` array, and both `budget.updateTransactionCategory` and the transaction list filter accept `z.enum(SPENDING_CATEGORIES)` only.
+
+Custom categories exist for budget lines alone. Their key space is `custom:<cuid>`. [Categories](/docs/guides/categories) holds the user view, and [Data model](/docs/development/data-model#budget-and-categories) holds the `CustomCategory` columns.
+
+## User corrections
+
+A user's correction is permanent, and it needs no reconciliation prompt.
+
+`budget.updateTransactionCategory` runs one database transaction:
+
+1. It validates the input against `z.enum(SPENDING_CATEGORIES).nullable()`. A `null` clears the choice.
+2. It sets `Transaction.category` and `categoryOverride = input.category !== null`.
+3. When the row carries a `merchantKey`, it upserts a `MerchantOverride` row for `(userId, merchantKey)`, or deletes it when the category is `null`.
+4. It propagates the value to sibling transactions with the same merchant key that carry no override of their own.
+
+`upsertUserOverride` and `deleteUserOverride` swallow every error, so a failure there cannot break a sync.
+
+The override becomes stage 2 of the pipeline. It outranks stages 3 to 7 — the dictionary, the merchant category code, the keyword rules and the classifier all lose to it.
+
+<Callout type="warn">
+
+Stage 1 runs **before** the override. A transaction whose channel is `atm`, `cheque` or `fee` short-circuits at stage 1, so the pipeline never reads the user's override for it. The read-time value still honours `Transaction.category`, because `effectiveCategory` prefers that column.
+
+One more asymmetry: stage 3 relaxes the merchant key with the qualifier list, and the stage 2 lookup does not. An override recorded on `free mobile` does not fire for `free mobile internet`, and the dictionary would.
+
+</Callout>
+
+## The merchant dictionary
+
+The dictionary is one gzipped JSONL artifact, `packages/api/data/merchants.jsonl.gz`. One line is one merchant.
+
+```ts
+interface DictionaryMerchant {
+  id: string; // "nsi:carrefour", "wd:Q217599"
+  name: string;
+  normalisedName: string; // the match key
+  aliases: { alias: string; normalisedAlias: string }[];
+  domains: string[]; // lowercase, no scheme
+  category: SpendingCategory | null;
+  source: string; // provenance, such as "nsi"
+  osmTag: string | null; // "shop=supermarket", kept for audit
+  countries: string[]; // empty means worldwide, not nowhere
+}
+```
+
+`dictionary.ts` streams the file with `createGunzip` and `readline` into a module-global map with a reference count. `loadDictionary(countries)` upper-cases the wanted codes; an empty list means unfiltered. A narrower loaded scope never satisfies a wider caller, so the loader widens and unions the two scopes. Concurrent loads queue behind the one in flight.
+
+The loader tolerates bad input on purpose. It drops a malformed line in silence. It drops a merchant with a `null` category or an unresolvable slug. It decodes a legacy slug rather than reject it. An absent file logs `Dictionary file not found: … — skipping` once and leaves an empty map.
+
+### How the build works
+
+`build-merchant-dictionary.ts` fetches a pinned Name Suggestion Index tarball, `name-suggestion-index@8.0.20260729`, and runs four passes.
+
+1. **Collect candidates.** Skips category paths under `flags/` and `transit/`. Maps an NSI path such as `brands/shop/supermarket` to the OSM tag `shop=supermarket`, then to a category through a 74-entry map. Drops any path with no mapping, and drops short or generic single-token names.
+2. **Place-name filter.** `isEntirelyPlaceName` is a **stub that returns `false`**, so this pass always drops zero rows and still logs `Place-name filter: dropped 0`.
+3. **Collision merge.** Groups by `normalisedName`, keeps the highest-priority category, elects the shortest name as primary, and unions aliases, domains and country scopes.
+4. **Wikidata merge**, then the **SIRENE NAF pass**, then the **curated supplement** of 54 hand-written entries.
+
+Output rows sort by `id` and compress at gzip level 9.
+
+The build degrades rather than fails. A transient network error with an artifact already on disk gives a warning and exit code 0. So a stale dictionary can survive a green build.
+
+### Sources and licences
+
+| Source | Endpoint or version | Licence |
+| --- | --- | --- |
+| Name Suggestion Index | `name-suggestion-index@8.0.20260729` from `registry.npmjs.org` | BSD-3-Clause |
+| Wikidata | `https://query.wikidata.org/sparql` | CC0, public domain |
+| SIRENE company register | `https://recherche-entreprises.api.gouv.fr/search` | French open data, free, no key |
+| GeoNames `cities15000` | `https://download.geonames.org/export/dump/cities15000.zip` | **No licence stated in the repository** |
+| Curated supplement | `packages/api/scripts/lib/curated-merchants.ts` | Original to this project |
+
+`packages/api/data/README.md` records why NSI and not raw OpenStreetMap: OpenStreetMap is ODbL share-alike, which would contaminate the generated artifact, and BSD-3-Clause permits redistribution of the derived dataset.
+
+### Artifact files
+
+Git ignores all six. `packages/api/data/README.md` is the one file git keeps.
+
+| File | Written by | Read at runtime by | Missing behavior |
+| --- | --- | --- | --- |
+| `data/merchants.jsonl.gz` | `build-merchant-dictionary.ts` | `dictionary.ts` | Warns once, empty map, stage 3 is a permanent miss |
+| `data/merchants.jsonl.gz.sig` | The same script, when a key exists | `dictionary.ts`, only when a public key is set | See [Signing](#signing) |
+| `data/place-tokens.json` | `generate-place-tokens.ts` | `place-tokens.ts` | Empty set, no warning, no place token ever strips |
+| `data/model-weights.json` | `train-model.ts`, when its gate passes | `model.ts` | Stage 5 is skipped |
+| `data/wikidata-brands.json` | `fetch-wikidata-brands.ts` | **Not read at runtime.** Build input only | The build warns and skips Wikidata enrichment |
+| `data/dictionary.key` | `generate-signing-key.ts` | **Not read at runtime.** Build input only | The build logs `No signing key found — dictionary is unsigned.` |
+
+## Signing
+
+The dictionary can carry an Ed25519 signature. The feature is opt-in and off by default.
+
+`bun run generate:key` from `packages/api` runs `generate-signing-key.ts`. It creates an Ed25519 key pair, writes the PKCS8 private key to `packages/api/data/dictionary.key` with mode `0600`, and prints the SPKI public key to stdout. It refuses to overwrite a key already on disk without `--force`.
+
+After it writes the artifact, `build-merchant-dictionary.ts` signs it when `data/dictionary.key` exists and writes `merchants.jsonl.gz.sig`. A signing failure only warns; the unsigned artifact still stands.
+
+At runtime `packages/api/src/categorisation/verify.ts` reads `DICTIONARY_PUBLIC_KEY` straight from `process.env` and trims it. Blank or absent means "not configured", and the loader skips the whole check. With a key configured, a failure never throws and never stops the pipeline:
+
+| Condition | Log line | Effect |
+| --- | --- | --- |
+| `.sig` file absent | `Dictionary signature missing: … — refusing to load` | The map stays empty |
+| Signature invalid | `Dictionary signature invalid: … — refusing to load` | The map stays empty |
+
+A failure disables **stage 3 and nothing else**. Stages 1, 2, 4, 5 and 7 still run, so every transaction falls through to the keyword tables.
+
+<Callout type="warn">
+
+**A configured public key turns the dictionary off on a released artifact.** The weekly workflow packs `place-tokens.json` and `merchants.jsonl.gz` into the release tarball. It sometimes adds `wikidata-brands.json` and `model-weights.json`. It never packs a `.sig`, and it holds no signing key. So an instance that gets its dictionary from `build:data` and sets `DICTIONARY_PUBLIC_KEY` hits "signature missing — refusing to load" and loses stage 3 in silence.
+
+Two more traps sit next to it. `generate-signing-key.ts` prints the banner `Public key (embed in verify.ts):`, but `verify.ts` embeds no key and reads only the environment variable. And `DICTIONARY_PUBLIC_KEY` is absent from `packages/env/src/server.ts`, so it skips schema validation and both compose files.
+
+</Callout>
+
+## The classifier
+
+`train-model.ts` trains a multinomial logistic regression over all 75 category slugs. The model is one dense `Float64Array` weight vector per category, trained by plain stochastic gradient descent with L2 regularisation. Every hyperparameter is a literal:
+
+| Name                       | Value           |
+| -------------------------- | --------------- |
+| `NUM_EPOCHS`               | `10`            |
+| `LEARNING_RATE`            | `0.1`           |
+| `L2_LAMBDA`                | `0.001`         |
+| `CONFIDENCE_DIMENSION`     | `65_536`        |
+| `MIN_SAMPLES`              | `10`            |
+| `HOLDOUT_FRACTION`         | `0.2`           |
+| `SHUFFLE_SEED`             | `1_588_635_695` |
+| `MIN_PRECISION`            | `0.75`          |
+| `DICTIONARY_SAMPLE_WEIGHT` | `1`             |
+| `CORRECTION_SAMPLE_WEIGHT` | `20`            |
+
+It trains on two inputs. The first is the dictionary: every entry with a resolvable category contributes its normalised name and every normalised alias. The second is the database, and `--dictionary-only` turns it off. From the database it takes every `MerchantOverride` row, and every transaction with `categoryOverride: true`, a category and a normalised descriptor.
+
+Features come from `features.ts`. `modelInput(descriptor, country)` prepends a `cc:<lowercase-country>` token when a country is known. `extractFeatures` wraps each token as `^token$` and hashes character n-grams of length 3 to 5 with FNV-1a into 65 536 buckets.
+
+The output is `data/model-weights.json`: `{ categories, dimension, inputVersion, weights }`, with one sparse bucket-to-weight map per category and zeros omitted. `inputVersion` is `INPUT_VERSION = 2`, and the runtime refuses any other value.
+
+### The shipping gate
+
+The holdout splits **by merchant id**, so no alias of a training merchant reaches the evaluation. The trainer scores each held-out string once per inference country, `[null, "FR"]`. The gate is one rule: the **worst** country slice's precision at threshold `0.7` must reach `MIN_PRECISION = 0.75`.
+
+| Exit code | Meaning | What the workflow asserts |
+| --- | --- | --- |
+| `0` | Trained and accepted | The weights file exists; output `weights=attached` |
+| `1` | Training failed, no dictionary artifact, or fewer than 10 samples | The run fails |
+| `2` | Evaluated and refused | The weights file must **not** exist; output `weights=refused by the shipping gate, none attached` |
+
+<Callout type="info">
+
+**The gate refuses today, so no instance holds classifier weights.** On release `data-2026-09-01` the worst slice was `FR`. It reached 72.4 % precision against the 75 % bar. `train:model` therefore writes no weights, the release tarball attaches none, and stage 5 is inert.
+
+That is a designed outcome, not a break. `loadModel` no-ops when the file is absent and `predict` returns `null`, so the pipeline runs stages 1 to 4 and then stage 7.
+
+</Callout>
+
+## The scripts
+
+Every script in `packages/api/package.json`, with its literal command. Run them from `packages/api`.
+
+| Script | Literal command | Writes | Does a contributor need it? |
+| --- | --- | --- | --- |
+| `build:data` | `bun scripts/download-data.ts \|\| bun run build:data:generate` | `data/place-tokens.json`, `data/merchants.jsonl.gz`, sometimes `data/wikidata-brands.json` and `data/model-weights.json` | Yes, once, to get a real dictionary in development. The server image build runs it too. |
+| `build:data:generate` | `bun scripts/generate-place-tokens.ts && bun scripts/fetch-wikidata-brands.ts && bun scripts/build-merchant-dictionary.ts` | The same artifacts, built from the upstream sources | Only to rebuild the dictionary from scratch. It takes many minutes and much network. |
+| `build:places` | `bun scripts/generate-place-tokens.ts` | `data/place-tokens.json` | No. Only to refresh the place tokens alone. |
+| `generate:key` | `bun scripts/generate-signing-key.ts` | `data/dictionary.key`, mode `0600`; prints the public key | No. Only to sign a dictionary you distribute yourself. |
+| `train:model` | `bun scripts/train-model.ts` | `data/model-weights.json`, when the gate passes | No. Model research only, never a deployment path. |
+
+Two scripts have no npm entry and run through `build:data:generate` alone: `fetch-wikidata-brands.ts` and `build-merchant-dictionary.ts`. The `--dictionary-only` flag of `train-model.ts` has no npm entry either; only the workflow passes it.
+
+The root passthrough is `bun run build:data`, which is `turbo run build:data -F @freenary/api --`. Turborepo marks the task `cache: false`.
+
+### The weekly workflow
+
+`.github/workflows/generate-data.yml` regenerates the data and publishes a release.
+
+| Field | Value |
+| --- | --- |
+| Schedule | `cron: "0 3 * * 1"` — Monday, 03:00 UTC |
+| Other triggers | `workflow_dispatch`, and a push to `main` that touches `packages/api/scripts/**`, `features.ts`, `normalise/**` or `sirene/**` |
+| Job timeout | 60 minutes |
+| Permissions | `contents: write` |
+
+The steps run in this order:
+
+1. Install with `--ignore-scripts`.
+2. Restore the SIRENE disk cache.
+3. Run `generate-place-tokens.ts` and `fetch-wikidata-brands.ts` in parallel.
+4. Build the dictionary.
+5. Save the cache.
+6. Generate the Prisma client.
+7. Train the classifier with `--dictionary-only`.
+8. Tar the artifacts, then publish a release tagged `data-YYYY-MM-DD` with the asset `merchant-data.tar.gz`.
+
+The publish step deletes any same-day release and tag first.
+
+The train step reads its status from `${PIPESTATUS[0]}`, because the default shell has no `pipefail` and the command pipes through `tee`.
+
+`download-data.ts` is the consumer. It deletes any local `model-weights.json` before the download. A failed download plus a local rebuild can then never pair weights with a dictionary they do not match. It resolves the repository from `GITHUB_REPOSITORY`, then `git remote get-url origin`, then the literal fallback `suiramdev/freenary`. Inside the server image there is no `.git`, so the fallback is what a self-hosted image build queries.
+
+## Change a category or a rule
+
+### Add a keyword rule
+
+1. Open `packages/api/src/categorisation/keywords/`. Put a country-specific pattern in `fr.ts`, and a worldwide one in `default.ts`.
+2. Add the pattern to the `bankCode` or the `counterparty` table, whichever signal carries it.
+3. Map it to the most precise category the signal supports. Use the group fallback when the signal proves only the group.
+4. Run the unit tests next to the file you changed.
+5. Re-categorise to see the effect: the user presses the re-categorise action, or you call `budget.recategorise`.
+
+### Add a category slug
+
+1. Add the slug to `SPENDING_CATEGORIES` in `packages/api/src/lib/taxonomy.ts`, inside its group block.
+2. Add it to `CATEGORY_GROUP_OF` and to `CATEGORY_LABELS`.
+3. Add the message key `category_<slug_with_underscores>` to **both** `apps/web/messages/en.json` and `apps/web/messages/fr.json`.
+4. Add the entry to `CATEGORY_MESSAGES` in `apps/web/src/lib/taxonomy-labels.ts`.
+5. Write a migration only when you retire a slug. A retired slug needs an entry in `LEGACY_CATEGORY_SLUGS` and a data migration over `transaction.category`, `transaction.resolvedCategory`, `merchant_override.category` and `budget_line.categorySlug`. `20260831120000_category_hierarchy` is the worked example.
+
+<Callout type="warn">
+
+**What breaks when the taxonomy and the message catalogs disagree.**
+
+`CATEGORY_MESSAGES` in `apps/web/src/lib/taxonomy-labels.ts` ends with `satisfies Record<SpendingCategory, () => string>`. A new slug with no entry there is a TypeScript error. But `apps/web` defines no `check-types` script, so `bun run check-types` does not cover that file and the error can reach `main`.
+
+A key in `en.json` with no twin in `fr.json` is worse: it compiles with no error and no warning. The French branch aliases to the English one, so French readers get English text and no build step catches it. Both catalogs change in the same commit.
+
+</Callout>
+
+The decision records behind this subsystem sit in `docs/adr/`: [`001-country-agnostic-categorisation.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/001-country-agnostic-categorisation.md), [`002-category-hierarchy.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/002-category-hierarchy.md), [`003-deterministic-first-categorisation.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/003-deterministic-first-categorisation.md) and [`004-dictionary-bootstrapped-classifier.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/004-dictionary-bootstrapped-classifier.md).
+
+<Cards>
+
+<Card
+  title="Data model"
+  href="/docs/development/data-model"
+  description="The columns this pipeline reads and writes."
+/>
+
+<Card
+  title="Decision records"
+  href="/docs/development/decisions"
+  description="Why the pipeline is deterministic first."
+/>
+
+<Card
+  title="Categories"
+  href="/docs/guides/categories"
+  description="How a user sees and corrects a category."
+/>
+
+<Card
+  title="Architecture"
+  href="/docs/development/monorepo"
+  description="Where build:data sits in the build graph."
+/>
+
+</Cards>
