@@ -112,6 +112,7 @@
   "auth_error_password_too_short_no_bound": "Ce mot de passe est trop court. Choisissez-en un plus long.",
   "auth_error_rate_limited": "Trop de tentatives. Patientez un instant et réessayez.",
   "auth_error_recovery_code_required": "Le code de récupération est requis",
+  "auth_error_session_not_kept": "Vous êtes connecté, mais ce navigateur n’a pas conservé la session. Autorisez les cookies pour ce site, puis réessayez.",
   "auth_error_too_many_attempts": "Trop de codes erronés. Demandez-en un nouveau.",
   "auth_error_two_factor_expired": "Cette demande de connexion a expiré. Connectez-vous à nouveau pour en obtenir une autre.",
   "auth_forgot_password": "Mot de passe oublié ?",

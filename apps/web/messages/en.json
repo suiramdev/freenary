@@ -103,6 +103,7 @@
   "auth_error_password_too_short_no_bound": "That password is too short. Choose a longer one.",
   "auth_error_rate_limited": "Too many attempts. Wait a moment and try again.",
   "auth_error_recovery_code_required": "Recovery code is required",
+  "auth_error_session_not_kept": "You are signed in, but this browser did not keep the session. Allow cookies for this site, then try again.",
   "auth_error_too_many_attempts": "Too many wrong codes. Request a new one.",
   "auth_error_two_factor_expired": "That sign-in challenge expired. Sign in again to get a new one.",
   "auth_forgot_password": "Forgot password?",

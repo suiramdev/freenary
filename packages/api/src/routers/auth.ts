@@ -36,4 +36,31 @@ export const authRouter = {
    * design: it describes the server's configuration, never a given account.
    */
   capabilities: publicProcedure.handler(() => authCapabilities),
+
+  /**
+   * Who is asking. Public on purpose: a guest is an answer here rather than a
+   * refusal, so resolving a visitor — which every page render and every
+   * sign-in does — is not an error the log has to carry.
+   *
+   * `sessionCookieShared` says whether the session cookie reaches callers on
+   * the web origin at all; without it `guest` only means "unreadable from
+   * there", which is what the web app's own server needs to know before it
+   * redirects on this answer.
+   */
+  viewer: publicProcedure.handler(({ context }) => {
+    const user = context.session?.user;
+    const { sessionCookieShared } = authCapabilities;
+
+    if (user === undefined) {
+      return { kind: "guest" as const, sessionCookieShared };
+    }
+
+    // The field is optional on the session's user, so a missing one reads the
+    // same as an unfinished flow rather than as onboarded.
+    return {
+      kind: "member" as const,
+      onboarded: (user.onboardingCompletedAt ?? null) !== null,
+      sessionCookieShared,
+    };
+  }),
 };

@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/client";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 
@@ -25,24 +24,21 @@ export const getViewer = createServerFn({ method: "GET" }).handler(
   async (): Promise<Viewer> => {
     const cookie = getRequestHeader("cookie");
 
-    // Both at once: a status settles a member, and the capabilities settle
-    // whether a refusal means a guest or a cookie this origin never receives.
-    const [capabilities, status] = await Promise.allSettled([
-      client.auth.capabilities(),
-      client.onboarding.getStatus(undefined, { context: { cookie } }),
-    ]);
+    try {
+      const answer = await client.auth.viewer(undefined, {
+        context: { cookie },
+      });
 
-    if (status.status === "fulfilled") {
-      return { kind: "member", onboarded: status.value.completed };
+      if (answer.kind === "member") {
+        return { kind: "member", onboarded: answer.onboarded };
+      }
+
+      // A guest answer only settles anything when the session cookie reaches
+      // this origin; otherwise a member looks exactly like a guest from here.
+      return answer.sessionCookieShared ? { kind: "guest" } : UNKNOWN_VIEWER;
+    } catch {
+      // The API did not answer. The browser gate still holds the rules.
+      return UNKNOWN_VIEWER;
     }
-
-    const isRefused =
-      status.reason instanceof ORPCError &&
-      status.reason.code === "UNAUTHORIZED";
-    const isCookieShared =
-      capabilities.status === "fulfilled" &&
-      capabilities.value.sessionCookieShared;
-
-    return isRefused && isCookieShared ? { kind: "guest" } : UNKNOWN_VIEWER;
   }
 );

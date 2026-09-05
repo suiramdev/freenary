@@ -11,6 +11,7 @@ import type {
 } from "@/lib/auth/auth-error-message";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { m } from "@/paraglide/messages.js";
+import { client } from "@/utils/orpc";
 
 export type SignInStep =
   | "confirm"
@@ -93,11 +94,24 @@ export const useSignInFlow = (passwordBounds: PasswordBounds | undefined) => {
   };
 
   const finish = async (message: string) => {
-    settle("success");
     // A session can also end without the Sign out button (expiry, or another
     // tab), so the incoming user is cleared of the previous one's cached
     // onboarding status and data here too.
     queryClient.clear();
+
+    // The server minting a session proves nothing about the browser keeping its
+    // cookie: a dropped one answers every later request as a guest, which the
+    // gates read as "not signed in" — stranding the reader on this screen under
+    // a success toast. Only a definite guest is a refusal; a check that went
+    // unanswered still lands them.
+    const viewer = await client.auth.viewer().catch(() => null);
+    if (viewer?.kind === "guest") {
+      toast.error(m.auth_error_session_not_kept());
+      settle("error");
+      return;
+    }
+
+    settle("success");
     // The call settles before better-auth updates its session atom, and
     // AuthGate routes on that atom — leaving now bounces off /login.
     await refetchSession();
