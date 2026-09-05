@@ -6,7 +6,7 @@ import { auth } from "@freenary/auth";
 import { env } from "@freenary/env/server";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { onError } from "@orpc/server";
+import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Elysia } from "elysia";
@@ -16,19 +16,36 @@ import type { BetterAuthInstance } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
 import { createFsDrain } from "evlog/fs";
 
+const SERVER_ERROR_STATUS = 500;
+
 const rpcHandler = new RPCHandler(appRouter, {
+  // Only faults reach the console. A refused call is an answer the caller
+  // asked for — an unauthenticated read, a rejected input — and printing its
+  // stack buries the crashes worth reading; the request's own wide event
+  // already records that it was refused.
   interceptors: [
     // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
-      console.error(error);
+      if (
+        !(error instanceof ORPCError) ||
+        error.status >= SERVER_ERROR_STATUS
+      ) {
+        console.error(error);
+      }
     }),
   ],
 });
 const apiHandler = new OpenAPIHandler(appRouter, {
+  // Faults only, as above.
   interceptors: [
     // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
-      console.error(error);
+      if (
+        !(error instanceof ORPCError) ||
+        error.status >= SERVER_ERROR_STATUS
+      ) {
+        console.error(error);
+      }
     }),
   ],
   plugins: [
@@ -37,6 +54,20 @@ const apiHandler = new OpenAPIHandler(appRouter, {
     }),
   ],
 });
+
+/**
+ * Elysia leaves `set.status` at its default when a handler returns a `Response`
+ * of its own, and the request's wide event reads exactly that — so every
+ * refusal on the three routes below would be recorded as a 200. Copying the
+ * real status back is what keeps the log honest.
+ */
+const recordStatus = (
+  set: { status?: number | string },
+  response: Response
+) => {
+  set.status = response.status;
+  return response;
+};
 
 initLogger({
   env: { service: "freenary-server" },
@@ -67,10 +98,10 @@ new Elysia()
       origin: env.CORS_ORIGIN,
     })
   )
-  .all("/api/auth/*", (context) => {
-    const { request, status } = context;
+  .all("/api/auth/*", async (context) => {
+    const { request, set, status } = context;
     if (["POST", "GET"].includes(request.method)) {
-      return auth.handler(request);
+      return recordStatus(set, await auth.handler(request));
     }
     return status(405);
   })
@@ -81,7 +112,10 @@ new Elysia()
         context: await createContext({ context }),
         prefix: "/rpc",
       });
-      return response ?? new Response("Not Found", { status: 404 });
+      return recordStatus(
+        context.set,
+        response ?? new Response("Not Found", { status: 404 })
+      );
     },
     {
       parse: "none",
@@ -105,7 +139,10 @@ new Elysia()
         context: await createContext({ context }),
         prefix: "/api-reference",
       });
-      return response ?? new Response("Not Found", { status: 404 });
+      return recordStatus(
+        context.set,
+        response ?? new Response("Not Found", { status: 404 })
+      );
     },
     {
       parse: "none",
