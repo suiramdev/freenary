@@ -10,7 +10,7 @@ Read the record before you change the code it covers. A record tells you which a
 
 ## The records
 
-Eight records exist today.
+Nine records exist today.
 
 | Number | Title | Status | What it settles |
 | --- | --- | --- | --- |
@@ -22,13 +22,14 @@ Eight records exist today.
 | 005 | [Sign-in Methods, Email Delivery and Account Linking](https://github.com/suiramdev/freenary/blob/main/docs/adr/005-sign-in-methods-and-account-linking.md) | Accepted. | A password is always the first factor. Email is a swappable provider, and an OAuth identity links only on two verified addresses. |
 | 006 | [Bank Providers Are Adapters Selected By Configuration](https://github.com/suiramdev/freenary/blob/main/docs/adr/006-bank-provider-abstraction.md) | Accepted. | `BankingProvider` carries six mandatory methods plus optional capabilities. Configuration picks the adapter, and each adapter owns its own callback route. |
 | 007 | [The Assistant Streams Outside oRPC And Reads Through It](https://github.com/suiramdev/freenary/blob/main/docs/adr/007-assistant-streaming-boundary.md) | Accepted. | The token stream is a raw Elysia route, `POST /ai/chat`. Everything the assistant reads still goes through oRPC procedures, so an answer and a chart cannot disagree. |
+| 008 | [The Assistant Draws Charts In OpenUI Lang, From The Figures It Already Read](https://github.com/suiramdev/freenary/blob/main/docs/adr/008-assistant-charts-in-openui-lang.md) | Accepted. Extends ADR-007. | A chart travels inside the text of an answer as a fenced `openui-lang` block. One library of five components is defined once in `packages/api`, and the web app attaches the renderers. Programs are static: no live query, no reactive state. |
 
 <Callout type="info">
   Two records carry the number 005: `005-derived-budget-line-kind.md` and
   `005-sign-in-methods-and-account-linking.md`. Both files title themselves
   ADR-005, and other records cross-reference both under that number. Cite a
   record by its filename, not by its number. Give a new record the next free
-  number, `008`.
+  number, `009`.
 </Callout>
 
 Five pages on this site cover the code these records govern:
@@ -39,7 +40,7 @@ Five pages on this site cover the code these records govern:
 | 002, 005 (budget line kind) | [Data model](/docs/development/data-model) |
 | 005 (sign-in) | [Authentication](/docs/self-hosting/authentication) |
 | 006 | [Add a bank provider](/docs/development/bank-provider) |
-| 007 | [Architecture](/docs/development/monorepo) |
+| 007, 008 | [Architecture](/docs/development/monorepo) |
 
 ## When to write one
 

@@ -21,6 +21,7 @@
     "@freenary/auth": "workspace:*",
     "@freenary/db": "workspace:*",
     "@freenary/env": "workspace:*",
+    "@openuidev/lang-core": "0.2.17",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",

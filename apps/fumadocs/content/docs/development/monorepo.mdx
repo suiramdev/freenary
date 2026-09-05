@@ -76,14 +76,15 @@ A server-rendered page takes a shorter path. The browser requests a route path, 
 
 ## The assistant
 
-The assistant is the one surface that does not answer over oRPC. Every procedure in `packages/api` is unary, and the web client is a plain `RPCLink`, so no procedure can hand back tokens as they arrive. [Architecture decisions](/docs/development/decisions) links ADR-007, which settles that boundary.
+The assistant is the one surface that does not answer over oRPC. Every procedure in `packages/api` is unary, and the web client is a plain `RPCLink`, so no procedure can hand back tokens as they arrive. [Architecture decisions](/docs/development/decisions) links ADR-007, which settles that boundary, and ADR-008, which settles how a chart travels inside an answer.
 
-`packages/api/src/assistant/` holds five files:
+`packages/api/src/assistant/` holds six files:
 
 <Files>
   <Folder name="packages/api/src/assistant" defaultOpen>
     <File name="provider.ts — the model client and isAssistantConfigured()" />
     <File name="prompt.ts — the system prompt" />
+    <File name="ui.ts — the five chart components and their prompt section" />
     <File name="tools.ts — the seven read-only tools" />
     <File name="conversation.ts — the transcript store" />
     <File name="handler.ts — one Request to one Response" />
@@ -94,7 +95,22 @@ The assistant is the one surface that does not answer over oRPC. Every procedure
 
 `apps/server` stays glue. `apps/server/src/index.ts` declares `.post("/ai/chat", …, { parse: "none" })` and calls `handleAssistantChat` from `@freenary/api/assistant/handler`. The route sits after `evlog()` and after the `.derive` that runs `identifyUser`, so it inherits the request's wide event and the identified user. `parse: "none"` keeps Elysia away from the body, for the same reason `/rpc*` sets it.
 
-`prompt.ts` builds the system prompt from the locale, today's date, the transaction date range and whether any bank account is connected. The prompt forbids a figure that did not come from a tool, orders the model to refuse a period outside the data range instead of extrapolation, states that tool amounts are already decimal figures in the currency each result names and must not be rescaled, tells it to name a category slug naturally in the reader's language, and ends on "information and arithmetic, never regulated financial advice".
+`prompt.ts` builds the system prompt from the locale, today's date, the transaction date range and whether any bank account is connected. The prompt forbids a figure that did not come from a tool, orders the model to refuse a period outside the data range instead of extrapolation, states that tool amounts are already decimal figures in the currency each result names and must not be rescaled, tells it to name a category slug naturally in the reader's language, and ends on "information and arithmetic, never regulated financial advice". It then appends the chart section that `ui.ts` generates.
+
+### The chart library
+
+`ui.ts` defines five components with `defineComponent` from `@openuidev/lang-core`: `Card`, the root, then `Stat`, `BarChart`, `LineChart` and `DonutChart`. Each definition is a name, a description and a Zod object whose key order is the positional argument order in [OpenUI Lang](https://www.openui.com/). `createLibrary` turns them into a library, and `library.prompt()` writes the syntax rules, the component signatures and two worked examples into the system prompt. The generation runs once per process. `lang-core` imports no React, so the API server stays free of it.
+
+The prompt is generated with `toolCalls: false` and `bindings: false`. OpenUI Lang can call a tool provider from the browser and hold reactive state; the assistant uses neither, so a program is a literal snapshot of the figures the model already read.
+
+`apps/web/src/components/assistant/assistant-ui-library.tsx` spreads each definition from `@freenary/api/assistant/ui` into `defineComponent` from `@openuidev/react-lang` and attaches the renderer. Its renderer table `satisfies Record<keyof typeof ASSISTANT_UI, …>`, so a definition added in `ui.ts` fails the web type-check until it has a renderer. The charts render through `ChartContainer` from `packages/ui` and recharts, take their colours from `CHART_COLOR_VARS` in order, and format every amount as the decimal the tool returned, through `formatDecimalCurrency` in `lib/budget/format-currency.ts`. A value missing from a series is a gap, never a zero.
+
+`apps/web/src/lib/assistant/answer-segments.ts` splits a text part into markdown and fenced `openui-lang` programs; `assistant-message.tsx` hands the first to the markdown renderer and the second to `assistant-chart.tsx`, which wraps `<Renderer>`. A fence still open at the end of the text is a chart in progress. Any other fence stays markdown. The parser drops a child it cannot validate and records why, so once the fence closed `assistant-chart.tsx` treats a recorded error, an empty root or no root as a broken chart and prints the failure line in its place.
+
+<Callout type="info">
+  `@openuidev/react-lang` auto-mounts a floating **Open OpenUI Inspect** button
+  in development, loaded from a CDN. It is dead code in a production build.
+</Callout>
 
 ### Four rules inside the handler
 
@@ -112,8 +128,8 @@ The assistant is the one surface that does not answer over oRPC. Every procedure
 
 | Path | What it holds |
 | --- | --- |
-| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-tool-call.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
-| `apps/web/src/lib/assistant/` | `avatar-state.ts` with its test, and `tool-labels.ts` |
+| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-tool-call.tsx`, `assistant-chart.tsx`, `assistant-ui-library.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
+| `apps/web/src/lib/assistant/` | `avatar-state.ts` and `answer-segments.ts`, each with its test, and `tool-labels.ts` |
 | `apps/web/src/components/ai-elements/` | The registry-generated stream primitives: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx` and `tool.tsx` |
 
 `oxlint.config.ts` ignores `apps/web/src/components/ai-elements/**` for the same reason it ignores `packages/ui/**`: a registry CLI writes those files, and repo style would have to be applied again on every update. Unlike `apps/web/src/paraglide/`, they are committed. No gitignore rule covers either tree.

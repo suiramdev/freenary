@@ -79,6 +79,8 @@ Pick a model whose provider documents tool calling. Then ask one question that n
 
 </Callout>
 
+**The model must also follow a small grammar for charts.** An answer whose figures form a series ends with a chart, written in [OpenUI Lang](https://www.openui.com/) and drawn by the web app from five registered components. A model that cannot keep to that grammar still answers in prose; under it the user reads **The chart could not be drawn.** Ask one question that compares several months, and check that a chart appears.
+
 ## Where the variables go
 
 The two stacks read the three variables from different places.
@@ -119,6 +121,8 @@ A configured endpoint receives financial data. Each question sends all of this t
 **Freenary sends no IBAN.** The accounts lookup reports the account id, the account name and the institution name. No lookup takes an IBAN as an input.
 
 A hosted gateway holds everything in the table above, under its own terms. A local runtime keeps all of it on your own hardware, and no money data leaves the host. That choice is the whole difference between the two `AI_BASE_URL` examples above.
+
+Two things never leave the instance for the charts. `@openuidev/lang-core`, the library behind the chart grammar, ships an installation-time telemetry script; Bun runs no lifecycle script of an untrusted package, so it never runs. Its runtime telemetry stays off unless `OPENUI_RUNTIME_TELEMETRY_ENABLED` is set, and Freenary never sets it.
 
 <Callout type="info">
 

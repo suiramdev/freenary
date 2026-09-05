@@ -206,7 +206,7 @@ Two consequences for a client:
 
 ### The response
 
-Success is HTTP 200 and a UI message stream of the AI SDK. The stream carries text tokens and one part per lookup the answer runs. [The assistant](/docs/guides/assistant) describes what a reader sees in it.
+Success is HTTP 200 and a UI message stream of the AI SDK. The stream carries text tokens and one part per lookup the answer runs. When the figures form a series, the text ends with one fenced code block tagged `openui-lang`: a short program in [OpenUI Lang](https://www.openui.com/) that names one of five components, `Card`, `Stat`, `BarChart`, `LineChart` or `DonutChart`, with literal values. The web app draws it; another client can render it with an OpenUI Lang renderer, or drop the fence and keep the prose. [The assistant](/docs/guides/assistant) describes what a reader sees in it.
 
 The route stores the turn when the answer finishes. A stream the caller aborts leaves nothing behind.
 

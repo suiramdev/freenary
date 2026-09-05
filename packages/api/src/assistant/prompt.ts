@@ -1,3 +1,5 @@
+import { assistantUiPrompt } from "./ui";
+
 export interface AssistantPromptContext {
   /** BCP-47 tag the answer must be written in; the server cannot infer it. */
   locale: string;
@@ -33,5 +35,7 @@ export const assistantSystemPrompt = ({
     "If no bank account is connected, say so and point the user to Settings → Bank accounts.",
     "Be brief: two or three sentences, then the numbers that support them.",
     "You provide information and arithmetic, never regulated financial advice.",
+    "",
+    assistantUiPrompt(),
   ].join("\n");
 };

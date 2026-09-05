@@ -1,6 +1,6 @@
 ---
 title: The assistant
-description: Home answers questions about your money. The suggestions, the lookup rows, the mark, one conversation, and what the assistant cannot do.
+description: Home answers questions about your money. The suggestions, the lookup rows, the charts, the mark, one conversation, and what the assistant cannot do.
 icon: Sparkles
 ---
 
@@ -75,6 +75,29 @@ The rows make an answer traceable. You see every question the assistant put to y
 
 </Callout>
 
+## A chart in an answer
+
+When the figures of an answer form a series, the assistant draws one chart under the prose. Several months, several category groups, a plan against the real amount: these get a chart. A question with one figure for an answer gets none.
+
+A chart sits in a titled block. The block holds up to two things:
+
+| Element | What it shows |
+| --- | --- |
+| Headline figures | One or more amounts with a label, for example **Total spent**. They sit in a row above the chart |
+| The chart | One of three kinds: bars to compare amounts, a line for a trend over time, or a ring for the shares of one total |
+
+Hover a bar, a point or a slice, and a tooltip shows the label and the exact amount. A ring chart lists every slice with its amount beside the ring, and its tooltip adds the share as a percentage.
+
+The chart uses the same colours and the same amount format as [Budget](/docs/guides/budget). The title and the labels are in your language, because the assistant writes them.
+
+A chart holds the figures the assistant quoted when it answered. It does not refresh. Ask again to get a chart for the current data.
+
+<Callout type="info">
+
+The chart appears while the answer arrives, and it fills in from the top: the title first, then the figures, then the chart. If the assistant wrote a chart that Freenary cannot draw, the answer shows the line **The chart could not be drawn.** in its place. The prose above it stays readable.
+
+</Callout>
+
 ## The mark
 
 The mark stands beside each answer, and it wears the state of the work. It is the same ring that greets you on the sign-in screen. See [Language and appearance](/docs/guides/interface#the-mark).
@@ -101,7 +124,7 @@ You hold one conversation at a time. Freenary stores it on the server, not in yo
 | **New conversation** | Sets the current conversation aside and opens an empty one. Freenary deletes nothing |
 | **Stop** | Ends the answer and throws it away. The server keeps no part of it, so a reload shows no trace |
 | **Retry** | Asks the question again and replaces the last answer. Freenary adds no second copy |
-| **Copy** | Copies one answer to your clipboard |
+| **Copy** | Copies the text of one answer to your clipboard. A chart is not copied |
 
 **Retry** appears on the newest answer only, and only when no answer arrives at that moment. **Copy** appears on every answer that holds text. A failed answer is not stored either, so a reload clears it.
 
@@ -128,7 +151,7 @@ The assistant reads your data. It changes nothing.
 - It cannot start a sync.
 - It cannot add a transaction, an account or a budget line.
 - It cannot move money.
-- It draws no charts of its own.
+- It draws one chart per answer at most, and only from the figures it quotes.
 - It says nothing until you ask.
 
 </Callout>
