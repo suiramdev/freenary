@@ -2,38 +2,179 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "account_menu_loading": "Chargement du compte",
   "account_sign_out": "Se déconnecter",
+  "assistant_activity_drawing": "Tracé du graphique…",
+  "assistant_activity_preparing": "Préparation d’une recherche…",
+  "assistant_activity_retrying": "Nouvelle tentative…",
+  "assistant_activity_running_parallel": [
+    {
+      "declarations": [
+        "input tool",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{tool}, et {count} autre recherche…",
+        "countPlural=other": "{tool}, et {count} autres recherches…"
+      }
+    }
+  ],
+  "assistant_activity_thinking": "Réflexion…",
+  "assistant_activity_writing": "Rédaction de la réponse…",
   "assistant_avatar_label": "L’assistant Freenary",
+  "assistant_chart_drawing": "Tracé…",
+  "assistant_chart_expand": "Agrandir",
   "assistant_chart_failed": "Le graphique n’a pas pu être tracé.",
+  "assistant_chart_label": "Graphique",
   "assistant_composer_placeholder": "Posez une question sur vos finances…",
+  "assistant_copied": "Copié",
   "assistant_copy": "Copier",
+  "assistant_copy_input": "Copier les paramètres",
+  "assistant_copy_output": "Copier le résultat",
   "assistant_disclaimer": "Les réponses proviennent de vos propres données. Informations et calculs, pas de conseil financier.",
   "assistant_empty_description": "Posez n’importe quelle question sur vos comptes, vos dépenses ou votre budget.",
   "assistant_error_generic": "L’assistant n’a pas pu répondre. Réessayez.",
   "assistant_error_rate_limited": "Trop de questions d’affilée. Patientez un instant et réessayez.",
   "assistant_loading_transcript": "Chargement de votre conversation",
   "assistant_new_conversation": "Nouvelle conversation",
+  "assistant_param_aggregation": "Agrégation",
+  "assistant_param_categories": "Catégories",
+  "assistant_param_direction": "Sens",
+  "assistant_param_from": "Du",
+  "assistant_param_groups": "Groupes",
+  "assistant_param_incoming": "Entrées",
+  "assistant_param_limit": "Limite",
+  "assistant_param_outgoing": "Sorties",
+  "assistant_param_search": "Recherche",
+  "assistant_param_sort": "Tri",
+  "assistant_param_to": "Au",
+  "assistant_result_accounts": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} compte",
+        "countPlural=other": "{count} comptes"
+      }
+    }
+  ],
+  "assistant_result_figures": "Deux chiffres : fixe et variable",
+  "assistant_result_groups": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} groupe de catégories",
+        "countPlural=other": "{count} groupes de catégories"
+      }
+    }
+  ],
+  "assistant_result_periods": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} période",
+        "countPlural=other": "{count} périodes"
+      }
+    }
+  ],
+  "assistant_result_recurring": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} paiement récurrent",
+        "countPlural=other": "{count} paiements récurrents"
+      }
+    }
+  ],
+  "assistant_result_transactions": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} opération",
+        "countPlural=other": "{count} opérations"
+      }
+    }
+  ],
   "assistant_retry": "Réessayer",
   "assistant_scroll_to_latest": "Aller au dernier message",
   "assistant_send": "Envoyer",
+  "assistant_step_after": "S’appuie sur les résultats de l’étape {step}",
+  "assistant_step_answer": "Rédaction de la réponse",
+  "assistant_step_answer_chart": "Réponse rédigée, avec un graphique",
+  "assistant_step_answer_done": "Réponse rédigée",
+  "assistant_step_answer_pending": "Ensuite : rédiger la réponse",
+  "assistant_step_lookups": "Lecture de vos données",
+  "assistant_step_parallel": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} recherche",
+        "countPlural=other": "{count} recherches en parallèle"
+      }
+    }
+  ],
+  "assistant_step_thinking": "Réflexion",
   "assistant_stop": "Arrêter",
   "assistant_suggestion_cash_flow": "Où est parti mon argent le mois dernier ?",
   "assistant_suggestion_recurring": "Quels abonnements est-ce que je paie ?",
   "assistant_suggestion_spending": "Combien ai-je dépensé au restaurant cette année ?",
+  "assistant_thinking_done": "A réfléchi",
+  "assistant_thinking_streaming": "Réflexion…",
   "assistant_tool_accounts": "Consultation de vos comptes",
+  "assistant_tool_accounts_purpose": "Quelles banques sont connectées, et la période couverte par vos opérations",
   "assistant_tool_budget_vs_actual": "Comparaison de votre plan et de vos dépenses",
+  "assistant_tool_budget_vs_actual_purpose": "Votre profil budgétaire face aux chiffres réels, par groupe de catégories",
   "assistant_tool_cash_flow": "Lecture de vos flux de trésorerie",
+  "assistant_tool_cash_flow_purpose": "Les entrées et les sorties d’argent au fil du temps",
   "assistant_tool_error": "Erreur",
   "assistant_tool_fixed_vs_variable": "Répartition entre dépenses fixes et variables",
+  "assistant_tool_fixed_vs_variable_purpose": "La part de vos sorties qui se répète, et celle qui ne se répète pas",
+  "assistant_tool_no_parameters": "Aucun paramètre",
+  "assistant_tool_parameters": "Paramètres",
+  "assistant_tool_raw_input": "Paramètres bruts",
+  "assistant_tool_raw_output": "Résultat brut",
   "assistant_tool_recurring": "Recherche de vos paiements récurrents",
+  "assistant_tool_recurring_purpose": "Les paiements qui se répètent sur la dernière année, avec leur rythme et leur prochaine date",
   "assistant_tool_result": "Résultat",
   "assistant_tool_spending": "Lecture de vos dépenses par catégorie",
+  "assistant_tool_spending_purpose": "Les totaux de sorties par groupe de catégories, sur une période",
+  "assistant_tool_state_cancelled": "Annulé",
   "assistant_tool_state_done": "Terminé",
   "assistant_tool_state_failed": "Échec",
-  "assistant_tool_state_pending": "Préparation",
+  "assistant_tool_state_preparing": "Préparation",
   "assistant_tool_state_running": "En cours",
-  "assistant_tool_summary": "Répondu à partir de vos données.",
   "assistant_tool_transactions": "Recherche dans vos opérations",
+  "assistant_tool_transactions_purpose": "Des opérations isolées sur une période, par texte, catégorie ou sens",
   "assistant_tool_unknown": "Lecture de vos données",
+  "assistant_trace_collapse_all": "Tout replier",
+  "assistant_trace_expand_all": "Tout déplier",
+  "assistant_trace_lookups": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} recherche",
+        "countPlural=other": "{count} recherches"
+      }
+    }
+  ],
+  "assistant_trace_steps": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} étape",
+        "countPlural=other": "{count} étapes"
+      }
+    }
+  ],
+  "assistant_trace_title": "Comment l’assistant a répondu",
+  "assistant_trace_title_live": "Comment l’assistant répond",
   "assistant_unavailable_description": "Cette instance n’a aucun modèle configuré. Un administrateur définit AI_BASE_URL et AI_MODEL pour activer l’assistant.",
   "assistant_unavailable_title": "L’assistant n’est pas configuré",
   "auth_account_created_toast": "Compte créé",

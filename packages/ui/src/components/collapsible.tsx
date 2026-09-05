@@ -1,16 +1,22 @@
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
 import { cn } from "@freenary/ui/lib/utils";
-import { RiArrowRightSLine } from "@remixicon/react";
+import { RiArrowDownSLine, RiArrowRightSLine } from "@remixicon/react";
 
 function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
   return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
 }
 
+type CollapsibleTriggerProps = CollapsiblePrimitive.Trigger.Props & {
+  /** A trailing chevron keeps the row's text aligned with rows that have none. */
+  chevron?: "leading" | "trailing";
+};
+
 function CollapsibleTrigger({
+  chevron = "leading",
   children,
   className,
   ...props
-}: CollapsiblePrimitive.Trigger.Props) {
+}: CollapsibleTriggerProps) {
   return (
     <CollapsiblePrimitive.Trigger
       data-slot="collapsible-trigger"
@@ -20,8 +26,13 @@ function CollapsibleTrigger({
       )}
       {...props}
     >
-      <RiArrowRightSLine className="text-muted-foreground size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90" />
+      {chevron === "leading" && (
+        <RiArrowRightSLine className="text-muted-foreground size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90" />
+      )}
       {children}
+      {chevron === "trailing" && (
+        <RiArrowDownSLine className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-180" />
+      )}
     </CollapsiblePrimitive.Trigger>
   );
 }

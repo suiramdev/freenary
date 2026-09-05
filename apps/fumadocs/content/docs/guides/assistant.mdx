@@ -1,6 +1,6 @@
 ---
 title: The assistant
-description: Home answers questions about your money. The suggestions, the lookup rows, the charts, the mark, one conversation, and what the assistant cannot do.
+description: Home answers questions about your money. The suggestions, the status line, the timeline of steps and lookups, the charts, the mark, one conversation, and what the assistant cannot do.
 icon: Sparkles
 ---
 
@@ -40,20 +40,55 @@ Freenary prints one line under the composer: Answers come from your own data. In
 
 Freenary refuses a question longer than 8000 characters.
 
-## The lookup rows
+## While the assistant works
 
-The assistant cannot read your money in one step. It asks your data a question, reads the result, and asks again if it needs more. Each of these questions is a **lookup**.
+Send a question, and a row with the mark appears under it at once. It reads **Thinking…** until the first word of the answer arrives. From then on, a status line under the newest content names what the assistant does at that moment:
 
-Every lookup draws one row above the answer. A row names the lookup in your language and carries a state label. Open a row to read more.
+| Status line | What happens |
+| --- | --- |
+| **Thinking…** | The assistant decides what to read, or what to write |
+| **Preparing a lookup…** | The assistant writes the arguments of a lookup |
+| **Reading your cash flow…** | That lookup runs. With more than one at once, the line adds **with 1 other lookup** |
+| **Writing the answer…** | The text of the answer arrives |
+| **Drawing a chart…** | The chart arrives |
+| **Asking again…** | You pressed **Retry**, and the assistant starts over |
+
+The status line is gone the moment the answer is complete.
+
+## How the assistant answered
+
+The assistant cannot read your money in one step. It thinks, asks your data a question, reads the result, and asks again if it needs more. Each of these questions is a **lookup**. Every answer keeps the steps it took, as a timeline above the text.
+
+The timeline opens while the assistant works and folds when the answer lands, so the answer is what you read. Its header stays: **How the assistant answered**, and on a wide screen the count of steps and lookups and the time the whole answer took. Press the header to open the timeline again. An answer stopped before its first word, and an answer with a failed lookup, keep the timeline open.
+
+Each step is one row, and every row starts at the same edge:
+
+| Row | What it shows |
+| --- | --- |
+| A lookup | A step that made one lookup is that lookup: its name in your language, what it reads on a wide screen, the time it took and its state. Press the row to open it |
+| **Reading your data** | A step that made several lookups at once. Each lookup follows as its own row |
+| **Answer written** or **Answer written, with a chart** | The last step. **Thinking** is the step in progress, in bold; the step that comes next is in italics |
+| The line under a row | **Thought 3s** says the assistant thought before it acted, and for how long. **Uses the results of step 1** says the step reads what the step before it returned. **2 lookups at once** says the lookups ran side by side. Freenary shows what the assistant did, never its private reasoning |
+| The time on the right | How long the step or the lookup took. When the line under a row names **Thought**, the thought's time follows it there. Freenary measures every time while the answer arrives, so an older answer shows none after a reload |
+
+A timeline with two lookups or more shows **Expand all** and **Collapse all** above the steps. Press them to open or close every lookup row at once.
+
+### A lookup row
+
+A row names the lookup in your language, says what it reads on a wide screen, and carries a state:
 
 | State | What it means |
 | --- | --- |
-| **Preparing** | The assistant wrote the lookup, and it did not run yet |
+| **Preparing** | The assistant writes the arguments of the lookup |
 | **Running** | The lookup runs now |
-| **Done** | The lookup returned. The row adds the line **Answered from your data.** |
-| **Failed** | The lookup did not return. The row shows **Error** and the error text |
+| **Done** | The lookup returned |
+| **Failed** | The lookup did not return. The row opens on its own and shows the error text. On the newest answer, once it is complete, the row also offers **Retry** |
+| **Cancelled** | You pressed **Stop** while the lookup ran |
 
-A row never shows raw output. It shows the plain-language name and the state only.
+Open a row to read two sections under it:
+
+- **Parameters**: the arguments of the lookup, as words and dates. **Raw parameters** opens the exact request, and the button beside it copies it.
+- **Result**: one line that says what came back, for example **13 periods** or **2 recurring payments**. **Raw result** opens the exact data, and the button beside it copies it.
 
 Seven lookups exist, and each one asks your data the same question a screen asks:
 
@@ -71,7 +106,7 @@ A lookup that Freenary does not recognise reads **Reading your data**.
 
 <Callout type="info">
 
-The rows make an answer traceable. You see every question the assistant put to your own data, in order, before you read the figures. Those figures come from the same code that draws the charts on [Budget](/docs/guides/budget), so a number in the answer and the same number on a chart agree.
+The timeline makes an answer traceable. You see every question the assistant put to your own data, in order, with its arguments and its result. Those figures come from the same code that draws the charts on [Budget](/docs/guides/budget), so a number in the answer and the same number on a chart agree.
 
 </Callout>
 
@@ -79,7 +114,7 @@ The rows make an answer traceable. You see every question the assistant put to y
 
 When the figures of an answer form a series, the assistant draws one chart under the prose. Several months, several category groups, a plan against the real amount: these get a chart. A question with one figure for an answer gets none.
 
-A chart sits in a titled block. The block holds up to two things:
+A chart sits in a panel headed **Chart**. Its button on the right, **View larger**, opens the same chart in a wide side sheet; press **Escape** or the close button to return. Under the header, a titled block holds up to two things:
 
 | Element | What it shows |
 | --- | --- |
@@ -94,7 +129,7 @@ A chart holds the figures the assistant quoted when it answered. It does not ref
 
 <Callout type="info">
 
-The chart appears while the answer arrives, and it fills in from the top: the title first, then the figures, then the chart. If the assistant wrote a chart that Freenary cannot draw, the answer shows the line **The chart could not be drawn.** in its place. The prose above it stays readable.
+The chart appears while the answer arrives, and its header reads **Drawing…** until it is complete. It fills in from the top: the title first, then the figures, then the chart. If the assistant wrote a chart that Freenary cannot draw, the answer shows the line **The chart could not be drawn.** in its place. The prose above it stays readable.
 
 </Callout>
 
@@ -111,7 +146,7 @@ The mark stands beside each answer, and it wears the state of the work. It is th
 | It shows an error  | The answer failed                                   |
 | It rests           | Nothing happens                                     |
 
-Only the newest answer's mark moves. The mark on an older answer holds one still frame, and plays no animation.
+Only the newest answer's mark moves, and the row that waits for the first word carries it too. The mark on an older answer holds one still frame, and plays no animation.
 
 A question that needs several lookups comes back to the thinking state between them, so a long answer never looks finished while the assistant still reads.
 
@@ -122,7 +157,7 @@ You hold one conversation at a time. Freenary stores it on the server, not in yo
 | Control | What it does |
 | --- | --- |
 | **New conversation** | Sets the current conversation aside and opens an empty one. Freenary deletes nothing |
-| **Stop** | Ends the answer and throws it away. The server keeps no part of it, so a reload shows no trace |
+| **Stop** | Ends the answer and throws it away. A lookup that ran at that moment reads **Cancelled** in the timeline until you leave the screen. The server keeps no part of the answer, so a reload shows no trace |
 | **Retry** | Asks the question again and replaces the last answer. Freenary adds no second copy |
 | **Copy** | Copies the text of one answer to your clipboard. A chart is not copied |
 

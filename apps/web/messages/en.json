@@ -2,38 +2,179 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "account_menu_loading": "Loading account",
   "account_sign_out": "Sign out",
+  "assistant_activity_drawing": "Drawing a chart…",
+  "assistant_activity_preparing": "Preparing a lookup…",
+  "assistant_activity_retrying": "Asking again…",
+  "assistant_activity_running_parallel": [
+    {
+      "declarations": [
+        "input tool",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{tool}, with {count} other lookup…",
+        "countPlural=other": "{tool}, with {count} other lookups…"
+      }
+    }
+  ],
+  "assistant_activity_thinking": "Thinking…",
+  "assistant_activity_writing": "Writing the answer…",
   "assistant_avatar_label": "Freenary's assistant",
+  "assistant_chart_drawing": "Drawing…",
+  "assistant_chart_expand": "View larger",
   "assistant_chart_failed": "The chart could not be drawn.",
+  "assistant_chart_label": "Chart",
   "assistant_composer_placeholder": "Ask about your money…",
+  "assistant_copied": "Copied",
   "assistant_copy": "Copy",
+  "assistant_copy_input": "Copy the parameters",
+  "assistant_copy_output": "Copy the result",
   "assistant_disclaimer": "Answers come from your own data. Information and arithmetic, not financial advice.",
   "assistant_empty_description": "Ask anything about your accounts, spending or budget.",
   "assistant_error_generic": "The assistant could not answer. Try again.",
   "assistant_error_rate_limited": "Too many questions in a row. Wait a moment and try again.",
   "assistant_loading_transcript": "Loading your conversation",
   "assistant_new_conversation": "New conversation",
+  "assistant_param_aggregation": "Aggregation",
+  "assistant_param_categories": "Categories",
+  "assistant_param_direction": "Direction",
+  "assistant_param_from": "From",
+  "assistant_param_groups": "Groups",
+  "assistant_param_incoming": "Incoming",
+  "assistant_param_limit": "Limit",
+  "assistant_param_outgoing": "Outgoing",
+  "assistant_param_search": "Search",
+  "assistant_param_sort": "Sort by",
+  "assistant_param_to": "To",
+  "assistant_result_accounts": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} account",
+        "countPlural=other": "{count} accounts"
+      }
+    }
+  ],
+  "assistant_result_figures": "Two figures: fixed and variable",
+  "assistant_result_groups": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} category group",
+        "countPlural=other": "{count} category groups"
+      }
+    }
+  ],
+  "assistant_result_periods": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} period",
+        "countPlural=other": "{count} periods"
+      }
+    }
+  ],
+  "assistant_result_recurring": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} recurring payment",
+        "countPlural=other": "{count} recurring payments"
+      }
+    }
+  ],
+  "assistant_result_transactions": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} transaction",
+        "countPlural=other": "{count} transactions"
+      }
+    }
+  ],
   "assistant_retry": "Retry",
   "assistant_scroll_to_latest": "Scroll to the latest message",
   "assistant_send": "Send",
+  "assistant_step_after": "Uses the results of step {step}",
+  "assistant_step_answer": "Writing the answer",
+  "assistant_step_answer_chart": "Answer written, with a chart",
+  "assistant_step_answer_done": "Answer written",
+  "assistant_step_answer_pending": "Next: write the answer",
+  "assistant_step_lookups": "Reading your data",
+  "assistant_step_parallel": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} lookup",
+        "countPlural=other": "{count} lookups at once"
+      }
+    }
+  ],
+  "assistant_step_thinking": "Thinking",
   "assistant_stop": "Stop",
   "assistant_suggestion_cash_flow": "Where did my money go last month?",
   "assistant_suggestion_recurring": "Which subscriptions am I paying for?",
   "assistant_suggestion_spending": "How much did I spend on eating out this year?",
+  "assistant_thinking_done": "Thought",
+  "assistant_thinking_streaming": "Thinking…",
   "assistant_tool_accounts": "Checking your accounts",
+  "assistant_tool_accounts_purpose": "Which banks are connected, and the period your transactions cover",
   "assistant_tool_budget_vs_actual": "Comparing your plan with what you spent",
+  "assistant_tool_budget_vs_actual_purpose": "Your budgeting profile against the real figures, per category group",
   "assistant_tool_cash_flow": "Reading your cash flow",
+  "assistant_tool_cash_flow_purpose": "Money in and money out over time",
   "assistant_tool_error": "Error",
   "assistant_tool_fixed_vs_variable": "Splitting fixed and variable spending",
+  "assistant_tool_fixed_vs_variable_purpose": "Which part of your outgoings repeats, and which part does not",
+  "assistant_tool_no_parameters": "No parameters",
+  "assistant_tool_parameters": "Parameters",
+  "assistant_tool_raw_input": "Raw parameters",
+  "assistant_tool_raw_output": "Raw result",
   "assistant_tool_recurring": "Looking for recurring payments",
+  "assistant_tool_recurring_purpose": "Repeating payments over the last year, with their rhythm and next date",
   "assistant_tool_result": "Result",
   "assistant_tool_spending": "Reading your spending by category",
+  "assistant_tool_spending_purpose": "Outgoing totals per category group, over a period",
+  "assistant_tool_state_cancelled": "Cancelled",
   "assistant_tool_state_done": "Done",
   "assistant_tool_state_failed": "Failed",
-  "assistant_tool_state_pending": "Preparing",
+  "assistant_tool_state_preparing": "Preparing",
   "assistant_tool_state_running": "Running",
-  "assistant_tool_summary": "Answered from your data.",
   "assistant_tool_transactions": "Searching your transactions",
+  "assistant_tool_transactions_purpose": "Single transactions in a period, by text, category or direction",
   "assistant_tool_unknown": "Reading your data",
+  "assistant_trace_collapse_all": "Collapse all",
+  "assistant_trace_expand_all": "Expand all",
+  "assistant_trace_lookups": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} lookup",
+        "countPlural=other": "{count} lookups"
+      }
+    }
+  ],
+  "assistant_trace_steps": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} step",
+        "countPlural=other": "{count} steps"
+      }
+    }
+  ],
+  "assistant_trace_title": "How the assistant answered",
+  "assistant_trace_title_live": "How the assistant is answering",
   "assistant_unavailable_description": "This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.",
   "assistant_unavailable_title": "The assistant is not configured",
   "auth_account_created_toast": "Account created successfully",

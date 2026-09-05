@@ -128,11 +128,19 @@ The prompt is generated with `toolCalls: false` and `bindings: false`. OpenUI La
 
 | Path | What it holds |
 | --- | --- |
-| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-tool-call.tsx`, `assistant-chart.tsx`, `assistant-ui-library.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
-| `apps/web/src/lib/assistant/` | `avatar-state.ts` and `answer-segments.ts`, each with its test, and `tool-labels.ts` |
-| `apps/web/src/components/ai-elements/` | The registry-generated stream primitives: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx` and `tool.tsx` |
+| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-trace.tsx`, `assistant-tool-call.tsx`, `assistant-activity.tsx`, `assistant-chart.tsx`, `assistant-ui-library.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
+| `apps/web/src/lib/assistant/` | `execution.ts`, `answer-segments.ts` and `avatar-state.ts`, each with its test; `liveness.ts`, `use-execution-timings.ts`, `format-duration.ts`, `tool-details.ts` and `tool-labels.ts` |
+| `apps/web/src/components/ai-elements/` | The stream primitives from the AI Elements registry: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx`, `tool.tsx`, `chain-of-thought.tsx`, `artifact.tsx`, `code-block.tsx` and `shimmer.tsx` |
 
-`oxlint.config.ts` ignores `apps/web/src/components/ai-elements/**` for the same reason it ignores `packages/ui/**`: a registry CLI writes those files, and repo style would have to be applied again on every update. Unlike `apps/web/src/paraglide/`, they are committed. No gitignore rule covers either tree.
+The registry writes Radix and lucide code; every file under `ai-elements/` was rewritten by hand on the Base UI collapsible, the Remix icons and the `packages/ui` primitives the rest of the app uses, and keeps the registry's component names. `code-block.tsx` drops the registry's shiki highlighter: it shows short JSON, and shiki would add a wasm bundle to colour two token kinds. `oxlint.config.ts` still ignores `apps/web/src/components/ai-elements/**`, as it ignores `packages/ui/**`. Unlike `apps/web/src/paraglide/`, the files are committed. No gitignore rule covers either tree.
+
+### The execution trace
+
+A `UIMessage` from the SDK is a flat list of parts: `step-start` markers, `reasoning`, `tool-<name>` and `text`. `apps/web/src/lib/assistant/execution.ts` folds that list into steps, one per model call, and reads a tool's five states off its SDK state: `input-streaming` is preparing, `input-available` is running, `output-available` is done, `output-error` failed, and a call still waiting once the stream ended is cancelled. `activityOf` names what the live answer does right now for the status line.
+
+The stream carries no clock, so `use-execution-timings.ts` measures on the client: a part's timer starts the first render it appears in and stops the first render it is settled in, and the turn's own timer starts when the question was sent. A replayed transcript never started a timer, so a stored answer shows no durations rather than invented ones.
+
+The model's reasoning parts are stored and replayed to the model, but never rendered: `assistant-trace.tsx` shows **Thought** with its duration on the line under the step. The timeline is one column: a step that made one lookup renders as that lookup's row (`tool.tsx` draws no card and puts its chevron last, so every row's text starts at the rail), and the registry's `reasoning.tsx` was dropped rather than nested under a step. `assistant-message.tsx` is memoised and the chat passes settled rows constant props, so a streamed chunk re-renders the live answer alone; without that, every chart on the screen re-rendered on every chunk and the page stalled.
 
 `apps/web/src/routes/_auth/index.tsx` renders the chat, so Home is the assistant. [The assistant](/docs/guides/assistant) is the reader's view.
 

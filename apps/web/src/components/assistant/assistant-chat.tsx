@@ -5,19 +5,22 @@ import { RiRefreshLine } from "@remixicon/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { AssistantActivity } from "@/components/assistant/assistant-activity";
+import { AssistantAvatar } from "@/components/assistant/assistant-avatar";
 import { AssistantChatSkeleton } from "@/components/assistant/assistant-chat-skeleton";
 import { AssistantComposer } from "@/components/assistant/assistant-composer";
 import { AssistantEmptyState } from "@/components/assistant/assistant-empty-state";
 import { AssistantMessage } from "@/components/assistant/assistant-message";
 import { AssistantUnavailable } from "@/components/assistant/assistant-unavailable";
 import { assistantAvatarState } from "@/lib/assistant/avatar-state";
+import { livenessOf } from "@/lib/assistant/liveness";
 import { getServerUrl } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
@@ -57,6 +60,9 @@ export const AssistantChat = ({
   const queryClient = useQueryClient();
   const [composerActive, setComposerActive] = useState(false);
   const [justFinished, setJustFinished] = useState(false);
+  // When the question left, and whether it redoes the last turn: the answer's
+  // clock and its first status line read from these.
+  const [turn, setTurn] = useState<{ retrying: boolean; startedAt: number }>();
   const acknowledgeTimer = useRef(0);
 
   const transport = useMemo(
@@ -123,6 +129,21 @@ export const AssistantChat = ({
         (part.state === "input-streaming" || part.state === "input-available")
     ) ?? false;
 
+  const ask = useCallback(
+    (text: string) => {
+      setTurn({ retrying: false, startedAt: Date.now() });
+      sendMessage({ text });
+    },
+    [sendMessage]
+  );
+  const redo = useCallback(
+    (messageId?: string) => {
+      setTurn({ retrying: true, startedAt: Date.now() });
+      regenerate(messageId ? { messageId } : undefined);
+    },
+    [regenerate]
+  );
+
   const avatarState = assistantAvatarState({
     composerActive,
     hasError: error !== undefined,
@@ -135,15 +156,15 @@ export const AssistantChat = ({
     return <AssistantUnavailable />;
   }
 
-  // One avatar carries the live state: the newest assistant row. Older rows stay
-  // settled so a finished transcript animates nothing. It also carries the
-  // resting reaction to the composer, which is otherwise invisible once the
-  // empty state is gone.
-  const isLive =
-    status !== "ready" || justFinished || composerActive || error !== undefined;
-  const liveMessageId = isLive
-    ? messages.findLast((message) => message.role === "assistant")?.id
-    : undefined;
+  // One avatar carries the live state: the streaming answer, or otherwise the
+  // newest answer while the composer has focus, an error shows or an answer
+  // just landed. Older rows stay settled so a finished transcript animates
+  // nothing.
+  const { awaitingFirstChunk, liveMessageId, streamingMessageId } = livenessOf({
+    attention: justFinished || composerActive || error !== undefined,
+    messages,
+    status,
+  });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
@@ -155,29 +176,50 @@ export const AssistantChat = ({
             {messages.length === 0 ? (
               <AssistantEmptyState
                 avatarState={avatarState}
-                onSuggestion={(text) => sendMessage({ text })}
+                onSuggestion={ask}
                 userName={userName}
               />
             ) : (
-              messages.map((message, index) => (
-                <AssistantMessage
-                  avatarState={
-                    message.id === liveMessageId ? avatarState : undefined
-                  }
-                  key={message.id}
-                  message={message}
-                  // `regenerate()` posts no `messageId` at all unless it is
-                  // named, and the server needs it to know which stored turn is
-                  // being redone rather than appending a copy.
-                  onRetry={
-                    message.role === "assistant" &&
-                    index === messages.length - 1 &&
-                    status === "ready"
-                      ? () => regenerate({ messageId: message.id })
-                      : undefined
-                  }
+              messages.map((message, index) => {
+                const live = message.id === streamingMessageId;
+                // Settled rows get constant props, so the memo holds and a
+                // streamed chunk re-renders the live row alone.
+                return (
+                  <AssistantMessage
+                    avatarState={
+                      message.id === liveMessageId ? avatarState : undefined
+                    }
+                    key={message.id}
+                    live={live}
+                    message={message}
+                    // `regenerate()` posts no `messageId` at all unless it is
+                    // named, and the server needs it to know which stored turn
+                    // is being redone rather than appending a copy.
+                    onRetry={
+                      message.role === "assistant" &&
+                      index === messages.length - 1 &&
+                      status === "ready"
+                        ? redo
+                        : undefined
+                    }
+                    retrying={live && (turn?.retrying ?? false)}
+                    startedAt={live ? turn?.startedAt : undefined}
+                    status={live ? status : "ready"}
+                  />
+                );
+              })
+            )}
+            {awaitingFirstChunk && (
+              <div className="flex w-full gap-3">
+                <AssistantAvatar
+                  className="mt-0.5 size-7"
+                  state={avatarState}
                 />
-              ))
+                <AssistantActivity
+                  activity={{ kind: "thinking" }}
+                  retrying={turn?.retrying ?? false}
+                />
+              </div>
             )}
             {error && (
               <div
@@ -187,7 +229,7 @@ export const AssistantChat = ({
                 <span>{errorMessageOf(error.message)}</span>
                 {/* A failed turn leaves no assistant row to hang an action on,
                     so the retry lives with the message. */}
-                <Button onClick={() => regenerate()} size="sm" variant="ghost">
+                <Button onClick={() => redo()} size="sm" variant="ghost">
                   <RiRefreshLine className="size-3" />
                   {m.assistant_retry()}
                 </Button>
@@ -206,7 +248,7 @@ export const AssistantChat = ({
         newConversationPending={newConversation.isPending}
         onActiveChange={setComposerActive}
         onNewConversation={() => newConversation.mutate({})}
-        onSend={(text) => sendMessage({ text })}
+        onSend={ask}
         onStop={stop}
         status={status}
       />

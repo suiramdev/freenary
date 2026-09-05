@@ -43,6 +43,16 @@ const PALETTE = [
 ];
 
 const DEFAULT_CURRENCY = "EUR";
+const CURRENCY_CODE = /^[A-Z]{3}$/u;
+
+/**
+ * A renderer must never throw on what the model wrote: mid-stream the parser
+ * auto-closes an open string, so `"EUR"` arrives as `"E"` first, and
+ * `Intl.NumberFormat` throws on a malformed code. The renderer's error
+ * boundary then re-renders and throws again, without end.
+ */
+const currencyOf = (code: string | undefined): string =>
+  code !== undefined && CURRENCY_CODE.test(code) ? code : DEFAULT_CURRENCY;
 const CHART_HEIGHT_CLASS = "aspect-auto h-56 w-full";
 
 const seriesKey = (index: number): string => `s${index}`;
@@ -187,7 +197,7 @@ const Stat = defineComponent({
     <div className="flex min-w-32 flex-col gap-0.5">
       <span className="text-muted-foreground text-xs">{props.label}</span>
       <span className="font-mono text-lg tabular-nums">
-        {formatDecimalCurrency(props.value, props.currency ?? DEFAULT_CURRENCY)}
+        {formatDecimalCurrency(props.value, currencyOf(props.currency))}
       </span>
     </div>
   ),
@@ -196,7 +206,7 @@ const Stat = defineComponent({
 const AssistantBarChart = defineComponent({
   ...ASSISTANT_UI.BarChart,
   component: ({ props }) => {
-    const currency = props.currency ?? DEFAULT_CURRENCY;
+    const currency = currencyOf(props.currency);
     const config = seriesConfig(props.series);
 
     return (
@@ -222,6 +232,7 @@ const AssistantBarChart = defineComponent({
               dataKey={seriesKey(index)}
               fill={`var(--color-${seriesKey(index)})`}
               key={seriesKey(index)}
+              maxBarSize={48}
               radius={4}
             />
           ))}
@@ -234,7 +245,7 @@ const AssistantBarChart = defineComponent({
 const AssistantLineChart = defineComponent({
   ...ASSISTANT_UI.LineChart,
   component: ({ props }) => {
-    const currency = props.currency ?? DEFAULT_CURRENCY;
+    const currency = currencyOf(props.currency);
     const config = seriesConfig(props.series);
 
     return (
@@ -273,7 +284,7 @@ const AssistantLineChart = defineComponent({
 const AssistantDonutChart = defineComponent({
   ...ASSISTANT_UI.DonutChart,
   component: ({ props }) => {
-    const currency = props.currency ?? DEFAULT_CURRENCY;
+    const currency = currencyOf(props.currency);
     // A label with no value is dropped, not drawn at zero. Keys are positional:
     // the labels are the model's, and nothing stops it from repeating one.
     const slices = props.labels.flatMap((label, index) => {
