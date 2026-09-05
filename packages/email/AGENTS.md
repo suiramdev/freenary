@@ -1,6 +1,6 @@
 # `packages/email` — Email Delivery
 
-The transport boundary for outbound mail. One interface, one adapter per transport, one choice resolved at startup. Callers ask for a message to be sent; nothing above this package names a mail service. Today every message is an authentication code — confirming an address after sign-up, or resetting a forgotten password. Nobody signs in with one: that is [ADR-005](../../docs/adr/005-sign-in-methods-and-account-linking.md)'s decision, not this package's business.
+The transport boundary for outbound mail. One interface, one adapter per transport, one choice resolved at startup. Callers ask for a message to be sent; nothing above this package names a mail service. Today every message is an authentication code — confirming an address after sign-up, or resetting a forgotten password. Nobody signs in with one: a password is always the first factor, and that is not this package's business.
 
 ## Stack
 

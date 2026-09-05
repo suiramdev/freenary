@@ -8,7 +8,7 @@
 
 Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `SpendingCategory` (or `null` for Wikidata-only entries), and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
 
-`countries` holds the ISO 3166-1 alpha-2 codes the merchant is scoped to — NSI geographic scope, or Wikidata `P17` — and is empty for a worldwide brand rather than absent from everywhere. Consumers filter on it in memory; there are no per-country files, because the unscoped worldwide tail every country needs would have to be duplicated into each one (see [ADR-001 §4](../../../docs/adr/001-country-agnostic-categorisation.md)).
+`countries` holds the ISO 3166-1 alpha-2 codes the merchant is scoped to — NSI geographic scope, or Wikidata `P17` — and is empty for a worldwide brand rather than absent from everywhere. Consumers filter on it in memory; there are no per-country files, because the unscoped worldwide tail every country needs would have to be duplicated into each one.
 
 ## Why three sources?
 
@@ -41,14 +41,14 @@ Each step degrades gracefully when its upstream API is unreachable. The SIRENE p
 
 ## Model weights
 
-`model-weights.json` is the local classifier, produced by `bun run train:model` from two sources ([ADR-004](../../../docs/adr/004-dictionary-bootstrapped-classifier.md)):
+`model-weights.json` is the local classifier, produced by `bun run train:model` from two sources:
 
-1. **The merchant dictionary** — every entry with a resolvable category, read as names and aliases. On the release `data-2026-09-01` that is 16,459 labelled strings over 11,355 merchants: 15,798 from NSI's OSM tags, 526 from the 308 Wikidata-sourced entries the SIRENE NAF pass categorised, and 135 curated. A bootstrap prior. The Wikidata share carries more label noise than the NSI share because its categories come from company-name matching rather than a tag, and its size changes from one release to the next with how far the SIRENE pass got ([ADR-004 §7](../../../docs/adr/004-dictionary-bootstrapped-classifier.md)).
+1. **The merchant dictionary** — every entry with a resolvable category, read as names and aliases. On the release `data-2026-09-01` that is 16,459 labelled strings over 11,355 merchants: 15,798 from NSI's OSM tags, 526 from the 308 Wikidata-sourced entries the SIRENE NAF pass categorised, and 135 curated. A bootstrap prior. The Wikidata share carries more label noise than the NSI share because its categories come from company-name matching rather than a tag, and its size changes from one release to the next with how far the SIRENE pass got.
 2. **User corrections** — `MerchantOverride` rows and hand-recategorised transactions. Ground truth, weighted 20× a dictionary sample so it takes over as it accumulates.
 
 No training data is synthesised. The trainer holds out 20% of merchants — split by merchant id, so no alias of a training merchant is scored — scores each held-out string once per country inference may pass, and **refuses to write the weights unless the worst country slice clears 75% precision at the confidence the pipeline writes a category at** (0.7, the floor `resolve.ts` applies). Gating on the worst slice rather than the pooled figure stops a strong slice carrying a weak one, and which slice is weakest is not stable between runs. A missing weights file leaves the classifier inert and transactions correctable, which is the safe state. The script exits 2 when the gate refuses and 1 on any other failure, so CI cannot ship an unevaluated model and can tell a refusal from a crash.
 
-**On the current release the gate refuses.** The worst slice (`FR`) reaches 72.4% precision at that threshold over 2,311 held-out merchants; the country-less slice reaches 74.9%. A full local build with the SIRENE pass complete measured 43.4% — a different corpus, twice the size and mostly SIRENE-labelled, so the two numbers are two observations, not an ablation. Either way `train:model` currently produces no weights and the classifier stays inert by design. [ADR-004 §6–7](../../../docs/adr/004-dictionary-bootstrapped-classifier.md) has the full curves and the reasoning; read it before proposing another bootstrap from merchant names.
+**On the current release the gate refuses.** The worst slice (`FR`) reaches 72.4% precision at that threshold over 2,311 held-out merchants; the country-less slice reaches 74.9%. A full local build with the SIRENE pass complete measured 43.4% — a different corpus, twice the size and mostly SIRENE-labelled, so the two numbers are two observations, not an ablation. Either way `train:model` currently produces no weights and the classifier stays inert by design.
 
 Training is reproducible: the epoch shuffle is seeded and the holdout split is hashed, so the same data yields the same weights and the same reported numbers.
 

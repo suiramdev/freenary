@@ -356,7 +356,7 @@ A one-time code confirms an address or resets a password. It never signs a user 
 
 The middle refusal matters most. Without it, an unauthenticated caller could mail a code to any address it names. Nothing would accept that code, so the route would be a free mailer and a lure for an attacker. The third refusal matters because a confirmation creates a session. Without it, an emailed code would walk past both the password and the second factor.
 
-A mailbox is never the whole security of an account. The full rationale, and the account-existence cost the progressive form brings, sit in [ADR-005](https://github.com/suiramdev/freenary/blob/main/docs/adr/005-sign-in-methods-and-account-linking.md).
+A mailbox is never the whole security of an account. That is the reason for the three refusals, and the account-existence cost the progressive form brings is the price the design accepts for them.
 
 <Cards>
   <Card

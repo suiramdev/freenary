@@ -1,7 +1,7 @@
 /**
  * Keyword tables for the deterministic categorisation layer.
  *
- * Two layers, resolved in ADR-001 order: country over default. Adding a
+ * Two layers, resolved country over default. Adding a
  * country = one new file, one entry in the registry below, and one entry in
  * supported-countries.ts.
  *

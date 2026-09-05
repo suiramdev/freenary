@@ -12,7 +12,7 @@
  * Weights are written to data/model-weights.json only when held-out precision
  * at MODEL_ACCEPT_THRESHOLD — the confidence resolve.ts writes a category at —
  * clears MIN_PRECISION; otherwise the script exits non-zero and leaves the
- * classifier inert. See ADR-004.
+ * classifier inert.
  *
  * Exit codes:
  *   0 — weights written
@@ -222,7 +222,7 @@ interface DictionaryMerchant {
 
 /**
  * One dictionary string and the merchant it came from. The id lets the holdout
- * cut by merchant, so an alias never straddles the split (ADR-004 §4).
+ * cut by merchant, so an alias never straddles the split.
  */
 interface DictionarySample {
   descriptor: string;
@@ -299,7 +299,7 @@ const readDictionaryArtifact = async (
       // merchant's whole country set. Deduping per country instead would let
       // two merchants sharing a string split its variants between them, and a
       // string that straddles the merchant holdout is scored against weights
-      // it helped train (ADR-004 §4).
+      // it helped train.
       const dedupe = `${descriptor}\u0000${category}`;
       if (seen.has(dedupe)) {
         continue;
@@ -314,7 +314,7 @@ const readDictionaryArtifact = async (
 
 /**
  * Dictionary samples for every supported country, plus a country-less copy for
- * connections whose institution country is null (ADR-004 §3).
+ * connections whose institution country is null.
  */
 const loadDictionarySamples = async (): Promise<DictionarySample[]> => {
   const artifact = path.resolve(DATA_DIR, "merchants.jsonl.gz");
@@ -723,7 +723,7 @@ interface MerchantSplit {
 /**
  * Countries inference may pass for a held-out string. The runtime tags a
  * transaction with its connection's country, and an untrained `cc:` token still
- * collides into trained buckets, so each is scored separately (ADR-004 §3).
+ * collides into trained buckets, so each is scored separately.
  */
 const INFERENCE_COUNTRIES: (string | null)[] = [null, ...SUPPORTED_COUNTRIES];
 

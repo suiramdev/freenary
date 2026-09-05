@@ -1,6 +1,6 @@
 # Working in this repository
 
-**Read [`CONTEXT.md`](CONTEXT.md) first** — the glossary and the settled definition of each term. Architecture decisions live in `docs/adr/`.
+**Read [`CONTEXT.md`](CONTEXT.md) first** — the glossary and the settled definition of each term.
 
 The rest of this file covers how to get a working stack, what every change owes the docs and the message catalogs, how to write the pull request, and the code-quality standard.
 

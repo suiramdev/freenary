@@ -119,7 +119,6 @@ freenary/
 │   ├── env/         # environment-variable schemas
 │   ├── ui/          # shared interface primitives
 │   └── config/      # shared TypeScript configuration
-└── docs/adr/        # architecture decision records
 ```
 
 ## Contributing

@@ -33,7 +33,7 @@ The site is split **by audience**, and the split is load-bearing: it is why a re
 | `guides/` | Users of a running instance | Signing in, first steps, bank connections, budget, categories, settings, language and appearance. |
 | `self-hosting/` | Operators | Install, configuration reference, email, sign-in methods, bank providers, updates, backup, maintenance, security, logs, troubleshooting. |
 | `integrations/` | Developers calling the API | API, procedure reference, MCP. |
-| `development/` | Contributors and engineers | Workflow, local stack, architecture, data model, categorisation, bank-provider interface, writing docs, decisions. |
+| `development/` | Contributors and engineers | Workflow, local stack, architecture, data model, categorisation, bank-provider interface, writing docs. |
 
 Three rules keep it that way:
 

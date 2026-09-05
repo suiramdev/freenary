@@ -44,7 +44,7 @@ describe("mapNafToCategory", () => {
   });
 
   it("agrees with the other signal tables on the same merchant kind", () => {
-    // ADR-002: a merchant must not change category with the signal that matched
+    // A merchant must not change category with the signal that matched
     // it. Each of these previously split between NAF and the MCC/OSM tables.
     // 77.11 car rental — MCC 7512, amenity=car_rental
     expect(mapNafToCategory("77.11A")).toBe("other-travel");

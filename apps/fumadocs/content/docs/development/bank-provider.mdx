@@ -460,7 +460,7 @@ Two rules both shipped adapters follow:
 
 Only `ACTIVE` is reachable. Row creation is its one writer, and no code in `packages/api`, `packages/db` or `scripts` ever writes `EXPIRED` or `ERROR`. A sync failure changes no status.
 
-So a user whose consent ran out keeps an `ACTIVE` row that reads "Synced &lt;old date&gt;" and quietly imports nothing more. A new adapter cannot fix that from its own side. The reconnect and SCA-repair path is out of scope in `docs/adr/006-bank-provider-abstraction.md`.
+So a user whose consent ran out keeps an `ACTIVE` row that reads "Synced &lt;old date&gt;" and quietly imports nothing more. A new adapter cannot fix that from its own side. The reconnect and SCA-repair path is out of scope for an adapter.
 
 </Callout>
 
@@ -505,11 +505,9 @@ The repository has no `test` script and no test task in Turborepo, and CI runs n
 
 Be honest about the limit. A stub proves your adapter reads a payload correctly. It cannot prove the payload is what the bank provider sends. Consent expiry, strong customer authentication, rate limits, pagination cursors that change shape and per-bank field gaps all need live credentials. Record real payloads once, then keep them as fixtures.
 
-## The decision record
+## An accepted cost
 
-`BankingProvider` exists because of one decision. Read it before you change the interface: [`docs/adr/006-bank-provider-abstraction.md`](https://github.com/suiramdev/freenary/blob/main/docs/adr/006-bank-provider-abstraction.md).
-
-It also records one accepted cost: `bank_provider_user.accessToken` holds a permanent bearer token in plain text.
+`bank_provider_user.accessToken` holds a permanent bearer token in plain text. The interface accepts that cost; do not add an adapter that expects the token to be encrypted at rest.
 
 <Cards>
 
@@ -529,12 +527,6 @@ It also records one accepted cost: `bank_provider_user.accessToken` holds a perm
   title="Transaction categorisation"
   href="/docs/development/categorisation"
   description="What the pipeline does with the fields an adapter maps."
-/>
-
-<Card
-  title="Decision records"
-  href="/docs/development/decisions"
-  description="Every architecture decision, with ADR-006."
 />
 
 </Cards>

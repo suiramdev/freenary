@@ -27,7 +27,7 @@ The `dev` script is `vite dev --port=4000`, so the site answers on `http://local
 | `guides/` | Users | The product walkthroughs, screen by screen | Environment variables, Docker, file paths, package names |
 | `self-hosting/` | Operators | Compose, configuration, updates, backups, logs, troubleshooting | Product walkthroughs |
 | `integrations/` | Developers | The HTTP surface, the procedures, how a client authenticates | Internal design rationale |
-| `development/` | Contributors and engineers | Setup, the dev stack, the monorepo, the data model, the decisions | Anything a user needs |
+| `development/` | Contributors and engineers | Setup, the dev stack, the monorepo, the data model | Anything a user needs |
 
 One fact lives in exactly one section. Every other page links to it. Duplicated prose is the failure this split exists to prevent.
 
@@ -156,7 +156,7 @@ A page that the `pages` array does not name lands after every page it does name.
 ```json
 {
   "title": "Development",
-  "pages": ["index", "local-stack", "writing-docs", "decisions"]
+  "pages": ["index", "local-stack", "writing-docs"]
 }
 ```
 
@@ -268,10 +268,5 @@ So test a Markdown endpoint against a build, not against `bun run dev`.
     title="Development"
     href="/docs/development"
     description="Setup, the checks CI runs, and the pull request rules."
-  />
-  <Card
-    title="Architecture decisions"
-    href="/docs/development/decisions"
-    description="Every record in docs/adr, and when to write a new one."
   />
 </Cards>

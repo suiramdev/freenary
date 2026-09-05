@@ -4,7 +4,7 @@ Freenary is an open-source, AI-powered personal finance and wealth-management pl
 
 The ambition is a **user-controlled personal financial operating system**, not another isolated finance app. The progression at the heart of the project: connect the financial data → understand the present → analyze what can be improved → define where the user wants to go → simulate possible futures → help the user make informed decisions.
 
-This document describes the product vision and domain vocabulary. Nothing in it asserts an implemented feature; it defines what the project is building toward. Architecture decisions live in `docs/adr/`.
+This document describes the product vision and domain vocabulary. Nothing in it asserts an implemented feature; it defines what the project is building toward.
 
 ## Product definition
 

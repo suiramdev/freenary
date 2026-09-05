@@ -64,7 +64,7 @@ jobs:
         working-directory: packages/db
 
       # The gate refusing is the expected outcome until contributed data exists
-      # (ADR-004 §6–7): it exits 2, leaves no weights file, and must not fail the
+      # it exits 2, leaves no weights file, and must not fail the
       # run. Anything else non-zero is a crash and does. PIPESTATUS, not $?:
       # the default shell has no pipefail, so $? would be tee's.
       - name: Train classifier
