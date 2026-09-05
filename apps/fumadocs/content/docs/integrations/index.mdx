@@ -8,7 +8,7 @@ This section is for a developer who calls Freenary from outside the web app. It 
 
 ## What code can reach today
 
-The API server is one process. It mounts four route prefixes, and two of them carry the same router.
+The API server is one process. It mounts three route prefixes and two exact paths. Two of the prefixes carry the same router.
 
 | Surface | Request | What it is for |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ The API server is one process. It mounts four route prefixes, and two of them ca
 | OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | The same procedures with plain JSON in and plain JSON out. |
 | Interactive API reference | `GET /api-reference` | An HTML page that lists every procedure and its schema. |
 | OpenAPI document | `GET /api-reference/spec.json` | The OpenAPI 3.1.1 JSON document for the whole router. |
+| Assistant stream | `POST /ai/chat` | The answer stream of the assistant. It is not a procedure, and the OpenAPI document omits it. |
 | Better Auth routes | `POST` or `GET /api/auth/*` | Sign-up, sign-in, sessions, one-time codes, two-factor, passkeys. |
 | Health check | `GET /` | Plain text `OK`. Nothing else. |
 
@@ -50,7 +51,7 @@ Do not plan around any of these. No code in `apps/` or `packages/` implements th
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="All 30 procedures with their inputs, outputs and errors."
+    description="All 32 procedures with their inputs, outputs and errors."
   />
   <Card
     title="MCP and AI tools"

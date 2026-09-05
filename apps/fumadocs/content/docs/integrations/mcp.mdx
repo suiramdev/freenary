@@ -1,6 +1,6 @@
 ---
 title: MCP and AI tools
-description: Freenary ships no MCP server. What exists instead, how to bridge the API yourself, and the one AI feature that is real.
+description: Freenary ships no MCP server. What exists instead, how to bridge the API yourself, and why the assistant is not an MCP surface.
 icon: Bot
 ---
 
@@ -44,8 +44,23 @@ Read [API](/docs/integrations/api) for the exact error shape, the CORS rules and
 
 <Callout type="warn">
   A bridge holds a user password or a live session cookie. That cookie can call
-  all 30 procedures. Treat it as the full account credential it is.
+  all 32 procedures. Treat it as the full account credential it is.
 </Callout>
+
+## The assistant is not an MCP surface
+
+Freenary has an assistant. It answers questions about the money of the user, inside the web app. [The assistant](/docs/guides/assistant) describes what it does.
+
+That assistant is a reader of this API, and it is not a way into an instance. It changes nothing else on this page.
+
+| Question | Answer |
+| --- | --- |
+| Does it run in the browser? | No. The model call happens on the API server. No model runs in the reader's browser. |
+| Does it speak the Model Context Protocol? | No. The web app posts to `POST /ai/chat` and reads a token stream back. That route is described in [API](/docs/integrations/api#the-assistant-stream). |
+| Does it expose tools to an outside client? | No. Its seven tools live inside one server-side answer. Nothing announces them, and no client can list them or call them. |
+| Does it reach data a caller cannot reach? | No. Each tool calls one procedure of [Procedure reference](/docs/integrations/procedures), which is the surface a bridge would call too. |
+
+So the assistant reads through the same door as the bridge above. An MCP server for Freenary is still yours to write.
 
 ## The MCP configuration that does exist
 
@@ -67,7 +82,7 @@ The contributor view is [Development](/docs/development).
 
 ## Ask AI on the documentation website
 
-One AI feature is real, and it belongs to the documentation website, not to the product. The **Ask AI** button opens a chat panel that searches these pages and answers from them.
+This AI feature belongs to the documentation website, not to the product. The **Ask AI** button opens a chat panel that searches these pages and answers from them.
 
 The route behind it is `/api/chat` in `apps/fumadocs`. It reads two environment variables.
 
@@ -91,7 +106,7 @@ Two things to know:
 - The button renders even with no key. The panel opens, and the answer then fails at the model call.
 - The chat sends page text to OpenRouter. Leave `OPENROUTER_API_KEY` unset when you do not want that.
 
-The product itself has no AI feature. The `/ai` screen of the web app is a placeholder, and the sidebar marks it **Planned**.
+Keep the two apart. This chat reads the documentation pages of this website. It holds no session, and it never reaches a Freenary instance. The assistant of the product reads the money of one signed-in user, and it never reads these pages.
 
 <Cards>
   <Card
@@ -102,7 +117,7 @@ The product itself has no AI feature. The `/ai` screen of the web app is a place
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="The 30 procedures a bridge would expose as tools."
+    description="The 32 procedures a bridge would expose as tools."
   />
   <Card
     title="Development"

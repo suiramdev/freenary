@@ -334,6 +334,47 @@ docker compose logs server | grep -i dictionary
 
 Leave the variable unset unless you sign your own dictionary. [Categorisation](/docs/development/categorisation) covers every stage.
 
+## The assistant does not answer
+
+**Symptom.** The Home screen carries no text box. It shows an empty state that reports the assistant is not configured.
+
+**Cause.** `AI_BASE_URL` or `AI_MODEL` reached the process empty. [Assistant](/docs/self-hosting/assistant) holds the rule that decides it.
+
+**Fix.** Set both in `apps/server/.env`, then restart the API server.
+
+```dotenv
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=sk-...
+AI_MODEL=anthropic/claude-3.5-sonnet
+```
+
+```bash
+docker compose up -d server
+```
+
+**Check.** Read the two values inside the container:
+
+```bash
+docker compose exec server printenv AI_BASE_URL AI_MODEL
+```
+
+`docker-compose.yml` names neither variable in its `environment:` block, so nothing there wins over your file. [Assistant](/docs/self-hosting/assistant) covers the endpoints, the tool-calling requirement and what each question sends out.
+
+Two more failures show an error inside the conversation:
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The screen refuses a question and asks the user to wait | The account passed the question limit of the assistant. The code fixes that limit, and no variable changes it. Read [the rate limit](/docs/self-hosting/assistant#the-rate-limit). | Wait five minutes. |
+| Every question fails, and the endpoint is set | The endpoint refused the call, or it does not answer. Read the API server log around the failed question. | Check the key, the model id and the route from the container to the endpoint. |
+
+The chat route answers 401, 503, 429 or 400 on a failure, with a bare machine code as the body. [API](/docs/integrations/api) states what each code means.
+
+<Callout type="warn">
+
+A model without tool calling reports no failure. It answers about the money of the user, and it makes no lookup, so it invents every figure. Ask one question that needs a figure after you configure the endpoint. Then check that the answer shows lookup rows.
+
+</Callout>
+
 ## The development stack is unreachable
 
 **Symptom.** `bun run dev:up` starts every container, and no URL answers. `curl http://localhost:3001/` refuses the connection.

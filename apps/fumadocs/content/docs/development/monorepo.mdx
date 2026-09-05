@@ -15,7 +15,7 @@ The root `package.json` declares two workspace globs, `apps/*` and `packages/*`.
 | `web` | `apps/web` | The web app: routes, screens, message catalogs, the oRPC client | nothing |
 | `server` | `apps/server` | The API server: Elysia routes, CORS, the oRPC handlers, log wiring | nothing |
 | `fumadocs` | `apps/fumadocs` | The documentation website | nothing |
-| `@freenary/api` | `packages/api` | oRPC procedures, bank provider adapters, the categorisation pipeline, the category taxonomy | `web`, `server` |
+| `@freenary/api` | `packages/api` | oRPC procedures, the assistant handler and its tools, bank provider adapters, the categorisation pipeline, the category taxonomy | `web`, `server` |
 | `@freenary/auth` | `packages/auth` | Better Auth setup, cookie policy, password and rate-limit policy | `@freenary/api`, `server` |
 | `@freenary/db` | `packages/db` | The Prisma schema, the migrations, the client singleton | `@freenary/api`, `@freenary/auth`, `server` |
 | `@freenary/email` | `packages/email` | The email provider registry and the message templates | `@freenary/auth` |
@@ -74,6 +74,52 @@ The handler in `packages/api/src/routers/budget.ts` queries Prisma. Ownership is
 
 A server-rendered page takes a shorter path. The browser requests a route path, and `apps/web/src/server.ts` wraps the TanStack Start server entry with `paraglideMiddleware`, then appends `Vary: Accept-Language, Cookie` to the response. TanStack Start renders the matched route from the generated route tree. During that render `getServerUrl` in `apps/web/src/lib/server-url.ts` prefers `SERVER_URL`, so the server-side fetch reaches the API server over the container network instead of `localhost`.
 
+## The assistant
+
+The assistant is the one surface that does not answer over oRPC. Every procedure in `packages/api` is unary, and the web client is a plain `RPCLink`, so no procedure can hand back tokens as they arrive. [Architecture decisions](/docs/development/decisions) links ADR-007, which settles that boundary.
+
+`packages/api/src/assistant/` holds five files:
+
+<Files>
+  <Folder name="packages/api/src/assistant" defaultOpen>
+    <File name="provider.ts — the model client and isAssistantConfigured()" />
+    <File name="prompt.ts — the system prompt" />
+    <File name="tools.ts — the seven read-only tools" />
+    <File name="conversation.ts — the transcript store" />
+    <File name="handler.ts — one Request to one Response" />
+  </Folder>
+</Files>
+
+`packages/api/src/routers/assistant.ts` holds the two procedures beside them. [Procedure reference](/docs/integrations/procedures) covers those, and [API](/docs/integrations/api#the-assistant-stream) covers the route below.
+
+`apps/server` stays glue. `apps/server/src/index.ts` declares `.post("/ai/chat", …, { parse: "none" })` and calls `handleAssistantChat` from `@freenary/api/assistant/handler`. The route sits after `evlog()` and after the `.derive` that runs `identifyUser`, so it inherits the request's wide event and the identified user. `parse: "none"` keeps Elysia away from the body, for the same reason `/rpc*` sets it.
+
+`prompt.ts` builds the system prompt from the locale, today's date, the transaction date range and whether any bank account is connected. The prompt forbids a figure that did not come from a tool, orders the model to refuse a period outside the data range instead of extrapolation, states that tool amounts are integer minor units, tells it to name a category slug naturally in the reader's language, and ends on "information and arithmetic, never regulated financial advice".
+
+### Four rules inside the handler
+
+**The tools call procedures, not Prisma.** `assistantTools` takes a server-side router client, `createRouterClient(appRouter, { context })`, and each tool is a description, a Zod input schema and one procedure call. A second implementation of "outgoing transactions in a period" would agree with the charts on the day somebody wrote it, then drift, so an answer and a chart could disagree. A procedure call also carries the `protectedProcedure` session guard, which a tool therefore cannot forget.
+
+**History is server-authoritative.** The browser posts the whole transcript on every question. The route reads the last message only, which must be a text-only user turn, and rebuilds the model's context from the `conversation_message` rows. A caller cannot put words in the assistant's mouth to steer the next answer.
+
+**An answer chains at most six lookup rounds.** `handler.ts` passes `stopWhen: stepCountIs(MAX_STEPS)` with `MAX_STEPS = 6`. After the sixth round the model must conclude from what it already read.
+
+**The wide event closes before the body does.** `createAILogger(log)` from `evlog/ai` wraps the model, so token counts and per-tool timings reach the request's wide event. The Elysia event closes when the handler returns its `Response`, which happens before the body finishes streaming. Nothing measured after the last token is on that event.
+
+[Data model](/docs/development/data-model#assistant-conversations) holds the two tables and the rules that decide what a turn stores.
+
+### The interface side
+
+| Path | What it holds |
+| --- | --- |
+| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-tool-call.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
+| `apps/web/src/lib/assistant/` | `avatar-state.ts` with its test, and `tool-labels.ts` |
+| `apps/web/src/components/ai-elements/` | The registry-generated stream primitives: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx` and `tool.tsx` |
+
+`oxlint.config.ts` ignores `apps/web/src/components/ai-elements/**` for the same reason it ignores `packages/ui/**`: a registry CLI writes those files, and repo style would have to be applied again on every update. Unlike `apps/web/src/paraglide/`, they are committed. No gitignore rule covers either tree.
+
+`apps/web/src/routes/_auth/index.tsx` renders the chat, so Home is the assistant. [The assistant](/docs/guides/assistant) is the reader's view.
+
 ## The runtime
 
 Bun runs everything. The root `package.json` pins `bun@1.3.14` in `packageManager`, and both production images start from `oven/bun:1`.
@@ -94,10 +140,20 @@ The API server listens on `env.PORT`, default `3000`. The web dev server listens
 
 | File | Key | Reader | Notes |
 | --- | --- | --- | --- |
-| `packages/env/src/server.ts` | `server` | `import { env } from "@freenary/env/server"` | 33 variables, `runtimeEnv: process.env`, `emptyStringAsUndefined: true`, `skipValidation: !!process.env.SKIP_ENV_VALIDATION` |
+| `packages/env/src/server.ts` | `server` | `import { env } from "@freenary/env/server"` | 36 variables, `runtimeEnv: process.env`, `emptyStringAsUndefined: true`, `skipValidation: !!process.env.SKIP_ENV_VALIDATION` |
 | `packages/env/src/web.ts` | `client`, `clientPrefix: "VITE_"` | `import { env } from "@freenary/env/web"` | `VITE_SERVER_URL`, default `http://localhost:3000` |
 
 Both use `@t3-oss/env-core` with Zod. The rule is simple: add the Zod schema here, then read `env`. No other file reads `process.env`.
+
+Three of those 36 variables reach one reader only. `packages/api/src/assistant/provider.ts` imports `env` from `@freenary/env/server` and builds the model client from them, inside the API server process. `apps/web` reads none of them, and `packages/env/src/web.ts` holds no `VITE_AI_*` key.
+
+| Variable | Read by | What the reader does with it |
+| --- | --- | --- |
+| `AI_BASE_URL` | `packages/api/src/assistant/provider.ts`, in the API server process | The `baseURL` of the `@ai-sdk/openai-compatible` client |
+| `AI_API_KEY` | The same file and process | The `apiKey` of that client |
+| `AI_MODEL` | The same file and process | The model id `provider.chatModel()` asks for |
+
+All three are optional, and none has a default. [Configure the assistant](/docs/self-hosting/assistant) is the operator view: which endpoints work, what the model must support, and what a question sends to it.
 
 Eight places break that rule today. Two of them are legitimate.
 

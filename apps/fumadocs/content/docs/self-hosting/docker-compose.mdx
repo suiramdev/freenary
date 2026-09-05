@@ -137,7 +137,7 @@ The stack applies no migrations. Docker starts the API server against an empty s
 docker compose exec -w /app/packages/db server bun x prisma migrate deploy
 ```
 
-The command runs inside the `server` container, which already holds the schema, the six migration folders and the `DATABASE_URL` of the stack. It prints each migration it applies and exits `0`. It is idempotent: a second run applies nothing and still exits `0`.
+The command runs inside the `server` container, which already holds the schema, the seven migration folders and the `DATABASE_URL` of the stack. It prints each migration it applies and exits `0`. It is idempotent: a second run applies nothing and still exits `0`.
 
 </Step>
 

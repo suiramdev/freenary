@@ -4,7 +4,7 @@ description: Every oRPC procedure of the Freenary API server, with its input fie
 icon: List
 ---
 
-This page lists all 30 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
+This page lists all 32 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
 
 Read [API](/docs/integrations/api) first for the base URL, the two transports and the sign-in steps.
 
@@ -49,6 +49,73 @@ Read [API](/docs/integrations/api) first for the base URL, the two transports an
   `privateData` is scaffold. The web app never calls it. Use it to prove that
   your cookie works, and nothing else.
 </Callout>
+
+## `assistant`
+
+These two procedures carry the transcript of the assistant. The answer itself never travels over oRPC. It streams from a raw route, which [API](/docs/integrations/api#the-assistant-stream) documents.
+
+### assistant.getConversation
+
+`assistant.getConversation` — **protected**. Returns the active conversation of the caller, and whether this instance has a model at all.
+
+**Input**: None.
+
+**Output**
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `configured` | boolean | `false` when the instance has no model. The web app then offers no text box. |
+| `conversationId` | string | The id of the active conversation. |
+| `messages` | array of `{ id, parts, role }` | The stored transcript, oldest first. |
+
+| Field of one message | Type | Note |
+| --- | --- | --- |
+| `id` | string | The row id. Pass it as `messageId` to redo that turn. |
+| `parts` | array | The `UIMessage.parts` array of the AI SDK, exactly as the stream route stored it. |
+| `role` | `"user"` or `"assistant"` | The database enum values `USER` and `ASSISTANT` map to these two. |
+
+**Errors**: None.
+
+**Note**: the read creates the conversation. A caller who never asked a question gets a fresh empty one, so the first question needs no separate call. The output never holds an archived conversation.
+
+### assistant.startNewConversation
+
+`assistant.startNewConversation` — **protected**. Archives the active conversation of the caller.
+
+**Input**: None.
+
+**Output**
+
+| Field | Type    | Note           |
+| ----- | ------- | -------------- |
+| `ok`  | boolean | Always `true`. |
+
+**Errors**: None.
+
+**Note**: the call archives, and it deletes nothing. The next `assistant.getConversation` creates an empty conversation and returns a new `conversationId`.
+
+### Tools the assistant runs
+
+An answer reads through the router, not through the database. The stream route holds a server-side oRPC client and gives the model seven tools. Each tool is one procedure of this page, and every one of them reads. No tool writes.
+
+| Tool | Procedure | Tool input |
+| --- | --- | --- |
+| `get_accounts_overview` | `budget.getAccounts` | None. |
+| `get_spending_by_group` | `budget.getSpendingBreakdown` | `from`, `to`, `aggregation`. |
+| `get_cash_flow` | `budget.getCashFlow` | `from`, `to`. |
+| `get_fixed_vs_variable` | `budget.getFixedVsVariable` | `from`, `to`, `aggregation`. |
+| `get_budget_vs_actual` | `budget.getBudgetVsActual` | `from`, `to`, `aggregation`. |
+| `get_recurring_expenses` | `budget.getRecurringExpenses` | None. |
+| `search_transactions` | `budget.getTransactions` | `from`, `to`, `search`, `categories`, `groups`, `direction`, `limit`, `sort`. |
+
+A tool input is narrower than the input of the procedure behind it:
+
+- `from` and `to` are `YYYY-MM-DD` days. The route expands `to` to the end of that day, because midnight would drop the transactions of the last day.
+- `aggregation` is `total`, `average` or `median`, and it defaults to `total`.
+- `search_transactions` caps `limit` at 20 against the 100 of the procedure, and it defaults to 10. It sorts by `date` or `amount`. It takes category and group slugs as enums, so the model cannot invent a slug.
+- No tool takes a `cursor`, so an answer reads one page.
+
+One tool also narrows its output. `get_accounts_overview` returns the account id, the account name and the institution name, and it drops the `iban` field that `budget.getAccounts` carries for the web app.
 
 ## `auth`
 

@@ -1,0 +1,154 @@
+---
+title: Assistant
+description: Point the assistant at an OpenAI-compatible endpoint, choose between a hosted gateway and a local runtime, and know what leaves the instance.
+icon: Cpu
+---
+
+Freenary ships with no model. The assistant on the Home screen stays off until you name an endpoint and a model id. This page covers the three variables, the endpoints that work, where the variables go in each stack, the rate limit, and what each question sends out of the instance.
+
+## What the assistant needs
+
+Three optional variables in the validated server schema. None of them has a default.
+
+<TypeTable
+  type={{
+    AI_BASE_URL: {
+      description:
+        "The base URL of an OpenAI-compatible chat-completions endpoint, with the version path, for example https://openrouter.ai/api/v1.",
+      type: "URL",
+      default: "unset",
+      required: false,
+    },
+    AI_API_KEY: {
+      description:
+        "The key for that endpoint. Optional, because a local runtime needs none.",
+      type: "string",
+      default: "unset",
+      required: false,
+    },
+    AI_MODEL: {
+      description:
+        "The model id, exactly as the endpoint names it, for example anthropic/claude-3.5-sonnet or qwen2.5:14b.",
+      type: "string",
+      default: "unset",
+      required: false,
+    },
+  }}
+/>
+
+**`AI_BASE_URL` and `AI_MODEL` together decide whether the assistant works.** Both must hold a value. With either one empty, the API server reports the assistant as not configured. `AI_API_KEY` never takes part in that test, because a local runtime accepts a call with no key.
+
+Freenary defaults none of the three, and that choice is deliberate. An instance with no endpoint never looks connected and then fails in the middle of an answer. It states up front that it has no model.
+
+`AI_BASE_URL` must parse as a URL. A bad value stops the API server at startup, like every other bad value in the [configuration reference](/docs/self-hosting/configuration).
+
+## Point the assistant at an endpoint
+
+A hosted gateway needs all three variables:
+
+```dotenv
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=sk-...
+AI_MODEL=anthropic/claude-3.5-sonnet
+```
+
+A local runtime on the same Docker network needs two:
+
+```dotenv
+AI_BASE_URL=http://ollama:11434/v1
+AI_MODEL=qwen2.5:14b
+```
+
+Freenary calls the endpoint through the `@ai-sdk/openai-compatible` client. It names that client `freenary-assistant`, which identifies the provider inside the API server, in its logs and in its error messages. The name reaches no request: the client sends no extra header and no extra field, so a hosted provider sees a plain chat-completions call.
+
+## Which endpoints work
+
+The assistant accepts any endpoint that speaks the OpenAI chat-completions protocol.
+
+| Kind | Examples | Key |
+| --- | --- | --- |
+| A gateway in front of many models | OpenRouter, Groq, Together | needed |
+| A model vendor | OpenAI | needed |
+| A runtime on your own hardware | Ollama, LM Studio, vLLM | usually none |
+
+<Callout type="warn">
+
+**The model must support tool calling.** The assistant reads the money data of a user through read-only lookups, and each lookup is a tool call. A model without tool calling still answers. It answers about the money of the reader, and it reads none of it, so it invents every figure. That result is worse than a refusal, and no error reports it.
+
+Pick a model whose provider documents tool calling. Then ask one question that needs a figure, and check the answer before other people use the instance.
+
+</Callout>
+
+## Where the variables go
+
+The two stacks read the three variables from different places.
+
+| Stack | Where you set them | How they arrive |
+| --- | --- | --- |
+| Development, `compose.dev.yml` | your own shell, or the root `.env` file | The compose file passes `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` through from the host environment, each with an empty default |
+| Production, `docker-compose.yml` | `apps/server/.env` | The `server` service loads that file through its optional `env_file` |
+
+`docker-compose.yml` names none of the three in the `environment:` block of the `server` service. So nothing in the compose file wins over your file, and `apps/server/.env` is the one place the three variables belong. Restart the service after a change:
+
+```bash
+docker compose up -d server
+```
+
+The `server` container must reach a local runtime over the network. Give the runtime a service on the same compose network, then use that service name in `AI_BASE_URL`, as the second example above does. The value `http://localhost:11434/v1` names the container itself, and it reaches nothing.
+
+## The rate limit
+
+One account can ask **30 questions per 5 minutes**. The code fixes that limit, and no variable changes it.
+
+The key is the user id, not the caller address. Every other limit of the instance keys on the address, as [Security](/docs/self-hosting/security#rate-limits) shows. This one is different on purpose. Each question is a paid request at your provider, so the cost follows the account that asks. One busy office behind one address also keeps a full allowance per person.
+
+Over the limit, the screen asks the user to wait, and the chat route answers 429.
+
+Each stored question and answer adds database rows, so the database grows with use. Freenary deletes those rows with their user.
+
+## What leaves the instance
+
+A configured endpoint receives financial data. Each question sends all of this to `AI_BASE_URL`:
+
+| What | Detail |
+| --- | --- |
+| The question | The text the user typed |
+| The conversation so far | Every stored question and answer of the active conversation |
+| The result of every lookup | Account names, institution names, transaction descriptors, amounts, dates, and category and group slugs |
+
+**Freenary sends no IBAN.** The accounts lookup reports the account id, the account name and the institution name. No lookup takes an IBAN as an input.
+
+A hosted gateway holds everything in the table above, under its own terms. A local runtime keeps all of it on your own hardware, and no money data leaves the host. That choice is the whole difference between the two `AI_BASE_URL` examples above.
+
+<Callout type="info">
+
+An unset `AI_BASE_URL` sends nothing anywhere. An instance with no model makes no outbound call for the assistant at all.
+
+</Callout>
+
+## When the assistant is not configured
+
+The Home screen shows an empty state, and it reports that the assistant is not configured. It offers no text box, so no user can ask a question that fails. [The assistant](/docs/guides/assistant) shows what a user sees after you switch it on.
+
+<Cards>
+  <Card
+    title="Configuration reference"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable an instance reads, with its default."
+  />
+  <Card
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Secrets, rate limits and the checks before you expose an instance."
+  />
+  <Card
+    title="The assistant"
+    href="/docs/guides/assistant"
+    description="What a user asks, what each lookup row means, and the limits of an answer."
+  />
+  <Card
+    title="API reference"
+    href="/docs/integrations/api"
+    description="The chat route, its status codes and the procedures behind each lookup."
+  />
+</Cards>

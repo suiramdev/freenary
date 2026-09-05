@@ -8,7 +8,7 @@ This page lists the complete persisted model of Freenary. Every field, default, 
 
 ## Where the schema lives
 
-Prisma reads a schema directory, not one file. Four files split the model by domain.
+Prisma reads a schema directory, not one file. Five files split the model by domain.
 
 <Files>
   <Folder name="packages/db" defaultOpen>
@@ -18,6 +18,7 @@ Prisma reads a schema directory, not one file. Four files split the model by dom
         <File name="auth.prisma" />
         <File name="budget.prisma" />
         <File name="budget-profile.prisma" />
+        <File name="assistant.prisma" />
       </Folder>
       <Folder name="migrations" />
     </Folder>
@@ -61,7 +62,7 @@ Better Auth owns these seven tables. `packages/auth` configures the plugins that
 | `createdAt` | `DateTime` | no | `now()` |  |
 | `updatedAt` | `DateTime` | no | `@updatedAt` |  |
 
-Unique: `@@unique([email])`. Nine one-to-many relations hang off it, and every child cascades on delete: `sessions`, `accounts`, `twoFactors`, `passkeys`, `bankConnections`, `bankProviderUsers`, `merchantOverrides`, `budgetLines`, `customCategories`.
+Unique: `@@unique([email])`. Ten one-to-many relations hang off it, and every child cascades on delete: `sessions`, `accounts`, `twoFactors`, `passkeys`, `bankConnections`, `bankProviderUsers`, `merchantOverrides`, `budgetLines`, `customCategories`, `conversations`.
 
 ### `Session` — table `session`
 
@@ -378,9 +379,56 @@ No database constraint enforces the exclusive category. The comments say `catego
 
 </Callout>
 
+## Assistant conversations
+
+The assistant keeps its transcript in Postgres, so a reload replays a conversation from the database instead of the browser. `assistant.prisma` holds the two models. [The assistant](/docs/guides/assistant) covers what a reader sees.
+
+### `Conversation` — table `conversation`
+
+One conversation. A user has at most one active conversation.
+
+| Field | Type | Optional | Default | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` |  |
+| `userId` | `String` | no | — |  |
+| `archivedAt` | `DateTime?` | yes | — | Null marks the active conversation. A new conversation stamps this column on the old one, which deletes no row |
+| `createdAt` | `DateTime` | no | `now()` |  |
+| `updatedAt` | `DateTime` | no | `@updatedAt` | Every stored turn touches it |
+
+Index `@@index([userId, archivedAt])`. It covers the one lookup `activeConversation` runs: `userId` with `archivedAt: null`. Relations: `user` cascade, and `messages ConversationMessage[]`.
+
+### `ConversationMessage` — table `conversation_message`
+
+One half of a turn: the question, or the answer.
+
+| Field | Type | Optional | Default or database type | Note |
+| --- | --- | --- | --- | --- |
+| `id` | `String` `@id` | no | `cuid()` | The answer row carries the id the stream minted, so a retry names one exact turn |
+| `conversationId` | `String` | no | — |  |
+| `role` | `ConversationRole` | no | — | No default. Every row states its author |
+| `ordinal` | `Int` | no | — | Position in the conversation, from `0` |
+| `parts` | `Json` | no | `JSONB` | The AI SDK `UIMessage.parts` array, as the stream wrote it |
+| `createdAt` | `DateTime` | no | `now()` |  |
+
+Unique `@@unique([conversationId, ordinal])`. Foreign key to `conversation`, cascade. The table declares no separate index on `conversationId`, because that unique index leads with the column.
+
+`ordinal` orders a conversation, and `createdAt` cannot. `appendTurn` writes both messages of a turn in one transaction, so the two rows can carry the same millisecond. The next `ordinal` is the current maximum plus one, and every read passes `orderBy: { ordinal: "asc" }`.
+
+`parts` holds the AI SDK wire shape, not a Freenary shape: the text parts and the tool parts of one message, exactly as the stream wrote them. That is why a stored answer replays with its lookup rows intact. Nothing else writes the table, so the route reads the column back as `UIMessage["parts"]`.
+
+### What reaches the table
+
+Three rules in `packages/api/src/assistant/` decide what a turn stores.
+
+- **A turn is written once the answer finished**, in one transaction. `appendTurn` in `conversation.ts` updates `conversation.updatedAt`, then creates the question row and the answer row together.
+- **A stopped, failed or empty answer is never stored.** The `onFinish` callback in `handler.ts` returns early when the run was aborted, when it reports no finish reason or the reason `error`, or when no text and no tool part survived. So a half-answer is gone after a reload, and the model never reads it back.
+- **An unresolved tool call is filtered out.** `answerableParts` keeps a tool part only in the state `output-available` or `output-error`. `convertToModelMessages` would otherwise emit a `tool-call` with no result, which an OpenAI-compatible endpoint refuses. One such part poisons every later turn of the conversation.
+
+A retry appends no second copy. The route deletes the two rows of the trailing turn by id, inside the same transaction that writes the new pair.
+
 ## Enums
 
-Postgres holds exactly two enum types.
+Postgres holds exactly three enum types.
 
 ### `BankConnectionStatus`
 
@@ -417,6 +465,15 @@ The interface renders "Reconnect to resume importing" for any status other than 
 | `UNKNOWN` | The bank provider reported no kind, or a kind with no mapping | no |
 
 The "Holdings?" column is `isInvestmentAccountType` in `packages/api/src/providers/types.ts`. Sync calls `fetchHoldings` only for a `yes` row.
+
+### `ConversationRole`
+
+`ConversationMessage.role` uses it. It has no default.
+
+| Value       | Meaning                |
+| ----------- | ---------------------- |
+| `USER`      | The reader's question  |
+| `ASSISTANT` | The assistant's answer |
 
 ### One dropped enum
 
@@ -462,17 +519,18 @@ Two limits follow from that design, and both are real today.
 
 ## Ownership and deletion
 
-Nine models carry their own `userId` column with a foreign key to `user` and `ON DELETE CASCADE`:
+Ten models carry their own `userId` column with a foreign key to `user` and `ON DELETE CASCADE`:
 
-`Session`, `Account`, `TwoFactor`, `Passkey`, `BankConnection`, `BankProviderUser`, `MerchantOverride`, `CustomCategory`, `BudgetLine`.
+`Session`, `Account`, `TwoFactor`, `Passkey`, `BankConnection`, `BankProviderUser`, `MerchantOverride`, `CustomCategory`, `BudgetLine`, `Conversation`.
 
-Three models have no user column and inherit ownership through a relation:
+Four models have no user column and inherit ownership through a relation:
 
-| Model         | Path to the user                            |
-| ------------- | ------------------------------------------- |
-| `BankAccount` | `BankConnection.userId`                     |
-| `Transaction` | `BankAccount`, then `BankConnection.userId` |
-| `Holding`     | `BankAccount`, then `BankConnection.userId` |
+| Model                 | Path to the user                            |
+| --------------------- | ------------------------------------------- |
+| `BankAccount`         | `BankConnection.userId`                     |
+| `Transaction`         | `BankAccount`, then `BankConnection.userId` |
+| `Holding`             | `BankAccount`, then `BankConnection.userId` |
+| `ConversationMessage` | `Conversation.userId`                       |
 
 Two models have no owner at all: `Verification` and `RateLimit`.
 
@@ -509,7 +567,7 @@ There is no onboarding model. Two nullable columns on `User` hold the whole stat
 
 ## Migrations
 
-Six migration directories exist under `packages/db/prisma/migrations`, oldest first.
+Seven migration directories exist under `packages/db/prisma/migrations`, oldest first.
 
 | Directory | What it does |
 | --- | --- |
@@ -519,6 +577,7 @@ Six migration directories exist under `packages/db/prisma/migrations`, oldest fi
 | `20260904090000_auth_second_factors_and_rate_limit` | Adds `user.twoFactorEnabled`, then creates `two_factor`, `rate_limit` and `passkey` with their indexes and foreign keys. |
 | `20260904120000_derive_budget_line_kind` | Drops `budget_line.kind` and the type `BudgetLineKind`, swaps the index, and makes `budget_line.label` nullable. |
 | `20260904154129_bank_provider_abstraction` | Creates the enum `BankAccountType`, adds `bank_account.type`, `currency`, `balanceMinor` and `balanceAt`, then creates `bank_provider_user` and `holding`. Backfills nothing: Enable Banking reports no account kind, so every existing row reads `UNKNOWN`. |
+| `20260904193133_assistant_conversations` | Creates the enum `ConversationRole`, then the tables `conversation` and `conversation_message` with the index on `("userId", "archivedAt")`, the unique index on `("conversationId", "ordinal")` and both cascade foreign keys. |
 
 ### Commands
 

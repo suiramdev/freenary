@@ -91,6 +91,8 @@ Each key is the caller address plus the path.
 | everything else under `/api/auth` | 100 per 60 s |
 | the `auth.accountExists` procedure | 20 per 60 s |
 
+The assistant carries its own limit on its chat route. That limit keys on the account, not on the address, because each question costs you money at the model provider. [Assistant](/docs/self-hosting/assistant#the-rate-limit) states the number.
+
 ### Behind a reverse proxy, set `TRUSTED_PROXIES`
 
 Freenary reads the caller address from the `x-forwarded-for` header, and from no other header. With `TRUSTED_PROXIES` set, it walks that chain from right to left and takes the first hop outside your list. That hop is the caller.
@@ -166,6 +168,12 @@ Treat the database and every backup of it as the financial data itself. Encrypt 
 
 </Callout>
 
+### The assistant sends data to the endpoint you configure
+
+With `AI_BASE_URL` and `AI_MODEL` set, a hosted endpoint becomes a second party that holds the money data of your users. It holds that data under its own terms, and in its own jurisdiction.
+
+A model runtime on your own hardware gets the same data and keeps it on the host. Treat the choice between the two as a data-protection decision, and make it before you open the assistant to real users. [Assistant](/docs/self-hosting/assistant#what-leaves-the-instance) lists what each question sends, and what it never sends.
+
 ## Deployment checklist
 
 Tick each line before you open the instance to real users.
@@ -180,7 +188,8 @@ Tick each line before you open the instance to real users.
 - [ ] `EMAIL_PROVIDER` is `resend` or `smtp`, so password reset works.
 - [ ] No `ports:` block publishes the PostgreSQL port, or the mapping binds to `127.0.0.1`.
 - [ ] A TLS reverse proxy fronts both apps, and no application port faces the internet.
-- [ ] The six migrations ran once, with the command on the [maintenance page](/docs/self-hosting/maintenance).
+- [ ] The seven migrations ran once, with the command on the [maintenance page](/docs/self-hosting/maintenance).
+- [ ] You know which endpoint `AI_BASE_URL` names, or you left it unset.
 - [ ] A backup runs on a schedule, and you restored one to check it.
 
 <Cards>

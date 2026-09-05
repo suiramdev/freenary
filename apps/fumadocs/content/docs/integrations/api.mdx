@@ -18,13 +18,14 @@ Every path below is relative to the base URL.
 
 ## Endpoints
 
-The API server mounts four route prefixes and nothing else.
+The API server mounts three route prefixes and two exact paths, and nothing else.
 
 | Route | Handler | What it is for |
 | --- | --- | --- |
 | `GET /` | Inline Elysia handler | Returns the plain text `OK`. Use it as a liveness probe. |
 | `/api/auth/*` | Better Auth `auth.handler` | Sign-up, sign-in, sign-out, session, one-time code, two-factor and passkey routes. |
 | `/rpc*` | `RPCHandler` from `@orpc/server/fetch` | The oRPC transport over the whole router. |
+| `POST /ai/chat` | `handleAssistantChat` from `packages/api` | The answer stream of the assistant. It is not a procedure. Read [The assistant stream](#the-assistant-stream). |
 | `/api-reference*` | `OpenAPIHandler` from `@orpc/openapi/fetch` | The plain-JSON transport, plus the reference page and the OpenAPI document. |
 
 Two details decide what a wrong request gets back:
@@ -53,7 +54,7 @@ Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` when you use the 
 
 <Callout type="warn">
   `/api-reference` is a live API, not only a document. Any holder of a session
-  cookie can call all 30 procedures there, and the reference page has a
+  cookie can call all 32 procedures there, and the reference page has a
   send-request button. Block the prefix at the reverse proxy when you do not
   want it public. Read [Security](/docs/self-hosting/security).
 </Callout>
@@ -137,7 +138,7 @@ A browser client must run on the `CORS_ORIGIN` origin, and it must send credenti
 
 ## Errors
 
-An error body is flat JSON with four fields.
+A procedure error body is flat JSON with four fields. `POST /ai/chat` is the one route that answers otherwise, and [The assistant stream](#the-assistant-stream) gives its bodies.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -160,6 +161,69 @@ On `/api-reference` that object is the whole body. On `/rpc` it sits inside the 
 | `INTERNAL_SERVER_ERROR` | 500 | An unhandled failure, such as a bank provider network error. |
 
 [Procedure reference](/docs/integrations/procedures) names the exact message each procedure throws.
+
+## The assistant stream
+
+The assistant answers questions about the money of the caller. Its answer arrives as a stream of tokens. A unary procedure returns one value and cannot carry a stream, so the assistant posts to a raw route beside the router:
+
+```http
+POST /ai/chat
+```
+
+This route is the single exception on the whole server.
+
+- It is not an oRPC procedure. It has no dot path, and the oRPC client cannot reach it.
+- It is absent from the OpenAPI document and from `/api-reference`. `spec.json` never names it, so no generated client carries it. Write the call by hand.
+- Its failure bodies are plain text, not the JSON of the table above.
+
+What the answer reads still goes through the router. The route holds a server-side oRPC client over the same procedures a caller calls, and each lookup is one of them. [Procedure reference](/docs/integrations/procedures) maps the seven tools to the seven procedures.
+
+### Authentication
+
+The session cookie, and nothing else. The route resolves the session exactly as a protected procedure resolves it: it asks Better Auth for the session behind the request headers. A browser client sends `credentials: "include"`. A script replays the same cookie jar it uses for `/rpc` or `/api-reference`.
+
+### Request body
+
+The body is the UI-message stream request of the AI SDK, plus one Freenary field.
+
+| Field | Type | Required | Note |
+| --- | --- | --- | --- |
+| `messages` | array | no, default `[]` | The transcript the client holds. The route reads the last entry only. |
+| `trigger` | string | no | `submit-message` for a new question. `regenerate-message` redoes the last stored turn. |
+| `messageId` | string | no | With `regenerate-message`, the id of the assistant message to redo. |
+| `locale` | string | no | The language of the answer. Two lower-case letters, then an optional hyphen and two upper-case letters, so `en` or `fr-FR`. Absent means `en`. |
+
+The last entry of `messages` must be a user turn whose `parts` array holds text parts only. One part is `{ "type": "text", "text": "<the question>" }`. Any other part type is a bad request.
+
+### The server owns the history
+
+The route reads the last posted message and nothing else. It rebuilds every earlier turn from the stored conversation of the caller. A caller therefore cannot forge an assistant turn to steer the next answer: the schema accepts the earlier entries unexamined, and then the route drops them.
+
+Two consequences for a client:
+
+- A single user message is a complete request. You do not need to post a transcript at all.
+- You cannot seed context, replay an edited answer or add a rule through the body.
+
+### The response
+
+Success is HTTP 200 and a UI message stream of the AI SDK. The stream carries text tokens and one part per lookup the answer runs. [The assistant](/docs/guides/assistant) describes what a reader sees in it.
+
+The route stores the turn when the answer finishes. A stream the caller aborts leaves nothing behind.
+
+### Failures
+
+A failure body is a bare machine code in plain text. There is no JSON, no `code` field and no message.
+
+| Status | Body | Cause |
+| --- | --- | --- |
+| 401 | `unauthorized` | No session cookie. |
+| 503 | `unconfigured` | The instance has no model. |
+| 429 | `rate_limited` | The caller went over the question cap. |
+| 400 | `bad_request` | The body is not JSON, or it fails the schema, or the last message is not a text-only user turn, or the question is over the length cap. |
+
+The route tests those four causes in that order. A caller with no session therefore reads `unauthorized` on an instance with no model too.
+
+Read [The assistant](/docs/self-hosting/assistant) for the variables that give an instance a model, and for the question cap.
 
 ## Limits
 
@@ -190,7 +254,7 @@ Every other credential path keeps a much tighter cap, which Freenary never raise
 | The nine one-time-code paths: the seven under `/api/auth/email-otp/`, plus `/api/auth/sign-in/email-otp` and `/api/auth/forget-password/email-otp` | 3 per 60 seconds | The one-time-code plugin, which loads only with an email provider |
 | Any other `/api/auth/*` path, such as `/api/auth/get-session` | 100 per 60 seconds | The residual default |
 
-That limiter never covers `/rpc*` or `/api-reference*`. One procedure caps itself: `auth.accountExists` accepts 20 calls per 60 seconds per caller, and then throws `TOO_MANY_REQUESTS`. The other 29 procedures have no cap.
+That limiter never covers `/rpc*`, `/api-reference*` or `/ai/chat`. Two surfaces cap themselves. `auth.accountExists` accepts 20 calls per 60 seconds per caller, and then throws `TOO_MANY_REQUESTS`. `POST /ai/chat` caps the questions of one account and then answers `rate_limited`. The other 31 procedures have no cap.
 
 <Callout type="warn">
   Three procedures cost real work and have no cap: `budget.syncAccounts` calls
@@ -230,7 +294,7 @@ Open it with a browser at `http://localhost:3000/api-reference`, or read the raw
 curl http://localhost:3000/api-reference/spec.json
 ```
 
-The document declares no security scheme and no tags, and it needs no session cookie. It therefore does not tell you which procedures need a session. [Procedure reference](/docs/integrations/procedures) does.
+The document declares no security scheme and no tags, and it needs no session cookie. It therefore does not tell you which procedures need a session. [Procedure reference](/docs/integrations/procedures) does. The document also omits `POST /ai/chat`, because that route is not a procedure.
 
 ## Client libraries
 
@@ -262,7 +326,7 @@ The web app adds one thing to that link: a per-call context that carries a `cook
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="All 30 procedures, their inputs, outputs and errors."
+    description="All 32 procedures, their inputs, outputs and errors."
   />
   <Card
     title="MCP and AI tools"

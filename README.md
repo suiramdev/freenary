@@ -1,8 +1,8 @@
 # Freenary
 
-Freenary is an open-source personal finance and wealth-management platform that you host yourself. It connects your banks, imports your accounts and transactions, categorises them, and shows you where your money goes. Your financial data stays in your own PostgreSQL database.
+Freenary is an open-source personal finance and wealth-management platform that you host yourself. It connects your banks, imports your accounts and transactions, categorises them, and shows you where your money goes. Your financial data stays in your own PostgreSQL database, with one exception: each question you ask the assistant sends financial data to the model endpoint the operator configured. See [Assistant](apps/fumadocs/content/docs/self-hosting/assistant.mdx).
 
-Freenary is under active development. The Budget area works end to end. Four areas — Portfolio, Analysis, Goals and AI — appear in the sidebar with a **Planned** badge and hold no data yet.
+Freenary is under active development. The Budget area works end to end. Three areas — Portfolio, Analysis and Goals — appear in the sidebar with a **Planned** badge and hold no data yet.
 
 ## The problem it solves
 
@@ -21,10 +21,11 @@ Freenary puts the accounts, the transactions and the categories in one place tha
 | Categorise transactions with deterministic rules and a merchant dictionary | Built | [Categorisation](apps/fumadocs/content/docs/development/categorisation.mdx) |
 | Budget: periods, cash flow, spending breakdown, fixed against variable, budget against actual, transaction list | Built | [Budget](apps/fumadocs/content/docs/guides/budget.mdx) |
 | Budgeting profile and custom categories | Built | [Categories and budget lines](apps/fumadocs/content/docs/guides/categories.mdx) |
+| Assistant on Home: ask about your money and read an answer from your own data, when the operator configures a model | Built | [Assistant](apps/fumadocs/content/docs/guides/assistant.mdx) |
 | Sign in with a password, an emailed one-time code, a passkey, Google, Apple or single sign-on, plus two-factor authentication | Built | [Signing in](apps/fumadocs/content/docs/guides/signing-in.mdx) |
 | English and French interface, light and dark appearance | Built | [Language and appearance](apps/fumadocs/content/docs/guides/interface.mdx) |
 | Programmatic access over RPC and OpenAPI | Built | [API](apps/fumadocs/content/docs/integrations/api.mdx) |
-| Portfolio, Analysis, Goals, AI | Planned | [Introduction](apps/fumadocs/content/docs/index.mdx) |
+| Portfolio, Analysis, Goals | Planned | [Introduction](apps/fumadocs/content/docs/index.mdx) |
 
 Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](apps/fumadocs/content/docs/integrations/mcp.mdx) for the API path that replaces it.
 

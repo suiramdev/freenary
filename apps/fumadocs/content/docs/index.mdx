@@ -4,7 +4,7 @@ description: What Freenary is, what it does today, and where to go next.
 icon: Rocket
 ---
 
-Freenary is an open-source platform for personal finance and wealth management. You host your own instance, and the financial data stays in your own database. Freenary reads your bank data, imports the transactions, and sorts them into categories. The Budget area then shows where the money goes.
+Freenary is an open-source platform for personal finance and wealth management. You host your own instance, and the financial data stays in your own database, with one exception that [How it works](#how-it-works) states. Freenary reads your bank data, imports the transactions, and sorts them into categories. The Budget area then shows where the money goes.
 
 ## The problem it solves
 
@@ -29,6 +29,7 @@ Every row below exists in the code today.
 | Budget area | Period navigator, income and expense figures, cash-flow chart, category breakdown, fixed against variable, budget against actual, and a transaction list with search and filters. | [Budget](/docs/guides/budget) |
 | Budgeting profile | Declare one planned monthly amount per category. | [Settings](/docs/guides/settings) |
 | Custom categories | Add your own categories under one of the fixed groups. | [Categories](/docs/guides/categories) |
+| Assistant | Ask a question about your money on Home, and read an answer from your own data. The operator must configure a model. | [Assistant](/docs/guides/assistant) |
 | Account protection | Two-factor codes from an app, backup codes, passkeys, and a list of your sessions. | [Settings](/docs/guides/settings) |
 | Language | English and French. Each user picks one. | [Interface](/docs/guides/interface) |
 | Appearance | Light, dark, or follow the system. | [Interface](/docs/guides/interface) |
@@ -37,11 +38,11 @@ The operator turns each sign-in method on. The bank provider decides which data 
 
 ## Planned areas
 
-The sidebar lists four more areas. Each one renders a placeholder screen with a title and one line of text. The sidebar dims the four rows and adds a "Planned" badge to each one. Each title reads `{page} is planned`.
+The sidebar lists three more areas. Each one renders a placeholder screen with a title and one line of text. The sidebar dims the three rows and adds a "Planned" badge to each one. Each title reads `{page} is planned`.
 
 <Callout type="info">
 
-Portfolio, Analysis, Goals and AI are not built. The four screens hold no data and no controls.
+Portfolio, Analysis and Goals are not built. The three screens hold no data and no controls.
 
 </Callout>
 
@@ -50,7 +51,6 @@ Portfolio, Analysis, Goals and AI are not built. The four screens hold no data a
 | Portfolio | "Track your holdings, accounts and net worth across all your connections — coming soon." |
 | Analysis | "Evaluate whether your financial setup is healthy and efficient — coming soon." |
 | Goals | "Define financial objectives, track progress and plan contributions — coming soon." |
-| AI | "AI-assisted financial insights that reason across your entire financial model — coming soon." |
 
 ## Who Freenary is for
 
@@ -81,7 +81,7 @@ Portfolio, Analysis, Goals and AI are not built. The four screens hold no data a
 
 One instance runs three parts. The web app renders each screen on the server first, then in the browser. The API server answers the web app over HTTP, and it holds all the business rules. PostgreSQL keeps every row, from users and bank connections to transactions, holdings and budget lines.
 
-The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs, so your transactions do not leave the instance.
+The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs. The assistant is the one exception: every question sends financial data to the model endpoint that the operator configured. The [assistant setup](/docs/self-hosting/assistant) page lists what leaves the instance.
 
 The web app asks the API server who you are before it sends the first response. A signed-in visitor therefore lands on Home, and a signed-out visitor lands on the sign-in form, with no intermediate screen.
 

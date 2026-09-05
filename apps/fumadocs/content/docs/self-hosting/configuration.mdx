@@ -148,6 +148,18 @@ One bank provider supplies bank accounts and transactions. [Bank providers](/doc
 
 Powens needs all three of its variables. Enable Banking needs both of its variables. With an incomplete set, Freenary reports no bank provider and hides the bank step.
 
+## Assistant
+
+The assistant on the Home screen calls one OpenAI-compatible endpoint. [Assistant](/docs/self-hosting/assistant) covers the endpoint choices, the tool-calling requirement, the rate limit and what each question sends out of the instance.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `AI_BASE_URL` | URL | unset | The base URL of the chat-completions endpoint, version path included, for example `https://openrouter.ai/api/v1`. |
+| `AI_API_KEY` | string | unset | The key for that endpoint. Unset is valid, because a local runtime needs none. |
+| `AI_MODEL` | string | unset | The model id as the endpoint names it, for example `anthropic/claude-3.5-sonnet`. |
+
+`AI_BASE_URL` and `AI_MODEL` must both hold a value. With either one unset, the Home screen reports that the assistant is not configured, and it offers no text box.
+
 ## Categorisation
 
 | Variable | Type or values | Default | Effect |
@@ -189,12 +201,14 @@ These five variables belong to the development stack. `scripts/dev.ts` injects `
 
 ## Documentation website
 
-The documentation website runs its own chat route. Both variables are read straight from `process.env`.
+The documentation website runs its own chat route, the **Ask AI** panel of this site. Both variables are read straight from `process.env`.
 
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
 | `OPENROUTER_API_KEY` | string | unset | The OpenRouter key the documentation chat route uses. |
 | `OPENROUTER_MODEL` | string | `anthropic/claude-3.5-sonnet` | The model the documentation chat route asks for. |
+
+These two variables belong to this documentation site alone. They configure no part of a Freenary instance, and the product assistant reads neither of them. Use the `AI_*` variables above for that.
 
 ## Build only
 

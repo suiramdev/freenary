@@ -1,0 +1,176 @@
+---
+title: The assistant
+description: Home answers questions about your money. The suggestions, the lookup rows, the mark, one conversation, and what the assistant cannot do.
+icon: Sparkles
+---
+
+Home is the assistant. Ask it about your accounts, your spending or your budget. It answers from the data your bank already sent to Freenary. This page walks the screen from top to bottom.
+
+**Before you start:** connect a bank. The assistant reads the data Freenary imported, and nothing else. See [Bank connections](/docs/guides/bank-connections).
+
+## What Home shows first
+
+An empty conversation shows four things:
+
+1. The mark, the ring in three colours.
+2. The heading **Welcome back, _your name_**.
+3. One line of instruction: Ask anything about your accounts, spending or budget.
+4. Three suggestion chips.
+
+The three chips read:
+
+- How much did I spend on eating out this year?
+- Where did my money go last month?
+- Which subscriptions am I paying for?
+
+Press a chip to send that question. You do not have to type it.
+
+## Ask a question
+
+The composer sits under the conversation.
+
+| Element | What it does |
+| --- | --- |
+| The text box | Holds your question. Empty, it reads **Ask about your money…** |
+| **Send** | Sends the question |
+| **Stop** | Takes the place of **Send** while the answer arrives. It ends the answer |
+| **New conversation** | Sets the conversation aside and opens an empty one |
+
+Freenary prints one line under the composer: Answers come from your own data. Information and arithmetic, not financial advice. Read the assistant that way. It counts, it compares, and it quotes your own figures. It never tells you what to buy or what to sell.
+
+Freenary refuses a question longer than 8000 characters.
+
+## The lookup rows
+
+The assistant cannot read your money in one step. It asks your data a question, reads the result, and asks again if it needs more. Each of these questions is a **lookup**.
+
+Every lookup draws one row above the answer. A row names the lookup in your language and carries a state label. Open a row to read more.
+
+| State | What it means |
+| --- | --- |
+| **Preparing** | The assistant wrote the lookup, and it did not run yet |
+| **Running** | The lookup runs now |
+| **Done** | The lookup returned. The row adds the line **Answered from your data.** |
+| **Failed** | The lookup did not return. The row shows **Error** and the error text |
+
+A row never shows raw output. It shows the plain-language name and the state only.
+
+Seven lookups exist, and each one asks your data the same question a screen asks:
+
+| Lookup | What it reads |
+| --- | --- |
+| **Checking your accounts** | Which banks are connected, and the period your transactions cover |
+| **Reading your spending by category** | Outgoing totals per category group, over a period |
+| **Reading your cash flow** | Money in and money out over time |
+| **Splitting fixed and variable spending** | Which part of your outgoings repeats, and which part does not |
+| **Comparing your plan with what you spent** | Your budgeting profile against the real figures |
+| **Looking for recurring payments** | Repeating payments over the last year, with their rhythm, their usual amount and the next date |
+| **Searching your transactions** | Single transactions in a period, by text, category or direction |
+
+A lookup that Freenary does not recognise reads **Reading your data**.
+
+<Callout type="info">
+
+The rows make an answer traceable. You see every question the assistant put to your own data, in order, before you read the figures. Those figures come from the same code that draws the charts on [Budget](/docs/guides/budget), so a number in the answer and the same number on a chart agree.
+
+</Callout>
+
+## The mark
+
+The mark stands beside each answer, and it wears the state of the work. It is the same ring that greets you on the sign-in screen. See [Language and appearance](/docs/guides/interface#the-mark).
+
+| What the mark does | When                                                |
+| ------------------ | --------------------------------------------------- |
+| It looks curious   | The text box has focus, or holds your text          |
+| It thinks          | Freenary sent your question, or a lookup runs       |
+| It speaks          | The text of the answer arrives                      |
+| It beams           | The answer landed. The mark holds this for a moment |
+| It shows an error  | The answer failed                                   |
+| It rests           | Nothing happens                                     |
+
+Only the newest answer's mark moves. The mark on an older answer holds one still frame, and plays no animation.
+
+A question that needs several lookups comes back to the thinking state between them, so a long answer never looks finished while the assistant still reads.
+
+## One conversation
+
+You hold one conversation at a time. Freenary stores it on the server, not in your browser, so it survives a reload and a move to another screen. A short skeleton appears first, and a screen reader hears **Loading your conversation**.
+
+| Control | What it does |
+| --- | --- |
+| **New conversation** | Sets the current conversation aside and opens an empty one. Freenary deletes nothing |
+| **Stop** | Ends the answer and throws it away. The server keeps no part of it, so a reload shows no trace |
+| **Retry** | Asks the question again and replaces the last answer. Freenary adds no second copy |
+| **Copy** | Copies one answer to your clipboard |
+
+**Retry** appears on the newest answer only, and only when no answer arrives at that moment. **Copy** appears on every answer that holds text. A failed answer is not stored either, so a reload clears it.
+
+Scroll up in a long conversation, and a button appears: **Scroll to the latest message**. Press it to come back to the foot.
+
+## The language of an answer
+
+The assistant answers in your interface language. It names your categories and your category groups in that language too. Amounts arrive in the same format as the rest of the interface, in euros, unless a lookup reports another currency. See [Language and appearance](/docs/guides/interface).
+
+## What an answer never guesses
+
+An answer holds only the figures the lookups returned.
+
+- Ask about a period your data does not cover, and the assistant tells you so. It gives no estimate for the months your bank did not send.
+- Ask before you connect a bank, and the assistant tells you that too. It points you at the bank settings.
+
+## What the assistant cannot do
+
+<Callout type="info">
+
+The assistant reads your data. It changes nothing.
+
+- It cannot correct the category of a transaction. You do that on [Budget](/docs/guides/budget#correct-a-category).
+- It cannot start a sync.
+- It cannot add a transaction, an account or a budget line.
+- It cannot move money.
+- It draws no charts of its own.
+- It says nothing until you ask.
+
+</Callout>
+
+## When an answer fails
+
+An error takes the place of the answer, with a **Retry** button beside it.
+
+| Message | What happened |
+| --- | --- |
+| Too many questions in a row. Wait a moment and try again. | You asked too many questions in a short period |
+| This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on. | Your operator switched the model off while you held the screen open. See [When your instance has no model](#when-your-instance-has-no-model) |
+| The assistant could not answer. Try again. | Anything else |
+
+Freenary accepts a limited number of questions from one account in a short period. Wait a moment, then press **Retry**. [The assistant](/docs/self-hosting/assistant) holds the exact number, and the reason for it.
+
+## When your instance has no model
+
+Your operator switches the assistant on. Until then, Home shows one empty state with a plug icon, the title **The assistant is not configured**, and this message on the screen, word for word:
+
+> This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.
+
+The screen holds no text box, so you cannot ask anything. Send your operator to [The assistant](/docs/self-hosting/assistant).
+
+## What leaves your instance
+
+Freenary sends your question and the result of every lookup to the model your operator chose, and it never sends an IBAN. [The assistant](/docs/self-hosting/assistant) lists exactly what goes out and what stays.
+
+<Cards>
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="The charts and the transaction list behind every figure the assistant quotes."
+  />
+  <Card
+    title="Language and appearance"
+    href="/docs/guides/interface"
+    description="The language of an answer, and the mark that reacts to you."
+  />
+  <Card
+    title="First steps"
+    href="/docs/guides/first-steps"
+    description="From a new account to a Home screen with real data behind it."
+  />
+</Cards>

@@ -14,7 +14,7 @@ Freenary is source code plus two production Dockerfiles and one Docker Compose f
 | --- | --- |
 | The web app, the API server and a PostgreSQL service, as one Docker Compose stack | A Linux host with Docker |
 | Two production Dockerfiles that build both apps from source | A public domain and TLS termination |
-| Six database migrations that create the whole schema | The command that applies them |
+| Seven database migrations that create the whole schema | The command that applies them |
 | A merchant dictionary, built into the API server image | An account at a bank provider, for bank data |
 | Password sign-in, passkeys, and three optional sign-in providers | An email provider, for one-time codes |
 
@@ -61,19 +61,21 @@ The stack applies no database migrations. A fresh stack starts an API server aga
 
 ## What Freenary needs from outside
 
-Two external accounts, and nothing else. Freenary calls no other third party at runtime.
+Three external services at most. Two of them carry data, and one answers questions. For your financial data, Freenary calls no other third party at runtime. Other calls do leave the server, and none of them carries financial data: the password breach check reaches Have I Been Pwned even with none of the three set, and a sign-in provider you turn on adds its own calls. See [Security](/docs/self-hosting/security#passwords) and [Sign-in methods](/docs/self-hosting/authentication).
 
-| Account | What it gives | Page |
+| Service | What it gives | Page |
 | --- | --- | --- |
 | A bank provider, Powens or Enable Banking | Bank connections, bank accounts and transactions | [Bank providers](/docs/self-hosting/bank-providers) |
 | An email provider, Resend or SMTP | Delivery of the emailed one-time codes | [Email](/docs/self-hosting/email) |
+| An OpenAI-compatible model endpoint | Answers from the assistant on the Home screen. A runtime on your own hardware also counts, and it keeps the data on the host | [Assistant](/docs/self-hosting/assistant) |
 
-An instance runs with neither account. The parts that need them then stop:
+An instance runs with none of the three. The parts that need one then stop:
 
-| Missing account | What stops |
+| Missing service | What stops |
 | --- | --- |
 | No bank provider | A user cannot open a bank connection. Onboarding skips the bank step. Every screen that reads transactions stays empty. |
 | No email provider | The web app hides the **Forgot password?** link. Password reset does not work. Email verification does not work. A new user signs up with an email address and a password, and gets a session at once. |
+| No model endpoint | The Home screen reports that the assistant is not configured, and it offers no text box. Every other screen works. |
 
 The value `EMAIL_PROVIDER=log` prints one-time codes to the server log. The API server refuses that value when `NODE_ENV=production`, so it is not a production option.
 
@@ -108,6 +110,12 @@ Password sign-in and passkeys always work. Google, Apple and one OpenID Connect 
   title="Bank providers"
   href="/docs/self-hosting/bank-providers"
   description="Set up Powens or Enable Banking so users can connect a bank."
+/>
+
+<Card
+  title="Assistant"
+  href="/docs/self-hosting/assistant"
+  description="Point the assistant at a model endpoint, and read what leaves the instance."
 />
 
 </Cards>

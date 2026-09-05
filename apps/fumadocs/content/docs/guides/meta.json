@@ -3,6 +3,7 @@
   "icon": "Compass",
   "pages": [
     "index",
+    "assistant",
     "signing-in",
     "first-steps",
     "bank-connections",

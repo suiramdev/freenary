@@ -147,7 +147,7 @@ Ultracite wraps two tools: Oxlint for the lint rules and Oxfmt for the format ru
 
 | File | What it sets |
 | --- | --- |
-| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Adds a local plugin, `anti-slop`, with 15 rules at `error`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Adds a local plugin, `anti-slop`, with 15 rules at `error`. Ignores three generated trees: `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
 | `oxfmt.config.ts` | Spreads the Ultracite config. It does not ignore `packages/ui/**`, so Oxfmt formats that package but Oxlint does not lint it. |
 
 `lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:

@@ -106,7 +106,7 @@ An update has two halves, and only one of them rolls back.
 | The two container images | Yes. Check out the old commit and rebuild. |
 | The database schema and data | No. The repository ships no reverse migration. |
 
-Prisma applies migrations forward only. A migration can also rewrite rows: one of the six shipped migrations remaps every category value, and another drops a column. After such a migration, the old code meets a schema it does not expect.
+Prisma applies migrations forward only. A migration can also rewrite rows: one of the seven shipped migrations remaps every category value, and another drops a column. After such a migration, the old code meets a schema it does not expect.
 
 So the database dump is the only safe path back. Do these four steps in order.
 

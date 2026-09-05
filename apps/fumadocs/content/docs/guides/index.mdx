@@ -10,27 +10,27 @@ Freenary imports your bank data and shows you where your money goes. This page n
 
 - Create an account, and protect it with a second factor or a passkey.
 - Connect a bank, and import bank accounts, balances and transactions.
+- Ask the assistant on Home about your accounts, your spending and your budget.
 - Read the Budget screen, and correct the category of a transaction.
 - Declare a monthly plan, and add your own categories.
 - Choose a language and an appearance.
 
 ## The sidebar
 
-The sidebar lists seven areas. Three of them work. Four of them open a placeholder screen.
+The sidebar lists six areas. Three of them work. Three of them open a placeholder screen.
 
 | Area | Address | State | Guide |
 | --- | --- | --- | --- |
-| Home | `/` | Built. It shows one welcome line and nothing else. | [First steps](/docs/guides/first-steps) |
+| Home | `/` | Built. It holds the assistant. | [The assistant](/docs/guides/assistant) |
 | Portfolio | `/portfolio` | Planned | — |
 | Budget | `/budget` | Built | [Budget](/docs/guides/budget) |
 | Analysis | `/analysis` | Planned | — |
 | Goals | `/goals` | Planned | — |
-| AI | `/ai` | Planned | — |
 | Settings | `/settings` | Built | [Settings](/docs/guides/settings) |
 
 <Callout type="info">
 
-Freenary marks Portfolio, Analysis, Goals and AI with a **Planned** badge in the sidebar, and dims their labels. Each one opens a single placeholder screen with a title and one line of text. These four areas hold no data. You cannot enter data into them, and no other screen reads from them.
+Freenary marks Portfolio, Analysis and Goals with a **Planned** badge in the sidebar, and dims their labels. Each one opens a single placeholder screen with a title and one line of text. These three areas hold no data. You cannot enter data into them, and no other screen reads from them.
 
 </Callout>
 
@@ -45,17 +45,23 @@ Two limits apply to every screen.
 
 ## Where the operator decides
 
-An operator runs the Freenary instance you sign in to. Three of their choices change what you see:
+An operator runs the Freenary instance you sign in to. Four of their choices change what you see:
 
 - The bank provider. With no bank provider, the bank list stays empty. See [Bank connections](/docs/guides/bank-connections).
 - The email delivery settings. With no email delivery, Freenary sends no one-time code. See [Signing in](/docs/guides/signing-in).
 - The sign-in providers. Freenary hides a button for a provider the operator left unset.
+- The model behind the assistant. With no model, Home says so and offers no text box. See [The assistant](/docs/guides/assistant).
 
 <Cards>
   <Card
     title="Signing in"
     href="/docs/guides/signing-in"
     description="Every way into your account, and what to do when one fails."
+  />
+  <Card
+    title="The assistant"
+    href="/docs/guides/assistant"
+    description="Ask Home about your money, and read where each figure came from."
   />
   <Card
     title="First steps"
