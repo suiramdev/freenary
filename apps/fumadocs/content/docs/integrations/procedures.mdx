@@ -115,7 +115,7 @@ A tool input is narrower than the input of the procedure behind it:
 - `search_transactions` caps `limit` at 20 against the 100 of the procedure, and it defaults to 10. It sorts by `date` or `amount`. It takes category and group slugs as enums, so the model cannot invent a slug.
 - No tool takes a `cursor`, so an answer reads one page.
 
-One tool also narrows its output. `get_accounts_overview` returns the account id, the account name and the institution name, and it drops the `iban` field that `budget.getAccounts` carries for the web app.
+A tool output is not the procedure output either. Every money amount leaves a tool as a decimal string beside a `currency` field, for example `"120.00"` for `12000` minor units: a model told to divide by 100 does it for some rows of a list and not for others. `get_recurring_expenses` renames `typicalAmountMinor` to `typicalAmount` for that reason. `get_accounts_overview` returns the account id, the account name and the institution name, and it drops the `iban` field that `budget.getAccounts` carries for the web app.
 
 ## `auth`
 
@@ -158,6 +158,22 @@ One tool also narrows its output. `get_accounts_overview` returns the account id
 | `passkey` | boolean | `true`, always. |
 | `sessionCookieShared` | boolean | `true` when the API server and the web app share the session cookie: the same hostname, or a declared `AUTH_COOKIE_DOMAIN`. `false` means the web app cannot resolve the visitor while it renders. |
 | `trustedDeviceDays` | number | `30` |
+
+**Errors**: None.
+
+### auth.viewer
+
+`auth.viewer` — **public**. Tells you who is asking. A caller with no session is a `guest` answer rather than a `401`, which is what lets the web app resolve the visitor while it renders a page, and what lets the sign-in screen confirm the browser kept the session cookie.
+
+**Input**: None.
+
+**Output**
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `kind` | `"guest"` or `"member"` | `member` when the request carries a session. |
+| `onboarded` | boolean | Only on a `member` answer. `true` once the caller finished the first-run flow. |
+| `sessionCookieShared` | boolean | The same value `auth.capabilities` reports. On a `guest` answer with `false`, the caller cannot tell a guest from a session it never receives. |
 
 **Errors**: None.
 

@@ -24,6 +24,15 @@ const rangeOf = (from: string, to: string) => ({
 });
 
 /**
+ * Minor units to a decimal string. A model asked to divide by 100 itself does it
+ * for some rows of a list and not others, presenting a €120 budget as €12,000;
+ * a string, not a number, because that is a figure to repeat, not to compute
+ * with, and JSON floats reintroduce the rounding this model stores integers to
+ * avoid.
+ */
+const major = (minor: number): string => (minor / 100).toFixed(2);
+
+/**
  * Every tool the assistant may call. The factory below is checked against this,
  * so a tool cannot be added without naming it — and the interface's label table
  * is checked against it too, so a new tool cannot ship untranslated.
@@ -44,6 +53,9 @@ const ASSISTANT_TOOL_NAMES = {
  * Read-only tools over the financial model. Each one calls the very procedure
  * the interface calls, through a server-side router client, so an answer here
  * and a chart in Budget cannot disagree.
+ *
+ * Amounts leave as decimal strings beside their currency: the procedures answer
+ * the interface, which knows they are minor units, and the model does not.
  */
 export const assistantTools = (api: AppRouterClient) =>
   ({
@@ -71,54 +83,101 @@ export const assistantTools = (api: AppRouterClient) =>
     get_budget_vs_actual: tool({
       description:
         "Compare the user's declared monthly budget with what they actually spent, per category group.",
-      execute: ({ aggregation: mode, from, to }) =>
-        api.budget.getBudgetVsActual({
+      execute: async ({ aggregation: mode, from, to }) => {
+        const { groups, hasPlan } = await api.budget.getBudgetVsActual({
           aggregation: mode,
           ...rangeOf(from, to),
-        }),
+        });
+
+        return {
+          currency: "EUR",
+          groups: groups.map(({ actual, group, planned }) => ({
+            actual: major(actual),
+            group,
+            planned: major(planned),
+          })),
+          hasPlan,
+        };
+      },
       inputSchema: z.object({ aggregation, ...period }),
     }),
 
     get_cash_flow: tool({
       description:
         "Incoming and outgoing totals over time for a period, bucketed by day, week or month depending on its length.",
-      execute: ({ from, to }) => api.budget.getCashFlow(rangeOf(from, to)),
+      execute: async ({ from, to }) => {
+        const { periods } = await api.budget.getCashFlow(rangeOf(from, to));
+
+        return {
+          currency: "EUR",
+          periods: periods.map(({ incoming, label, outgoing }) => ({
+            incoming: major(incoming),
+            label,
+            outgoing: major(outgoing),
+          })),
+        };
+      },
       inputSchema: z.object(period),
     }),
 
     get_fixed_vs_variable: tool({
       description:
         "Split outgoings into the part that recurs (rent, subscriptions, insurance) and the part that does not.",
-      execute: ({ aggregation: mode, from, to }) =>
-        api.budget.getFixedVsVariable({
+      execute: async ({ aggregation: mode, from, to }) => {
+        const { fixed, variable } = await api.budget.getFixedVsVariable({
           aggregation: mode,
           ...rangeOf(from, to),
-        }),
+        });
+
+        return {
+          currency: "EUR",
+          fixed: major(fixed),
+          variable: major(variable),
+        };
+      },
       inputSchema: z.object({ aggregation, ...period }),
     }),
 
     get_recurring_expenses: tool({
       description:
         "Recurring payments detected over the trailing year, with their cadence, typical amount and next expected date.",
-      execute: () => api.budget.getRecurringExpenses(),
+      execute: async () => {
+        const { expenses } = await api.budget.getRecurringExpenses();
+
+        return {
+          expenses: expenses.map(({ typicalAmountMinor, ...rest }) => ({
+            ...rest,
+            typicalAmount: major(typicalAmountMinor),
+          })),
+        };
+      },
       inputSchema: z.object({}),
     }),
 
     get_spending_by_group: tool({
       description:
         "Outgoing totals per category group for a period. The cheapest way to answer 'where did my money go'.",
-      execute: ({ aggregation: mode, from, to }) =>
-        api.budget.getSpendingBreakdown({
+      execute: async ({ aggregation: mode, from, to }) => {
+        const { groups } = await api.budget.getSpendingBreakdown({
           aggregation: mode,
           ...rangeOf(from, to),
-        }),
+        });
+
+        return {
+          currency: "EUR",
+          groups: groups.map(({ amount, group }) => ({
+            group,
+            total: major(amount),
+          })),
+        };
+      },
       inputSchema: z.object({ aggregation, ...period }),
     }),
 
     search_transactions: tool({
       description:
         "Individual transactions in a period, optionally filtered by free text, category, category group or direction. Returns ids so an answer can point at the rows behind it.",
-      execute: ({
+      execute: async ({
         categories,
         direction,
         from,
@@ -127,8 +186,8 @@ export const assistantTools = (api: AppRouterClient) =>
         search,
         sort,
         to,
-      }) =>
-        api.budget.getTransactions({
+      }) => {
+        const { totals, transactions } = await api.budget.getTransactions({
           categories,
           direction,
           groups,
@@ -136,7 +195,20 @@ export const assistantTools = (api: AppRouterClient) =>
           search,
           sort,
           ...rangeOf(from, to),
-        }),
+        });
+
+        return {
+          totals: {
+            currency: "EUR",
+            incoming: major(totals.incoming),
+            outgoing: major(totals.outgoing),
+          },
+          transactions: transactions.map(({ amount, ...rest }) => ({
+            ...rest,
+            amount: major(amount),
+          })),
+        };
+      },
       inputSchema: z.object({
         categories: z.array(z.enum(SPENDING_CATEGORIES)).optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),

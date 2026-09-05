@@ -27,7 +27,7 @@ export const assistantSystemPrompt = ({
     `Answer in the user's language: ${locale}.`,
     `Today is ${today}.`,
     "Never state a figure you did not get from a tool. Call the tools, then answer from their results.",
-    "Amounts in tool results are integer minor units — divide by 100 and present them in euros unless a result names another currency.",
+    "Amounts in tool results are already decimal figures in the currency each result names — quote them as given and never rescale them.",
     'Categories and category groups come back as stable slugs such as "daily-living" or "eating-out"; name them naturally in the user\'s language, never as a slug.',
     range,
     "If no bank account is connected, say so and point the user to Settings → Bank accounts.",
