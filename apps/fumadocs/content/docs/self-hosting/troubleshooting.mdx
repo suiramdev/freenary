@@ -334,11 +334,11 @@ docker compose logs server | grep -i dictionary
 
 Leave the variable unset unless you sign your own dictionary. [Categorisation](/docs/development/categorisation) covers every stage.
 
-## The assistant does not answer
+## The assistant does not use your endpoint
 
-**Symptom.** The Home screen carries no text box. It shows an empty state that reports the assistant is not configured.
+**Symptom.** Home does not answer through your model endpoint. The model button of the composer names a model that runs on the device of the reader, and the model list holds the group **On this device** alone. A reader who chose no model reads **Choose a model** on that button, and the text box stays off.
 
-**Cause.** `AI_BASE_URL` or `AI_MODEL` reached the process empty. [Assistant](/docs/self-hosting/assistant) holds the rule that decides it.
+**Cause.** `AI_BASE_URL` or `AI_MODEL` reached the process empty, so the API server reports no server model and the model list offers the browser models alone. A reader can also have picked a browser model over an endpoint that works; the model button then names it, and the picked model answers. [Assistant](/docs/self-hosting/assistant) holds the rule that decides the default, and [the browser model](/docs/self-hosting/assistant#the-browser-model) describes that mode.
 
 **Fix.** Set both in `apps/server/.env`, then restart the API server.
 
@@ -351,6 +351,8 @@ AI_MODEL=anthropic/claude-3.5-sonnet
 ```bash
 docker compose up -d server
 ```
+
+A reader who already picked a browser model keeps that choice. Tell each reader to press the model button and pick the entry under **On your instance**.
 
 **Check.** Read the two values inside the container:
 

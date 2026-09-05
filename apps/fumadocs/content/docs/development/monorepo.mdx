@@ -76,9 +76,9 @@ A server-rendered page takes a shorter path. The browser requests a route path, 
 
 ## The assistant
 
-The assistant is the one surface that does not answer over oRPC. Every procedure in `packages/api` is unary, and the web client is a plain `RPCLink`, so no procedure can hand back tokens as they arrive. [Architecture decisions](/docs/development/decisions) links ADR-007, which settles that boundary, and ADR-008, which settles how a chart travels inside an answer.
+The assistant is the one surface that does not answer over oRPC. Every procedure in `packages/api` is unary, and the web client is a plain `RPCLink`, so no procedure can hand back tokens as they arrive. The token stream is a raw Elysia route; everything the assistant reads still goes through the procedures, so an answer and a chart cannot disagree.
 
-`packages/api/src/assistant/` holds six files:
+`packages/api/src/assistant/` holds seven files:
 
 <Files>
   <Folder name="packages/api/src/assistant" defaultOpen>
@@ -88,10 +88,11 @@ The assistant is the one surface that does not answer over oRPC. Every procedure
     <File name="tools.ts — the seven read-only tools" />
     <File name="conversation.ts — the transcript store" />
     <File name="handler.ts — one Request to one Response" />
+    <File name="turn.ts — the limits and filters a browser answer shares with the route" />
   </Folder>
 </Files>
 
-`packages/api/src/routers/assistant.ts` holds the two procedures beside them. [Procedure reference](/docs/integrations/procedures) covers those, and [API](/docs/integrations/api#the-assistant-stream) covers the route below.
+`packages/api/src/routers/assistant.ts` holds the three procedures beside them. [Procedure reference](/docs/integrations/procedures) covers those, and [API](/docs/integrations/api#the-assistant-stream) covers the route below.
 
 `apps/server` stays glue. `apps/server/src/index.ts` declares `.post("/ai/chat", …, { parse: "none" })` and calls `handleAssistantChat` from `@freenary/api/assistant/handler`. The route sits after `evlog()` and after the `.derive` that runs `identifyUser`, so it inherits the request's wide event and the identified user. `parse: "none"` keeps Elysia away from the body, for the same reason `/rpc*` sets it.
 
@@ -116,7 +117,7 @@ The prompt is generated with `toolCalls: false` and `bindings: false`. OpenUI La
 
 **The tools call procedures, not Prisma.** `assistantTools` takes a server-side router client, `createRouterClient(appRouter, { context })`, and each tool is a description, a Zod input schema and one procedure call. A second implementation of "outgoing transactions in a period" would agree with the charts on the day somebody wrote it, then drift, so an answer and a chart could disagree. A procedure call also carries the `protectedProcedure` session guard, which a tool therefore cannot forget.
 
-**History is server-authoritative.** The browser posts the whole transcript on every question. The route reads the last message only, which must be a text-only user turn, and rebuilds the model's context from the `conversation_message` rows. A caller cannot put words in the assistant's mouth to steer the next answer.
+**The stream route ignores the posted transcript, and `assistant.saveTurn` is the second writer.** The browser posts the whole transcript on every question. The route reads the last message only, which must be a text-only user turn, and rebuilds the model's context from the `conversation_message` rows. Those rows have two writers: the stream route writes the turn a server model produced, and `assistant.saveTurn` writes the turn the browser posts when a browser model answered, on every instance. The server cannot verify that a browser model wrote a posted turn. It checks the part schema, the size caps and the shared rate limit that [Procedure reference](/docs/integrations/procedures#assistantsaveturn) lists, and nothing more, so a session holder can write any text into the assistant rows of their own conversation, and the next question to the server model replays it. The reach of that is one user's own context at the operator's endpoint; [Security](/docs/self-hosting/security#the-assistant-sends-data-to-the-endpoint-you-configure) records the operator side.
 
 **An answer chains at most six lookup rounds.** `handler.ts` passes `stopWhen: stepCountIs(MAX_STEPS)` with `MAX_STEPS = 6`. After the sixth round the model must conclude from what it already read.
 
@@ -124,13 +125,34 @@ The prompt is generated with `toolCalls: false` and `bindings: false`. OpenUI La
 
 [Data model](/docs/development/data-model#assistant-conversations) holds the two tables and the rules that decide what a turn stores.
 
+### The model picker
+
+`assistant.getConversation` reports `serverModel`: the `AI_MODEL` id when both `AI_BASE_URL` and `AI_MODEL` are set, and `null` otherwise. `assistantModelId()` in `packages/api/src/assistant/provider.ts` computes it, and `handleAssistantChat` answers 503 `unconfigured` for the `null` case. The reader picks the model inside the conversation, between that server model and the `@mlc-ai/web-llm` builds their browser can run, and the web app runs the same loop in the browser for a browser model, on weights it downloads from the Hugging Face CDN and WebGPU executes. `apps/web/src/lib/assistant/model-choice.ts` holds the choice: `SERVER_MODEL`, the `localStorage` key `freenary.assistant.model`, `useRememberedModel`, `rememberModel`, and `resolveModelChoice`, which drops a remembered `server` choice on an instance that lost its endpoint. [Assistant](/docs/self-hosting/assistant#the-browser-model) is the operator view, and [The assistant](/docs/guides/assistant#choose-a-model) is the reader's.
+
+<Files>
+  <Folder name="apps/web/src/lib/assistant/browser" defaultOpen>
+    <File name="models.ts — the catalogue, and browserModels(appConfig, f16, contextWindowSize)" />
+    <File name="tool-protocol.ts — the prompted tool-call protocol, with its test" />
+    <File name="language-model.ts — WebLlmLanguageModel, a LanguageModelV4 over the engine" />
+    <File name="engine.ts — the engine in a Web Worker, and the status store" />
+    <File name="history.ts — fitHistory and the prompt budget, with its test" />
+    <File name="transport.ts — createBrowserChatTransport" />
+  </Folder>
+</Files>
+
+`models.ts` offers only the model families that follow the Hermes and Qwen `<tool_call>` text protocol: twelve entries across Qwen3, Qwen3.5, Qwen2.5, Hermes 3 and Llama 3. Each carries the `vram_required_MB` of its build from WebLLM's prebuilt list plus the KV cache the longer window adds, and the model list sorts them by that figure. An id ends `-q4f16_1-MLC` on a GPU that reports `shader-f16`, and `-q4f32_1-MLC` otherwise. The context window is 8192 tokens against WebLLM's 4096 default; `history.ts` drops the oldest turns of a transcript, as question-and-answer pairs, until the prompt fits it, and an overflow that still happens tells the reader to start a new conversation. Qwen3 loads with `enable_thinking: false`.
+
+`tool-protocol.ts` writes the seven tool signatures into the system prompt as JSON inside a `<tools>` block. The model answers with `<tool_call>{"name","arguments"}</tool_call>`, and each result returns as a user turn that holds `<tool_response>{"name","content"}</tool_response>`. A streaming `ToolCallParser` splits prose, `<think>` reasoning and tool calls. WebLLM carries a native `tools` field, and this code does not use it: that field accepts five Hermes builds only, refuses a system prompt beside the tools, and forces the whole answer through a JSON grammar, so a model could call a tool but never write the sentence after it.
+
+`engine.ts` keeps one `WebWorkerMLCEngine` per page in `worker.ts`, and exports `loadBrowserModel`, `browserModelCatalog`, `useWebGpuSupport` and the `useBrowserModel()` store with its four states `idle`, `loading`, `ready` and `error`. It remembers no model itself: the choice lives in `model-choice.ts`. `transport.ts` is an AI SDK `ChatTransport`: it runs `streamText` with `assistantSystemPrompt`, `assistantTools(client)` over the web oRPC client and `stepCountIs(MAX_STEPS)`, then writes the finished turn through `client.assistant.saveTurn`. `turn.ts` holds the rules both paths share, so a browser answer stores exactly what a server answer stores.
+
 ### The interface side
 
 | Path | What it holds |
 | --- | --- |
-| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-trace.tsx`, `assistant-tool-call.tsx`, `assistant-activity.tsx`, `assistant-chart.tsx`, `assistant-ui-library.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx` and `assistant-unavailable.tsx` |
-| `apps/web/src/lib/assistant/` | `execution.ts`, `answer-segments.ts` and `avatar-state.ts`, each with its test; `liveness.ts`, `use-execution-timings.ts`, `format-duration.ts`, `tool-details.ts` and `tool-labels.ts` |
-| `apps/web/src/components/ai-elements/` | The stream primitives from the AI Elements registry: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx`, `tool.tsx`, `chain-of-thought.tsx`, `artifact.tsx`, `code-block.tsx` and `shimmer.tsx` |
+| `apps/web/src/components/assistant/` | The screen: `assistant-chat.tsx`, `assistant-composer.tsx`, `assistant-message.tsx`, `assistant-trace.tsx`, `assistant-tool-call.tsx`, `assistant-activity.tsx`, `assistant-chart.tsx`, `assistant-ui-library.tsx`, `assistant-avatar.tsx`, `assistant-empty-state.tsx`, `assistant-chat-skeleton.tsx`, `assistant-model-selector.tsx` and `assistant-model-status.tsx` |
+| `apps/web/src/lib/assistant/` | `execution.ts`, `answer-segments.ts` and `avatar-state.ts`, each with its test; `liveness.ts`, `use-execution-timings.ts`, `format-duration.ts`, `tool-details.ts`, `tool-labels.ts` and `model-choice.ts`; the `browser/` directory above |
+| `apps/web/src/components/ai-elements/` | The stream primitives from the AI Elements registry: `conversation.tsx`, `message.tsx`, `prompt-input.tsx`, `suggestion.tsx`, `tool.tsx`, `chain-of-thought.tsx`, `artifact.tsx`, `code-block.tsx`, `model-selector.tsx` and `shimmer.tsx` |
 
 The registry writes Radix and lucide code; every file under `ai-elements/` was rewritten by hand on the Base UI collapsible, the Remix icons and the `packages/ui` primitives the rest of the app uses, and keeps the registry's component names. `code-block.tsx` drops the registry's shiki highlighter: it shows short JSON, and shiki would add a wasm bundle to colour two token kinds. `oxlint.config.ts` still ignores `apps/web/src/components/ai-elements/**`, as it ignores `packages/ui/**`. Unlike `apps/web/src/paraglide/`, the files are committed. No gitignore rule covers either tree.
 
@@ -169,7 +191,7 @@ The API server listens on `env.PORT`, default `3000`. The web dev server listens
 
 Both use `@t3-oss/env-core` with Zod. The rule is simple: add the Zod schema here, then read `env`. No other file reads `process.env`.
 
-Three of those 36 variables reach one reader only. `packages/api/src/assistant/provider.ts` imports `env` from `@freenary/env/server` and builds the model client from them, inside the API server process. `apps/web` reads none of them, and `packages/env/src/web.ts` holds no `VITE_AI_*` key.
+Three of those 36 variables reach one reader only. `packages/api/src/assistant/provider.ts` imports `env` from `@freenary/env/server` and builds the model client from them, inside the API server process. `apps/web` reads none of them, and `packages/env/src/web.ts` holds no `VITE_AI_*` key. The browser learns only the result: `serverModel` from `assistant.getConversation` names the model of the instance, or reports that it has none.
 
 | Variable | Read by | What the reader does with it |
 | --- | --- | --- |

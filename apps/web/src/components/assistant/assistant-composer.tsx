@@ -1,5 +1,6 @@
 import { RiAddLine } from "@remixicon/react";
 import type { ChatStatus } from "ai";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import {
@@ -16,8 +17,10 @@ import { m } from "@/paraglide/messages.js";
 
 interface AssistantComposerProps {
   status: ChatStatus;
-  /** The thread is not known yet, so a question would be lost. */
+  /** The thread is not known yet, or nothing is loaded to answer with. */
   disabled: boolean;
+  /** The picker for what answers, rendered in the tool row. */
+  modelSelector: ReactNode;
   onSend: (text: string) => void;
   onStop: () => void;
   onNewConversation: () => void;
@@ -28,6 +31,7 @@ interface AssistantComposerProps {
 
 export const AssistantComposer = ({
   disabled,
+  modelSelector,
   newConversationPending,
   onActiveChange,
   onNewConversation,
@@ -68,8 +72,9 @@ export const AssistantComposer = ({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
+            {modelSelector}
             <PromptInputButton
-              disabled={disabled || newConversationPending}
+              disabled={newConversationPending}
               onClick={onNewConversation}
             >
               <RiAddLine className="size-4" />

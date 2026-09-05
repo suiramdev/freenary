@@ -418,13 +418,15 @@ Unique `@@unique([conversationId, ordinal])`. Foreign key to `conversation`, cas
 
 ### What reaches the table
 
-Three rules in `packages/api/src/assistant/` decide what a turn stores.
+Three rules in `packages/api/src/assistant/` decide what a turn stores. `turn.ts` holds them, so every writer applies the same ones.
 
 - **A turn is written once the answer finished**, in one transaction. `appendTurn` in `conversation.ts` updates `conversation.updatedAt`, then creates the question row and the answer row together.
 - **A stopped, failed or empty answer is never stored.** The `onFinish` callback in `handler.ts` returns early when the run was aborted, when it reports no finish reason or the reason `error`, or when no text and no tool part survived. So a half-answer is gone after a reload, and the model never reads it back.
 - **An unresolved tool call is filtered out.** `answerableParts` keeps a tool part only in the state `output-available` or `output-error`. `convertToModelMessages` would otherwise emit a `tool-call` with no result, which an OpenAI-compatible endpoint refuses. One such part poisons every later turn of the conversation.
 
 A retry appends no second copy. The route deletes the two rows of the trailing turn by id, inside the same transaction that writes the new pair.
+
+A browser answer writes the same two rows. The reader can pick a browser model on any instance, and the web app then runs the answer itself and stores it through the `assistant.saveTurn` procedure, which filters the parts with the same `answerableParts`, calls the same `appendTurn`, and replaces the trailing turn in the same way for a retry. It refuses a question over 8000 characters and an answer over 200000 characters as JSON. [Procedure reference](/docs/integrations/procedures#assistantsaveturn) holds its input and its errors.
 
 ## Enums
 

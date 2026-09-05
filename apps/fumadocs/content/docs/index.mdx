@@ -81,7 +81,7 @@ Portfolio, Analysis and Goals are not built. The three screens hold no data and 
 
 One instance runs three parts. The web app renders each screen on the server first, then in the browser. The API server answers the web app over HTTP, and it holds all the business rules. PostgreSQL keeps every row, from users and bank connections to transactions, holdings and budget lines.
 
-The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs. The assistant is the one exception: every question sends financial data to the model endpoint that the operator configured. The [assistant setup](/docs/self-hosting/assistant) page lists what leaves the instance.
+The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs. The assistant is the one exception, and only where the reader answers through a model endpoint: each question then sends financial data to that endpoint. A reader who picks a model that runs in their own browser sends the question nowhere. The [assistant setup](/docs/self-hosting/assistant) page lists what leaves the instance in each mode.
 
 The web app asks the API server who you are before it sends the first response. A signed-in visitor therefore lands on Home, and a signed-out visitor lands on the sign-in form, with no intermediate screen.
 

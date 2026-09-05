@@ -150,7 +150,7 @@ Powens needs all three of its variables. Enable Banking needs both of its variab
 
 ## Assistant
 
-The assistant on the Home screen calls one OpenAI-compatible endpoint. [Assistant](/docs/self-hosting/assistant) covers the endpoint choices, the tool-calling requirement, the rate limit and what each question sends out of the instance.
+The assistant on the Home screen calls one OpenAI-compatible endpoint. [Assistant](/docs/self-hosting/assistant) covers the endpoint choices, the tool-calling requirement, the rate limit, what each question sends out of the instance, and the models a reader can run in their own browser.
 
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
@@ -158,7 +158,7 @@ The assistant on the Home screen calls one OpenAI-compatible endpoint. [Assistan
 | `AI_API_KEY` | string | unset | The key for that endpoint. Unset is valid, because a local runtime needs none. |
 | `AI_MODEL` | string | unset | The model id as the endpoint names it, for example `anthropic/claude-3.5-sonnet`. |
 
-`AI_BASE_URL` and `AI_MODEL` must both hold a value. With either one unset, the Home screen reports that the assistant is not configured, and it offers no text box.
+`AI_BASE_URL` and `AI_MODEL` must both hold a value. With either one unset, the API server reports no server model, and each reader picks a model that runs in their own browser instead. Read [the browser model](/docs/self-hosting/assistant#the-browser-model).
 
 ## Categorisation
 

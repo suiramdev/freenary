@@ -4,7 +4,7 @@ description: Every oRPC procedure of the Freenary API server, with its input fie
 icon: List
 ---
 
-This page lists all 32 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
+This page lists all 34 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
 
 Read [API](/docs/integrations/api) first for the base URL, the two transports and the sign-in steps.
 
@@ -52,11 +52,11 @@ Read [API](/docs/integrations/api) first for the base URL, the two transports an
 
 ## `assistant`
 
-These two procedures carry the transcript of the assistant. The answer itself never travels over oRPC. It streams from a raw route, which [API](/docs/integrations/api#the-assistant-stream) documents.
+These three procedures carry the transcript of the assistant. An answer from a model on the server never travels over oRPC: it streams from a raw route, which [API](/docs/integrations/api#the-assistant-stream) documents. An answer that ran in the browser of the reader comes back to `assistant.saveTurn`.
 
 ### assistant.getConversation
 
-`assistant.getConversation` — **protected**. Returns the active conversation of the caller, and whether this instance has a model at all.
+`assistant.getConversation` — **protected**. Returns the active conversation of the caller, and the model this instance answers with, if it has one.
 
 **Input**: None.
 
@@ -64,9 +64,9 @@ These two procedures carry the transcript of the assistant. The answer itself ne
 
 | Field | Type | Note |
 | --- | --- | --- |
-| `configured` | boolean | `false` when the instance has no model. The web app then offers no text box. |
 | `conversationId` | string | The id of the active conversation. |
 | `messages` | array of `{ id, parts, role }` | The stored transcript, oldest first. |
+| `serverModel` | string or null | The `AI_MODEL` id when the instance holds both `AI_BASE_URL` and `AI_MODEL`, and `null` otherwise. The web app names it in the model list of the reader and makes it the default. With `null` the reader picks a model that runs in the browser, and each turn comes back to `assistant.saveTurn`. |
 
 | Field of one message | Type | Note |
 | --- | --- | --- |
@@ -94,9 +94,37 @@ These two procedures carry the transcript of the assistant. The answer itself ne
 
 **Note**: the call archives, and it deletes nothing. The next `assistant.getConversation` creates an empty conversation and returns a new `conversationId`.
 
+### assistant.saveTurn
+
+`assistant.saveTurn` — **protected**. Stores one finished turn that the caller answered itself. The web app calls it on any instance, whenever the reader picked a model that runs in the browser.
+
+**Input**
+
+| Field | Type | Required | Default | Bounds |
+| --- | --- | --- | --- | --- |
+| `answer` | `{ id, parts }` | yes | — | `id` is a UUID and becomes the id of the answer row. `parts` is the AI SDK `UIMessage.parts` array, at least one part. A part is one of: `{ type: "text", text }`, `{ type: "reasoning", text }`, `{ type: "step-start" }`, or a tool part `{ type: "tool-<name>", toolCallId, state }` with one of the seven SDK states. Any other part is refused. |
+| `conversationId` | string | yes | — | Must name the active conversation of the caller. |
+| `question` | array of `{ text, type: "text" }` | yes | — | At least one part. Text parts only. |
+| `regeneratedMessageId` | string | no | — | The id of the stored answer this turn replaces. |
+
+**Output**
+
+| Field | Type    | Note           |
+| ----- | ------- | -------------- |
+| `ok`  | boolean | Always `true`. |
+
+**Errors**
+
+- `BAD_REQUEST` (400) `Turn too large` — the question passes 8000 characters, or the answer parts pass 200000 characters as JSON.
+- `NOT_FOUND` (404) `Conversation is not the active one` — `conversationId` names another conversation, or an archived one.
+- `BAD_REQUEST` (400) `Empty answer` — no text part and no resolved tool part survived the filter that [Data model](/docs/development/data-model#what-reaches-the-table) describes.
+- `TOO_MANY_REQUESTS` (429) — the caller passed 30 stored turns in 5 minutes. The key is the same one the stream route uses, so a question through the route and a turn stored here share one allowance.
+
+**Note**: the procedure writes both rows of the turn with the same `appendTurn` the stream route uses, in one transaction. With `regeneratedMessageId` it removes the two rows of the trailing turn in that transaction, so a retry appends no second copy. A tool part whose state is not `output-available` or `output-error` is dropped before the write, as the stream route drops it.
+
 ### Tools the assistant runs
 
-An answer reads through the router, not through the database. The stream route holds a server-side oRPC client and gives the model seven tools. Each tool is one procedure of this page, and every one of them reads. No tool writes.
+An answer reads through the router, not through the database. Seven tools serve one answer, and each tool is one procedure of this page. Every one of them reads, and no tool writes. The stream route calls them with a server-side oRPC client. A browser model calls the same seven through the oRPC client of the web app, so a lookup carries the session of the reader either way.
 
 | Tool | Procedure | Tool input |
 | --- | --- | --- |

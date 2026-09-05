@@ -1,10 +1,10 @@
 ---
 title: Assistant
-description: Point the assistant at an OpenAI-compatible endpoint, choose between a hosted gateway and a local runtime, and know what leaves the instance.
+description: Point the assistant at an OpenAI-compatible endpoint, choose between a hosted gateway and a local runtime, know what leaves the instance, and read what the browser model means for you.
 icon: Cpu
 ---
 
-Freenary ships with no model. The assistant on the Home screen stays off until you name an endpoint and a model id. This page covers the three variables, the endpoints that work, where the variables go in each stack, the rate limit, and what each question sends out of the instance.
+Freenary ships with no model. Name an endpoint and a model id, and the API server answers through it: every reader gets that model by default. Name neither, and each reader answers through a model in their own browser. A reader whose browser has WebGPU can pick a browser model on either kind of instance. This page covers the three variables, the endpoints that work, where the variables go in each stack, the rate limit, what each question sends out of the instance, and what the browser model asks of you.
 
 ## What the assistant needs
 
@@ -36,9 +36,9 @@ Three optional variables in the validated server schema. None of them has a defa
   }}
 />
 
-**`AI_BASE_URL` and `AI_MODEL` together decide whether the assistant works.** Both must hold a value. With either one empty, the API server reports the assistant as not configured. `AI_API_KEY` never takes part in that test, because a local runtime accepts a call with no key.
+**`AI_BASE_URL` and `AI_MODEL` together decide whether the assistant answers on the server.** Both must hold a value. With either one empty, the API server reports no server model, and the model list of the reader holds the browser models alone. `AI_API_KEY` never takes part in that test, because a local runtime accepts a call with no key.
 
-Freenary defaults none of the three, and that choice is deliberate. An instance with no endpoint never looks connected and then fails in the middle of an answer. It states up front that it has no model.
+Freenary defaults none of the three, and that choice is deliberate. An instance with no endpoint sends no financial data to a third party, and it still answers, because the reader then runs a model in their own browser. Read [the browser model](#the-browser-model).
 
 `AI_BASE_URL` must parse as a URL. A bad value stops the API server at startup, like every other bad value in the [configuration reference](/docs/self-hosting/configuration).
 
@@ -106,6 +106,8 @@ The key is the user id, not the caller address. Every other limit of the instanc
 
 Over the limit, the screen asks the user to wait, and the chat route answers 429.
 
+The same allowance counts a browser answer. `assistant.saveTurn`, the procedure that stores a turn the browser answered, consumes the same 30 per 5 minutes: the model cost the instance nothing, but each turn still writes two rows. Over the limit the answer still shows on the screen, the turn is not stored, and the screen asks the user to wait.
+
 Each stored question and answer adds database rows, so the database grows with use. Freenary deletes those rows with their user.
 
 ## What leaves the instance
@@ -126,13 +128,27 @@ Two things never leave the instance for the charts. `@openuidev/lang-core`, the 
 
 <Callout type="info">
 
-An unset `AI_BASE_URL` sends nothing anywhere. An instance with no model makes no outbound call for the assistant at all.
+An unset `AI_BASE_URL` sends no financial data anywhere, and the API server makes no outbound call for the assistant at all. One outbound call remains, and the browser of the reader makes it: the download of the browser model from `https://huggingface.co`.
 
 </Callout>
 
-## When the assistant is not configured
+## The browser model
 
-The Home screen shows an empty state, and it reports that the assistant is not configured. It offers no text box, so no user can ask a question that fails. [The assistant](/docs/guides/assistant) shows what a user sees after you switch it on.
+Every reader whose browser has WebGPU can run the assistant on their own device, on a model from [WebLLM](https://github.com/mlc-ai/web-llm). The reader picks that model inside the conversation, the browser downloads it once from the Hugging Face CDN, and the graphics card of the reader runs it. You set no variable for it, and you cannot switch it off. [The assistant](/docs/guides/assistant#choose-a-model) walks the reader through the choice.
+
+An instance with no `AI_BASE_URL` and no `AI_MODEL` therefore still answers questions. Its model list holds the browser models alone, and the reader must pick one before the text box accepts a question.
+
+| Concern | What the browser model means |
+| --- | --- |
+| Your work | None. You set no variable, and you install no runtime |
+| What the reader needs | A browser with WebGPU, and enough graphics memory for the model. Without WebGPU the model list offers no browser model, and it states why |
+| Outbound traffic | The one-time model download from `https://huggingface.co` to the browser of the reader. No question and no lookup result leaves the browser |
+| Load on the instance | The lookups only. A browser answer makes no model call to the API server, and it does not use `POST /ai/chat` |
+| The rate limit | The same 30 stored turns per 5 minutes, as [the rate limit](#the-rate-limit) above states |
+| The transcript | The browser stores each finished turn through the `assistant.saveTurn` procedure, in the same two tables a server answer writes. That holds on every instance |
+| Answer quality | Lower. A model that fits in a browser is small, so it can pick the wrong lookup, name the wrong period or fail to draw a chart |
+
+`AI_BASE_URL` and `AI_MODEL` do not take the browser model out of the product. With both set, the model list gains one more entry, the id in `AI_MODEL`, and that entry answers by default. A reader can still pick a browser model, and `assistant.saveTurn` then stores the turn. One transcript can therefore hold turns from both. [Procedure reference](/docs/integrations/procedures#assistantsaveturn) holds that procedure.
 
 <Cards>
   <Card

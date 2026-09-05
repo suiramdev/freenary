@@ -54,7 +54,7 @@ Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` when you use the 
 
 <Callout type="warn">
   `/api-reference` is a live API, not only a document. Any holder of a session
-  cookie can call all 32 procedures there, and the reference page has a
+  cookie can call all 34 procedures there, and the reference page has a
   send-request button. Block the prefix at the reverse proxy when you do not
   want it public. Read [Security](/docs/self-hosting/security).
 </Callout>
@@ -225,6 +225,8 @@ The route tests those four causes in that order. A caller with no session theref
 
 Read [The assistant](/docs/self-hosting/assistant) for the variables that give an instance a model, and for the question cap.
 
+An instance with no model answers 503 to every call of this route. The web app calls the route only when the reader picked the model of the instance. For a model in the browser it runs the answer loop there, and it stores each finished turn with [`assistant.saveTurn`](/docs/integrations/procedures#assistantsaveturn).
+
 ## Limits
 
 ### Rate limits
@@ -326,7 +328,7 @@ The web app adds one thing to that link: a per-call context that carries a `cook
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="All 32 procedures, their inputs, outputs and errors."
+    description="All 34 procedures, their inputs, outputs and errors."
   />
   <Card
     title="MCP and AI tools"

@@ -67,15 +67,15 @@ Three external services at most. Two of them carry data, and one answers questio
 | --- | --- | --- |
 | A bank provider, Powens or Enable Banking | Bank connections, bank accounts and transactions | [Bank providers](/docs/self-hosting/bank-providers) |
 | An email provider, Resend or SMTP | Delivery of the emailed one-time codes | [Email](/docs/self-hosting/email) |
-| An OpenAI-compatible model endpoint | Answers from the assistant on the Home screen. A runtime on your own hardware also counts, and it keeps the data on the host | [Assistant](/docs/self-hosting/assistant) |
+| An OpenAI-compatible model endpoint | Answers from the assistant on the Home screen. A runtime on your own hardware also counts, and it keeps the data on the host. This one is optional, and the table below states what an instance without it does | [Assistant](/docs/self-hosting/assistant) |
 
-An instance runs with none of the three. The parts that need one then stop:
+An instance runs with none of the three. Each missing service changes the product:
 
 | Missing service | What stops |
 | --- | --- |
 | No bank provider | A user cannot open a bank connection. Onboarding skips the bank step. Every screen that reads transactions stays empty. |
 | No email provider | The web app hides the **Forgot password?** link. Password reset does not work. Email verification does not work. A new user signs up with an email address and a password, and gets a session at once. |
-| No model endpoint | The Home screen reports that the assistant is not configured, and it offers no text box. Every other screen works. |
+| No model endpoint | The assistant runs a model in the browser of each reader instead, on the graphics card of that browser. Each reader picks that model. Every other screen works. Read [the browser model](/docs/self-hosting/assistant#the-browser-model). |
 
 The value `EMAIL_PROVIDER=log` prints one-time codes to the server log. The API server refuses that value when `NODE_ENV=production`, so it is not a production option.
 

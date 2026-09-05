@@ -44,7 +44,7 @@ Read [API](/docs/integrations/api) for the exact error shape, the CORS rules and
 
 <Callout type="warn">
   A bridge holds a user password or a live session cookie. That cookie can call
-  all 32 procedures. Treat it as the full account credential it is.
+  all 34 procedures. Treat it as the full account credential it is.
 </Callout>
 
 ## The assistant is not an MCP surface
@@ -55,9 +55,9 @@ That assistant is a reader of this API, and it is not a way into an instance. It
 
 | Question | Answer |
 | --- | --- |
-| Does it run in the browser? | No. The model call happens on the API server. No model runs in the reader's browser. |
-| Does it speak the Model Context Protocol? | No. The web app posts to `POST /ai/chat` and reads a token stream back. That route is described in [API](/docs/integrations/api#the-assistant-stream). |
-| Does it expose tools to an outside client? | No. Its seven tools live inside one server-side answer. Nothing announces them, and no client can list them or call them. |
+| Does it run in the browser? | Sometimes. The reader picks the model. With `AI_BASE_URL` and `AI_MODEL` set, the model of the instance answers by default and the model call happens on the API server. A reader who picks a model that runs in their browser keeps every model call there. |
+| Does it speak the Model Context Protocol? | No. With a model on the server the web app posts to `POST /ai/chat` and reads a token stream back. That route is described in [API](/docs/integrations/api#the-assistant-stream). A browser model uses no route for the answer, and stores the finished turn with `assistant.saveTurn`. |
+| Does it expose tools to an outside client? | No. Its seven tools serve one answer, on the server or in the reader's browser. Nothing announces them, and no client can list them or call them. |
 | Does it reach data a caller cannot reach? | No. Each tool calls one procedure of [Procedure reference](/docs/integrations/procedures), which is the surface a bridge would call too. |
 
 So the assistant reads through the same door as the bridge above. An MCP server for Freenary is still yours to write.
@@ -117,7 +117,7 @@ Keep the two apart. This chat reads the documentation pages of this website. It 
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="The 32 procedures a bridge would expose as tools."
+    description="The 34 procedures a bridge would expose as tools."
   />
   <Card
     title="Development"

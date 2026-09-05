@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { env } from "@freenary/env/web";
 import { Button } from "@freenary/ui/components/button";
+import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
 import { RiRefreshLine } from "@remixicon/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
@@ -18,23 +19,40 @@ import { AssistantChatSkeleton } from "@/components/assistant/assistant-chat-ske
 import { AssistantComposer } from "@/components/assistant/assistant-composer";
 import { AssistantEmptyState } from "@/components/assistant/assistant-empty-state";
 import { AssistantMessage } from "@/components/assistant/assistant-message";
-import { AssistantUnavailable } from "@/components/assistant/assistant-unavailable";
+import { AssistantModelSelector } from "@/components/assistant/assistant-model-selector";
+import { AssistantModelStatus } from "@/components/assistant/assistant-model-status";
 import { assistantAvatarState } from "@/lib/assistant/avatar-state";
+import {
+  loadBrowserModel,
+  useBrowserModel,
+  useWebGpuSupport,
+} from "@/lib/assistant/browser/engine";
+import { createBrowserChatTransport } from "@/lib/assistant/browser/transport";
 import { livenessOf } from "@/lib/assistant/liveness";
+import {
+  rememberModel,
+  resolveModelChoice,
+  SERVER_MODEL,
+  useRememberedModel,
+} from "@/lib/assistant/model-choice";
 import { getServerUrl } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
-import { orpc } from "@/utils/orpc";
+import { client, orpc } from "@/utils/orpc";
 
 /** How long the mark acknowledges an answer before going back to resting. */
 const ACKNOWLEDGE_MS = 1600;
 
 interface AssistantChatProps {
-  configured: boolean;
   /** Identity of the active thread; undefined until the query resolves. */
   conversationId: string | undefined;
   initialMessages: UIMessage[] | undefined;
   isPending: boolean;
+  /**
+   * The model the instance hosts, or null without one. The reader picks it or
+   * a model that runs in the browser; with none hosted, only the latter.
+   */
+  serverModel: string | null;
   userName: string;
 }
 
@@ -47,14 +65,66 @@ const errorMessageOf = (message: string): string => {
     return m.assistant_unavailable_description();
   }
 
+  if (message.includes("browser_model_context")) {
+    return m.assistant_error_browser_context();
+  }
+
+  if (message.includes("browser_model")) {
+    return m.assistant_error_browser_model();
+  }
+
   return m.assistant_error_generic();
 };
 
+interface TranscriptTailProps {
+  avatarState: BrandAvatarState;
+  error: Error | undefined;
+  onRetry: () => void;
+  retrying: boolean;
+  /** The question left and no chunk has arrived yet. */
+  thinking: boolean;
+}
+
+/** What follows the last message: the first status line, or a failed turn. */
+const TranscriptTail = ({
+  avatarState,
+  error,
+  onRetry,
+  retrying,
+  thinking,
+}: TranscriptTailProps) => (
+  <>
+    {thinking && (
+      <div className="flex w-full gap-3">
+        <AssistantAvatar className="mt-0.5 size-7" state={avatarState} />
+        <AssistantActivity
+          activity={{ kind: "thinking" }}
+          retrying={retrying}
+        />
+      </div>
+    )}
+    {error && (
+      <div
+        className="text-destructive flex items-center gap-2 text-sm"
+        role="alert"
+      >
+        <span>{errorMessageOf(error.message)}</span>
+        {/* A failed turn leaves no assistant row to hang an action on, so the
+            retry lives with the message. */}
+        <Button onClick={onRetry} size="sm" variant="ghost">
+          <RiRefreshLine className="size-3" />
+          {m.assistant_retry()}
+        </Button>
+      </div>
+    )}
+  </>
+);
+
 export const AssistantChat = ({
-  configured,
   conversationId,
   initialMessages,
   isPending,
+  serverModel,
   userName,
 }: AssistantChatProps) => {
   const queryClient = useQueryClient();
@@ -64,17 +134,44 @@ export const AssistantChat = ({
   // clock and its first status line read from these.
   const [turn, setTurn] = useState<{ retrying: boolean; startedAt: number }>();
   const acknowledgeTimer = useRef(0);
+  const webGpu = useWebGpuSupport();
+  const browserModel = useBrowserModel();
+  const selected = resolveModelChoice(useRememberedModel(), serverModel);
+  const browserSelected = selected !== null && selected !== SERVER_MODEL;
 
+  // A chosen device model loads itself, on this visit and every later one.
+  // Not after it failed: the status line offers Retry, and a loop of failing
+  // downloads is worse than one. A load already under way for another model
+  // finishes first; the effect re-runs when the engine settles.
+  useEffect(() => {
+    const settled =
+      browserModel.phase !== "loading" &&
+      !(browserModel.phase !== "idle" && browserModel.modelId === selected);
+    if (browserSelected && webGpu === true && settled) {
+      loadBrowserModel(selected);
+    }
+  }, [browserModel, browserSelected, selected, webGpu]);
+
+  const ready =
+    selected === SERVER_MODEL ||
+    (browserSelected &&
+      browserModel.phase === "ready" &&
+      browserModel.modelId === selected);
+
+  // `useChat` reads the transport on every send, so switching models between
+  // two questions needs no new chat.
   const transport = useMemo(
     () =>
-      new DefaultChatTransport({
-        api: `${getServerUrl(env.VITE_SERVER_URL)}/ai/chat`,
-        // The server cannot read the locale: it lives in a cookie on this origin.
-        body: { locale: getLocale() },
-        // The session cookie belongs to the API's origin, as with the oRPC link.
-        credentials: "include",
-      }),
-    []
+      selected === SERVER_MODEL
+        ? new DefaultChatTransport({
+            api: `${getServerUrl(env.VITE_SERVER_URL)}/ai/chat`,
+            // The server cannot read the locale: it lives in a cookie on this origin.
+            body: { locale: getLocale() },
+            // The session cookie belongs to the API's origin, as with the oRPC link.
+            credentials: "include",
+          })
+        : createBrowserChatTransport({ client, locale: getLocale }),
+    [selected]
   );
 
   const { error, messages, regenerate, sendMessage, status, stop } = useChat({
@@ -152,10 +249,6 @@ export const AssistantChat = ({
     toolRunning,
   });
 
-  if (!configured) {
-    return <AssistantUnavailable />;
-  }
-
   // One avatar carries the live state: the streaming answer, or otherwise the
   // newest answer while the composer has focus, an error shows or an answer
   // just landed. Older rows stay settled so a finished transcript animates
@@ -165,6 +258,8 @@ export const AssistantChat = ({
     messages,
     status,
   });
+
+  const streaming = status === "streaming" || status === "submitted";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
@@ -176,7 +271,7 @@ export const AssistantChat = ({
             {messages.length === 0 ? (
               <AssistantEmptyState
                 avatarState={avatarState}
-                onSuggestion={ask}
+                onSuggestion={ready ? ask : undefined}
                 userName={userName}
               />
             ) : (
@@ -198,7 +293,8 @@ export const AssistantChat = ({
                     onRetry={
                       message.role === "assistant" &&
                       index === messages.length - 1 &&
-                      status === "ready"
+                      status === "ready" &&
+                      ready
                         ? redo
                         : undefined
                     }
@@ -209,42 +305,44 @@ export const AssistantChat = ({
                 );
               })
             )}
-            {awaitingFirstChunk && (
-              <div className="flex w-full gap-3">
-                <AssistantAvatar
-                  className="mt-0.5 size-7"
-                  state={avatarState}
-                />
-                <AssistantActivity
-                  activity={{ kind: "thinking" }}
-                  retrying={turn?.retrying ?? false}
-                />
-              </div>
-            )}
-            {error && (
-              <div
-                className="text-destructive flex items-center gap-2 text-sm"
-                role="alert"
-              >
-                <span>{errorMessageOf(error.message)}</span>
-                {/* A failed turn leaves no assistant row to hang an action on,
-                    so the retry lives with the message. */}
-                <Button onClick={() => redo()} size="sm" variant="ghost">
-                  <RiRefreshLine className="size-3" />
-                  {m.assistant_retry()}
-                </Button>
-              </div>
-            )}
+            <TranscriptTail
+              avatarState={avatarState}
+              error={error}
+              onRetry={() => redo()}
+              retrying={turn?.retrying ?? false}
+              thinking={awaitingFirstChunk}
+            />
           </ConversationContent>
           <ConversationScrollButton
             aria-label={m.assistant_scroll_to_latest()}
           />
         </Conversation>
       )}
+      {/* Until `serverModel` is known, "Choose a model" would be a lie on an
+          instance whose hosted model is about to become the default. */}
+      {!isPending && (
+        <AssistantModelStatus
+          browserModel={browserModel}
+          selected={selected}
+          webGpu={webGpu}
+        />
+      )}
       <AssistantComposer
-        // Until the id lands, `useChat` holds a generated one; sending now would
-        // lose the question when the real id replaces the chat.
-        disabled={conversationId === undefined}
+        // Until the id lands, `useChat` holds a generated one; sending now
+        // would lose the question when the real id replaces the chat. And a
+        // device model still downloading has nothing to answer with.
+        disabled={conversationId === undefined || !ready}
+        modelSelector={
+          !isPending && (
+            <AssistantModelSelector
+              disabled={streaming}
+              onSelect={rememberModel}
+              selected={selected}
+              serverModel={serverModel}
+              webGpu={webGpu}
+            />
+          )
+        }
         newConversationPending={newConversation.isPending}
         onActiveChange={setComposerActive}
         onNewConversation={() => newConversation.mutate({})}

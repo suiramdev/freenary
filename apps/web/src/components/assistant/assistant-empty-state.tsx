@@ -8,7 +8,8 @@ import { m } from "@/paraglide/messages.js";
 interface AssistantEmptyStateProps {
   avatarState: BrandAvatarState;
   userName: string;
-  onSuggestion: (text: string) => void;
+  /** Absent while nothing is loaded to answer with. */
+  onSuggestion: ((text: string) => void) | undefined;
 }
 
 export const AssistantEmptyState = ({
@@ -42,6 +43,7 @@ export const AssistantEmptyState = ({
       <Suggestions className="justify-center">
         {suggestions.map((suggestion) => (
           <Suggestion
+            disabled={onSuggestion === undefined}
             key={suggestion}
             onClick={onSuggestion}
             suggestion={suggestion}

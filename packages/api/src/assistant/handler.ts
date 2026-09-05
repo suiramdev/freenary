@@ -17,20 +17,21 @@ import {
 import { assistantSystemPrompt } from "./prompt";
 import { assistantModel } from "./provider";
 import { assistantTools } from "./tools";
-
-/** A question longer than this is a paste, not a question. */
-const MAX_QUESTION_CHARS = 8000;
-/** Tool calls a single answer may chain before it has to conclude. */
-const MAX_STEPS = 6;
+import {
+  answerableParts,
+  isoDay,
+  isStorableOutcome,
+  LOCALE,
+  MAX_QUESTION_CHARS,
+  MAX_STEPS,
+  regeneratedTurnIds,
+} from "./turn";
 
 export interface AssistantChatOptions {
   request: Request;
   /** The Elysia wide-event logger, so model usage lands on the request's event. */
   log: RequestLogger;
 }
-
-/** Two letters, optionally a region: what `getLocale()` produces. */
-const LOCALE = /^[a-z]{2}(?:-[A-Z]{2})?$/u;
 
 /**
  * Exactly what the composer posts as a question, and nothing wider. A part of
@@ -67,47 +68,6 @@ type PostedQuestion = z.infer<typeof questionSchema>;
 
 const postedText = (question: PostedQuestion): string =>
   question.parts.map((part) => part.text).join("\n");
-
-const isoDay = (date: Date | string | null): string | null => {
-  if (date === null) {
-    return null;
-  }
-  return new Date(date).toISOString().slice(0, 10);
-};
-
-/**
- * A tool call the stream never resolved cannot be replayed: `convertToModelMessages`
- * emits its `tool-call` with no matching result, which an OpenAI-compatible
- * endpoint rejects — poisoning every later turn in the conversation.
- */
-const answerableParts = (parts: UIMessage["parts"]): UIMessage["parts"] =>
-  parts.filter(
-    (part) =>
-      !part.type.startsWith("tool-") ||
-      !("state" in part) ||
-      part.state === "output-available" ||
-      part.state === "output-error"
-  );
-
-/**
- * Whether anything a reader would see survived. A stopped stream still emits a
- * `step-start` marker, so counting parts would store a turn holding nothing —
- * and the next request would replay that emptiness to the model.
- */
-const hasContent = (parts: UIMessage["parts"]): boolean =>
-  parts.some(
-    (part) =>
-      part.type.startsWith("tool-") ||
-      (part.type === "text" && part.text.trim().length > 0)
-  );
-
-/**
- * A run only failed if it ended in an error. `other` is not a failure: it is
- * what the OpenAI-compatible mapper returns for any `finish_reason` it does not
- * recognise — Together's `eos` for a finished answer lands there — so refusing
- * it would silently discard every turn on such an endpoint.
- */
-const FAILED_REASONS: ReadonlySet<string> = new Set(["error"]);
 
 export const handleAssistantChat = async ({
   log,
@@ -179,28 +139,21 @@ export const handleAssistantChat = async ({
   const question = incoming as UIMessage;
 
   // A regenerate re-asks a question already answered, so that turn has to leave
-  // both the model's context and the table. The SDK names the assistant message
-  // it is redoing, and a streamed answer carries its stored row's id (see
-  // `generateMessageId` below), so the anchor is exact: no guessing from the
-  // transcript's shape, which drifts the moment one turn is stopped, and no
-  // matching on text, which collides when the same question is asked twice.
-  const trailingAnswer = stored.at(-1);
-  const trailingQuestion = stored.at(-2);
-  const redoingLastTurn =
-    regenerating &&
-    body.messageId !== undefined &&
-    trailingAnswer?.id === body.messageId &&
-    trailingAnswer.role === "ASSISTANT" &&
-    trailingQuestion?.role === "USER";
-  const replaceMessageIds = redoingLastTurn
-    ? [trailingQuestion.id, trailingAnswer.id]
-    : [];
+  // both the model's context and the table. The answer's id is what names it
+  // (see `generateMessageId` below).
+  const replaceMessageIds = regeneratedTurnIds(
+    stored,
+    regenerating ? body.messageId : undefined
+  );
+  const redoingLastTurn = replaceMessageIds.length > 0;
 
   // History comes from the database, never from the posted transcript: the
   // client can only add the question it just asked.
   const replayable = redoingLastTurn ? stored.slice(0, -2) : stored;
-  // SAFETY: these rows were written by this route from `UIMessage.parts`, so the
-  // JSON column holds exactly that shape; nothing else writes the table.
+  // SAFETY: the stream route writes `UIMessage.parts` as produced, and the only
+  // other writer, `assistant.saveTurn`, admits parts through `answerPartSchema`
+  // in `routers/assistant.ts`: each a plain object whose `type` is a string,
+  // which is the whole of what `UIMessage["parts"]` guarantees structurally.
   const history = replayable.map(
     (row) =>
       ({
@@ -242,18 +195,7 @@ export const handleAssistantChat = async ({
     onFinish: ({ finishReason, isAborted, responseMessage }) => {
       const parts = answerableParts(responseMessage.parts);
 
-      // A failed or abandoned answer must not be stored: it would be replayed
-      // to the model on every later turn. `outcome.status` cannot tell — a
-      // provider failure mid-answer still ends `completed`, because the
-      // trailing `finish` chunk overwrites the failed outcome — so the reason
-      // the run reports is the signal, and a run that reported none never
-      // finished. A `length`-capped answer is kept: the reader saw that text.
-      if (
-        isAborted ||
-        finishReason === undefined ||
-        FAILED_REASONS.has(finishReason) ||
-        !hasContent(parts)
-      ) {
+      if (!isStorableOutcome({ finishReason, isAborted, parts })) {
         return;
       }
 

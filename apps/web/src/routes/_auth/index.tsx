@@ -20,10 +20,10 @@ const HomePage = () => {
 
   return (
     <AssistantChat
-      configured={data?.configured ?? true}
       conversationId={data?.conversationId}
       initialMessages={initialMessages}
       isPending={isPending}
+      serverModel={data?.serverModel ?? null}
       userName={session?.user.name ?? ""}
     />
   );

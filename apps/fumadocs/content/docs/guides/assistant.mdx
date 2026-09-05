@@ -1,6 +1,6 @@
 ---
 title: The assistant
-description: Home answers questions about your money. The suggestions, the status line, the timeline of steps and lookups, the charts, the mark, one conversation, and what the assistant cannot do.
+description: Home answers questions about your money. The suggestions, the status line, the timeline of steps and lookups, the charts, the mark, one conversation, the model that answers, and what the assistant cannot do.
 icon: Sparkles
 ---
 
@@ -198,22 +198,79 @@ An error takes the place of the answer, with a **Retry** button beside it.
 | Message | What happened |
 | --- | --- |
 | Too many questions in a row. Wait a moment and try again. | You asked too many questions in a short period |
-| This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on. | Your operator switched the model off while you held the screen open. See [When your instance has no model](#when-your-instance-has-no-model) |
+| This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on. | Your operator switched the model off while you held the screen open. Press the model button and pick a model that runs on your own device |
+| The model on this device could not answer. Try again, or pick a different model. | A model on your device stopped in the middle of an answer. Press **Retry**, or press the model button and choose a smaller model. See [Choose a model](#choose-a-model) |
+| This conversation is too long for the model on this device. Start a new conversation. | The model on your device cannot hold the whole conversation any more. Press **New conversation** |
 | The assistant could not answer. Try again. | Anything else |
 
-Freenary accepts a limited number of questions from one account in a short period. Wait a moment, then press **Retry**. [The assistant](/docs/self-hosting/assistant) holds the exact number, and the reason for it.
+Freenary accepts a limited number of questions from one account in a short period, with a model on the server and with a model on your device alike. Wait a moment, then press **Retry**. [The assistant](/docs/self-hosting/assistant) holds the exact number, and the reason for it.
 
-## When your instance has no model
+## Choose a model
 
-Your operator switches the assistant on. Until then, Home shows one empty state with a plug icon, the title **The assistant is not configured**, and this message on the screen, word for word:
+The tool row of the composer, left of **New conversation**, holds the model button. It names the model that answers your next question. Press it, and a dialog opens with a search field, **Search models…**, and up to two groups:
 
-> This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.
+| Group | What it holds |
+| --- | --- |
+| **On your instance** | One entry: the model your operator set on the server. The group is absent when your operator set no model endpoint |
+| **On this device** | Twelve models your browser can download and run, each with the size it takes in gigabytes. The group is absent when your browser has no WebGPU |
 
-The screen holds no text box, so you cannot ask anything. Send your operator to [The assistant](/docs/self-hosting/assistant).
+A search with no match reads **No model matches.** One line at the foot of the dialog states what a model on this device means:
+
+> A model on this device downloads once from Hugging Face, runs on your graphics card, and keeps your questions in this browser.
+
+The button carries the name of the model that answers: the model id of your instance, or the name of the model on this device, or **Choose a model** while you chose none. The button is off while an answer arrives.
+
+Your conversation stays on the screen the whole time. You read your transcript before you choose a model, and after you change one.
+
+### What answers by default
+
+On an instance with a model endpoint, the model of the instance answers, and you choose nothing. On an instance without one, no model answers until you pick one. The text box stays off, and one line above the composer reads:
+
+> Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.
+
+Freenary remembers the model you pick, in that browser. Your next visit to Home uses the same model, and you pick nothing.
+
+### A model on this device
+
+Pick a model under **On this device**, and the download starts at once. A smaller model needs less graphics memory and answers faster. A larger model follows your question more closely, and your graphics card must hold it.
+
+One line above the composer then follows that model:
+
+| Line | What it means |
+| --- | --- |
+| A progress bar, `Loading {model}` with a percentage | Your browser downloads the model, or it starts it |
+| `The model could not be loaded: {reason}`, with a **Retry** link | The model did not start. A full graphics memory is the usual reason. Press **Retry**, or choose a smaller model |
+| `Runs on this device · {model}` | The model is ready, and it answers your next question |
+
+The text box, the three suggestion chips and the **Retry** of the last answer stay off until the model is ready. The model of your instance needs no download, so it shows no line above the composer.
+
+Your browser keeps the model after the first download. A later visit starts it from that cache and downloads nothing.
+
+### Change the model between two questions
+
+Press the model button again and pick another model. Your conversation stays, and your next question goes to the model you picked. Freenary reloads no screen.
+
+A model on this device reads the whole conversation again before it answers, and that includes the answers the model of your instance wrote. A long conversation can therefore pass what the model holds, and the assistant asks you to start a new one.
+
+<Callout type="info">
+
+A model that runs on your device is much smaller than a hosted one, so it is weaker. It can read the wrong period, make the wrong lookup, or fail to draw a chart. The model button names the model that answers, so you always know which one wrote an answer. Ask your operator for a model endpoint when you need better answers.
+
+</Callout>
+
+### A browser without WebGPU
+
+The assistant needs WebGPU to run a model on your device. A browser without it shows no **On this device** group, and the dialog reads:
+
+> This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask an administrator to set AI_BASE_URL and AI_MODEL.
+
+On an instance with no model endpoint, the same text takes the place of the line above the composer. The text box then stays off, because no model can answer.
 
 ## What leaves your instance
 
-Freenary sends your question and the result of every lookup to the model your operator chose, and it never sends an IBAN. [The assistant](/docs/self-hosting/assistant) lists exactly what goes out and what stays.
+With a model on the server, Freenary sends your question and the result of every lookup to the model your operator chose, and it never sends an IBAN. [The assistant](/docs/self-hosting/assistant) lists exactly what goes out and what stays.
+
+With a model on your device, no part of the conversation leaves your browser. The lookups read your own data from your own instance, as every other screen does. One call goes out, once per model: the download from Hugging Face.
 
 <Cards>
   <Card
