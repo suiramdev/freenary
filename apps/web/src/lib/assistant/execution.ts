@@ -24,9 +24,14 @@ export interface ExecutionStep {
   index: number;
   /**
    * Reasoning parts were present; `"streaming"` while the last one still is.
-   * `key` is the timing key the timings hook uses for that part.
+   * `keys` are the timing keys the timings hook uses for those parts, `text`
+   * what the model wrote across them.
    */
-  thinking: { state: "streaming" | "done"; key: string } | null;
+  thinking: {
+    state: "streaming" | "done";
+    keys: string[];
+    text: string;
+  } | null;
   tools: ToolUIPart[];
   answer: AnswerSegment[];
   status: StepStatus;
@@ -111,9 +116,11 @@ export const traceOf = (
     }
 
     if (part.type === "reasoning") {
+      const before = current.thinking;
       current.thinking = {
-        key: `reasoning-${index}`,
+        keys: [...(before?.keys ?? []), `reasoning-${index}`],
         state: live && part.state === "streaming" ? "streaming" : "done",
+        text: before ? `${before.text}\n\n${part.text}` : part.text,
       };
     } else if (isToolPart(part)) {
       current.tools.push(part);

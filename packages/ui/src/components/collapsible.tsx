@@ -7,12 +7,15 @@ function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
 }
 
 type CollapsibleTriggerProps = CollapsiblePrimitive.Trigger.Props & {
-  /** A trailing chevron keeps the row's text aligned with rows that have none. */
+  /**
+   * None by default: the AI Elements draw their own. A trailing chevron keeps
+   * the row's text aligned with rows that have none.
+   */
   chevron?: "leading" | "trailing";
 };
 
 function CollapsibleTrigger({
-  chevron = "leading",
+  chevron,
   children,
   className,
   ...props
@@ -37,13 +40,13 @@ function CollapsibleTrigger({
   );
 }
 
-function CollapsiblePanel({
+function CollapsibleContent({
   className,
   ...props
 }: CollapsiblePrimitive.Panel.Props) {
   return (
     <CollapsiblePrimitive.Panel
-      data-slot="collapsible-panel"
+      data-slot="collapsible-content"
       className={cn(
         "flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden",
         className
@@ -53,4 +56,4 @@ function CollapsiblePanel({
   );
 }
 
-export { Collapsible, CollapsibleTrigger, CollapsiblePanel };
+export { Collapsible, CollapsibleTrigger, CollapsibleContent };

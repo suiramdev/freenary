@@ -1,3 +1,6 @@
+// From the AI Elements registry, minus `ModelSelectorDialog`: the ui package
+// has no `CommandDialog`, and the app opens the picker through `Dialog`.
+
 import {
   Command,
   CommandEmpty,
@@ -39,14 +42,7 @@ export const ModelSelectorContent = ({
   title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
-  <DialogContent
-    aria-describedby={undefined}
-    className={cn(
-      "outline-border! border-none! p-0 outline! outline-solid!",
-      className
-    )}
-    {...props}
-  >
+  <DialogContent className={cn("p-0", className)} {...props}>
     <DialogTitle className="sr-only">{title}</DialogTitle>
     <Command className="**:data-[slot=command-input-wrapper]:h-auto">
       {children}
@@ -162,7 +158,6 @@ export type ModelSelectorLogoProps = Omit<
     | "scaleway"
     | "amazon-bedrock"
     | "cerebras"
-    // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
     | (string & {});
 };
 

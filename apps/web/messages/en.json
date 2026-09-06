@@ -32,10 +32,7 @@
   "assistant_chart_failed": "The chart could not be drawn.",
   "assistant_chart_label": "Chart",
   "assistant_composer_placeholder": "Ask about your money…",
-  "assistant_copied": "Copied",
   "assistant_copy": "Copy",
-  "assistant_copy_input": "Copy the parameters",
-  "assistant_copy_output": "Copy the result",
   "assistant_disclaimer": "Answers come from your own data. Information and arithmetic, not financial advice.",
   "assistant_empty_description": "Ask anything about your accounts, spending or budget.",
   "assistant_error_browser_context": "This conversation is too long for the model on this device. Start a new conversation.",
@@ -46,7 +43,6 @@
   "assistant_model_catalog_failed": "The list of models could not be loaded.",
   "assistant_model_choose": "Choose a model",
   "assistant_model_device_group": "On this device",
-  "assistant_model_device_hint": "A model on this device downloads once from Hugging Face, runs on your graphics card, and keeps your questions in this browser.",
   "assistant_model_label": "Model",
   "assistant_model_none": "No model matches.",
   "assistant_model_none_chosen": "Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.",
@@ -153,7 +149,6 @@
   "assistant_tool_no_parameters": "No parameters",
   "assistant_tool_parameters": "Parameters",
   "assistant_tool_raw_input": "Raw parameters",
-  "assistant_tool_raw_output": "Raw result",
   "assistant_tool_recurring": "Looking for recurring payments",
   "assistant_tool_recurring_purpose": "Repeating payments over the last year, with their rhythm and next date",
   "assistant_tool_result": "Result",
@@ -176,16 +171,6 @@
       "match": {
         "countPlural=one": "{count} lookup",
         "countPlural=other": "{count} lookups"
-      }
-    }
-  ],
-  "assistant_trace_steps": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} step",
-        "countPlural=other": "{count} steps"
       }
     }
   ],

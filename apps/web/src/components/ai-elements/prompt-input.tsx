@@ -1,5 +1,7 @@
 "use client";
 
+// From the AI Elements registry, on the Remix icons.
+
 import { Button } from "@freenary/ui/components/button";
 import {
   Command,
@@ -48,9 +50,20 @@ import {
 import type { ChatStatus, FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 import {
+  type ChangeEvent,
+  type ChangeEventHandler,
   Children,
+  type ClipboardEventHandler,
+  type ComponentProps,
   createContext,
+  type FormEvent,
+  type FormEventHandler,
   Fragment,
+  type HTMLAttributes,
+  type KeyboardEventHandler,
+  type PropsWithChildren,
+  type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -58,40 +71,27 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  ChangeEvent,
-  ChangeEventHandler,
-  ClipboardEventHandler,
-  ComponentProps,
-  FormEvent,
-  FormEventHandler,
-  HTMLAttributes,
-  KeyboardEventHandler,
-  PropsWithChildren,
-  ReactNode,
-  RefObject,
-} from "react";
 
 // ============================================================================
 // Provider Context & Types
 // ============================================================================
 
-export interface AttachmentsContext {
+export type AttachmentsContext = {
   files: (FileUIPart & { id: string })[];
   add: (files: File[] | FileList) => void;
   remove: (id: string) => void;
   clear: () => void;
   openFileDialog: () => void;
   fileInputRef: RefObject<HTMLInputElement | null>;
-}
+};
 
-export interface TextInputContext {
+export type TextInputContext = {
   value: string;
   setInput: (v: string) => void;
   clear: () => void;
-}
+};
 
-export interface PromptInputControllerProps {
+export type PromptInputControllerProps = {
   textInput: TextInputContext;
   attachments: AttachmentsContext;
   /** INTERNAL: Allows PromptInput to register its file textInput + "open" callback */
@@ -99,7 +99,7 @@ export interface PromptInputControllerProps {
     ref: RefObject<HTMLInputElement | null>,
     open: () => void
   ) => void;
-}
+};
 
 const PromptInputController = createContext<PromptInputControllerProps | null>(
   null
@@ -159,7 +159,7 @@ export function PromptInputProvider({
   const openRef = useRef<() => void>(() => {});
 
   const add = useCallback((files: File[] | FileList) => {
-    const incoming = [...files];
+    const incoming = Array.from(files);
     if (incoming.length === 0) {
       return;
     }
@@ -167,11 +167,11 @@ export function PromptInputProvider({
     setAttachmentFiles((prev) =>
       prev.concat(
         incoming.map((file) => ({
-          filename: file.name,
           id: nanoid(),
-          mediaType: file.type,
           type: "file" as const,
           url: URL.createObjectURL(file),
+          mediaType: file.type,
+          filename: file.name,
         }))
       )
     );
@@ -203,16 +203,15 @@ export function PromptInputProvider({
   attachmentsRef.current = attachmentFiles;
 
   // Cleanup blob URLs on unmount to prevent memory leaks
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    return () => {
       for (const f of attachmentsRef.current) {
         if (f.url) {
           URL.revokeObjectURL(f.url);
         }
       }
-    },
-    []
-  );
+    };
+  }, []);
 
   const openFileDialog = useCallback(() => {
     openRef.current?.();
@@ -220,12 +219,12 @@ export function PromptInputProvider({
 
   const attachments = useMemo<AttachmentsContext>(
     () => ({
-      add,
-      clear,
-      fileInputRef,
       files: attachmentFiles,
-      openFileDialog,
+      add,
       remove,
+      clear,
+      openFileDialog,
+      fileInputRef,
     }),
     [attachmentFiles, add, remove, clear, openFileDialog]
   );
@@ -240,13 +239,13 @@ export function PromptInputProvider({
 
   const controller = useMemo<PromptInputControllerProps>(
     () => ({
-      __registerFileInput,
-      attachments,
       textInput: {
-        clear: clearInput,
-        setInput: setTextInput,
         value: textInput,
+        setInput: setTextInput,
+        clear: clearInput,
       },
+      attachments,
+      __registerFileInput,
     }),
     [textInput, clearInput, attachments, __registerFileInput]
   );
@@ -431,10 +430,10 @@ export const PromptInputActionAddAttachments = ({
   );
 };
 
-export interface PromptInputMessage {
+export type PromptInputMessage = {
   text: string;
   files: FileUIPart[];
-}
+};
 
 export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
@@ -516,7 +515,7 @@ export const PromptInput = ({
 
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
-      const incoming = [...fileList];
+      const incoming = Array.from(fileList);
       const accepted = incoming.filter((f) => matchesAccept(f));
       if (incoming.length && accepted.length === 0) {
         onError?.({
@@ -552,11 +551,11 @@ export const PromptInput = ({
         const next: (FileUIPart & { id: string })[] = [];
         for (const file of capped) {
           next.push({
-            filename: file.name,
             id: nanoid(),
-            mediaType: file.type,
             type: "file",
             url: URL.createObjectURL(file),
+            mediaType: file.type,
+            filename: file.name,
           });
         }
         return prev.concat(next);
@@ -599,9 +598,7 @@ export const PromptInput = ({
 
   // Let provider know about our hidden file input so external menus can call openFileDialog()
   useEffect(() => {
-    if (!usingProvider) {
-      return;
-    }
+    if (!usingProvider) return;
     controller.__registerFileInput(inputRef, () => inputRef.current?.click());
   }, [usingProvider, controller]);
 
@@ -616,12 +613,8 @@ export const PromptInput = ({
   // Attach drop handlers on nearest form and document (opt-in)
   useEffect(() => {
     const form = formRef.current;
-    if (!form) {
-      return;
-    }
-    if (globalDrop) {
-      return;
-    } // when global drop is on, let the document-level handler own drops
+    if (!form) return;
+    if (globalDrop) return; // when global drop is on, let the document-level handler own drops
 
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
@@ -645,9 +638,7 @@ export const PromptInput = ({
   }, [add, globalDrop]);
 
   useEffect(() => {
-    if (!globalDrop) {
-      return;
-    }
+    if (!globalDrop) return;
 
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
@@ -674,9 +665,7 @@ export const PromptInput = ({
     () => () => {
       if (!usingProvider) {
         for (const f of filesRef.current) {
-          if (f.url) {
-            URL.revokeObjectURL(f.url);
-          }
+          if (f.url) URL.revokeObjectURL(f.url);
         }
       }
     },
@@ -711,12 +700,12 @@ export const PromptInput = ({
 
   const ctx = useMemo<AttachmentsContext>(
     () => ({
-      add,
-      clear,
-      fileInputRef: inputRef,
       files: files.map((item) => ({ ...item, id: item.id })),
-      openFileDialog,
+      add,
       remove,
+      clear,
+      openFileDialog,
+      fileInputRef: inputRef,
     }),
     [files, add, remove, clear, openFileDialog]
   );
@@ -754,7 +743,7 @@ export const PromptInput = ({
     )
       .then((convertedFiles: FileUIPart[]) => {
         try {
-          const result = onSubmit({ files: convertedFiles, text }, event);
+          const result = onSubmit({ text, files: convertedFiles }, event);
 
           // Handle both sync and async onSubmit
           if (result instanceof Promise) {
@@ -851,7 +840,7 @@ export const PromptInputTextarea = ({
       e.preventDefault();
 
       // Check if the submit button is disabled before submitting
-      const { form } = e.currentTarget;
+      const form = e.currentTarget.form;
       const submitButton = form?.querySelector(
         'button[type="submit"]'
       ) as HTMLButtonElement | null;
@@ -902,11 +891,11 @@ export const PromptInputTextarea = ({
 
   const controlledProps = controller
     ? {
+        value: controller.textInput.value,
         onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
           controller.textInput.setInput(e.currentTarget.value);
           onChange?.(e);
         },
-        value: controller.textInput.value,
       }
     : {
         onChange,
@@ -1089,23 +1078,23 @@ interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
 }
 
-interface SpeechRecognitionResultList {
+type SpeechRecognitionResultList = {
   readonly length: number;
   item(index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
-}
+};
 
-interface SpeechRecognitionResult {
+type SpeechRecognitionResult = {
   readonly length: number;
   item(index: number): SpeechRecognitionAlternative;
   [index: number]: SpeechRecognitionAlternative;
   isFinal: boolean;
-}
+};
 
-interface SpeechRecognitionAlternative {
+type SpeechRecognitionAlternative = {
   transcript: string;
   confidence: number;
-}
+};
 
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
@@ -1113,8 +1102,12 @@ interface SpeechRecognitionErrorEvent extends Event {
 
 declare global {
   interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
+    SpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
   }
 }
 

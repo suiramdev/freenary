@@ -7,7 +7,7 @@ import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
   Collapsible,
-  CollapsiblePanel,
+  CollapsibleContent,
   CollapsibleTrigger,
 } from "@freenary/ui/components/collapsible";
 import { Skeleton } from "@freenary/ui/components/skeleton";
@@ -129,7 +129,10 @@ export const CategoriesSection = ({
                   )
                 }
               >
-                <CollapsibleTrigger className="border-b-border border-b px-2 py-2">
+                <CollapsibleTrigger
+                  chevron="leading"
+                  className="border-b-border border-b px-2 py-2"
+                >
                   <CategoryIcon
                     className="size-8 [&_svg]:size-4"
                     color={group.color}
@@ -140,7 +143,7 @@ export const CategoriesSection = ({
                   </span>
                   <Badge variant="secondary">{children.length}</Badge>
                 </CollapsibleTrigger>
-                <CollapsiblePanel>
+                <CollapsibleContent>
                   <ul className="flex flex-col">
                     {children.map((entry) => (
                       <CategoryRow
@@ -155,7 +158,7 @@ export const CategoriesSection = ({
                       />
                     ))}
                   </ul>
-                </CollapsiblePanel>
+                </CollapsibleContent>
               </Collapsible>
             )
           )}

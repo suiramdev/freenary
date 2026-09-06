@@ -32,10 +32,7 @@
   "assistant_chart_failed": "Le graphique n’a pas pu être tracé.",
   "assistant_chart_label": "Graphique",
   "assistant_composer_placeholder": "Posez une question sur vos finances…",
-  "assistant_copied": "Copié",
   "assistant_copy": "Copier",
-  "assistant_copy_input": "Copier les paramètres",
-  "assistant_copy_output": "Copier le résultat",
   "assistant_disclaimer": "Les réponses proviennent de vos propres données. Informations et calculs, pas de conseil financier.",
   "assistant_empty_description": "Posez n’importe quelle question sur vos comptes, vos dépenses ou votre budget.",
   "assistant_error_browser_context": "Cette conversation est trop longue pour le modèle sur cet appareil. Commencez une nouvelle conversation.",
@@ -46,7 +43,6 @@
   "assistant_model_catalog_failed": "La liste des modèles n’a pas pu être chargée.",
   "assistant_model_choose": "Choisir un modèle",
   "assistant_model_device_group": "Sur cet appareil",
-  "assistant_model_device_hint": "Un modèle sur cet appareil se télécharge une fois depuis Hugging Face, s’exécute sur votre carte graphique et garde vos questions dans ce navigateur.",
   "assistant_model_label": "Modèle",
   "assistant_model_none": "Aucun modèle ne correspond.",
   "assistant_model_none_chosen": "Choisissez un modèle pour commencer. Il se télécharge une fois depuis Hugging Face, s’exécute sur votre carte graphique et vos questions restent dans ce navigateur.",
@@ -153,7 +149,6 @@
   "assistant_tool_no_parameters": "Aucun paramètre",
   "assistant_tool_parameters": "Paramètres",
   "assistant_tool_raw_input": "Paramètres bruts",
-  "assistant_tool_raw_output": "Résultat brut",
   "assistant_tool_recurring": "Recherche de vos paiements récurrents",
   "assistant_tool_recurring_purpose": "Les paiements qui se répètent sur la dernière année, avec leur rythme et leur prochaine date",
   "assistant_tool_result": "Résultat",
@@ -176,16 +171,6 @@
       "match": {
         "countPlural=one": "{count} recherche",
         "countPlural=other": "{count} recherches"
-      }
-    }
-  ],
-  "assistant_trace_steps": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} étape",
-        "countPlural=other": "{count} étapes"
       }
     }
   ],

@@ -86,8 +86,8 @@ const UserMessage = ({ message }: { message: UIMessage }) => (
 
 /**
  * One answer: the trace of how it was reached, then the answer itself. The
- * trace is what moves while the assistant works; once the answer lands it
- * folds, and the prose and the chart are what the reader looks at.
+ * trace opens while the assistant works and stays where the reader leaves
+ * it; a replayed answer starts with it folded.
  */
 const AnswerMessage = ({
   avatarState,

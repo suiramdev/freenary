@@ -87,3 +87,26 @@ export const useExecutionTimings = (
 
 export const durationOf = (timing: Timing | undefined): number | undefined =>
   timing?.endedAt === undefined ? undefined : timing.endedAt - timing.startedAt;
+
+/**
+ * First start to last end across several keys, such as a thought that
+ * arrived in more than one part. Undefined until every one of them ended.
+ */
+export const spanOf = (
+  timings: ExecutionTimings,
+  keys: string[]
+): number | undefined => {
+  const ended = keys.flatMap((key) => {
+    const timing = timings.get(key);
+    return timing?.endedAt === undefined
+      ? []
+      : [{ ...timing, endedAt: timing.endedAt }];
+  });
+  if (ended.length === 0 || ended.length < keys.length) {
+    return undefined;
+  }
+  return (
+    Math.max(...ended.map((timing) => timing.endedAt)) -
+    Math.min(...ended.map((timing) => timing.startedAt))
+  );
+};

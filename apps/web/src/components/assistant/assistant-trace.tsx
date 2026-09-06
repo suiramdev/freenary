@@ -5,21 +5,30 @@ import {
   RiBrainLine,
   RiContractUpDownLine,
   RiExpandUpDownLine,
-  RiFlowChart,
   RiQuillPenLine,
   RiToolsLine,
 } from "@remixicon/react";
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 
 import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
-  ChainOfThoughtSteps,
 } from "@/components/ai-elements/chain-of-thought";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import {
+  Task,
+  TaskContent,
+  TaskItem,
+  TaskTrigger,
+} from "@/components/ai-elements/task";
 import {
   AssistantToolCall,
   assistantToolIcon,
@@ -29,9 +38,12 @@ import { toolStatusOf } from "@/lib/assistant/execution";
 import { formatDuration } from "@/lib/assistant/format-duration";
 import {
   durationOf,
+  spanOf,
   TURN_TIMING_KEY,
 } from "@/lib/assistant/use-execution-timings";
 import type { ExecutionTimings } from "@/lib/assistant/use-execution-timings";
+import type { ExpandAll } from "@/lib/assistant/use-expand-all";
+import { useExpandAll } from "@/lib/assistant/use-expand-all";
 import { m } from "@/paraglide/messages.js";
 
 interface AssistantTraceProps {
@@ -42,37 +54,9 @@ interface AssistantTraceProps {
   onRetry?: () => void;
 }
 
-/** The trace stays open this long after the answer lands, then folds away. */
-const SETTLE_MS = 800;
-
-/**
- * A step's clock: its first thought or tool to its last. Undefined until
- * every one of them has stopped, and always for a replayed transcript.
- */
-const stepDuration = (
-  step: ExecutionStep,
-  timings: ExecutionTimings
-): number | undefined => {
-  const keys = [
-    ...step.tools.map((tool) => tool.toolCallId),
-    ...(step.thinking ? [step.thinking.key] : []),
-  ];
-  const spans = keys.flatMap((key) => {
-    const timing = timings.get(key);
-    return timing?.endedAt === undefined ? [] : [timing];
-  });
-  if (spans.length === 0 || spans.length < keys.length) {
-    return undefined;
-  }
-  return (
-    Math.max(...spans.map((span) => span.endedAt ?? span.startedAt)) -
-    Math.min(...spans.map((span) => span.startedAt))
-  );
-};
-
-/** The row's label for a step that is not a single lookup. */
+/** The row's label: what the step did, or does right now. */
 const stepLabel = (step: ExecutionStep, live: boolean): string => {
-  if (step.tools.length > 1) {
+  if (step.tools.length > 0) {
     return m.assistant_step_lookups();
   }
   if (step.answer.length > 0) {
@@ -86,65 +70,26 @@ const stepLabel = (step: ExecutionStep, live: boolean): string => {
   return m.assistant_step_thinking();
 };
 
-const stepIcon = (step: ExecutionStep, working: boolean): ReactNode => {
+const stepIcon = (
+  step: ExecutionStep,
+  working: boolean
+): ComponentType<{ className?: string }> => {
   if (working) {
-    return <Spinner className="size-4" />;
+    return Spinner;
   }
   if (step.tools.length === 1 && step.tools[0]) {
     return assistantToolIcon(step.tools[0]);
   }
   if (step.tools.length > 0) {
-    return <RiToolsLine className="size-4" />;
+    return RiToolsLine;
   }
   if (step.answer.some((segment) => segment.kind === "chart")) {
-    return <RiBarChartBoxLine className="size-4" />;
+    return RiBarChartBoxLine;
   }
   if (step.answer.length > 0) {
-    return <RiQuillPenLine className="size-4" />;
+    return RiQuillPenLine;
   }
-  return <RiBrainLine className="size-4" />;
-};
-
-/**
- * One muted line under a step: how it relates to the others, and the thought
- * that opened it with its duration. Inline, so a step never nests a row.
- */
-const StepNote = ({
-  notes,
-  thinking,
-  thinkingMs,
-}: {
-  notes: string[];
-  thinking?: ExecutionStep["thinking"];
-  thinkingMs?: number;
-}) => {
-  if (notes.length === 0 && !thinking) {
-    return null;
-  }
-  return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
-      {notes.map((note) => (
-        <span key={note}>{note}</span>
-      ))}
-      {thinking && (
-        <span className="inline-flex items-center gap-1">
-          <RiBrainLine className="size-3.5 shrink-0" />
-          {thinking.state === "streaming" ? (
-            <Shimmer as="span" duration={1.5}>
-              {m.assistant_thinking_streaming()}
-            </Shimmer>
-          ) : (
-            <span>{m.assistant_thinking_done()}</span>
-          )}
-          {thinkingMs !== undefined && (
-            <span className="font-mono tabular-nums">
-              {formatDuration(thinkingMs)}
-            </span>
-          )}
-        </span>
-      )}
-    </div>
-  );
+  return RiBrainLine;
 };
 
 /** Whether the step still has something in flight. */
@@ -159,10 +104,51 @@ const isWorking = (step: ExecutionStep, live: boolean): boolean =>
     ) ||
     step.answer.length > 0);
 
+/** What the thought's row reads: streaming, or done with its measured time. */
+const thinkingMessage = (
+  streaming: boolean,
+  durationMs: number | undefined
+): ReactNode => {
+  if (streaming) {
+    return (
+      <Shimmer as="span" duration={1.5}>
+        {m.assistant_thinking_streaming()}
+      </Shimmer>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      {m.assistant_thinking_done()}
+      {durationMs !== undefined && (
+        <span className="font-mono tabular-nums">
+          {formatDuration(durationMs)}
+        </span>
+      )}
+    </span>
+  );
+};
+
+/** A step's lookup list: open by default, and under "Expand all" like its cards. */
+const Lookups = ({
+  children,
+  expanded,
+}: {
+  children: ReactNode;
+  expanded: ExpandAll | undefined;
+}) => {
+  const [open, setOpen] = useExpandAll(expanded, true);
+  return (
+    <Task onOpenChange={setOpen} open={open}>
+      {children}
+    </Task>
+  );
+};
+
 /**
- * The steps behind an answer, as a timeline the reader can fold away. It is
- * open while the assistant works and folds once the answer lands, so the
- * answer is what the reader looks at; every step stays inspectable.
+ * The steps behind an answer, as a timeline the reader can fold. It opens
+ * while the assistant works and stays as it is once the answer lands; a
+ * replayed answer starts folded. Every step keeps its thought and its lookups
+ * inspectable.
  */
 export const AssistantTrace = ({
   live,
@@ -170,94 +156,22 @@ export const AssistantTrace = ({
   timings,
   trace,
 }: AssistantTraceProps) => {
-  const [open, setOpen] = useState(live);
-  const [expanded, setExpanded] = useState<{ tick: number; value: boolean }>();
-  const userToggled = useRef(false);
-
-  // Folds once the answer lands. A stopped or failed turn has no answer to
-  // give the focus to, and a failed lookup must stay in view, so those stay
-  // open.
-  const answered =
-    trace.steps.some((step) => step.answer.length > 0) &&
-    !trace.steps.some((step) =>
-      step.tools.some((tool) => tool.state === "output-error")
-    );
-  useEffect(() => {
-    if (live || !answered || userToggled.current) {
-      return;
-    }
-    const timer = window.setTimeout(() => setOpen(false), SETTLE_MS);
-    return () => window.clearTimeout(timer);
-  }, [live, answered]);
-
+  const [expanded, setExpanded] = useState<ExpandAll>();
   const turn = durationOf(timings.get(TURN_TIMING_KEY));
-  const summary = [
-    m.assistant_trace_steps({ count: trace.steps.length }),
-    ...(trace.lookups > 0
-      ? [m.assistant_trace_lookups({ count: trace.lookups })]
-      : []),
-    ...(turn === undefined ? [] : [formatDuration(turn)]),
-  ].join(" · ");
-
-  const steps = trace.steps.map((step) => {
-    const previousHadTools = trace.steps[step.index - 1]?.tools.length ?? 0;
-    const notes = [
-      ...(step.tools.length > 1
-        ? [m.assistant_step_parallel({ count: step.tools.length })]
-        : []),
-      ...(previousHadTools > 0
-        ? [m.assistant_step_after({ step: step.index })]
-        : []),
-    ];
-    // A step that has only thought so far is labelled "Thinking" already; the
-    // note names the thought once the step has done something with it.
-    const thinking =
-      step.tools.length > 0 || step.answer.length > 0
-        ? step.thinking
-        : undefined;
-    const note = (
-      <StepNote
-        notes={notes}
-        thinking={thinking}
-        thinkingMs={
-          thinking ? durationOf(timings.get(thinking.key)) : undefined
-        }
-      />
-    );
-    const tools = step.tools.map((tool) => ({
-      durationMs: durationOf(timings.get(tool.toolCallId)),
-      status: toolStatusOf(tool, live),
-      tool,
-    }));
-
-    return {
-      duration: stepDuration(step, timings),
-      note,
-      step,
-      tools,
-      working: isWorking(step, live),
-    };
-  });
-
-  const last = trace.answerPending ? undefined : steps.length - 1;
 
   return (
-    <ChainOfThought
-      onOpenChange={(next) => {
-        userToggled.current = true;
-        setOpen(next);
-      }}
-      open={open}
-    >
-      <ChainOfThoughtHeader
-        icon={<RiFlowChart className="size-4" />}
-        meta={summary}
-      >
+    <ChainOfThought className="max-w-none" defaultOpen={live}>
+      <ChainOfThoughtHeader>
         {live ? m.assistant_trace_title_live() : m.assistant_trace_title()}
+        {turn !== undefined && (
+          <span className="ml-2 font-mono text-xs tabular-nums">
+            {formatDuration(turn)}
+          </span>
+        )}
       </ChainOfThoughtHeader>
       <ChainOfThoughtContent>
         {trace.lookups > 1 && (
-          <div className="mt-2 flex justify-end gap-1">
+          <div className="flex justify-end gap-1">
             <Button
               onClick={() => setExpanded({ tick: Date.now(), value: true })}
               size="xs"
@@ -276,61 +190,82 @@ export const AssistantTrace = ({
             </Button>
           </div>
         )}
-        <ChainOfThoughtSteps>
-          {steps.map(({ duration, note, step, tools, working }, index) => {
-            const only = tools.length === 1 ? tools[0] : undefined;
+        <ol className="flex flex-col gap-3">
+          {trace.steps.map((step) => {
+            const previousHadTools =
+              (trace.steps[step.index - 1]?.tools.length ?? 0) > 0;
+            const notes = [
+              ...(step.tools.length > 1
+                ? [m.assistant_step_parallel({ count: step.tools.length })]
+                : []),
+              ...(previousHadTools
+                ? [m.assistant_step_after({ step: step.index })]
+                : []),
+            ];
+            const streaming = step.thinking?.state === "streaming";
+            const thinkingMs = step.thinking
+              ? spanOf(timings, step.thinking.keys)
+              : undefined;
+
             return (
               <ChainOfThoughtStep
-                icon={stepIcon(step, working)}
+                description={notes.length > 0 ? notes.join(" · ") : undefined}
+                icon={stepIcon(step, isWorking(step, live))}
                 key={step.index}
-                label={only ? undefined : stepLabel(step, live)}
-                last={index === last}
-                meta={
-                  only || duration === undefined
-                    ? undefined
-                    : formatDuration(duration)
-                }
+                label={stepLabel(step, live)}
                 status={step.status}
               >
-                {only ? (
-                  // A step that made one lookup is that lookup: one row, not
-                  // a label over a card that repeats it.
-                  <AssistantToolCall
-                    durationMs={only.durationMs}
-                    expanded={expanded}
-                    onRetry={onRetry}
-                    part={only.tool}
-                    status={only.status}
+                {step.thinking && (
+                  <Reasoning
+                    className="mb-0"
+                    // Open while the thought streams and folded a moment after
+                    // it ends; a replayed answer starts folded and never moves.
+                    defaultOpen={live}
+                    isStreaming={streaming}
                   >
-                    {note}
-                  </AssistantToolCall>
-                ) : (
-                  <>
-                    {note}
-                    {tools.map(({ durationMs, status, tool }) => (
-                      <AssistantToolCall
-                        durationMs={durationMs}
-                        expanded={expanded}
-                        key={tool.toolCallId}
-                        onRetry={onRetry}
-                        part={tool}
-                        status={status}
-                      />
-                    ))}
-                  </>
+                    <ReasoningTrigger
+                      getThinkingMessage={(isStreaming) =>
+                        thinkingMessage(isStreaming, thinkingMs)
+                      }
+                    />
+                    <ReasoningContent>{step.thinking.text}</ReasoningContent>
+                  </Reasoning>
+                )}
+                {step.tools.length > 0 && (
+                  <Lookups expanded={expanded}>
+                    <TaskTrigger
+                      title={m.assistant_trace_lookups({
+                        count: step.tools.length,
+                      })}
+                    />
+                    <TaskContent>
+                      {step.tools.map((tool) => (
+                        <TaskItem key={tool.toolCallId}>
+                          <AssistantToolCall
+                            durationMs={durationOf(
+                              timings.get(tool.toolCallId)
+                            )}
+                            expanded={expanded}
+                            onRetry={onRetry}
+                            part={tool}
+                            status={toolStatusOf(tool, live)}
+                          />
+                        </TaskItem>
+                      ))}
+                    </TaskContent>
+                  </Lookups>
                 )}
               </ChainOfThoughtStep>
             );
           })}
           {trace.answerPending && (
             <ChainOfThoughtStep
-              icon={<RiQuillPenLine className="size-4" />}
+              icon={RiQuillPenLine}
               label={m.assistant_step_answer_pending()}
-              last
               status="pending"
             />
           )}
-        </ChainOfThoughtSteps>
+        </ol>
       </ChainOfThoughtContent>
     </ChainOfThought>
   );

@@ -1,137 +1,177 @@
 "use client";
 
+// From the AI Elements registry, on the Base UI collapsible and the Remix
+// icons; the wording it renders is a prop, so the app can translate it.
+
 import { Badge } from "@freenary/ui/components/badge";
 import {
   Collapsible,
-  CollapsiblePanel,
+  CollapsibleContent,
   CollapsibleTrigger,
 } from "@freenary/ui/components/collapsible";
 import { cn } from "@freenary/ui/lib/utils";
+import {
+  RiArrowDownSLine,
+  RiCheckboxCircleLine,
+  RiCircleLine,
+  RiCloseCircleLine,
+  RiTimeLine,
+  RiToolsLine,
+} from "@remixicon/react";
+import type { ToolUIPart } from "ai";
 import type { ComponentProps, ReactNode } from "react";
+import { isValidElement } from "react";
+
+import { CodeBlock } from "./code-block";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
-/**
- * One lookup, as a row on the timeline rather than a card: the row's text
- * starts where every other row's does, and opening it adds sections below,
- * not a box around.
- */
 export const Tool = ({ className, ...props }: ToolProps) => (
-  <Collapsible className={cn("not-prose w-full", className)} {...props} />
+  <Collapsible
+    className={cn("not-prose mb-4 w-full rounded-md border", className)}
+    {...props}
+  />
 );
 
-export interface ToolHeaderProps extends Omit<
-  ComponentProps<typeof CollapsibleTrigger>,
-  "title" | "chevron"
-> {
-  title: ReactNode;
-  /** What the tool is for, in the reader's words; shown after the name. */
-  description?: ReactNode;
-  /** The status badge; the app owns its states and their wording. */
+export type ToolHeaderProps = {
+  title?: string;
+  type: ToolUIPart["type"];
+  state: ToolUIPart["state"];
+  /** Replaces the badge the SDK state alone would give; `null` draws none. */
   badge?: ReactNode;
-  /** Trailing detail such as a duration. */
-  meta?: ReactNode;
-}
+  className?: string;
+};
+
+const getStatusBadge = (status: ToolUIPart["state"]) => {
+  const labels: Record<ToolUIPart["state"], string> = {
+    "input-streaming": "Pending",
+    "input-available": "Running",
+    "approval-requested": "Awaiting Approval",
+    "approval-responded": "Responded",
+    "output-available": "Completed",
+    "output-error": "Error",
+    "output-denied": "Denied",
+  };
+
+  const icons: Record<ToolUIPart["state"], ReactNode> = {
+    "input-streaming": <RiCircleLine className="size-4" />,
+    "input-available": <RiTimeLine className="size-4 animate-pulse" />,
+    "approval-requested": <RiTimeLine className="size-4 text-yellow-600" />,
+    "approval-responded": (
+      <RiCheckboxCircleLine className="size-4 text-blue-600" />
+    ),
+    "output-available": (
+      <RiCheckboxCircleLine className="size-4 text-green-600" />
+    ),
+    "output-error": <RiCloseCircleLine className="size-4 text-red-600" />,
+    "output-denied": <RiCloseCircleLine className="size-4 text-orange-600" />,
+  };
+
+  return (
+    <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
+      {icons[status]}
+      {labels[status]}
+    </Badge>
+  );
+};
 
 export const ToolHeader = ({
   badge,
   className,
-  description,
-  meta,
   title,
+  type,
+  state,
   ...props
 }: ToolHeaderProps) => (
-  // The chevron trails so the name lines up with the other rows' labels. The
-  // negative margin keeps that alignment under the hover surface.
   <CollapsibleTrigger
-    chevron="trailing"
     className={cn(
-      "hover:bg-muted/50 focus-visible:ring-ring/50 -ml-2 w-[calc(100%+0.5rem)] rounded-md px-2 py-1 transition-colors duration-150 ease-out outline-none focus-visible:ring-[3px]",
+      "flex w-full items-center justify-between gap-4 p-3",
       className
     )}
     {...props}
   >
-    <span className="flex min-w-0 flex-1 items-baseline gap-2">
-      <span className="truncate text-sm">{title}</span>
-      {description && (
-        <span className="text-muted-foreground hidden truncate text-xs sm:inline">
-          {description}
-        </span>
-      )}
-    </span>
-    {meta && (
-      <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
-        {meta}
+    <div className="flex items-center gap-2">
+      <RiToolsLine className="text-muted-foreground size-4" />
+      <span className="text-sm font-medium">
+        {title ?? type.split("-").slice(1).join("-")}
       </span>
-    )}
-    {badge}
+      {badge === undefined ? getStatusBadge(state) : badge}
+    </div>
+    <RiArrowDownSLine className="text-muted-foreground size-4 transition-transform group-data-panel-open/collapsible-trigger:rotate-180" />
   </CollapsibleTrigger>
 );
 
-export type ToolStatusBadgeProps = ComponentProps<typeof Badge> & {
-  icon?: ReactNode;
-};
-
-export const ToolStatusBadge = ({
-  children,
-  className,
-  icon,
-  ...props
-}: ToolStatusBadgeProps) => (
-  <Badge
-    className={cn("shrink-0 gap-1.5 rounded-full text-xs", className)}
-    variant="secondary"
-    {...props}
-  >
-    {icon}
-    {children}
-  </Badge>
-);
-
-export type ToolContentProps = ComponentProps<typeof CollapsiblePanel>;
+export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
-  <CollapsiblePanel
-    // The primitive owns the open/close transition; the vendor's `data-[state=…]`
-    // utilities are Radix names that never match Base UI's `data-open`.
+  <CollapsibleContent
     className={cn("text-popover-foreground outline-none", className)}
     {...props}
   />
 );
 
-export type ToolSectionProps = ComponentProps<"section"> & {
-  heading: ReactNode;
-  /** Controls beside the heading, such as a copy button. */
-  actions?: ReactNode;
+export type ToolInputProps = ComponentProps<"div"> & {
+  input: ToolUIPart["input"];
+  title?: string;
 };
 
-export const ToolSection = ({
-  actions,
-  children,
+export const ToolInput = ({
   className,
-  heading,
+  input,
+  title = "Parameters",
   ...props
-}: ToolSectionProps) => (
-  <section className={cn("space-y-2 border-t py-3", className)} {...props}>
-    <div className="flex items-center justify-between gap-2">
-      <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {heading}
-      </h4>
-      {actions}
+}: ToolInputProps) => (
+  <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
+    <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+      {title}
+    </h4>
+    <div className="bg-muted/50 rounded-md">
+      <CodeBlock code={JSON.stringify(input, null, 2)} />
     </div>
-    {children}
-  </section>
+  </div>
 );
 
-export type ToolErrorProps = ComponentProps<"div">;
+export type ToolOutputProps = ComponentProps<"div"> & {
+  output: ToolUIPart["output"];
+  errorText: ToolUIPart["errorText"];
+  title?: string;
+};
 
-export const ToolError = ({ className, ...props }: ToolErrorProps) => (
-  <div
-    className={cn(
-      "bg-destructive/10 text-destructive rounded-md px-3 py-2 text-xs",
-      className
-    )}
-    role="alert"
-    {...props}
-  />
-);
+export const ToolOutput = ({
+  className,
+  output,
+  errorText,
+  title = errorText ? "Error" : "Result",
+  ...props
+}: ToolOutputProps) => {
+  if (!(output || errorText)) {
+    return null;
+  }
+
+  let Output = <div>{output as ReactNode}</div>;
+
+  if (typeof output === "object" && !isValidElement(output)) {
+    Output = <CodeBlock code={JSON.stringify(output, null, 2)} />;
+  } else if (typeof output === "string") {
+    Output = <CodeBlock code={output} />;
+  }
+
+  return (
+    <div className={cn("space-y-2 p-4", className)} {...props}>
+      <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        {title}
+      </h4>
+      <div
+        className={cn(
+          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
+          errorText
+            ? "bg-destructive/10 text-destructive"
+            : "bg-muted/50 text-foreground"
+        )}
+      >
+        {errorText && <div>{errorText}</div>}
+        {Output}
+      </div>
+    </div>
+  );
+};

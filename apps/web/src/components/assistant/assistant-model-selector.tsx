@@ -113,7 +113,15 @@ export const AssistantModelSelector = ({
         <span className="max-w-40 truncate">{label}</span>
         <RiExpandUpDownLine className="size-3.5 opacity-60" />
       </ModelSelectorTrigger>
-      <ModelSelectorContent title={m.assistant_model_label()}>
+      {/* The palette's width as the registry demo sets it; the Base UI dialog
+          of `packages/ui` is narrower and puts its close cross over the
+          search box, so the palette goes without one, as the package's own
+          `CommandDialog` does. */}
+      <ModelSelectorContent
+        className="sm:max-w-lg"
+        showCloseButton={false}
+        title={m.assistant_model_label()}
+      >
         <ModelSelectorInput placeholder={m.assistant_model_search()} />
         <ModelSelectorList>
           {hasOptions && (
@@ -164,11 +172,6 @@ export const AssistantModelSelector = ({
             </ModelSelectorGroup>
           )}
         </ModelSelectorList>
-        <p className="text-muted-foreground border-t px-3 py-2 text-xs">
-          {webGpu === false
-            ? m.assistant_browser_no_webgpu()
-            : m.assistant_model_device_hint()}
-        </p>
       </ModelSelectorContent>
     </ModelSelector>
   );

@@ -25,7 +25,8 @@ describe("traceOf", () => {
     const trace = traceOf(
       [
         step,
-        { state: "done", text: "…", type: "reasoning" },
+        { state: "done", text: "Two", type: "reasoning" },
+        { state: "done", text: "lookups.", type: "reasoning" },
         tool("output-available", "a"),
         tool("output-available", "b"),
         step,
@@ -36,8 +37,9 @@ describe("traceOf", () => {
 
     expect(trace.steps).toHaveLength(2);
     expect(trace.steps[0]?.thinking).toEqual({
-      key: "reasoning-1",
+      keys: ["reasoning-1", "reasoning-2"],
       state: "done",
+      text: "Two\n\nlookups.",
     });
     expect(trace.steps[1]?.answer).toEqual([
       { kind: "markdown", text: "Done." },

@@ -55,40 +55,50 @@ Send a question, and a row with the mark appears under it at once. It reads **Th
 
 The status line is gone the moment the answer is complete.
 
-## How the assistant answered
+## The timeline
 
 The assistant cannot read your money in one step. It thinks, asks your data a question, reads the result, and asks again if it needs more. Each of these questions is a **lookup**. Every answer keeps the steps it took, as a timeline above the text.
 
-The timeline opens while the assistant works and folds when the answer lands, so the answer is what you read. Its header stays: **How the assistant answered**, and on a wide screen the count of steps and lookups and the time the whole answer took. Press the header to open the timeline again. An answer stopped before its first word, and an answer with a failed lookup, keep the timeline open.
+The timeline has a header: **How the assistant is answering** while the assistant works, then **How the assistant answered**, with the time the whole answer took on a fresh answer. It opens on its own while the assistant works and stays open when the answer lands. An answer you come back to after a reload starts folded. Press the header to fold or open the steps.
 
-Each step is one row, and every row starts at the same edge:
+Each step is one row:
 
 | Row | What it shows |
 | --- | --- |
-| A lookup | A step that made one lookup is that lookup: its name in your language, what it reads on a wide screen, the time it took and its state. Press the row to open it |
-| **Reading your data** | A step that made several lookups at once. Each lookup follows as its own row |
-| **Answer written** or **Answer written, with a chart** | The last step. **Thinking** is the step in progress, in bold; the step that comes next is in italics |
-| The line under a row | **Thought 3s** says the assistant thought before it acted, and for how long. **Uses the results of step 1** says the step reads what the step before it returned. **2 lookups at once** says the lookups ran side by side. Freenary shows what the assistant did, never its private reasoning |
-| The time on the right | How long the step or the lookup took. When the line under a row names **Thought**, the thought's time follows it there. Freenary measures every time while the answer arrives, so an older answer shows none after a reload |
+| **Thinking** | The step in progress, before it reads or writes anything. Its icon turns while the step works |
+| **Reading your data** | A step that made one lookup or more |
+| **Writing the answer**, then **Answer written** or **Answer written, with a chart** | The last step. **Next: write the answer** is the step that comes after a lookup, before it starts |
+| The line under a row | **Uses the results of step 1** says the step reads what the step before it returned. **2 lookups at once** says the lookups ran side by side |
 
-A timeline with two lookups or more shows **Expand all** and **Collapse all** above the steps. Press them to open or close every lookup row at once.
+### What the assistant thought
 
-### A lookup row
+A step that thought before it acted carries a **Thinking…** line while the thought arrives, and the text of the thought under it, word by word. When the thought ends, the line reads **Thought** with the time it took, and the text folds away a moment later. Press the line to read it again. On an answer you come back to after a reload, the line reads **Thought** with no time, and the text stays folded until you press it.
 
-A row names the lookup in your language, says what it reads on a wide screen, and carries a state:
+<Callout type="info">
+
+The thought is the model's own working, as it wrote it. It can name a lookup, doubt a figure, or change its mind. The answer under it is what the assistant stands by; the thought shows how it got there.
+
+</Callout>
+
+### The lookups of a step
+
+A step that read your data lists its lookups under **1 lookup**, **2 lookups** and so on. Press that line to fold or open the list. Each lookup is a card that names the lookup in your language and carries a state:
 
 | State | What it means |
 | --- | --- |
 | **Preparing** | The assistant writes the arguments of the lookup |
 | **Running** | The lookup runs now |
-| **Done** | The lookup returned |
-| **Failed** | The lookup did not return. The row opens on its own and shows the error text. On the newest answer, once it is complete, the row also offers **Retry** |
+| **Done** | The lookup returned. On a fresh answer, the time it took follows |
+| **Failed** | The lookup did not return. The card opens on its own and shows the error text. On the newest answer, once it is complete, the card also offers **Retry** |
 | **Cancelled** | You pressed **Stop** while the lookup ran |
 
-Open a row to read two sections under it:
+A timeline with two lookups or more shows **Expand all** and **Collapse all** above the steps, on the right. Press them to open or close every lookup list and every card at once.
 
-- **Parameters**: the arguments of the lookup, as words and dates. **Raw parameters** opens the exact request, and the button beside it copies it.
-- **Result**: one line that says what came back, for example **13 periods** or **2 recurring payments**. **Raw result** opens the exact data, and the button beside it copies it.
+Open a card to read what the lookup is for, then three sections:
+
+- **Parameters**: the arguments of the lookup, as words and dates.
+- **Raw parameters**: the exact request.
+- **Result**: one line that says what came back, for example **13 periods** or **2 recurring payments**, then the exact data.
 
 Seven lookups exist, and each one asks your data the same question a screen asks:
 
@@ -214,9 +224,7 @@ The tool row of the composer, left of **New conversation**, holds the model butt
 | **On your instance** | One entry: the model your operator set on the server. The group is absent when your operator set no model endpoint |
 | **On this device** | Twelve models your browser can download and run, each with the size it takes in gigabytes. The group is absent when your browser has no WebGPU |
 
-A search with no match reads **No model matches.** One line at the foot of the dialog states what a model on this device means:
-
-> A model on this device downloads once from Hugging Face, runs on your graphics card, and keeps your questions in this browser.
+A search with no match reads **No model matches.** Press **Escape**, or press outside the dialog, to close it without a change.
 
 The button carries the name of the model that answers: the model id of your instance, or the name of the model on this device, or **Choose a model** while you chose none. The button is off while an answer arrives.
 

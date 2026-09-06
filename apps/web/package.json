@@ -21,6 +21,7 @@
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/tanstack-query": "^1.14.12",
+    "@radix-ui/react-use-controllable-state": "^1.2.6",
     "@remixicon/react": "^4.9.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-form": "^1.33.2",
