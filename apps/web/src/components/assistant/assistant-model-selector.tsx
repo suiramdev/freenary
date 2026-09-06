@@ -32,9 +32,21 @@ const gigabytes = (mb: number): string =>
     unit: "gigabyte",
   }).format(mb / MB_PER_GB);
 
+const percent = (fraction: number): string =>
+  new Intl.NumberFormat(getLocale(), {
+    maximumFractionDigits: 0,
+    style: "percent",
+  }).format(fraction);
+
 interface AssistantModelSelectorProps {
   /** Neither the picker nor the engine may change mid-answer. */
   disabled: boolean;
+  /**
+   * Download progress of the chosen device model, `undefined` unless one is
+   * loading. While it loads there is nothing to pick, so it takes the
+   * button's place.
+   */
+  loadingProgress?: number;
   onSelect: (modelId: string) => void;
   /** `SERVER_MODEL`, a WebLLM id, or null when nothing is chosen yet. */
   selected: string | null;
@@ -70,10 +82,11 @@ const DeviceModels = ({
 /**
  * The one place a reader picks what answers: the model the instance hosts,
  * or one WebLLM runs on their own graphics card. Picking a device model
- * starts its download; the status line under the composer reports it.
+ * starts its download, which the button itself then reports.
  */
 export const AssistantModelSelector = ({
   disabled,
+  loadingProgress,
   onSelect,
   selected,
   serverModel,
@@ -101,6 +114,22 @@ export const AssistantModelSelector = ({
     label = browserModelLabel(selected);
   }
   const hasOptions = serverModel !== null || webGpu === true;
+
+  // A model that is still arriving cannot answer, so the button reports the
+  // download instead of opening the palette. No `aria-busy`: it would tell a
+  // screen reader to defer the spinner's own `role="status"`, and the flag
+  // never clears — the button unmounts when the load ends.
+  if (loadingProgress !== undefined) {
+    return (
+      <PromptInputButton disabled>
+        <Spinner className="size-4" />
+        <span className="max-w-40 truncate">
+          {m.assistant_browser_loading({ model: label })}
+        </span>
+        <span className="tabular-nums">{percent(loadingProgress)}</span>
+      </PromptInputButton>
+    );
+  }
 
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>

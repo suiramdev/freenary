@@ -1,23 +1,9 @@
 import { Button } from "@freenary/ui/components/button";
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "@freenary/ui/components/progress";
-import { RiCpuLine } from "@remixicon/react";
 
 import type { BrowserModelStatus } from "@/lib/assistant/browser/engine";
 import { loadBrowserModel } from "@/lib/assistant/browser/engine";
-import { browserModelLabel } from "@/lib/assistant/browser/models";
 import { SERVER_MODEL } from "@/lib/assistant/model-choice";
 import { m } from "@/paraglide/messages.js";
-import { getLocale } from "@/paraglide/runtime.js";
-
-const percent = (fraction: number): string =>
-  new Intl.NumberFormat(getLocale(), {
-    maximumFractionDigits: 0,
-    style: "percent",
-  }).format(fraction);
 
 interface AssistantModelStatusProps {
   browserModel: BrowserModelStatus;
@@ -27,10 +13,10 @@ interface AssistantModelStatusProps {
 }
 
 /**
- * What the chosen model is doing, under the composer. The hosted model needs
- * no line; a device model reports its download, its failure, or that it is
- * the one answering — a reader who sees an answer from a 4B model deserves
- * to know it was not the operator's endpoint.
+ * What the chosen model is doing, in one line above the composer. It carries
+ * what the model button cannot: why no model is chosen yet, and why the
+ * chosen one failed. A model that is loading shows in the button itself, and
+ * a model that is ready is already named there.
  */
 export const AssistantModelStatus = ({
   browserModel,
@@ -51,25 +37,6 @@ export const AssistantModelStatus = ({
     );
   }
 
-  if (browserModel.phase === "loading" && browserModel.modelId === selected) {
-    return (
-      <Progress
-        aria-label={m.assistant_browser_loading({
-          model: browserModelLabel(selected),
-        })}
-        className="mx-auto w-full max-w-sm"
-        value={browserModel.progress * 100}
-      >
-        <ProgressLabel className="text-xs">
-          {m.assistant_browser_loading({ model: browserModelLabel(selected) })}
-        </ProgressLabel>
-        <ProgressValue className="text-xs">
-          {() => percent(browserModel.progress)}
-        </ProgressValue>
-      </Progress>
-    );
-  }
-
   if (browserModel.phase === "error" && browserModel.modelId === selected) {
     return (
       <div
@@ -86,17 +53,6 @@ export const AssistantModelStatus = ({
         >
           {m.assistant_retry()}
         </Button>
-      </div>
-    );
-  }
-
-  if (browserModel.phase === "ready" && browserModel.modelId === selected) {
-    return (
-      <div className="text-muted-foreground flex items-center justify-center gap-2 text-xs">
-        <RiCpuLine aria-hidden="true" className="size-3.5" />
-        <span>
-          {m.assistant_browser_running({ model: browserModelLabel(selected) })}
-        </span>
       </div>
     );
   }

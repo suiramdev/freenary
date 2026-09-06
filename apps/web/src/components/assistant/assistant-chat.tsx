@@ -22,6 +22,7 @@ import { AssistantMessage } from "@/components/assistant/assistant-message";
 import { AssistantModelSelector } from "@/components/assistant/assistant-model-selector";
 import { AssistantModelStatus } from "@/components/assistant/assistant-model-status";
 import { assistantAvatarState } from "@/lib/assistant/avatar-state";
+import type { BrowserModelStatus } from "@/lib/assistant/browser/engine";
 import {
   loadBrowserModel,
   useBrowserModel,
@@ -42,6 +43,15 @@ import { client, orpc } from "@/utils/orpc";
 
 /** How long the mark acknowledges an answer before going back to resting. */
 const ACKNOWLEDGE_MS = 1600;
+
+/** How far `modelId` has come, `undefined` unless it is the one loading. */
+const loadProgressOf = (
+  engine: BrowserModelStatus,
+  modelId: string | null
+): number | undefined =>
+  engine.phase === "loading" && engine.modelId === modelId
+    ? engine.progress
+    : undefined;
 
 interface AssistantChatProps {
   /** Identity of the active thread; undefined until the query resolves. */
@@ -261,8 +271,11 @@ export const AssistantChat = ({
 
   const streaming = status === "streaming" || status === "submitted";
 
+  // The transcript scrolls inside itself and the composer holds still, so the
+  // page takes the viewport less the layout's own `h-16` header — a taller
+  // page would scroll the composer off the bottom.
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+    <div className="flex h-[calc(100svh-4rem)] min-h-0 flex-col gap-4 p-4">
       {isPending ? (
         <AssistantChatSkeleton />
       ) : (
@@ -336,6 +349,7 @@ export const AssistantChat = ({
           !isPending && (
             <AssistantModelSelector
               disabled={streaming}
+              loadingProgress={loadProgressOf(browserModel, selected)}
               onSelect={rememberModel}
               selected={selected}
               serverModel={serverModel}

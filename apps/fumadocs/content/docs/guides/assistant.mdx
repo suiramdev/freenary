@@ -36,8 +36,6 @@ The composer sits under the conversation.
 | **Stop** | Takes the place of **Send** while the answer arrives. It ends the answer |
 | **New conversation** | Sets the conversation aside and opens an empty one |
 
-Freenary prints one line under the composer: Answers come from your own data. Information and arithmetic, not financial advice. Read the assistant that way. It counts, it compares, and it quotes your own figures. It never tells you what to buy or what to sell.
-
 Freenary refuses a question longer than 8000 characters.
 
 ## While the assistant works
@@ -242,15 +240,11 @@ Freenary remembers the model you pick, in that browser. Your next visit to Home 
 
 Pick a model under **On this device**, and the download starts at once. A smaller model needs less graphics memory and answers faster. A larger model follows your question more closely, and your graphics card must hold it.
 
-One line above the composer then follows that model:
+The model button then reports the download: a spinner, `Loading {model}` and a percentage. The button is off while the model arrives, so you pick no other model until it settles.
 
-| Line | What it means |
-| --- | --- |
-| A progress bar, `Loading {model}` with a percentage | Your browser downloads the model, or it starts it |
-| `The model could not be loaded: {reason}`, with a **Retry** link | The model did not start. A full graphics memory is the usual reason. Press **Retry**, or choose a smaller model |
-| `Runs on this device · {model}` | The model is ready, and it answers your next question |
+A model that did not start shows one line above the composer instead: `The model could not be loaded: {reason}`, with a **Retry** link. A full graphics memory is the usual reason. Press **Retry**, or choose a smaller model.
 
-The text box, the three suggestion chips and the **Retry** of the last answer stay off until the model is ready. The model of your instance needs no download, so it shows no line above the composer.
+The text box, the three suggestion chips and the **Retry** of the last answer stay off until the model is ready. A ready model needs no line of its own: the button names it. The model of your instance needs no download.
 
 Your browser keeps the model after the first download. A later visit starts it from that cache and downloads nothing.
 
