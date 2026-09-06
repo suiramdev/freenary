@@ -32,7 +32,6 @@
     "@tanstack/react-virtual": "^3.14.10",
     "ai": "^7.0.62",
     "better-auth": "catalog:",
-    "clsx": "^2.1.1",
     "dotenv": "catalog:",
     "evlog": "catalog:",
     "motion": "^13.1.1",
@@ -45,7 +44,6 @@
     "recharts": "3.8.0",
     "sonner": "catalog:",
     "streamdown": "^2.6.0",
-    "tailwind-merge": "^3.6.0",
     "tailwindcss": "catalog:",
     "use-stick-to-bottom": "^1.1.6",
     "zod": "catalog:"

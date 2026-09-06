@@ -10,5 +10,7 @@
     "strictNullChecks": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules"]
+  // Tests run under Bun and need its ambient types, which `types: []` keeps out
+  // of the component sources; tsconfig.test.json checks them separately.
+  "exclude": ["node_modules", "src/**/*.test.ts"]
 }
