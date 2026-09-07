@@ -6,8 +6,8 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
-ARG VITE_SERVER_URL
-ENV VITE_SERVER_URL=${VITE_SERVER_URL}
+# The browser learns the API origin at runtime from PUBLIC_SERVER_URL, so one
+# image serves any deployment; VITE_SERVER_URL is the localhost fallback.
 ENV NODE_ENV=production
 RUN cd apps/web && bun run build
 ENV DATABASE_URL=

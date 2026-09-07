@@ -13,6 +13,29 @@ docker compose ps
 docker compose logs --tail 100 server
 ```
 
+## The stack refuses to start
+
+**Symptom.** `docker compose up -d` creates no container and prints one line:
+
+```bash
+required variable POSTGRES_PASSWORD is missing a value: Set POSTGRES_PASSWORD in .env
+```
+
+**Cause.** `docker-compose.yml` marks `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET` as required. Compose stops while either one is unset or empty, before it creates anything. A missing file gives `env file … .env not found` instead.
+
+**Fix.** Write both values in the root `.env` file, next to `docker-compose.yml`.
+
+```dotenv
+POSTGRES_PASSWORD=<from: openssl rand -hex 16>
+BETTER_AUTH_SECRET=<from: openssl rand -hex 32>
+```
+
+```bash
+docker compose up -d
+```
+
+**Check.** `docker compose config` prints the resolved stack, and it fails with the same message while a required value is missing.
+
 ## The API server exits at startup
 
 **Symptom.** The `server` container never reaches `healthy`. The log ends with a block like this:
@@ -76,16 +99,13 @@ TRUSTED_PROXIES=10.0.0.1,10.0.0.0/24
 
 **Cause.** `CORS_ORIGIN` does not match the origin the browser loaded the web app from. That one variable is the whole allow-list.
 
-**Fix.** `docker-compose.yml` sets `CORS_ORIGIN` on the `server` service as an `environment:` key, so a value in `apps/server/.env` cannot win. Edit the compose file:
+**Fix.** Set `CORS_ORIGIN` in the root `.env` file. Compose passes that value to the `server` service as an `environment:` key, so the `.env` line is the one that counts.
 
-```yaml
-services:
-  server:
-    environment:
-      CORS_ORIGIN: https://app.example.com
+```dotenv
+CORS_ORIGIN=https://app.example.com
 ```
 
-Then restart the service:
+Then recreate the service, because a restart keeps the old environment:
 
 ```bash
 docker compose up -d server
@@ -126,24 +146,25 @@ A correct answer names `__Secure-better-auth.session_token`, `SameSite=Lax`, `Se
 
 **Symptom.** The browser network panel shows calls to `http://localhost:3000/rpc` and `http://localhost:3000/api/auth`, from a page served on your real domain. Every call fails.
 
-**Cause.** `VITE_SERVER_URL` is a build argument of `apps/web/Dockerfile`. Vite inlines it into the client bundle at image build time, and `docker-compose.yml` defaults it to `http://localhost:3000`. A restart cannot change a value that is already inside the bundle.
+**Cause.** The browser learns the API origin from `PUBLIC_SERVER_URL`, and the `web` service takes that value from `BETTER_AUTH_URL`. Both default to `http://localhost:3000`, and so does the build-time fallback `VITE_SERVER_URL`.
 
-**Fix.** Change the build argument, then rebuild the image.
+**Fix.** Set `BETTER_AUTH_URL` in the root `.env` file, then recreate the two services. The web image reads the value at request time, so it needs no rebuild.
 
-```yaml
-services:
-  web:
-    build:
-      args:
-        VITE_SERVER_URL: https://api.example.com
+```dotenv
+BETTER_AUTH_URL=https://api.example.com
 ```
 
 ```bash
-docker compose build web
-docker compose up -d web
+docker compose up -d
 ```
 
-Give it the same value as `BETTER_AUTH_URL`.
+**Check.** The root document must carry the origin before the module scripts:
+
+```bash
+curl -fsS https://app.example.com/ | grep __FREENARY_SERVER_URL__
+```
+
+A page that answers `500` with `PUBLIC_SERVER_URL must be an absolute URL such as https://api.example.com, got "…"` holds a value that is not an absolute URL. Write the scheme.
 
 ## No sign-in button for Google, Apple or single sign-on
 
@@ -208,15 +229,46 @@ docker compose logs server | grep 'email:log'
 
 **Symptom.** The API server answers `OK` on `GET /`, and every data query fails. The server log names a table that does not exist.
 
-**Cause.** The production Docker Compose stack applies no migrations. There is no bootstrap service and no migrate step in the server image. A fresh volume gives you an empty schema.
+**Cause.** The schema is behind the code. `docker compose up` runs the one-shot `migrate` service before the API server, so an empty or stale schema means `migrate` never ran, or somebody started `server` alone.
 
-**Fix.** Run the migrations once, inside the server container:
+**Fix.** Bring the whole stack up, then read what `migrate` did:
+
+```bash
+docker compose up -d
+docker compose logs migrate
+```
+
+`migrate` is idempotent. It exits `0` when the schema is current, so it is safe to repeat. The manual form still works from inside the running API server:
 
 ```bash
 docker compose exec -w /app/packages/db server bun x prisma migrate deploy
 ```
 
-The command is idempotent. It exits 0 when the schema is already current, so it is safe to repeat. Run it again after every update. [Maintenance](/docs/self-hosting/maintenance) covers the routine.
+[Maintenance](/docs/self-hosting/maintenance) covers the routine.
+
+## The API server never starts because `migrate` failed
+
+**Symptom.** `docker compose up -d` ends with `dependency failed to start`, and it names the `migrate` container. The `server` and `web` containers never start.
+
+**Cause.** The `server` service waits for `migrate` to complete successfully, so a non-zero exit stops the whole start.
+
+**Fix.** Read the exit code and the log of that one container:
+
+```bash
+docker compose ps -a
+docker compose logs migrate
+```
+
+| What the log shows | Cause | Fix |
+| --- | --- | --- |
+| A failed connection to `postgres:5432` | The volume keeps the password of the first start, and `POSTGRES_PASSWORD` now holds a different one | Put the original password back in `.env`. A new password needs a dump, an empty volume and a restore. |
+| A failed SQL statement of one migration | The data in the database does not accept that migration | Restore your dump, then report the statement the log names |
+
+Prisma records a failed migration in the `_prisma_migrations` table, and every later run stops at the same one. Read that state with the same image:
+
+```bash
+docker compose run --rm migrate bun x prisma migrate status
+```
 
 ## Bank linking is unavailable
 
@@ -340,7 +392,7 @@ Leave the variable unset unless you sign your own dictionary. [Categorisation](/
 
 **Cause.** `AI_BASE_URL` or `AI_MODEL` reached the process empty, so the API server reports no server model and the model list offers the browser models alone. A reader can also have picked a browser model over an endpoint that works; the model button then names it, and the picked model answers. [Assistant](/docs/self-hosting/assistant) holds the rule that decides the default, and [the browser model](/docs/self-hosting/assistant#the-browser-model) describes that mode.
 
-**Fix.** Set both in `apps/server/.env`, then restart the API server.
+**Fix.** Set both in the root `.env` file, then recreate the API server.
 
 ```dotenv
 AI_BASE_URL=https://openrouter.ai/api/v1
@@ -360,7 +412,7 @@ A reader who already picked a browser model keeps that choice. Tell each reader 
 docker compose exec server printenv AI_BASE_URL AI_MODEL
 ```
 
-`docker-compose.yml` names neither variable in its `environment:` block, so nothing there wins over your file. [Assistant](/docs/self-hosting/assistant) covers the endpoints, the tool-calling requirement and what each question sends out.
+`docker-compose.yml` names neither variable in its `environment:` block, and the `server` service loads the whole root `.env` through `env_file`, so your value reaches the process unchanged. [Assistant](/docs/self-hosting/assistant) covers the endpoints, the tool-calling requirement and what each question sends out.
 
 Two more failures show an error inside the conversation:
 
@@ -381,7 +433,7 @@ A model without tool calling reports no failure. It answers about the money of t
 
 **Symptom.** `bun run dev:up` starts every container, and no URL answers. `curl http://localhost:3001/` refuses the connection.
 
-**Cause.** No service in `compose.dev.yml` publishes a host port. PostgreSQL uses `expose` only, and the three app services declare no `ports:` block. The host names come from OrbStack labels, and those labels do nothing outside OrbStack.
+**Cause.** No service in `docker-compose.dev.yml` publishes a host port. PostgreSQL uses `expose` only, and the three app services declare no `ports:` block. The host names come from OrbStack labels, and those labels do nothing outside OrbStack.
 
 **Fix.** Run the development stack under [OrbStack](https://orbstack.dev), and open the URLs the wrapper prints:
 

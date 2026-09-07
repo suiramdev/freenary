@@ -87,10 +87,10 @@ The two stacks read the three variables from different places.
 
 | Stack | Where you set them | How they arrive |
 | --- | --- | --- |
-| Development, `compose.dev.yml` | your own shell, or the root `.env` file | The compose file passes `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` through from the host environment, each with an empty default |
-| Production, `docker-compose.yml` | `apps/server/.env` | The `server` service loads that file through its optional `env_file` |
+| Development, `docker-compose.dev.yml` | your own shell, or the root `.env` file | The compose file passes `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` through from the host environment, each with an empty default |
+| Production, `docker-compose.yml` | the root `.env` file | The `server` service loads that file through `env_file`, so every line of it reaches the container |
 
-`docker-compose.yml` names none of the three in the `environment:` block of the `server` service. So nothing in the compose file wins over your file, and `apps/server/.env` is the one place the three variables belong. Restart the service after a change:
+`docker-compose.yml` names none of the three in the `environment:` block of the `server` service. So nothing in the compose file wins over your file, and the root `.env` is the one place the three variables belong. Recreate the service after a change, because a restart keeps the old environment:
 
 ```bash
 docker compose up -d server

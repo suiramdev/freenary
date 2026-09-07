@@ -81,7 +81,7 @@ The adapter reads no other variable. It does not need `EMAIL_FROM`.
 
 For each message the adapter calls `console.info` once. The first line reads `[email:log] to=<address> subject=<subject>`. The message text follows on the next line. The API server writes both to standard output, so the code lands in the container log.
 
-The development stack uses this adapter by default. `compose.dev.yml` sets `EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}`, so address confirmation and password reset work with no mail account.
+The development stack uses this adapter by default. `docker-compose.dev.yml` sets `EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}`, so address confirmation and password reset work with no mail account. In production the `server` service loads the root `.env` file through `env_file`, so every email variable belongs there.
 
 <Callout type="error">
   `EMAIL_PROVIDER=log` and `NODE_ENV=production` together stop the process at

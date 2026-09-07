@@ -12,7 +12,7 @@ import path from "node:path";
 
 import { deriveDevIdentity } from "./dev-identity";
 
-const DEV_COMPOSE_FILE = "compose.dev.yml";
+const DEV_COMPOSE_FILE = "docker-compose.dev.yml";
 const QUOTE_EDGES = /^["']|["']$/gu;
 
 const readBranch = (): string | null => {

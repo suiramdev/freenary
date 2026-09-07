@@ -10,23 +10,23 @@ Freenary takes all of its configuration from environment variables. This page li
 
 The API server reads `process.env`. The schema file imports `dotenv/config`, so the process also loads a `.env` file from its working directory.
 
-The Docker Compose stack builds that environment in three steps, in this order:
+The Docker Compose stack reads one file: the `.env` next to `docker-compose.yml`. That file reaches the containers in three steps, in this order:
 
 | Step | What happens | File |
 | --- | --- | --- |
 | 1 | Docker Compose expands the `${VAR}` placeholders inside the compose file | `.env` next to `docker-compose.yml` |
-| 2 | The `server` service loads its own file, declared `required: false` | `apps/server/.env` |
-| 3 | The `environment:` keys of the compose file override that file | `docker-compose.yml` |
+| 2 | The `server` service loads the same file through `env_file`, so every line of it reaches the container | `.env` |
+| 3 | The `environment:` keys of the compose file override the file | `docker-compose.yml` |
 
-The `web` service loads `apps/web/.env` the same way, also `required: false`.
+The `web` service loads no file. It gets `SERVER_URL` and `PUBLIC_SERVER_URL` from the compose file alone.
 
 <Callout type="warn">
 
-Neither `apps/server/.env` nor `apps/web/.env` exists in the repository. You create them. The root [`.env.example`](https://github.com/suiramdev/freenary/blob/main/.env.example) file is the template for the root `.env` alone: copy it there and set `POSTGRES_PASSWORD`. Write `apps/server/.env` as a new file, because that template carries the PostgreSQL container variables and none of `NODE_ENV`, `BETTER_AUTH_URL` or `CORS_ORIGIN`.
+A fresh checkout holds no `.env`. Copy the root [`.env.example`](https://github.com/suiramdev/freenary/blob/main/.env.example) file to `.env`, then set `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. `docker compose up` stops before it starts a container while either one is unset or empty, and a missing `.env` fails with `env file … .env not found`.
 
 </Callout>
 
-Step 3 is easy to miss. `docker-compose.yml` sets `CORS_ORIGIN` and `DATABASE_URL` on the `server` service as `environment:` keys. A different value in `apps/server/.env` has no effect on those two variables. Edit the compose file to change them.
+Step 3 is easy to miss. `docker-compose.yml` sets five keys on the `server` service as `environment:`, and each one wins over the `.env` line of the same name: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN` and `NODE_ENV`. Three of the five come straight from a `.env` variable of the same name, so an edit of `.env` still takes effect for `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `CORS_ORIGIN`. `DATABASE_URL` is built from `POSTGRES_PASSWORD`, so a `DATABASE_URL` line of your own does nothing. `NODE_ENV` is always `production`.
 
 ## How validation works
 
@@ -78,16 +78,19 @@ Read [Security](/docs/self-hosting/security) before you keep the `BETTER_AUTH_SE
 
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
-| `VITE_SERVER_URL` | URL | `http://localhost:3000` | The API server origin the browser calls. Vite inlines the value into the client bundle at image build time. |
+| `PUBLIC_SERVER_URL` | URL | unset | The public API origin the browser calls. The web app server reads it at request time and writes it into the root document, so one image serves any deployment. Unset, `VITE_SERVER_URL` applies. `docker-compose.yml` sets it to `BETTER_AUTH_URL`. |
+| `VITE_SERVER_URL` | URL | `http://localhost:3000` | The build-time fallback. Vite inlines the value into the client bundle. |
 | `SERVER_URL` | string | unset | The API server origin the web app uses during server-side render. `docker-compose.yml` sets `http://server:3000`. |
 
-`VITE_SERVER_URL` is a build argument of `apps/web/Dockerfile`, not a runtime variable. A new value needs a new image:
+`PUBLIC_SERVER_URL` is a runtime variable, so a new public API origin needs a restart and never a new image:
 
 ```bash
-docker compose build web && docker compose up -d web
+docker compose up -d web
 ```
 
-`SERVER_URL` is the one variable `apps/web/.env` can still change at runtime. Neither variable belongs to the validated server schema.
+The value must be an absolute URL. With any other value the web app throws `PUBLIC_SERVER_URL must be an absolute URL such as https://api.example.com, got "…"`, and every page answers `500`. A trailing slash is removed.
+
+`VITE_SERVER_URL` is no longer a build argument of `apps/web/Dockerfile`: the image is deployment-agnostic. The value applies only while both other variables are unset. On the server side `SERVER_URL` wins, then `PUBLIC_SERVER_URL`; in the browser `PUBLIC_SERVER_URL` wins. None of the three belongs to the validated server schema.
 
 ## Email
 
@@ -174,20 +177,30 @@ The published merchant data carries no signature. A set `DICTIONARY_PUBLIC_KEY` 
 
 </Callout>
 
-## PostgreSQL container
+## Stack
 
-Only `POSTGRES_PASSWORD` reaches the production stack. Put it in the root `.env` file, next to `docker-compose.yml`.
+These three variables reach Docker Compose alone. No application code reads them. Put them in the root `.env` file.
 
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
-| `POSTGRES_PASSWORD` | string | `password` | The database password. It fills both the container password and the `DATABASE_URL` the `server` service gets. |
+| `FREENARY_VERSION` | image tag | `latest` | The tag of both published images, for example `1.2.0`. `dev` follows the development branch. |
+| `WEB_PORT` | number | `3001` | The host port of the web app. |
+| `SERVER_PORT` | number | `3000` | The host port of the API server. |
+
+## PostgreSQL container
+
+Two of the four variables below reach the production stack. Put them in the root `.env` file, next to `docker-compose.yml`.
+
+| Variable | Type or values | Default | Effect |
+| --- | --- | --- | --- |
+| `POSTGRES_PASSWORD` | string | none, required | The database password. It fills both the container password and the `DATABASE_URL` of the `migrate` and `server` services. `docker compose up` refuses an unset or empty value. |
+| `POSTGRES_PORT` | number | `5432` | The host port PostgreSQL binds. The mapping is `127.0.0.1:${POSTGRES_PORT}:5432`, so it binds the loopback interface alone. |
 | `POSTGRES_DB` | string | — | **No effect.** `docker-compose.yml` hard-codes the database name `freenary`. |
 | `POSTGRES_USER` | string | — | **No effect.** `docker-compose.yml` hard-codes the user `postgres`. |
-| `POSTGRES_PORT` | number | — | **No effect.** `docker-compose.yml` hard-codes the port mapping `5432:5432`. |
 
 ## Development only
 
-These five variables belong to the development stack. `scripts/dev.ts` injects `AUTH_COOKIE_DOMAIN`, `DOCS_HOST`, `FREENARY_SLUG`, `SERVER_HOST` and `WEB_HOST`. `AUTH_COOKIE_DOMAIN` is not development-only, so it keeps its row in the session policy above. `scripts/dev.ts` derives `.<slug>.freenary.orb.local` for it, and a value of your own wins. `compose.dev.yml` interpolates every injected key except `FREENARY_SLUG`. That one reaches Compose as the project name through the `-p` flag. `compose.dev.yml` also sets `SERVER_URL` for the web service, and it defaults to `http://server:3000`. `DOCS_PORT` is yours to set, and it reaches the documentation container environment only. The production stack ignores the five variables below.
+These five variables belong to the development stack. `scripts/dev.ts` injects `AUTH_COOKIE_DOMAIN`, `DOCS_HOST`, `FREENARY_SLUG`, `SERVER_HOST` and `WEB_HOST`. `AUTH_COOKIE_DOMAIN` is not development-only, so it keeps its row in the session policy above. `scripts/dev.ts` derives `.<slug>.freenary.orb.local` for it, and a value of your own wins. `docker-compose.dev.yml` interpolates every injected key except `FREENARY_SLUG`. That one reaches Compose as the project name through the `-p` flag. `docker-compose.dev.yml` also sets `SERVER_URL` for the web service, and it defaults to `http://server:3000`. `DOCS_PORT` is yours to set, and it reaches the documentation container environment only. The production stack ignores the five variables below.
 
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
@@ -215,9 +228,10 @@ These two variables belong to this documentation site alone. They configure no p
 | Variable | Type or values | Default | Effect |
 | --- | --- | --- | --- |
 | `SKIP_ENV_VALIDATION` | any non-empty value | unset | Skips the whole server schema. `apps/server/Dockerfile` sets it in the `builder` stage only. |
-| `GITHUB_TOKEN` | string | unset | Authenticates the merchant-data download against the GitHub API. It helps a private fork. |
+| `GITHUB_REPOSITORY` | `owner/repo` | `suiramdev/freenary` | A build argument of `apps/server/Dockerfile`. It names the repository the merchant data comes from: `build:data` downloads the newest `data-*` release of that repository. A fork passes its own slug. |
+| `GITHUB_TOKEN` | string | unset | Lifts the GitHub API rate limit of that download. `apps/server/Dockerfile` reads it as a BuildKit secret, so the value never reaches the image. |
 
-`GITHUB_TOKEN` has no effect inside `docker compose build`, because no Dockerfile declares it as a build argument. It works when you run `bun run build:data` on the host.
+The `Images` workflow passes both: `GITHUB_REPOSITORY` as a build argument and `GITHUB_TOKEN` as a build secret. A build of your own needs the same two flags, because a plain environment variable reaches neither. [Build from source](/docs/self-hosting/docker-compose#build-from-source) gives the command. `GITHUB_TOKEN` also works as a plain variable when you run `bun run build:data` on the host.
 
 ## Variables with no effect today
 
@@ -227,42 +241,36 @@ An operator can lose hours on these. Each one is settable, documented somewhere,
 | --- | --- |
 | `POSTGRES_DB` | `docker-compose.yml` hard-codes `freenary`. |
 | `POSTGRES_USER` | `docker-compose.yml` hard-codes `postgres`. |
-| `POSTGRES_PORT` | `docker-compose.yml` hard-codes the mapping `5432:5432`. |
 | `DOCS_PORT` | No source file reads it; `apps/fumadocs/package.json` hard-codes `vite dev --port=4000`. |
 | `DOCS_HOST` | It reaches the OrbStack label, never the documentation container environment. |
-| `apps/web/.env`, except `SERVER_URL` | Vite inlines `VITE_*` values at build time, and `.dockerignore` keeps every `.env` file out of the build context. |
-| `GITHUB_TOKEN` during an image build | No Dockerfile declares the matching build argument. |
 
 ## Minimum production configuration
 
-A real deployment needs the values below. Put them in `apps/server/.env`, and put `POSTGRES_PASSWORD` in the root `.env` file.
+A real deployment needs the values below. They all belong to the one root `.env` file, next to `docker-compose.yml`.
 
 ```dotenv
-NODE_ENV=production
+POSTGRES_PASSWORD=<database password>
 BETTER_AUTH_SECRET=<64 hex characters from: openssl rand -hex 32>
 BETTER_AUTH_URL=https://api.example.com
+CORS_ORIGIN=https://app.example.com
 EMAIL_PROVIDER=smtp
 EMAIL_FROM=Freenary <no-reply@example.com>
 SMTP_HOST=smtp.example.com
 SMTP_USER=no-reply@example.com
 SMTP_PASSWORD=<mail password>
-POSTGRES_PASSWORD=<database password>
 ```
 
 One sentence per line:
 
-- `NODE_ENV=production` turns on the production refusals and stops the log files.
-- `BETTER_AUTH_SECRET` replaces the development default that every checkout shares.
-- `BETTER_AUTH_URL` is the public origin of the API server, and it makes the session cookie `Secure`.
+- `POSTGRES_PASSWORD` is the database password, and the stack refuses to start without it.
+- `BETTER_AUTH_SECRET` replaces the development default that every checkout shares, and the stack refuses to start without it too.
+- `BETTER_AUTH_URL` is the public origin of the API server. It makes the session cookie `Secure`, and the `web` service hands the same value to the browser as `PUBLIC_SERVER_URL`.
+- `CORS_ORIGIN` is the public origin of the web app.
 - `EMAIL_PROVIDER` turns on the one-time codes that email verification and password reset need.
 - `EMAIL_FROM` is the sender address, and both real adapters need it.
 - `SMTP_HOST`, `SMTP_USER` and `SMTP_PASSWORD` reach your mail host. With Resend, swap the three for `RESEND_API_KEY`.
-- `POSTGRES_PASSWORD` replaces the default database password `password`.
 
-Two more values live in `docker-compose.yml`, not in a `.env` file, because the stack sets them directly:
-
-- `CORS_ORIGIN` must equal the real web app origin, for example `https://app.example.com`.
-- The `VITE_SERVER_URL` build argument must equal `BETTER_AUTH_URL`, and a change needs an image rebuild.
+`NODE_ENV` needs no line. `docker-compose.yml` always sets `production` on the `server` service.
 
 <Cards>
   <Card

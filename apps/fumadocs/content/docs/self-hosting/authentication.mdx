@@ -222,7 +222,7 @@ The fourth shape yields `SameSite=None` with no `Secure`, and a browser drops su
   drops the cookie.
 </Callout>
 
-The development stack is itself a split-hostname instance over HTTPS. `compose.dev.yml` serves the API server at `server.<slug>.freenary.orb.local` and the web app at `web.<slug>.freenary.orb.local`, where `<slug>` is the worktree slug. `bun run dev:up` therefore derives `AUTH_COOKIE_DOMAIN=.<slug>.freenary.orb.local` and passes it to Compose, so the dev stack runs on `SameSite=Lax`. A value of your own in the shell or in the worktree `.env` wins.
+The development stack is itself a split-hostname instance over HTTPS. `docker-compose.dev.yml` serves the API server at `server.<slug>.freenary.orb.local` and the web app at `web.<slug>.freenary.orb.local`, where `<slug>` is the worktree slug. `bun run dev:up` therefore derives `AUTH_COOKIE_DOMAIN=.<slug>.freenary.orb.local` and passes it to Compose, so the dev stack runs on `SameSite=Lax`. A value of your own in the shell or in the worktree `.env` wins.
 
 ### Lifetime and refresh
 

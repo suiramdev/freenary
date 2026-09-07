@@ -33,25 +33,41 @@ Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](a
 
 | Item | Version | Note |
 | --- | --- | --- |
-| Docker Engine and Docker Compose | Compose v2 or later | The supported install path |
+| Docker Engine and Docker Compose | Compose v2 or later | The install path: the stack runs published images |
 | PostgreSQL | 18 | The Compose stack runs it for you |
-| Bun | 1.3.14 | Only for a source install or for development |
+| Bun | 1.3.14 | Only to build the images from source, or to develop |
 | Bank provider account | — | Optional. Without one, Freenary runs and imports no bank data. |
 | Email provider account | — | Optional. Without one, Freenary sends no one-time code. |
 
 ## Quick start
 
-These five commands give you a local instance. Do not expose this instance to the internet: it keeps development defaults. Read [Install with Docker Compose](apps/fumadocs/content/docs/self-hosting/docker-compose.mdx) for a real deployment.
+These commands give you a local instance from the published images. They need Docker and no source code:
 
 ```bash
-git clone https://github.com/suiramdev/freenary.git
-cd freenary
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > .env
-docker compose up -d --build
-docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/.env.example
 ```
 
-The last command applies the database migrations. The Compose stack does not apply them for you, and the API server serves no data before this command succeeds.
+To read the code as well, run `git clone https://github.com/suiramdev/freenary.git` and work in that directory instead: the same two files sit at its root.
+
+Write the two required values into `.env`. `docker compose up` refuses to start while either one is empty:
+
+```bash
+cat > .env <<EOF
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+EOF
+```
+
+`.env.example` lists every other setting, with its default, in the same format.
+
+Start the stack:
+
+```bash
+docker compose up -d
+```
+
+The `migrate` service applies the database migrations before the API server starts, on this `up` and on every later one. You run no migration command yourself.
 
 Now check the two services:
 
@@ -61,6 +77,8 @@ curl -o /dev/null -w '%{http_code}\n' http://localhost:3001/   # the web app ans
 ```
 
 Open http://localhost:3001 and create the first account. Then follow [First steps](apps/fumadocs/content/docs/guides/first-steps.mdx).
+
+The defaults reach `localhost` and nowhere else: PostgreSQL publishes on `127.0.0.1` only, and both public URLs point at the machine that runs the stack. Read [Install with Docker Compose](apps/fumadocs/content/docs/self-hosting/docker-compose.mdx) before you serve this instance to anybody else.
 
 ## Documentation
 
@@ -88,6 +106,7 @@ bun run dev:up     # the containerised stack: PostgreSQL, migrations, API server
 `dev:up` needs [OrbStack](https://orbstack.dev) because the dev stack publishes no host port and reaches you through OrbStack hostnames. Without OrbStack, run the local path:
 
 ```bash
+cp .env.example .env   # `db:start` reads it: docker-compose.yml requires the two secrets
 bun run db:start   # PostgreSQL in a container
 bun run db:push    # apply the Prisma schema
 bun run dev        # web app on 3001, API server on 3000, docs on 4000
@@ -102,6 +121,10 @@ bun run build         # every app
 ```
 
 More detail: [Development](apps/fumadocs/content/docs/development/index.mdx) and [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx).
+
+## Releases
+
+Pull requests target the `dev` branch. `main` holds released code. Every push to either branch publishes `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` under that branch name, and a maintainer cuts a release with the `Release` workflow from `main`: it tags `vX.Y.Z` and publishes the same two images as `X.Y.Z`, `X.Y`, `X` and `latest`. `FREENARY_VERSION` in `.env` selects the tag your instance runs. Detail: [Releasing](apps/fumadocs/content/docs/development/releasing.mdx).
 
 ## Repository layout
 

@@ -1,50 +1,58 @@
 name: freenary
 
+# The self-hosted stack, from the published images. `docker compose up -d`
+# pulls them, applies the database migrations and starts everything.
+# Every setting comes from the `.env` file next to this file; `.env.example`
+# lists them. To run your own build instead, replace each `image:` with
+# `build: { context: ., dockerfile: apps/<app>/Dockerfile }`.
+
+x-server-image: &server-image ghcr.io/suiramdev/freenary-server:${FREENARY_VERSION:-latest}
+
+x-database-url: &database-url postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/freenary
+
 services:
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        VITE_SERVER_URL: http://localhost:3000
-    init: true
-    ports:
-      - "3001:3001"
-    env_file:
-      - path: apps/web/.env
-        required: false
+  postgres:
+    image: postgres:18
     environment:
-      SERVER_URL: http://server:3000
-    depends_on:
-      server:
-        condition: service_healthy
+      POSTGRES_DB: freenary
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    # Loopback only: for backups and `bun run db:*` from the host, never the network.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - freenary_postgres_data:/var/lib/postgresql
     healthcheck:
-      test:
-        [
-          "CMD",
-          "bun",
-          "-e",
-          "fetch('http://localhost:3001/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d freenary"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
     restart: unless-stopped
 
+  # One-shot: applies pending migrations before the server starts.
+  # Re-runs on every `up` (idempotent); exits 0 when the schema is current.
+  migrate:
+    image: *server-image
+    working_dir: /app/packages/db
+    command: bun x prisma migrate deploy
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   server:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
+    image: *server-image
     init: true
     ports:
-      - "3000:3000"
-    env_file:
-      - path: apps/server/.env
-        required: false
+      - "${SERVER_PORT:-3000}:3000"
+    env_file: .env
     environment:
-      CORS_ORIGIN: http://localhost:3001
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/freenary
+      DATABASE_URL: *database-url
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      NODE_ENV: production
     healthcheck:
       test:
         [
@@ -60,24 +68,35 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
-  postgres:
-    image: postgres:18
-    container_name: freenary-postgres
-    environment:
-      POSTGRES_DB: freenary
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  web:
+    image: ghcr.io/suiramdev/freenary-web:${FREENARY_VERSION:-latest}
+    init: true
     ports:
-      - "5432:5432"
-    volumes:
-      - freenary_postgres_data:/var/lib/postgresql
+      - "${WEB_PORT:-3001}:3001"
+    environment:
+      # What the web app's own server calls while rendering a page.
+      SERVER_URL: http://server:3000
+      # What the browser calls: the public API origin, same as BETTER_AUTH_URL.
+      PUBLIC_SERVER_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://localhost:3001/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    depends_on:
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
