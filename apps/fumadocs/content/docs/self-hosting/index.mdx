@@ -18,7 +18,9 @@ This page installs an instance that serves other people. It needs real secrets, 
 | Public origins | One for the web app, and one for the API server. |
 | TLS | A proxy in front of both origins. Read [Behind a reverse proxy](/docs/self-hosting/reverse-proxy). |
 
-A bank provider, an email provider and a model endpoint are all optional. Each one has its own page: [Bank providers](/docs/self-hosting/bank-providers), [Email](/docs/self-hosting/email) and [Assistant](/docs/self-hosting/assistant).
+**A bank provider decides whether the instance is useful.** No screen takes a transaction by hand, so an instance with no provider serves empty screens. Set one up in the same sitting. [Bank providers](/docs/self-hosting/bank-providers) walks the Powens console, and a sandbox domain needs no contract.
+
+An email provider and a model endpoint stay optional. Each one has its own page: [Email](/docs/self-hosting/email) and [Assistant](/docs/self-hosting/assistant).
 
 ## The four services
 
@@ -104,6 +106,35 @@ Put your own hostnames in the last two lines. The API server refuses a secret un
 
 <Step>
 
+### Set up the bank provider
+
+Do this before the first start, so the instance serves working screens from the beginning.
+
+Create a sandbox domain and a client application in the [Powens console](https://console.powens.com). Register this redirect URI on the client:
+
+```text
+https://app.example.com/callback/powens
+```
+
+The value is your `CORS_ORIGIN` and the path `/callback/powens`. Powens matches it exactly, and it accepts HTTPS alone.
+
+Activate the connectors of the banks you want to offer. A domain with no active connector answers with an empty bank list.
+
+Then add the credentials of the client to `.env`:
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=<client id>
+POWENS_CLIENT_SECRET=<client secret>
+```
+
+[Bank providers](/docs/self-hosting/bank-providers) holds each console step, the sandbox limits, and the Enable Banking alternative. An empty `POWENS_` variable turns bank linking off, and no message says so.
+
+</Step>
+
+<Step>
+
 ### Start the stack
 
 ```bash
@@ -157,6 +188,8 @@ docker compose logs -f server
 ### Create the first account
 
 Open the web app origin in a browser, then sign up with an email address and a password. Freenary has no admin account and no owner role, so the first account is an ordinary user. [First steps](/docs/guides/first-steps) covers what that user does next.
+
+The wizard that opens proves the bank provider. It asks for a country, then offers a bank step with the banks your domain activated. A missing bank step means Freenary read no credentials, and Settings then reads `Bank linking is unavailable`.
 
 </Step>
 

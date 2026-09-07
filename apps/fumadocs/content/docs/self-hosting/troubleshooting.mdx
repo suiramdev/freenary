@@ -296,6 +296,35 @@ docker compose up -d server
 
 [Bank providers](/docs/self-hosting/bank-providers) covers both accounts and their redirect URLs.
 
+## The bank section works and the list holds no bank
+
+**What you see.** Settings shows the bank section, and the list of banks is empty. No error appears, and the log holds nothing.
+
+**Why.** Freenary read the credentials, so the section renders. The provider then answered with no institution for that country. Three causes give the same empty list:
+
+| Cause | How to tell |
+| --- | --- |
+| The Powens domain activated no connector | The console lists the connectors of the domain as inactive |
+| The country of the profile has no coverage | Another country fills the list |
+| The domain, the client id or the secret is wrong | The console shows other values for the client |
+
+**The fix.** Activate the connectors of the domain in the [Powens console](https://console.powens.com), then reload Settings. The server holds no institution cache, and it asks the provider on every call.
+
+Freenary drops a connector that the provider marks `hidden` or `restricted`. It also drops one whose products name neither `bank` nor `wealth`.
+
+## A bank link ends on an error page
+
+**What you see.** The webview of the provider accepts the bank credentials. The browser then lands on an error of the provider. It can also land on a Freenary page that reports a failed link.
+
+**Why.** The redirect URI of the client application does not match the one Freenary sends. Freenary builds it from `CORS_ORIGIN` and the callback path of the adapter.
+
+| `BANKING_PROVIDER` | The URI to register                     |
+| ------------------ | --------------------------------------- |
+| `powens`           | `<CORS_ORIGIN>/callback/powens`         |
+| `enable-banking`   | `<CORS_ORIGIN>/callback/enable-banking` |
+
+**The fix.** Register that exact value at the provider. Powens accepts an HTTPS URI or an app scheme, so a `localhost` instance cannot finish a link. [Behind a reverse proxy](/docs/self-hosting/reverse-proxy) gives the web app a public origin.
+
 ## The assistant refuses every question
 
 **What you see.** The assistant answers nothing. The screen reports `This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.`

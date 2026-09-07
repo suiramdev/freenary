@@ -8,14 +8,14 @@ At the end of this page you run Freenary on your own machine, and you are signed
 
 You need Docker Engine with Compose v2. You need nothing else.
 
-Two accounts are optional. The table shows what the instance does without each one.
+Two provider accounts change what the instance can do. The table shows what it does without each one.
 
 | Account | The instance without it |
 | --- | --- |
 | A bank provider account | Settings shows `Bank linking is unavailable`, and the onboarding wizard asks only for your country. |
 | An email provider account | Freenary sends no email. Sign-up gives you a session at once, and the sign-in screen shows no `Forgot password?` link. |
 
-Read [Bank providers](/docs/self-hosting/bank-providers) and [Email](/docs/self-hosting/email) to add either account later.
+**Plan for the bank provider.** No screen in Freenary accepts a transaction by hand, so a bank connection is what fills the Budget screen. [Add a bank provider](#add-a-bank-provider) at the end of this page covers it. [Email](/docs/self-hosting/email) covers the other account.
 
 <Steps>
 
@@ -119,6 +119,44 @@ Freenary has no admin account and no owner role. The first account is an ordinar
 - You are signed in to your own instance.
 - Your account sits in the PostgreSQL database of that instance.
 - No bank is connected, so the Budget screen asks you to connect one.
+
+## Add a bank provider
+
+A bank connection is the only way transactions enter Freenary. Set the provider up next, and the Budget screen fills itself from the first sync.
+
+Powens is the default provider and the one to pick. A sandbox domain in the [Powens console](https://console.powens.com) is self-service, and it holds 50 connections.
+
+<Callout type="warn">
+
+**Powens registers an HTTPS redirect URI alone. It refuses `http://localhost`.**
+
+A link ends at `<CORS_ORIGIN>/callback/powens` in the browser, and Powens sends the browser only to an origin you registered. The `localhost` stack of this page therefore lists banks and cannot finish a link.
+
+So give the web app an HTTPS origin before you link a bank. [The served install](/docs/self-hosting) holds the two public origins. [Behind a reverse proxy](/docs/self-hosting/reverse-proxy) holds the TLS in front of them.
+
+</Callout>
+
+The console work takes four steps, and [Bank providers](/docs/self-hosting/bank-providers) walks each one:
+
+1. Sign up, then create the organization the console asks for.
+2. Create a domain. Powens makes it a sandbox and appends `-sandbox.biapi.pro`.
+3. Create a client application, and register `<CORS_ORIGIN>/callback/powens` as its redirect URI.
+4. Activate the connectors of the banks you want. A domain with no active connector answers with an empty list.
+
+Then write the credentials into `.env` and apply them:
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=<client id>
+POWENS_CLIENT_SECRET=<client secret>
+```
+
+```bash
+docker compose up -d
+```
+
+Compose recreates the `server` container with the new environment, and no image rebuild happens. Sign in again, open **Settings**, and the bank section lists the banks of your country. [Connect a bank](/docs/guides/bank-connections) covers the link itself.
 
 <Cards>
   <Card

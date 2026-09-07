@@ -12,6 +12,8 @@ Freenary never talks to a bank itself. A bank provider holds that connection, an
 
 An unknown value fails the environment check at startup. A known value with no credentials turns bank linking off rather than half on.
 
+**Choose Powens unless you have a reason not to.** It is the default, and it is the only adapter that imports accounts, balances and holdings. [Powens](#powens) below walks the console setup step by step. A sandbox domain costs nothing and needs no contract.
+
 ## The two adapters
 
 |  | Powens | Enable Banking |
@@ -84,35 +86,73 @@ An empty bank list is silent. Freenary swallows a failed institution call, answe
 
 ## Powens
 
-Create the account and the objects below in the [Powens console](https://console.powens.com).
+**Set up Powens.** It is the default of `BANKING_PROVIDER`, and the only adapter that imports accounts, balances and holdings. It also fills the Budget screen. No screen accepts a transaction by hand, so an instance with no bank provider shows nothing to budget.
+
+Everything below happens in the [Powens console](https://console.powens.com). A sandbox domain is self-service and needs no contract.
+
+<Callout type="warn">
+
+**A redirect URI must use HTTPS, or an app scheme. Powens accepts no `http://localhost` URI.**
+
+So the localhost stack of [Quickstart](/docs/quickstart) lists banks and finishes no link. The browser comes back to an origin the console refused to hold. Serve the web app over HTTPS first. [Behind a reverse proxy](/docs/self-hosting/reverse-proxy) holds that part.
+
+</Callout>
 
 <Steps>
 
 <Step>
 
-Create a **domain**. Note its short name, for example `acme-sandbox`.
+### Create the console account
+
+[Sign up](https://console.powens.com/auth/register), then confirm your address from the email Powens sends.
+
+The console asks for an organization next. It wants a company name, a company size, a country and an activity area.
 
 </Step>
 
 <Step>
 
-Create a **client application** on that domain. Note the client id and the client secret.
+### Create the domain
+
+Choose a domain name. Powens creates it as a **sandbox** and appends `-sandbox.biapi.pro`, so the name `acme` gives the host `acme-sandbox.biapi.pro`.
+
+A sandbox domain holds 50 connections. A production domain needs a signed contract, and your customer success manager at Powens opens it.
+
+`POWENS_DOMAIN` takes the whole short name. For the example above that is `acme-sandbox`.
 
 </Step>
 
 <Step>
 
-Register the redirect URL of that client application, exactly `<CORS_ORIGIN>/callback/powens`. Powens refuses a redirect URL it does not hold.
+### Create the client application
+
+Select the domain, open **Client Applications**, then add a client. Two fields matter: the name, which no user sees, and the redirect URIs.
+
+Register this one redirect URI, and nothing else:
+
+```text
+<CORS_ORIGIN>/callback/powens
+```
+
+`CORS_ORIGIN` is the public origin of the web app. Freenary builds the redirect from it and from the callback path of the adapter. Powens then matches that value against the list you registered here. A value that differs by one character fails the link.
+
+Note the client id and the client secret. They are `POWENS_CLIENT_ID` and `POWENS_CLIENT_SECRET`.
 
 </Step>
 
 <Step>
 
-Ask Powens to activate the **Wealth** product on the domain. It carries the investment account kinds and the holdings a sync stores.
+### Activate the connectors
+
+A new domain carries no active connector. Open the product section you want, then activate each bank you want to offer, or activate all of them.
+
+A domain with no active connector answers with an empty bank list. The instance then looks unconfigured while the credentials are correct.
 
 </Step>
 
-</Steps>
+<Step>
+
+### Write the three variables
 
 ```dotenv
 BANKING_PROVIDER=powens
@@ -121,11 +161,37 @@ POWENS_CLIENT_ID=12345678
 POWENS_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-All three variables must hold a value. One empty variable turns Powens off.
+All three `POWENS_` variables must hold a value. One empty variable turns Powens off, and no message says so.
 
-**What `POWENS_DOMAIN` means.** Give the short name you created. Freenary trims the value, strips `.biapi.pro` from the end, then appends `.biapi.pro` again. So `acme-sandbox` and `acme-sandbox.biapi.pro` both give the host `acme-sandbox.biapi.pro`.
+Apply them to the running stack:
+
+```bash
+docker compose up -d
+```
+
+Compose recreates the `server` container with the new environment. No image rebuild is needed.
+
+</Step>
+
+<Step>
+
+### Check that a bank reaches the list
+
+Sign in, open **Settings**, then the bank section. It lists the banks that your domain activated for the country of your profile.
+
+A list that stays empty means the country, the connectors or the credentials. `Bank linking is unavailable` in place of the section means Freenary read no credentials at all.
+
+</Step>
+
+</Steps>
+
+**What `POWENS_DOMAIN` means.** Freenary trims the value, strips `.biapi.pro` from the end, then appends `.biapi.pro` again. So `acme-sandbox` and `acme-sandbox.biapi.pro` both give the host `acme-sandbox.biapi.pro`.
 
 **Which banks reach the bank list.** Freenary drops a connector marked `hidden` or `restricted`. It keeps a connector whose products hold `bank` or `wealth`. Without the Wealth product the investment connectors drop out, and a bank connection still imports transactions.
+
+**A first link without your own bank credentials.** Powens documents a test connector, `Connecteur de test`, on every domain. Any user name works there, and the password is `1234`. It reaches the Freenary bank list only while your domain leaves the connector visible.
+
+**Webhooks are not needed.** The console offers them, and Freenary ships no webhook receiver, so a subscription changes nothing. Leave that step of the console onboarding empty.
 
 **Per-user identity.** Powens mints one token per user at `POST /auth/init`. Freenary stores it in the `bank_provider_user` table and deletes the row when the user holds no Powens connection left.
 
