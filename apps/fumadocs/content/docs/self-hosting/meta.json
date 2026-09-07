@@ -1,19 +1,22 @@
 {
   "title": "Self-hosting",
   "icon": "Server",
+  "description": "Install, configure, scale and operate one Freenary instance.",
   "pages": [
     "index",
-    "docker-compose",
     "configuration",
-    "email",
+    "reverse-proxy",
+    "scaling",
     "authentication",
+    "email",
     "bank-providers",
     "assistant",
     "updates",
     "backup-and-restore",
     "maintenance",
-    "security",
     "logs",
-    "troubleshooting"
+    "security",
+    "troubleshooting",
+    "from-source"
   ]
 }

@@ -1,293 +1,166 @@
 ---
 title: The assistant
-description: Home answers questions about your money. The suggestions, the status line, the timeline of steps and lookups, the charts, the mark, one conversation, the model that answers, and what the assistant cannot do.
+description: Ask Home a question about your money, read where each figure came from, and know what leaves your instance.
 icon: Sparkles
 ---
 
-Home is the assistant. Ask it about your accounts, your spending or your budget. It answers from the data your bank already sent to Freenary. This page walks the screen from top to bottom.
+Home is the assistant. Ask it about your accounts, your spending or your budget. It answers from the data your bank already sent to Freenary, and from nothing else.
 
-**Before you start:** connect a bank. The assistant reads the data Freenary imported, and nothing else. See [Bank connections](/docs/guides/bank-connections).
+**Before you start:** connect a bank, or the assistant has little to read. See [Bank connections](/docs/guides/bank-connections).
 
-## What Home shows first
+## The empty conversation
 
-An empty conversation shows four things:
+A fresh conversation holds four things:
 
-1. The mark, the ring in three colours.
-2. The heading **Welcome back, _your name_**.
-3. One line of instruction: Ask anything about your accounts, spending or budget.
-4. Three suggestion chips.
+- The large Freenary mark, with the accessible name `Freenary's assistant`.
+- The heading `Welcome back, {name}`, with your own name.
+- The line `Ask anything about your accounts, spending or budget.`
+- Three suggestion chips.
 
-The three chips read:
+The chips read `How much did I spend on eating out this year?`, `Where did my money go last month?` and `Which subscriptions am I paying for?` Press one and Freenary sends that question. The chips stay off until a model is ready to answer.
 
-- How much did I spend on eating out this year?
-- Where did my money go last month?
-- Which subscriptions am I paying for?
-
-Press a chip to send that question. You do not have to type it.
-
-## Ask a question
-
-The composer sits under the conversation.
-
-| Element | What it does |
-| --- | --- |
-| The text box | Holds your question. Empty, it reads **Ask about your money…** |
-| **Send** | Sends the question |
-| **Stop** | Takes the place of **Send** while the answer arrives. It ends the answer |
-| **New conversation** | Sets the conversation aside and opens an empty one |
-
-Freenary refuses a question longer than 8000 characters.
-
-## While the assistant works
-
-Send a question, and a row with the mark appears under it at once. It reads **Thinking…** until the first word of the answer arrives. From then on, a status line under the newest content names what the assistant does at that moment:
-
-| Status line | What happens |
-| --- | --- |
-| **Thinking…** | The assistant decides what to read, or what to write |
-| **Preparing a lookup…** | The assistant writes the arguments of a lookup |
-| **Reading your cash flow…** | That lookup runs. With more than one at once, the line adds **with 1 other lookup** |
-| **Writing the answer…** | The text of the answer arrives |
-| **Drawing a chart…** | The chart arrives |
-| **Asking again…** | You pressed **Retry**, and the assistant starts over |
-
-The status line is gone the moment the answer is complete.
-
-## The timeline
-
-The assistant cannot read your money in one step. It thinks, asks your data a question, reads the result, and asks again if it needs more. Each of these questions is a **lookup**. Every answer keeps the steps it took, as a timeline above the text.
-
-The timeline has a header: **How the assistant is answering** while the assistant works, then **How the assistant answered**, with the time the whole answer took on a fresh answer. It opens on its own while the assistant works and stays open when the answer lands. An answer you come back to after a reload starts folded. Press the header to fold or open the steps.
-
-Each step is one row:
-
-| Row | What it shows |
-| --- | --- |
-| **Thinking** | The step in progress, before it reads or writes anything. Its icon turns while the step works |
-| **Reading your data** | A step that made one lookup or more |
-| **Writing the answer**, then **Answer written** or **Answer written, with a chart** | The last step. **Next: write the answer** is the step that comes after a lookup, before it starts |
-| The line under a row | **Uses the results of step 1** says the step reads what the step before it returned. **2 lookups at once** says the lookups ran side by side |
-
-### What the assistant thought
-
-A step that thought before it acted carries a **Thinking…** line while the thought arrives, and the text of the thought under it, word by word. When the thought ends, the line reads **Thought** with the time it took, and the text folds away a moment later. Press the line to read it again. On an answer you come back to after a reload, the line reads **Thought** with no time, and the text stays folded until you press it.
-
-<Callout type="info">
-
-The thought is the model's own working, as it wrote it. It can name a lookup, doubt a figure, or change its mind. The answer under it is what the assistant stands by; the thought shows how it got there.
-
-</Callout>
-
-### The lookups of a step
-
-A step that read your data lists its lookups under **1 lookup**, **2 lookups** and so on. Press that line to fold or open the list. Each lookup is a card that names the lookup in your language and carries a state:
-
-| State | What it means |
-| --- | --- |
-| **Preparing** | The assistant writes the arguments of the lookup |
-| **Running** | The lookup runs now |
-| **Done** | The lookup returned. On a fresh answer, the time it took follows |
-| **Failed** | The lookup did not return. The card opens on its own and shows the error text. On the newest answer, once it is complete, the card also offers **Retry** |
-| **Cancelled** | You pressed **Stop** while the lookup ran |
-
-A timeline with two lookups or more shows **Expand all** and **Collapse all** above the steps, on the right. Press them to open or close every lookup list and every card at once.
-
-Open a card to read what the lookup is for, then three sections:
-
-- **Parameters**: the arguments of the lookup, as words and dates.
-- **Raw parameters**: the exact request.
-- **Result**: one line that says what came back, for example **13 periods** or **2 recurring payments**, then the exact data.
-
-Seven lookups exist, and each one asks your data the same question a screen asks:
-
-| Lookup | What it reads |
-| --- | --- |
-| **Checking your accounts** | Which banks are connected, and the period your transactions cover |
-| **Reading your spending by category** | Outgoing totals per category group, over a period |
-| **Reading your cash flow** | Money in and money out over time |
-| **Splitting fixed and variable spending** | Which part of your outgoings repeats, and which part does not |
-| **Comparing your plan with what you spent** | Your budgeting profile against the real figures |
-| **Looking for recurring payments** | Repeating payments over the last year, with their rhythm, their usual amount and the next date |
-| **Searching your transactions** | Single transactions in a period, by text, category or direction |
-
-A lookup that Freenary does not recognise reads **Reading your data**.
-
-<Callout type="info">
-
-The timeline makes an answer traceable. You see every question the assistant put to your own data, in order, with its arguments and its result. Those figures come from the same code that draws the charts on [Budget](/docs/guides/budget), so a number in the answer and the same number on a chart agree.
-
-</Callout>
-
-## A chart in an answer
-
-When the figures of an answer form a series, the assistant draws one chart under the prose. Several months, several category groups, a plan against the real amount: these get a chart. A question with one figure for an answer gets none.
-
-A chart sits in a panel headed **Chart**. Its button on the right, **View larger**, opens the same chart in a wide side sheet; press **Escape** or the close button to return. Under the header, a titled block holds up to two things:
-
-| Element | What it shows |
-| --- | --- |
-| Headline figures | One or more amounts with a label, for example **Total spent**. They sit in a row above the chart |
-| The chart | One of three kinds: bars to compare amounts, a line for a trend over time, or a ring for the shares of one total |
-
-Hover a bar, a point or a slice, and a tooltip shows the label and the exact amount. A ring chart lists every slice with its amount beside the ring, and its tooltip adds the share as a percentage.
-
-The chart uses the same colours and the same amount format as [Budget](/docs/guides/budget). The title and the labels are in your language, because the assistant writes them.
-
-A chart holds the figures the assistant quoted when it answered. It does not refresh. Ask again to get a chart for the current data.
-
-<Callout type="info">
-
-The chart appears while the answer arrives, and its header reads **Drawing…** until it is complete. It fills in from the top: the title first, then the figures, then the chart. If the assistant wrote a chart that Freenary cannot draw, the answer shows the line **The chart could not be drawn.** in its place. The prose above it stays readable.
-
-</Callout>
-
-## The mark
-
-The mark stands beside each answer, and it wears the state of the work. It is the same ring that greets you on the sign-in screen. See [Language and appearance](/docs/guides/interface#the-mark).
-
-| What the mark does | When                                                |
-| ------------------ | --------------------------------------------------- |
-| It looks curious   | The text box has focus, or holds your text          |
-| It thinks          | Freenary sent your question, or a lookup runs       |
-| It speaks          | The text of the answer arrives                      |
-| It beams           | The answer landed. The mark holds this for a moment |
-| It shows an error  | The answer failed                                   |
-| It rests           | Nothing happens                                     |
-
-Only the newest answer's mark moves, and the row that waits for the first word carries it too. The mark on an older answer holds one still frame, and plays no animation.
-
-A question that needs several lookups comes back to the thinking state between them, so a long answer never looks finished while the assistant still reads.
-
-## One conversation
-
-You hold one conversation at a time. Freenary stores it on the server, not in your browser, so it survives a reload and a move to another screen. A short skeleton appears first, and a screen reader hears **Loading your conversation**.
+## The composer
 
 | Control | What it does |
 | --- | --- |
-| **New conversation** | Sets the current conversation aside and opens an empty one. Freenary deletes nothing |
-| **Stop** | Ends the answer and throws it away. A lookup that ran at that moment reads **Cancelled** in the timeline until you leave the screen. The server keeps no part of the answer, so a reload shows no trace |
-| **Retry** | Asks the question again and replaces the last answer. Freenary adds no second copy |
-| **Copy** | Copies the text of one answer to your clipboard. A chart is not copied |
+| Text box | Holds your question. Empty, it reads `Ask about your money…` |
+| Submit | A screen reader reads it as `Send`, or as `Stop` while the answer arrives |
+| Model button | Names the model that answers your next question |
+| `New conversation` | Sets the current thread aside and opens an empty one |
+| Scroll button | Appears in a long thread. A screen reader reads it as `Scroll to the latest message` |
 
-**Retry** appears on the newest answer only, and only when no answer arrives at that moment. **Copy** appears on every answer that holds text. A failed answer is not stored either, so a reload clears it.
+A question holds 8000 characters at most.
 
-Scroll up in a long conversation, and a button appears: **Scroll to the latest message**. Press it to come back to the foot.
+## Two states, and which one you are in
 
-## The language of an answer
+The model button tells you which state your instance is in.
 
-The assistant answers in your interface language. It names your categories and your category groups in that language too. Amounts arrive in the same format as the rest of the interface, in euros, unless a lookup reports another currency. See [Language and appearance](/docs/guides/interface).
+<Tabs items={["A model on the instance", "No model on the instance"]}>
 
-## What an answer never guesses
+<Tab value="A model on the instance">
 
-An answer holds only the figures the lookups returned.
+Your operator set a model up. The button names that model, and the text box works at once.
 
-- Ask about a period your data does not cover, and the assistant tells you so. It gives no estimate for the months your bank did not send.
-- Ask before you connect a bank, and the assistant tells you that too. It points you at the bank settings.
+Press the button to open a palette titled `Model`, with the search box `Search models…`. The group `On your instance` holds the model your operator set. A browser that reports WebGPU also shows the group `On this device`. A search that matches nothing reads `No model matches.`
 
-## What the assistant cannot do
+</Tab>
 
-<Callout type="info">
+<Tab value="No model on the instance">
 
-The assistant reads your data. It changes nothing.
+Your operator set none. The button reads `Choose a model`. The text box, the submit button and the chips are all off. They come on when you pick a model for your own browser.
 
-- It cannot correct the category of a transaction. You do that on [Budget](/docs/guides/budget#correct-a-category).
-- It cannot start a sync.
-- It cannot add a transaction, an account or a budget line.
-- It cannot move money.
-- It draws one chart per answer at most, and only from the figures it quotes.
-- It says nothing until you ask.
+One line sits above the composer. With WebGPU it reads `Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.`
 
-</Callout>
+Without WebGPU it reads:
 
-## When an answer fails
+```text
+This browser has no WebGPU, which the assistant needs to run a model on this
+device. Use a current Chrome, Edge or Safari, or ask an administrator to set
+AI_BASE_URL and AI_MODEL.
+```
 
-An error takes the place of the answer, with a **Retry** button beside it.
+The palette then holds no `On your instance` group. Without WebGPU it holds no `On this device` group either, so nothing but the search box remains.
 
-| Message | What happened |
-| --- | --- |
-| Too many questions in a row. Wait a moment and try again. | You asked too many questions in a short period |
-| This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on. | Your operator switched the model off while you held the screen open. Press the model button and pick a model that runs on your own device |
-| The model on this device could not answer. Try again, or pick a different model. | A model on your device stopped in the middle of an answer. Press **Retry**, or press the model button and choose a smaller model. See [Choose a model](#choose-a-model) |
-| This conversation is too long for the model on this device. Start a new conversation. | The model on your device cannot hold the whole conversation any more. Press **New conversation** |
-| The assistant could not answer. Try again. | Anything else |
+</Tab>
 
-Freenary accepts a limited number of questions from one account in a short period, with a model on the server and with a model on your device alike. Wait a moment, then press **Retry**. [The assistant](/docs/self-hosting/assistant) holds the exact number, and the reason for it.
+</Tabs>
 
-## Choose a model
+## A model in your own browser
 
-The tool row of the composer, left of **New conversation**, holds the model button. It names the model that answers your next question. Press it, and a dialog opens with a search field, **Search models…**, and up to two groups:
+The group `On this device` lists the models your browser can download and run. Each one shows the graphics memory it needs, in gigabytes. Pick one and the download starts at once.
 
-| Group | What it holds |
-| --- | --- |
-| **On your instance** | One entry: the model your operator set on the server. The group is absent when your operator set no model endpoint |
-| **On this device** | Twelve models your browser can download and run, each with the size it takes in gigabytes. The group is absent when your browser has no WebGPU |
-
-A search with no match reads **No model matches.** Press **Escape**, or press outside the dialog, to close it without a change.
-
-The button carries the name of the model that answers: the model id of your instance, or the name of the model on this device, or **Choose a model** while you chose none. The button is off while an answer arrives.
-
-Your conversation stays on the screen the whole time. You read your transcript before you choose a model, and after you change one.
-
-### What answers by default
-
-On an instance with a model endpoint, the model of the instance answers, and you choose nothing. On an instance without one, no model answers until you pick one. The text box stays off, and one line above the composer reads:
-
-> Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.
-
-Freenary remembers the model you pick, in that browser. Your next visit to Home uses the same model, and you pick nothing.
-
-### A model on this device
-
-Pick a model under **On this device**, and the download starts at once. A smaller model needs less graphics memory and answers faster. A larger model follows your question more closely, and your graphics card must hold it.
-
-The model button then reports the download: a spinner, `Loading {model}` and a percentage. The button is off while the model arrives, so you pick no other model until it settles.
-
-A model that did not start shows one line above the composer instead: `The model could not be loaded: {reason}`, with a **Retry** link. A full graphics memory is the usual reason. Press **Retry**, or choose a smaller model.
-
-The text box, the three suggestion chips and the **Retry** of the last answer stay off until the model is ready. A ready model needs no line of its own: the button names it. The model of your instance needs no download.
-
-Your browser keeps the model after the first download. A later visit starts it from that cache and downloads nothing.
-
-### Change the model between two questions
-
-Press the model button again and pick another model. Your conversation stays, and your next question goes to the model you picked. Freenary reloads no screen.
-
-A model on this device reads the whole conversation again before it answers, and that includes the answers the model of your instance wrote. A long conversation can therefore pass what the model holds, and the assistant asks you to start a new one.
-
-<Callout type="info">
-
-A model that runs on your device is much smaller than a hosted one, so it is weaker. It can read the wrong period, make the wrong lookup, or fail to draw a chart. The model button names the model that answers, so you always know which one wrote an answer. Ask your operator for a model endpoint when you need better answers.
-
-</Callout>
-
-### A browser without WebGPU
-
-The assistant needs WebGPU to run a model on your device. A browser without it shows no **On this device** group, and the dialog reads:
-
-> This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask an administrator to set AI_BASE_URL and AI_MODEL.
-
-On an instance with no model endpoint, the same text takes the place of the line above the composer. The text box then stays off, because no model can answer.
+- The button reads `Loading {model}` with a percentage while it downloads.
+- Your browser keeps the model, so a later visit downloads nothing.
+- Freenary remembers your choice in that browser. A remembered model on your device wins over the one on the instance.
+- A download that fails reads `The model could not be loaded: {reason}`, with `Retry` beside it.
+- While the catalogue loads, the palette reads `Finding the models this device can run…`. A failure reads `The list of models could not be loaded.`
 
 ## What leaves your instance
 
-With a model on the server, Freenary sends your question and the result of every lookup to the model your operator chose, and it never sends an IBAN. [The assistant](/docs/self-hosting/assistant) lists exactly what goes out and what stays.
+Each question sends your question and the results of its lookups to the model that answers. Those results hold your own financial data: your accounts, your transactions, your spending by category and your plan.
 
-With a model on your device, no part of the conversation leaves your browser. The lookups read your own data from your own instance, as every other screen does. One call goes out, once per model: the download from Hugging Face.
+- A model on the instance receives that data at the endpoint your operator set. See [The assistant](/docs/self-hosting/assistant).
+- A model in your own browser keeps the whole conversation in that browser.
+
+A question sent to an instance with no model reads:
+
+```text
+This instance has no model configured. An administrator sets AI_BASE_URL and
+AI_MODEL to switch the assistant on.
+```
+
+That is a message on your screen, and the names in it are for your operator. You change nothing from here.
+
+## Read an answer
+
+Each answer keeps its steps above the text. The header reads `How the assistant answered`, or `How the assistant is answering` while the answer arrives. `Expand all` and `Collapse all` open and fold every step.
+
+Each question the assistant puts to your own data is a lookup. Seven exist, and each one names itself:
+
+| Lookup | What it reads |
+| --- | --- |
+| `Checking your accounts` | Your accounts |
+| `Searching your transactions` | Your transactions |
+| `Reading your spending by category` | Spending per category |
+| `Reading your cash flow` | Money in against money out |
+| `Splitting fixed and variable spending` | The fixed share of your spending |
+| `Looking for recurring payments` | Payments that repeat |
+| `Comparing your plan with what you spent` | Your plan against the real amounts |
+
+A lookup Freenary cannot name reads `Reading your data`.
+
+While the answer arrives, a status line names the work of that moment. It reads `Thinking…`, `Asking again…` on a retry, `Preparing a lookup…`, `Writing the answer…` or `Drawing a chart…`.
+
+### A chart in an answer
+
+An answer can carry a chart. It sits in a panel headed `Chart`, with the action `View larger`. The panel shimmers with `Drawing…` while the answer still writes it. A chart the assistant cannot draw reads `The chart could not be drawn.`
+
+### Actions on an answer
+
+- `Copy` copies the text of a settled answer to your clipboard.
+- `Retry` asks the question again. It appears on the newest answer alone.
+
+### The mark beside an answer
+
+The Freenary mark sits beside the live answer and wears one state. One rule picks it, and the first match wins:
+
+1. An error on the answer.
+2. A thought, while the question waits or while a lookup runs.
+3. Speech, while the text arrives.
+4. Success, on an answer that landed.
+5. Curiosity, while the composer is live.
+6. Rest, otherwise.
+
+## What the assistant cannot do
+
+The assistant reads. It writes nothing back.
+
+- It changes no data: no category, no budget line, no account and no transaction.
+- It starts no sync. Press `Sync transactions` on [Budget](/docs/guides/budget#sync-from-this-screen) yourself.
+- It moves no money.
+
+You hold one conversation at a time. There is no list of past ones. Press `New conversation` and Freenary sets the current thread aside. It opens an empty one, with no way back to the thread you set aside.
+
+## When an answer fails
+
+The error takes the place of the answer, with `Retry` beside it.
+
+| What you read | What to do |
+| --- | --- |
+| `Too many questions in a row. Wait a moment and try again.` | Wait, then press `Retry` |
+| `This conversation is too long for the model on this device. Start a new conversation.` | Press `New conversation` |
+| `The model on this device could not answer. Try again, or pick a different model.` | Press `Retry`, or pick a smaller model |
+| `The assistant could not answer. Try again.` | Press `Retry` |
 
 <Cards>
   <Card
     title="Budget"
     href="/docs/guides/budget"
-    description="The charts and the transaction list behind every figure the assistant quotes."
+    description="The charts and the list behind every figure an answer quotes."
   />
   <Card
-    title="Language and appearance"
-    href="/docs/guides/interface"
-    description="The language of an answer, and the mark that reacts to you."
-  />
-  <Card
-    title="First steps"
-    href="/docs/guides/first-steps"
-    description="From a new account to a Home screen with real data behind it."
+    title="Bank connections"
+    href="/docs/guides/bank-connections"
+    description="Give the assistant something to read."
   />
 </Cards>

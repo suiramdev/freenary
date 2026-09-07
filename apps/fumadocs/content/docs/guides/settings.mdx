@@ -1,111 +1,160 @@
 ---
 title: Settings
-description: Every setting a Freenary user can change, in the three groups the screen uses — Security, Connections and Budgeting.
+description: Every section of the Settings screen in the order the app shows them, with each control and what it changes.
 icon: Settings
 ---
 
-Settings holds everything you can change about your account. The screen has three groups and seven sections. This page names each one and tells you what it does.
+Settings holds three groups and seven sections. This page walks them in the order the screen uses, and names what each control changes.
 
-Open it from the sidebar, or go to `/settings`.
+Open it from the sidebar. A page that fails to load reads `Could not load your settings`, with a `Try again` button.
 
-## The three groups
-
-| Group | What it covers | Sections |
-| --- | --- | --- |
-| Security | How you sign in, and what protects the account | Two-factor authentication, Passkeys, Active sessions, Connected accounts |
-| Connections | The institutions Freenary syncs your accounts from | Bank accounts |
-| Budgeting | The monthly plan and the categories it uses | Budgeting profile, Categories |
-
-## Deep links
-
-Three anchors jump straight to a group. The sidebar checklist uses them.
-
-| Address                   | Where it lands    |
-| ------------------------- | ----------------- |
-| `/settings#security`      | Security          |
-| `/settings#bank-accounts` | Bank accounts     |
-| `/settings#budgeting`     | Budgeting profile |
-
-Freenary holds the scroll position for a moment as the sections above load. Any scroll, tap or key press of your own releases it at once.
+| Group | Sections, in order |
+| --- | --- |
+| `Security` | `Two-factor authentication`, `Passkeys`, `Active sessions`, `Connected accounts` |
+| `Connections` | `Bank accounts` |
+| `Budgeting` | `Budgeting profile`, `Categories` |
 
 ## Security
 
+The group line reads `How you sign in, where your sessions are open, and what protects your account if your password leaks.`
+
 ### Two-factor authentication
 
-A code from your authenticator app, on top of your password.
+The section line reads `A code from your authenticator app, on top of your password.` A badge beside the title reads `On` or `Off`.
 
-| Action | What you do |
+| State | The body reads |
 | --- | --- |
-| Turn it on | Confirm your password, scan the QR code with your authenticator app, type the 6-digit code it shows, then save the recovery codes |
-| New recovery codes | Confirm your password, then save the new codes |
-| Turn it off | Confirm your password |
+| `Off` | `Your password alone signs you in. Add an authenticator app so a stolen password is not enough.` |
+| `On` | `Signing in with your password also asks for a code from your authenticator app.` |
 
-Freenary shows the enrolment button only when your account has a password. An account that signs in with a provider alone does not see it.
+Under it sits the scope note: `A second factor applies to password sign-in. A passkey or a connected provider signs you in on its own.`
 
-When you turn two-factor on or off, Freenary rotates your session.
+| Control | When it appears | What it does |
+| --- | --- | --- |
+| `Enable` | The state is `Off` and your account holds a password | Opens the enrolment drawer |
+| `Disable` | The state is `On` | Opens a dialog that asks for your password |
+| `Generate new recovery codes` | The state is `On` | Opens the drawer at its last stage |
 
-### Passkeys
+Three dialogs sit behind those controls:
 
-Sign in with the unlock of your own device instead of a password.
+- `Enable` opens `Enable two-factor authentication`. The drawer holds four stages: your password, the QR code, an app code, then the recovery codes.
+- `Generate new recovery codes` opens the same drawer as `New recovery codes`, with two stages: your password, then the codes.
+- `Disable` opens `Disable two-factor authentication?`, a dialog that asks for your password.
 
-- **Add**: name the passkey, then answer your browser.
-- **Rename**: only the name changes. The passkey itself still works.
-- **Remove**: that device no longer signs you in.
+See [Signing in](/docs/guides/signing-in#turn-it-on) for the walkthrough.
 
-The section always renders. A browser with no passkey support hides the **Add a passkey** button, and the section reads instead: This browser cannot create passkeys here. They need a recent browser on a secure (HTTPS) connection. A prompt you dismiss produces no error.
-
-### Active sessions
-
-Every browser signed in to your account right now. Freenary lists the current session first, with the device and the address it saw.
-
-- Revoke one session with the button on its row.
-- Revoke every other session with the button in the header of the section.
-
-A session lasts 7 days. See [Signing in](/docs/guides/signing-in#how-long-a-session-lasts).
-
-### Connected accounts
-
-The ways you can sign in to this account. Link a provider, or unlink one you no longer use.
-
-Freenary refuses to unlink your last way in. It also refuses to link a provider account that carries a different email address.
+You read `Two-factor authentication is on` or `Two-factor authentication is off`.
 
 <Callout type="warn">
 
-Freenary asks you to sign in again before it links or unlinks an account, or before it adds or removes a passkey. A session older than 15 minutes is not fresh enough for those actions.
+An account with no password shows no `Enable` button. It reads `This account has no password — it was created with a connected provider — so a second factor has nothing to guard. A passkey works without one: add it below.` A check that fails instead reads `We could not check whether this account has a password, so two-factor authentication is unavailable for now. Reload to try again.`
+
+</Callout>
+
+### Passkeys
+
+The section line reads `Sign in with your device's own unlock instead of typing a password.`
+
+| Control         | What it does                                       |
+| --------------- | -------------------------------------------------- |
+| `Add a passkey` | Names the passkey, then hands over to your browser |
+| `Rename`        | Changes the name alone                             |
+| `Remove`        | Stops that passkey from signing you in             |
+
+The naming dialog is titled `Name this passkey`, with the field `Name`, the placeholder `Work laptop` and the default name `This device`. A name holds 60 characters at most, and a longer one reads `Keep the name under {max} characters.` `Rename this passkey` reads `Only the name changes. The passkey itself keeps working.`
+
+Each row names the passkey, or `Unnamed passkey`, then `Added {date}`, then one badge:
+
+| Badge              | What it means                                 |
+| ------------------ | --------------------------------------------- |
+| `Synced`           | The passkey follows you to your other devices |
+| `This device only` | It lives on this device alone                 |
+| `Not backed up`    | Your device holds no copy of it elsewhere     |
+
+A removal confirms with `Remove {passkey}?`, over `This device will no longer sign you in, and the passkey stored on it stops working. Your other ways in keep working.`
+
+A browser that cannot create a passkey hides the `Add a passkey` button. It reads `This browser cannot create passkeys here. They need a recent browser on a secure (HTTPS) connection.` With no passkey on the account, that note and the empty explanation appear together.
+
+A list that fails to load reads `Could not load your passkeys`.
+
+### Active sessions
+
+The section line reads `Every browser signed in to your account right now.` A session lasts **7 days**.
+
+Freenary lists your current session first, with the badge `This device`. Each row names the device, then up to three details: `Signed in {date}`, `Last refreshed {date}` and `IP {ip}`. The address line appears only when the session carries one.
+
+Freenary names a device from what the browser reports: `Android device`, `Chromebook`, `iPad`, `iPhone`, `Linux computer`, `Mac`, `Windows PC`, or `Unknown device`.
+
+| Control | Where | What it does |
+| --- | --- | --- |
+| `Revoke` | On any row but the current one | Signs that one browser out |
+| `Sign out other sessions` | In the header, and only while another session exists | Opens `Sign out other sessions?`, confirmed with `Sign them out` |
+
+A list that fails to load reads `Could not load your active sessions`. The literal empty text is `No active sessions`.
+
+### Connected accounts
+
+The section line reads `The ways you can sign in to this account.`
+
+It lists a `Password` row with `Added {date}` when your account holds one. Then it lists one row per provider your instance offers: `Google`, `Apple` or `Single sign-on`. That last row carries the name your operator gave it.
+
+| Element | What it means |
+| --- | --- |
+| `Connected` | The provider already signs you in |
+| `Connect` | Links that provider to this account |
+| `Disconnect` | Opens `Disconnect {provider}?`, over `You will no longer be able to sign in with it. Your other ways in keep working.` |
+| `This instance no longer offers this provider` | Your operator dropped a provider you had linked |
+
+An account with no password reads `No password is set on this account. Passkeys are not listed here either — they have their own section above.`
+
+A provider list that fails to load reads `Could not load the providers this instance offers, so none can be connected from here`. A failure on your own methods reads `Could not load your sign-in methods`.
+
+<Callout type="warn">
+
+Two refusals arrive as a message:
+
+- `This is the only way into your account. Add another one before removing it.` — Freenary keeps you from a lock-out.
+- `Sign in again before changing how your account is accessed: this needs a session less than 15 minutes old.` — it covers a link, an unlink, and a passkey you add or remove.
 
 </Callout>
 
 ## Connections
 
+The group line reads `The institutions freenary syncs your accounts from.`
+
 ### Bank accounts
 
-One searchable list of banks, with your connections at the top. Connect a bank, re-sync one, or disconnect one. The whole flow lives on its own page. See [Bank connections](/docs/guides/bank-connections).
+One searchable bank list, with your connections at the top. Connect a bank, re-sync one, or disconnect one from here. The whole flow lives on its own page: [Bank connections](/docs/guides/bank-connections).
 
-With no bank provider on the instance, the section reads **Bank linking is unavailable** and offers no list. Your operator configures one. See [Bank providers](/docs/self-hosting/bank-providers).
+With no banking service on the instance, the section reads `Bank linking is unavailable` and offers no list.
 
 ## Budgeting
 
+The group line reads `The monthly plan you declare by hand, and the categories it is organized with.`
+
 ### Budgeting profile
 
-The monthly plan you declare by hand: one amount per category, with an optional name. Freenary draws the plan as a live flow diagram above the editor. See [Categories and budget lines](/docs/guides/categories#the-budgeting-profile).
+The monthly plan: one amount per category, each with an optional name. Freenary draws it as a live flow diagram above the editor, with a summary and an unsaved-changes bar. See [Categories and budget lines](/docs/guides/categories#the-budgeting-profile).
 
 ### Categories
 
-The category tree. Each of the 16 groups opens as a collapsible row with a count. Built-in categories carry a badge and offer no actions. Your own categories offer rename, recolour, reorder and delete. See [Categories and budget lines](/docs/guides/categories#custom-categories).
+The category list: 16 groups, each a closed row with a count. A built-in category carries the badge `Built-in` and offers no action. Your own categories offer edit, re-parent, reorder and delete, and `New category` sits in the header. See [Categories and budget lines](/docs/guides/categories#custom-categories).
 
 ## What Settings does not hold
 
-<Callout type="info">
+| You cannot change here | Where it lives instead |
+| --- | --- |
+| Your password | The reset path on the sign-in screen. See [Signing in](/docs/guides/signing-in#password-reset) |
+| Your language | The sidebar account menu. See [Language and appearance](/docs/guides/interface) |
+| The appearance | The sidebar account menu. See [Language and appearance](/docs/guides/interface) |
 
-No screen in Freenary edits your name, your email address, an avatar image, your display currency or your timezone. There is no account section and no profile section. Freenary builds your avatar from the initials of your name.
+Freenary holds no screen at all for the rest:
 
-To change your password, use the reset path on the sign-in screen. See [Signing in](/docs/guides/signing-in#password-reset).
+- Your display name, your email address and your avatar.
+- Account deletion, and any export of your data.
+- A notification choice, a currency choice and a date format choice.
 
-</Callout>
-
-## When Settings fails to load
-
-The category list and the budgeting profile can both fail to answer. Freenary then replaces the whole page with a short error card and a **Try again** button. Press it.
+Your name and your email come from the account you signed up with.
 
 <Cards>
   <Card
@@ -116,16 +165,11 @@ The category list and the budgeting profile can both fail to answer. Freenary th
   <Card
     title="Bank connections"
     href="/docs/guides/bank-connections"
-    description="The full life of a bank connection."
+    description="The whole life of a bank connection."
   />
   <Card
     title="Categories and budget lines"
     href="/docs/guides/categories"
-    description="The vocabulary behind the Budgeting group."
-  />
-  <Card
-    title="Language and appearance"
-    href="/docs/guides/interface"
-    description="The two controls that do not live in Settings."
+    description="The vocabulary and the plan behind the Budgeting group."
   />
 </Cards>

@@ -1,109 +1,99 @@
 ---
 title: Language and appearance
-description: Switch Freenary between English and French, choose a light or dark appearance, and meet the mark that reacts to you.
-icon: Palette
+description: Read Freenary in English or French, pick a light or dark appearance, and find the one menu that holds both controls.
+icon: Languages
 ---
 
-Two controls change how Freenary looks and reads. Neither one lives in Settings. This page covers both, and the mark that reacts to you.
+Two controls change how Freenary reads and how it looks. Neither one sits in Settings. This page names where each control lives, and what changes when you use it.
 
-## Language
+## Where the two controls live
 
-Freenary ships in **English** and **French**. The menu names each language in its own words: **English** and **Français**.
+Three screens carry them, and no other screen does.
 
-### Where to change it
+| Screen | Where the controls sit |
+| --- | --- |
+| The sign-in screen | Two buttons above the form: the appearance first, then the language |
+| The setup | Two buttons in the header, before `Sign out` |
+| Every screen once you sign in | The sidebar account menu, under your name |
 
-| Screen                      | Control                                     |
-| --------------------------- | ------------------------------------------- |
-| The sign-in screen          | A language button above the form            |
-| The onboarding wizard       | A language button in the header             |
-| Any screen once you sign in | The sidebar user menu, submenu **Language** |
-
-### What happens when you change it
-
-1. Freenary stores your choice in a cookie in your browser.
-2. The page reloads.
-3. The whole interface comes back in the new language.
+The account menu holds one submenu each: `Language`, then `Theme`, then the `Sign out` item.
 
 <Callout type="warn">
 
-The reload is real. If you have unsaved changes in the Budgeting profile editor, Freenary warns you first. Save or cancel before you switch. See [Categories and budget lines](/docs/guides/categories#edit-the-profile).
+Settings holds neither control. It has three groups — `Security`, `Connections` and `Budgeting` — and none of them touches the language or the appearance. See [Settings](/docs/guides/settings).
 
 </Callout>
+
+## Language
+
+Freenary reads in two languages, and no third one ships with it. The menu names each one in its own words:
+
+| Choice  | The menu reads |
+| ------- | -------------- |
+| English | `English`      |
+| French  | `Français`     |
+
+On the sign-in screen and in the setup header, the language button reads the name of your current language. It does not read the word `Language`. Inside the account menu the submenu is labelled `Language`, and a radio mark sits beside your current choice.
+
+### Change it
+
+<Steps>
+
+<Step>
+
+### Open the control
+
+Press your name at the foot of the sidebar, then open the `Language` submenu. Before you sign in, press the language button instead.
+
+</Step>
+
+<Step>
+
+### Pick the other language
+
+The page reloads, and the whole interface comes back in the language you picked. The reload is what makes the server agree with your choice.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+The reload is real, and it drops unsaved work. Save your budgeting profile, or press `Cancel` on the unsaved-changes bar, before you switch. See [Categories and budget lines](/docs/guides/categories#save-the-plan).
+
+</Callout>
+
+Your choice belongs to that browser. Another browser starts in the language it asks for, and falls back to English.
 
 ### What follows the language
 
-| Text | Follows your choice? |
+| Text | Follows your choice |
 | --- | --- |
 | Every label, button and message | Yes |
-| Country names in the onboarding list, and their order | Yes. Your browser supplies them |
-| Category and category-group labels | Yes |
-| Amounts and dates | Yes. The format follows the language |
-| An answer from the assistant | Yes. It answers in your language |
-| The label of your own custom category | No. Freenary shows the text you typed |
-| Bank names and BIC codes | No. They come from your bank |
-| The name of an operator sign-on provider | No. The operator sets it |
-
-<Callout type="info">
-
-Freenary keeps no language column on your account. The choice lives in the cookie of that browser. A different browser starts from the language your browser asks for, and falls back to English.
-
-</Callout>
+| The country names in the setup list, and their order | Yes |
+| The category and category-group labels | Yes |
+| Dates | Yes. The format follows the language |
+| Amounts | Yes. The format follows the language, and the currency stays the euro |
+| An answer from the assistant | Yes. Freenary asks it to answer in your language |
+| The name you gave your own category | No. Freenary shows the text you typed |
+| Bank names | No. They come from the service that links your bank |
+| The name of a single sign-on provider | No. Your operator sets it |
 
 ## Appearance
 
-Freenary offers three appearances, in this order:
+Three choices sit in the `Theme` submenu, in this order:
 
 | Choice | What it does |
 | --- | --- |
-| System | Follows the light or dark setting of your operating system, and keeps following it |
-| Dark | Dark, always |
-| Light | Light, always |
+| `System` | Follows the light or dark setting of your operating system, and changes with it |
+| `Dark` | Dark, always |
+| `Light` | Light, always |
 
-**System** is the default.
+`System` is the default.
 
-### Where to change it
+The trigger names the control rather than your choice: it reads `Theme` on all three screens. The browser must read your stored choice first, so the trigger cannot name it.
 
-The same three screens carry it:
-
-- The sign-in screen, on a button above the form.
-- The onboarding wizard, in the header.
-- The sidebar user menu, submenu **Theme**.
-
-The button names the control, not your current choice, because the browser reads the stored choice after the first paint.
-
-Unlike the language, an appearance change needs **no reload**. Freenary swaps the appearance in place.
-
-## The mark
-
-The mark is a ring in three colours: green, orange and blue. Freenary draws it from numbers, not from an image file. It is the icon of your browser tab, the mark at the top of the sidebar, the face above the sign-in form, and the face beside each answer on Home.
-
-The ring opens into a face. Point at the mark at the top of the sidebar, or reach it with the Tab key. The ring then becomes a pair of eyes and a smile. Move away and it closes back to the plain ring. It is no control beyond the link home.
-
-On the sign-in screen the face answers what you do.
-
-| What you do            | What the face does                  |
-| ---------------------- | ----------------------------------- |
-| Nothing                | It rests.                           |
-| Enter a text field     | It looks curious.                   |
-| Type                   | It listens.                         |
-| Enter a password field | It closes its eyes.                 |
-| Send the form          | It turns into a loading ring.       |
-| Meet a refusal         | It shows an error for a moment.     |
-| Sign in                | It beams while the next page loads. |
-
-The face is decoration here. The form's own messages, spinners and highlights tell you the same thing.
-
-On Home the face answers the work as well as your typing. See [The assistant](/docs/guides/assistant#the-mark).
-
-<Callout type="info">
-
-The mark respects the reduced-motion setting of your operating system. With reduced motion on, Freenary holds one still frame of each expression and plays no animation.
-
-</Callout>
-
-## Your avatar
-
-The circle beside your name in the sidebar shows up to two initials from your name. Freenary has no avatar upload, and no image URL. See [Settings](/docs/guides/settings#what-settings-does-not-hold).
+An appearance change needs **no reload**. Freenary swaps the appearance in place, so unsaved work survives it.
 
 <Cards>
   <Card
@@ -114,11 +104,6 @@ The circle beside your name in the sidebar shows up to two initials from your na
   <Card
     title="Using Freenary"
     href="/docs/guides"
-    description="The map of every area of the app."
-  />
-  <Card
-    title="First steps"
-    href="/docs/guides/first-steps"
-    description="The onboarding wizard, where both controls appear first."
+    description="The map of every screen."
   />
 </Cards>

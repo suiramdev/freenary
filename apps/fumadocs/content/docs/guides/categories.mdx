@@ -1,124 +1,149 @@
 ---
 title: Categories and budget lines
-description: The fixed category groups, your own custom categories, and the monthly plan Freenary calls the budgeting profile.
+description: The fixed category groups, the categories you add yourself, and the monthly plan Freenary calls your budgeting profile.
 icon: Tags
 ---
 
-Freenary sorts every transaction into a category, and every category sits in a group. On top of that vocabulary you declare a monthly plan. This page covers both.
+Every transaction sits in one category, and every category sits in one group. On top of that vocabulary you declare a monthly amount per category. This page covers both, and the limits on each.
 
-## The category groups
+## The fixed vocabulary
 
-Freenary ships **16 category groups** and **75 categories** inside them. Both sets are permanent. You cannot add a group, rename one, or remove one.
+Freenary ships **16 category groups** and **75 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.`
 
-The groups follow the flow of money, from income to outgoings:
+The groups follow the flow of money, from income to outgoings. Each one holds a catch-all category for a movement Freenary places in the group but in no exact category.
 
-| #   | Group         | Catch-all category |
-| --- | ------------- | ------------------ |
-| 1   | Income        | Other income       |
-| 2   | Investments   | Other investment   |
-| 3   | Housing       | Other housing      |
-| 4   | Utilities     | Other utilities    |
-| 5   | Daily living  | Other daily living |
-| 6   | Transport     | Other transport    |
-| 7   | Travel        | Other travel       |
-| 8   | Leisure       | Other leisure      |
-| 9   | Shopping      | Other shopping     |
-| 10  | Subscriptions | Other subscription |
-| 11  | Health        | Other health       |
-| 12  | Education     | Other education    |
-| 13  | Financial     | Other financial    |
-| 14  | Taxes         | Other taxes        |
-| 15  | Transfers     | Other transfer     |
-| 16  | Other         | Uncategorised      |
+| #   | Group           | Catch-all category   |
+| --- | --------------- | -------------------- |
+| 1   | `Income`        | `Other income`       |
+| 2   | `Investments`   | `Other investment`   |
+| 3   | `Housing`       | `Other housing`      |
+| 4   | `Utilities`     | `Other utilities`    |
+| 5   | `Daily living`  | `Other daily living` |
+| 6   | `Transport`     | `Other transport`    |
+| 7   | `Travel`        | `Other travel`       |
+| 8   | `Leisure`       | `Other leisure`      |
+| 9   | `Shopping`      | `Other shopping`     |
+| 10  | `Subscriptions` | `Other subscription` |
+| 11  | `Health`        | `Other health`       |
+| 12  | `Education`     | `Other education`    |
+| 13  | `Financial`     | `Other financial`    |
+| 14  | `Taxes`         | `Other taxes`        |
+| 15  | `Transfers`     | `Other transfer`     |
+| 16  | `Other`         | `Uncategorised`      |
 
-Each group holds several categories. The catch-all category of a group takes a movement that Freenary places in the group but not in one exact category.
+A built-in category takes the colour and the icon of its group. It carries none of its own.
 
-A category has no colour and no icon of its own. It takes the colour and the icon of its group.
+### Where to read the list
 
-<Callout type="info">
+Open Settings, group `Budgeting`, section `Categories`. Every group starts closed, with a badge that counts what is inside it. Open one to read its categories.
 
-The interface holds the full list. Open Settings, group **Budgeting**, section **Categories**. Each group opens as a collapsible row with a count. A category that ships with Freenary carries a **Built-in** badge and offers no actions.
-
-The category picker of the transaction drawer and the category filter of the Budget screen list the same set. See [Budget](/docs/guides/budget).
-
-</Callout>
+A built-in category carries the badge `Built-in` and offers no action. The [Budget](/docs/guides/budget) category filter and the category picker of the transaction drawer list the same 75.
 
 ## Custom categories
 
-A custom category is one you create yourself. Freenary offers it beside the built-in ones.
+A custom category is one you add. Unlike a built-in one, it holds a colour and an icon you pick yourself.
+
+Press `New category` in the header of the section. The drawer holds four fields.
 
 | Field | Rule |
 | --- | --- |
-| Label | 1 to 40 characters. Unique per user, and Freenary ignores letter case in that check |
-| Colour | One of 7 colours |
-| Icon | One of 18 icons |
-| Parent group | One of the 16 groups, or none |
-| Order | Move up and move down inside the group |
+| `Name` | 1 to 40 characters. Unique among your own categories, and letter case plays no part in that check |
+| `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red` |
+| `Icon` | One of 18 icons, in a grid |
+| `Nested under` | One of the 16 groups, or `No parent` |
 
-A new category starts blue, with a neutral icon, and with no parent group. A custom category with no parent group stands as a group of its own in the list.
+The 18 icons are `Airplane`, `Arrows`, `Bank`, `Car`, `Coins`, `Dots`, `Film slate`, `First aid kit` and `Fork and knife`. The rest are `Graduation cap`, `House`, `Lightning bolt`, `Safe`, `Receipt`, `Repeat`, `Shield with check`, `Shopping bag` and `Storefront`.
 
-To create one, open Settings, section **Categories**, and press the create button. You can also create one from a budget line: pick **New category…** on the category picker, and Freenary writes the new category straight onto that line.
+A new category starts blue, with the `Dots` icon, and with no parent. Press `Create category` to save it, or `Cancel` to drop it. You read `Category created`.
 
 <Callout type="warn">
 
-A custom category serves budget lines only. You cannot file a transaction under a custom category. The transaction picker offers the built-in categories alone.
+A custom category serves budget lines alone. The transaction picker offers the built-in 75 and none of your own. You cannot file a transaction under a custom category. See [Budget](/docs/guides/budget#fix-a-category).
 
 </Callout>
 
+### Shape a custom category
+
+Each custom row offers four actions. A screen reader reads them as `Edit {label}`, `Delete {label}`, `Move {label} up` and `Move {label} down`. A row in use also carries the badge `{count} line(s)`.
+
+| Action | What it does |
+| --- | --- |
+| Edit | Re-opens the drawer. `Save changes` writes it, and you read `Category updated` |
+| Re-parent | The `Nested under` field moves the category to another group, or out of every group |
+| Reorder | Up and down move it inside its group |
+| Delete | Removes it, and moves its budget lines |
+
+A custom category with `No parent` stands on its own row in the list, not as a group you can open.
+
 ### Delete a custom category
 
-Freenary never leaves a budget line without a category. When you delete a custom category:
+The dialog reads `Delete {label}?`. Under it sits one of two lines:
 
-1. Freenary moves every budget line of that category to the catch-all of its parent group.
-2. The confirmation dialog names that catch-all before you confirm.
-3. The result message names the catch-all and counts the lines it moved.
+- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Uncategorised` when the category has no parent.
+- `No budget line uses {label}.`
 
-A custom category with no parent group has no group catch-all. Its lines move to **Uncategorised**.
+Press `Delete category` to confirm, or `Cancel` to leave. You read `Category deleted`, or `Category deleted — {count} budget line(s) moved to {fallback}`.
+
+A delete touches no transaction, because no transaction ever carried a custom category. Only your budget lines move.
 
 ## The budgeting profile
 
-Your budgeting profile is the monthly plan you declare by hand. It is a list of budget lines, and nothing else. There is no separate profile to create.
+Your budgeting profile is the monthly plan you declare by hand. It is a list of budget lines and nothing else, so there is no profile to create first.
 
-A budget line holds three things:
+Open Settings, group `Budgeting`, section `Budgeting profile`. Its own line reads `Declare where your money comes from and where it goes each month. A line's category places it in the flow; its name is optional.`
+
+Press `Add a line` for an empty row. A row holds three parts.
 
 | Part | Rule |
 | --- | --- |
-| Name | Optional. With no name, Freenary shows the label of the category |
-| Amount | The planned amount per month. Always positive. Type a comma or a dot |
-| Category | One built-in category, or one custom category. A new line starts with none |
+| Name | Optional, and 60 characters at most. Empty, the row shows the label of its category |
+| Amount | The planned amount for one month, in euros. A comma or a dot both work |
+| Category | One built-in category, or one of your own. A new row holds none |
 
-### How a line becomes revenue, investment or outgoing
+Your profile holds **200** lines at most.
 
-You never choose the side of the flow. The group of the category decides it, so the two can never disagree.
-
-| Category group                         | Side of the flow |
-| -------------------------------------- | ---------------- |
-| Income                                 | Revenue          |
-| Investments                            | Investment       |
-| Every other group                      | Outgoing         |
-| A custom category with no parent group | Outgoing         |
-
-### Edit the profile
-
-Open Settings, group **Budgeting**, section **Budgeting profile**.
-
-- Add a line, and pick its category.
-- Drag a line by its handle to reorder it. The handle also answers the up and down arrow keys.
-- Delete a line with the button at its end.
-
-Above the editor, Freenary draws your plan as a live flow diagram, with a summary of revenue, allocated amount and the amount left.
-
-A bar appears at the foot of the page as soon as you change something. It counts the changes, and offers **Cancel** and **Save**. A reorder of the whole list counts as one change. **Save** replaces the whole list at once, and the order on screen becomes the stored order.
+| Row error | When it appears |
+| --- | --- |
+| `Enter a positive amount` | The amount is blank, or it is not a number. A zero is a valid amount |
+| `Amount is too large` | The amount is past the ceiling of the field |
+| `Name must be at most {max} characters` | The name is longer than 60 characters |
+| `Pick a category` | The row holds no category, or it names a category you deleted |
 
 <Callout type="info">
 
-Freenary warns you before you leave the page with unsaved changes. A language change reloads the page, so Freenary warns you then too. See [Language and appearance](/docs/guides/interface).
+The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Investments` counts as an investment. Every other group, and every custom category with `No parent`, counts as an outgoing.
+
+</Callout>
+
+### Work the editor
+
+- Press the category picker to search with `Search categories…`. An empty result reads `No categories match your search`.
+- The picker also offers the row `New category…`. It opens the drawer, and the category you create lands on that line.
+- Drag a line by its handle to reorder it. The handle answers the up and down arrow keys too.
+- Press the button at the end of a row to remove it.
+
+Above the editor, Freenary draws your plan as a live flow diagram. It runs from your revenues through the category groups to each planned line. It follows what you type. With nothing declared it reads `No budget yet`, over `Add a line below and the flow appears here as you type.`
+
+A summary sits with it: `Revenues:`, then `Allocated:`, then a third figure. That third label flips with its sign. It reads `Money left:` at zero and above, and `Over-allocated:` below it.
+
+### Save the plan
+
+A bar appears at the foot of the page as soon as you change something. It reads `{count} unsaved change(s)`, with `Cancel` and `Save`.
+
+- `Save` is off while any row holds an error. Fix the row first.
+- A reorder of the whole list counts as **one** change.
+- `Save` writes the whole list at once, and the order on screen becomes the stored order.
+- You read `Budgeting profile saved`, or `Failed to save budgeting profile`.
+
+<Callout type="warn">
+
+Your browser warns you before you leave the page with unsaved changes. Save the plan, or press `Cancel`, before you switch language or close the tab.
 
 </Callout>
 
 ## What the plan turns on
 
-One budget line or more ticks **Set up your budget** in the sidebar checklist. It also turns on the **Budget vs. actual** chart of the Budget screen, which measures each category group against its planned amount.
+One budget line or more ticks `Set up your budget` in the sidebar checklist. It also turns on the `Budget vs. actual` chart on Budget. That chart measures each category group against the amount you planned.
 
 <Cards>
   <Card
@@ -129,11 +154,11 @@ One budget line or more ticks **Set up your budget** in the sidebar checklist. I
   <Card
     title="Settings"
     href="/docs/guides/settings"
-    description="The screen that holds the category tree and the profile editor."
+    description="The screen that holds the category list and the plan editor."
   />
   <Card
     title="First steps"
     href="/docs/guides/first-steps"
-    description="The three-item checklist this plan belongs to."
+    description="The checklist this plan ticks."
   />
 </Cards>

@@ -5,9 +5,14 @@ import { baseOptions } from "@/lib/layout.shared";
 
 const ENTRY_POINTS = [
   {
-    description: "What Freenary is, and the problem it solves.",
+    description: "What Freenary is, and what you can do with it.",
     slug: "",
     title: "Introduction",
+  },
+  {
+    description: "Install your own instance with Docker Compose.",
+    slug: "self-hosting",
+    title: "Self-hosting",
   },
   {
     description: "Connect a bank, read your budget, correct a category.",
@@ -15,19 +20,19 @@ const ENTRY_POINTS = [
     title: "Using Freenary",
   },
   {
-    description: "Install, configure and operate your own instance.",
-    slug: "self-hosting",
-    title: "Self-hosting",
+    description: "The words this website uses, and what each one means.",
+    slug: "concepts",
+    title: "Concepts",
+  },
+  {
+    description: "How the project works, and how to change it.",
+    slug: "contributing",
+    title: "Contributing",
   },
   {
     description: "Call the API, and read the procedure reference.",
     slug: "integrations",
     title: "Integrations",
-  },
-  {
-    description: "Set up the code, and extend Freenary.",
-    slug: "development",
-    title: "Development",
   },
 ];
 
@@ -37,9 +42,9 @@ const Home = () => (
       <div className="flex flex-col gap-3">
         <h1 className="text-2xl font-medium">Freenary documentation</h1>
         <p className="text-fd-muted-foreground">
-          Freenary is an open-source personal finance and wealth-management
-          platform that you host yourself. It connects your banks, imports your
-          transactions, categorises them, and shows where your money goes.
+          Freenary is an open-source platform for personal finance. It puts your
+          bank accounts, your transactions and your monthly plan in one place
+          that belongs to you.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

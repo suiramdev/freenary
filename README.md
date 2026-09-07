@@ -18,14 +18,13 @@ Freenary puts the accounts, the transactions and the categories in one place tha
 | --- | --- | --- |
 | Connect a bank through one bank provider (Powens or Enable Banking) | Built | [Bank connections](apps/fumadocs/content/docs/guides/bank-connections.mdx) |
 | Import bank accounts, balances and transactions; import holdings with Powens | Built | [Bank providers](apps/fumadocs/content/docs/self-hosting/bank-providers.mdx) |
-| Categorise transactions with deterministic rules and a merchant dictionary | Built | [Categorisation](apps/fumadocs/content/docs/development/categorisation.mdx) |
+| Categorise transactions with deterministic rules and a merchant dictionary | Built | [Categorisation](apps/fumadocs/content/docs/contributing/categorisation.mdx) |
 | Budget: periods, cash flow, spending breakdown, fixed against variable, budget against actual, transaction list | Built | [Budget](apps/fumadocs/content/docs/guides/budget.mdx) |
 | Budgeting profile and custom categories | Built | [Categories and budget lines](apps/fumadocs/content/docs/guides/categories.mdx) |
 | Assistant on Home: ask about your money and read an answer from your own data, when the operator configures a model | Built | [Assistant](apps/fumadocs/content/docs/guides/assistant.mdx) |
 | Sign in with a password, an emailed one-time code, a passkey, Google, Apple or single sign-on, plus two-factor authentication | Built | [Signing in](apps/fumadocs/content/docs/guides/signing-in.mdx) |
 | English and French interface, light and dark appearance | Built | [Language and appearance](apps/fumadocs/content/docs/guides/interface.mdx) |
 | Programmatic access over RPC and OpenAPI | Built | [API](apps/fumadocs/content/docs/integrations/api.mdx) |
-| Portfolio, Analysis, Goals | Planned | [Introduction](apps/fumadocs/content/docs/index.mdx) |
 
 Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](apps/fumadocs/content/docs/integrations/mcp.mdx) for the API path that replaces it.
 
@@ -50,14 +49,17 @@ curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/.env.example
 
 To read the code as well, run `git clone https://github.com/suiramdev/freenary.git` and work in that directory instead: the same two files sit at its root.
 
-Write the two required values into `.env`. `docker compose up` refuses to start while either one is empty:
+Write the three required values into `.env`. `docker compose up` refuses to start while either secret is empty, and it fails to pull while `FREENARY_VERSION` names a tag that does not exist:
 
 ```bash
 cat > .env <<EOF
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+FREENARY_VERSION=main
 EOF
 ```
+
+GHCR holds the tags `main`, `dev` and `sha-<7 characters>`. It holds no `latest`, which is the compose default, so an unpinned stack fails with `not found`.
 
 `.env.example` lists every other setting, with its default, in the same format.
 
@@ -73,12 +75,12 @@ Now check the two services:
 
 ```bash
 curl http://localhost:3000/          # the API server answers: OK
-curl -o /dev/null -w '%{http_code}\n' http://localhost:3001/   # the web app answers: 200
+curl -o /dev/null -w '%{http_code}\n' http://localhost:3001/   # the web app answers: 307, to /login
 ```
 
 Open http://localhost:3001 and create the first account. Then follow [First steps](apps/fumadocs/content/docs/guides/first-steps.mdx).
 
-The defaults reach `localhost` and nowhere else: PostgreSQL publishes on `127.0.0.1` only, and both public URLs point at the machine that runs the stack. Read [Install with Docker Compose](apps/fumadocs/content/docs/self-hosting/docker-compose.mdx) before you serve this instance to anybody else.
+The defaults reach `localhost` and nowhere else: PostgreSQL publishes on `127.0.0.1` only, and both public URLs point at the machine that runs the stack. Read [Install with Docker Compose](apps/fumadocs/content/docs/self-hosting/index.mdx) before you serve this instance to anybody else.
 
 ## Documentation
 
@@ -86,15 +88,17 @@ The complete documentation lives in [`apps/fumadocs`](apps/fumadocs). Run it wit
 
 | Section | Read it for |
 | --- | --- |
-| [Introduction](apps/fumadocs/content/docs/index.mdx) | What Freenary is, and what it does today |
+| [Quickstart](apps/fumadocs/content/docs/quickstart.mdx) | The shortest path to a running instance on one machine |
+| [Introduction](apps/fumadocs/content/docs/index.mdx) | What Freenary is, and where to go next |
 | [Concepts](apps/fumadocs/content/docs/concepts.mdx) | The vocabulary the rest of the documentation uses |
 | [Using Freenary](apps/fumadocs/content/docs/guides/index.mdx) | Sign in, connect a bank, read the Budget area |
-| [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx) | Install, configure, update, back up and monitor an instance |
+| [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx) | The install that serves other people, and how to operate it |
 | [Configuration reference](apps/fumadocs/content/docs/self-hosting/configuration.mdx) | Every environment variable, with its default |
+| [Scaling](apps/fumadocs/content/docs/self-hosting/scaling.mdx) | What holds state, what a second replica shares, what grows with use |
 | [Troubleshooting](apps/fumadocs/content/docs/self-hosting/troubleshooting.mdx) | A symptom, its cause and its fix |
 | [Integrations](apps/fumadocs/content/docs/integrations/index.mdx) | The API, the procedure reference and MCP |
-| [Development](apps/fumadocs/content/docs/development/index.mdx) | Set up the code, run the checks, open a pull request |
-| [Architecture](apps/fumadocs/content/docs/development/monorepo.mdx) | Workspaces, request flow and build |
+| [Development](apps/fumadocs/content/docs/contributing/index.mdx) | Set up the code, run the checks, open a pull request |
+| [Architecture](apps/fumadocs/content/docs/contributing/architecture.mdx) | Workspaces, request flow and build |
 
 ## Development
 
@@ -120,11 +124,11 @@ bun run check-types   # TypeScript
 bun run build         # every app
 ```
 
-More detail: [Development](apps/fumadocs/content/docs/development/index.mdx) and [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx).
+More detail: [Development](apps/fumadocs/content/docs/contributing/index.mdx) and [Local development stack](apps/fumadocs/content/docs/contributing/local-stack.mdx).
 
 ## Releases
 
-Pull requests target the `dev` branch. `main` holds released code. Every push to either branch publishes `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` under that branch name, and a maintainer cuts a release with the `Release` workflow from `main`: it tags `vX.Y.Z` and publishes the same two images as `X.Y.Z`, `X.Y`, `X` and `latest`. `FREENARY_VERSION` in `.env` selects the tag your instance runs. Detail: [Releasing](apps/fumadocs/content/docs/development/releasing.mdx).
+Pull requests target the `dev` branch. `main` holds released code. A push to either branch publishes `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` under that branch name, unless the push touches only `apps/fumadocs/**` or Markdown. A maintainer cuts a release with the `Release` workflow from `main`: it tags `vX.Y.Z` and publishes the same two images as `X.Y.Z`, `X.Y`, `X` and `latest`. No release has run yet, so `FREENARY_VERSION` in `.env` names `main`, `dev` or a `sha-` tag. Detail: [Releasing](apps/fumadocs/content/docs/contributing/releasing.mdx).
 
 ## Repository layout
 

@@ -1,70 +1,87 @@
 ---
-title: MCP and AI tools
-description: Freenary ships no MCP server. What exists instead, how to bridge the API yourself, and why the assistant is not an MCP surface.
-icon: Bot
+title: Model Context Protocol
+description: The repository ships no MCP server. Reach the same data over the HTTP API, with the session cookie of one account.
+icon: Puzzle
 ---
 
-Freenary does not ship an MCP server today. No code in `apps/` or `packages/` implements the Model Context Protocol. No AI client can connect to a Freenary instance and call tools on it.
+The repository ships no Model Context Protocol server, no MCP transport, and no first-party import of an MCP SDK. An AI client cannot connect to a Freenary instance and list tools on it.
 
-MCP is an open protocol that lets an AI client discover and call tools on a server. Read the [protocol site](https://modelcontextprotocol.io) for the specification.
+The rest of this page gives the path that works: the HTTP API, wrapped by a bridge you run yourself.
 
-<Callout type="info">
-  This page documents an absence. It exists because the question comes up, and a
-  clear no saves you a search through the code. Ask for the feature at the
-  [issue tracker](https://github.com/suiramdev/freenary/issues).
-</Callout>
+## What an AI client can reach
 
-## What exists instead
-
-The API server describes itself, and every procedure is callable over HTTP.
+Every procedure the web app calls is callable over HTTP, and the API server describes itself.
 
 | Surface | Request | Use |
 | --- | --- | --- |
-| OpenAPI document | `GET /api-reference/spec.json` | The machine-readable list of procedures and their schemas. |
-| Reference page | `GET /api-reference` | The same list for a human, in a browser. |
-| OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | Plain JSON in, plain JSON out. |
-| oRPC endpoint | `POST /rpc/<router>/<procedure>` | The same procedures inside an oRPC envelope. |
+| OpenAPI document | `GET /api-reference/spec.json` | The machine-readable list of procedures and their input schemas. |
+| Reference UI | `GET /api-reference` | The same list for a human, in a browser. |
+| OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | Plain JSON in, and plain JSON out. |
+| oRPC endpoint | `POST /rpc/<router>/<procedure>` | The same procedures inside the oRPC envelope. |
 
-So you can write an MCP server that sits in front of the API. Freenary does not give you that bridge, but nothing blocks you from one.
+All 35 procedures sit behind one credential. [API](/docs/integrations/api#authentication) gives the cookie and its attributes.
 
-## The shape of a bridge
+## Build a bridge over the API
 
-You write and run this yourself. It is not part of Freenary.
+You write and run this process yourself. It is not part of Freenary.
 
-| Step | What your bridge does |
-| --- | --- |
-| 1. Sign in | `POST /api/auth/sign-in/email` with an email address and a password. |
-| 2. Hold the cookie | Keep the `better-auth.session_token` cookie. It is the only credential. A bearer token returns HTTP 401. |
-| 3. Read the schemas | Fetch `GET /api-reference/spec.json` and turn each path into one tool. |
-| 4. Expose one tool per procedure | Give the tool the procedure input schema, and call `POST /api-reference/<router>/<procedure>`. |
-| 5. Respect the limits | Sign-in is capped at 10 calls per 60 seconds. Three procedures are expensive and uncapped. |
-| 6. Renew the session | The cookie lasts 7 days. Sign in again when a call returns `UNAUTHORIZED`. |
+<Steps>
 
-Read [API](/docs/integrations/api) for the exact error shape, the CORS rules and the limits. Read [Procedure reference](/docs/integrations/procedures) for the input fields, because the OpenAPI document carries no descriptions and declares no security scheme.
+<Step>
+
+Sign in with `POST /api/auth/sign-in/email`, and keep the session cookie. The cookie is the only credential, and a bearer token returns HTTP 401.
+
+</Step>
+
+<Step>
+
+Read `GET /api-reference/spec.json`, and turn each path into one tool of your bridge.
+
+The document carries no descriptions and declares no output schemas. Take the input bounds and the output fields from [Procedure reference](/docs/integrations/procedures).
+
+</Step>
+
+<Step>
+
+Call `POST /api-reference/<router>/<procedure>` for each tool. Send `{}` as the body of a procedure that takes no input.
+
+</Step>
+
+<Step>
+
+Respect the limits. The sign-in path accepts 10 calls per 60 seconds. Three procedures cost real work and have no cap. [API](/docs/integrations/api#limits) lists every one.
+
+</Step>
+
+<Step>
+
+Renew the session. The cookie lasts 7 days. Sign in again when a call answers `UNAUTHORIZED`.
+
+</Step>
+
+</Steps>
 
 <Callout type="warn">
-  A bridge holds a user password or a live session cookie. That cookie can call
-  all 35 procedures. Treat it as the full account credential it is.
+
+A bridge holds an account password or a live session cookie. That cookie can call all 35 procedures. Treat it as the full account credential it is.
+
 </Callout>
 
-## The assistant is not an MCP surface
+## The assistant of the product
 
-Freenary has an assistant. It answers questions about the money of the user, inside the web app. [The assistant](/docs/guides/assistant) describes what it does.
-
-That assistant is a reader of this API, and it is not a way into an instance. It changes nothing else on this page.
+An instance carries an assistant that answers questions about the money of one signed-in user. It reads through the same procedures a bridge calls, and it announces no tools to an outside client.
 
 | Question | Answer |
 | --- | --- |
-| Does it run in the browser? | Sometimes. The reader picks the model. With `AI_BASE_URL` and `AI_MODEL` set, the model of the instance answers by default and the model call happens on the API server. A reader who picks a model that runs in their browser keeps every model call there. |
-| Does it speak the Model Context Protocol? | No. With a model on the server the web app posts to `POST /ai/chat` and reads a token stream back. That route is described in [API](/docs/integrations/api#the-assistant-stream). A browser model uses no route for the answer, and stores the finished turn with `assistant.saveTurn`. |
-| Does it expose tools to an outside client? | No. Its seven tools serve one answer, on the server or in the reader's browser. Nothing announces them, and no client can list them or call them. |
-| Does it reach data a caller cannot reach? | No. Each tool calls one procedure of [Procedure reference](/docs/integrations/procedures), which is the surface a bridge would call too. |
+| Does it speak the Model Context Protocol? | No. The web app posts to `POST /ai/chat` and reads a token stream back. |
+| Does it expose its tools? | No. Its seven tools serve one answer, and nothing lists them. |
+| Does it reach data a caller cannot reach? | No. Each tool calls one procedure of [Procedure reference](/docs/integrations/procedures). |
 
-So the assistant reads through the same door as the bridge above. An MCP server for Freenary is still yours to write.
+[The assistant stream](/docs/integrations/api#the-assistant-stream) gives that route. [The assistant](/docs/self-hosting/assistant) gives the model endpoint and the data that leaves the instance.
 
-## The MCP configuration that does exist
+## The MCP files in the repository
 
-The repository root holds a `.mcp.json` file. It configures MCP servers for the AI tools a contributor runs on their own machine. It is a contributor convenience, and nothing more.
+Two files configure MCP servers for the AI tools a contributor runs on their own machine. The root file is `.mcp.json`, and `.cursor/mcp.json` repeats the same four entries.
 
 | Server           | Type    | Command or URL                           |
 | ---------------- | ------- | ---------------------------------------- |
@@ -73,55 +90,26 @@ The repository root holds a `.mcp.json` file. It configures MCP servers for the 
 | `shadcn`         | command | `npx -y shadcn@latest mcp`               |
 | `better-auth`    | http    | `https://mcp.inkeep.com/better-auth/mcp` |
 
-Two facts about this file:
+Three facts about those files:
 
-- It changes nothing about a live instance. The API server never reads it.
-- An operator does not need it. It is not part of any Docker image, and the Docker Compose stack ignores it.
-
-The contributor view is [Development](/docs/development).
-
-## Ask AI on the documentation website
-
-This AI feature belongs to the documentation website, not to the product. The **Ask AI** button opens a chat panel that searches these pages and answers from them.
-
-The route behind it is `/api/chat` in `apps/fumadocs`. It reads two environment variables.
-
-<TypeTable
-  type={{
-    OPENROUTER_API_KEY: {
-      description:
-        "The OpenRouter API key the chat route sends its requests with. No default.",
-      type: "string",
-    },
-    OPENROUTER_MODEL: {
-      description: "The OpenRouter model id the chat route asks.",
-      type: "string",
-      default: "anthropic/claude-3.5-sonnet",
-    },
-  }}
-/>
-
-Two things to know:
-
-- The button renders even with no key. The panel opens, and the answer then fails at the model call.
-- The chat sends page text to OpenRouter. Leave `OPENROUTER_API_KEY` unset when you do not want that.
-
-Keep the two apart. This chat reads the documentation pages of this website. It holds no session, and it never reaches a Freenary instance. The assistant of the product reads the money of one signed-in user, and it never reads these pages.
+- They change nothing about a live instance. The API server never reads them.
+- An operator needs neither one. No Docker image carries them.
+- The lockfile does hold `@modelcontextprotocol/sdk`, through the `shadcn` tool and two optional peer dependencies. No file in `apps/` or `packages/` imports it.
 
 <Cards>
   <Card
     title="API"
     href="/docs/integrations/api"
-    description="Endpoints, sign-in with curl, errors and limits."
+    description="Base URL, mounted paths, the session cookie, errors and limits."
   />
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="The 35 procedures a bridge would expose as tools."
+    description="The 35 procedures a bridge exposes as tools."
   />
   <Card
-    title="Development"
-    href="/docs/development"
-    description="The contributor view, including the local stack and the tooling."
+    title="Contributing"
+    href="/docs/contributing"
+    description="The contributor view, with the local stack and the tooling."
   />
 </Cards>

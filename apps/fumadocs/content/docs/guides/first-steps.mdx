@@ -1,52 +1,66 @@
 ---
 title: First steps
-description: The path from a new Freenary account to a Budget screen that holds your own bank data.
+description: The setup steps a new Freenary account walks through, and what Home holds before your first bank connection.
 icon: Footprints
 ---
 
-Freenary asks you two questions the first time you sign in, then puts a short checklist in the sidebar. This page walks that path from end to end.
+Your first sign-in opens a short setup. You cannot reach the rest of the app before you finish it. This page walks the setup, then names what each screen holds while you have no bank connection.
 
 **Before you start:** you need an account. See [Signing in](/docs/guides/signing-in).
 
-## The onboarding wizard
+## The setup steps
 
-Freenary sends every new account to a wizard at `/onboarding`. You cannot reach the rest of the app before you finish it. The header of the wizard carries a theme control, a language control and a **Sign out** button.
+The setup asks for your country, then offers a bank connection. A progress bar sits at the top, labelled `Onboarding progress`, with the step names `Country` and `Bank connection`.
+
+The header carries three controls, in this order:
+
+| Control    | What it reads                                      |
+| ---------- | -------------------------------------------------- |
+| Appearance | `Theme`                                            |
+| Language   | The name of your current language, as in `English` |
+| Sign out   | `Sign out`                                         |
+
+<Callout type="info">
+
+The bank step exists only when your instance links banks. Without it the setup holds one step, and `Continue` on the country step finishes the setup.
+
+</Callout>
 
 <Steps>
 
 <Step>
 
-### Choose your country
+### Pick your country
 
-The first step reads **Where are you based?**. It lists **196** countries with a search box above them.
+The step reads `Where are you based?`, over the line `Select your country to personalize your experience.`
 
-You can select any country. Freenary hoists **France** to the top of the list, because France is the only country it supports fully today.
+The list holds **196** countries. The search box above it reads `Search countries…`, and it matches the name of a country and its two-letter code. An empty result reads `No countries match your search`.
 
-Each other country shows the badge **Limited support**. You can select it, and no screen becomes unavailable. Freenary holds no rules for the banks of that country yet, so it categorises fewer of your transactions correctly. The bank step shows the banks that your bank provider covers there, and it can show none.
+`France` sits at the top, because Freenary holds bank coverage and category rules for France. Every other country carries the badge `Limited support`. You can pick any of them, and every screen stays open to you. Freenary then files fewer of your transactions under a category by itself.
 
-Under the list, Freenary asks: Want to add support for your country? The link goes to the project repository.
+Under the list, Freenary asks `Want to add support for your country?` and offers the link `Contribute here`. It opens the project repository in a new tab.
 
-Press **Continue** once you select a country. The button stays disabled before that.
+`Continue` stays off until you pick a country.
 
 </Step>
 
 <Step>
 
-### Connect a bank
+### Connect a bank, or skip it
 
-The second step reads **Connect your bank**. It appears **only** when the operator configured a bank provider. With no bank provider, the wizard has one step, and step 1 finishes it.
+The step reads `Connect your bank`, over the line `Connect your bank accounts to import transactions and balances. You can always do this later from Settings.`
 
-The step shows a searchable list of banks. Press **Connect** on one, answer your bank, and come back. See [Bank connections](/docs/guides/bank-connections) for the whole flow.
+A searchable bank list sits under it, with the search box `Search banks…` and a `Connect` button on each row. See [Bank connections](/docs/guides/bank-connections) for the whole flow.
 
-Three buttons sit at the bottom:
+Three buttons sit at the foot:
 
 | Button | What it does |
 | --- | --- |
-| Back | Returns to the country step |
-| Skip for now | Finishes onboarding with no bank |
-| Finish | Finishes onboarding. The label counts your connections, as in **Finish (1)** |
+| `Back` | Returns you to the country step |
+| `Skip for now` | Finishes the setup with no bank |
+| `Finish` | Finishes the setup. With one connection or more it counts them, as in `Finish (1)` |
 
-**Skip for now** and **Finish** do the same thing. Freenary keeps no "finish later" state, so you can connect a bank from Settings at any time.
+`Skip for now` and `Finish` do the same thing. The bank step is the one step you can skip.
 
 </Step>
 
@@ -54,7 +68,7 @@ Three buttons sit at the bottom:
 
 ### Land on Home
 
-Freenary saves your country, shows the message **You’re all set!**, and opens the Home screen.
+Freenary saves your country, shows the message `You’re all set!`, and opens Home. A failure reads `Something went wrong. Please try again.` instead.
 
 </Step>
 
@@ -62,45 +76,57 @@ Freenary saves your country, shows the message **You’re all set!**, and opens 
 
 <Callout type="info">
 
-Home is the assistant. It greets you with **Welcome back, _your name_**, one line of instruction and three suggestion chips. Ask it about your accounts, your spending or your budget, and it answers from your own data, with one chart when the figures form a series. The Budget screen holds the charts you can filter and drill into. See [The assistant](/docs/guides/assistant).
+Your country survives the trip to your bank. Come back from a bank page, and the setup re-opens on the bank step.
 
 </Callout>
 
+## Home with no bank connection
+
+Home is the assistant. With a fresh account it holds four things:
+
+- The large Freenary mark, with the accessible name `Freenary's assistant`.
+- The heading `Welcome back, {name}`, with your own name in place of the token.
+- The line `Ask anything about your accounts, spending or budget.`
+- Three suggestion chips: `How much did I spend on eating out this year?`, `Where did my money go last month?` and `Which subscriptions am I paying for?`
+
+The chips stay off until a model is ready to answer. The text box stays off with them. See [The assistant](/docs/guides/assistant).
+
+Budget holds one card while you have no bank account: `Connect a bank account`, with the button `Connect a bank`. No period controls, no figures, no charts and no list render behind it. See [Budget](/docs/guides/budget).
+
 ## The First steps checklist
 
-The sidebar footer carries a panel titled **First steps** with a counter, as in `1/3`. Each row links into Settings and marks itself **Done** or **To do**.
+The sidebar footer carries a panel titled `First steps` with a counter, as in `1/3`. Each row links into a section of Settings.
 
 | Row | Freenary ticks it when | Where the link goes |
 | --- | --- | --- |
-| Connect your bank | You have one bank connection or more | Settings, Bank accounts |
-| Set up your budget | Your budgeting profile holds one line or more | Settings, Budgeting profile |
-| Protect your account | You turn on two-factor authentication, **or** you add one passkey | Settings, Security |
+| `Connect your bank` | You hold one bank connection or more | Settings, `Bank accounts` |
+| `Set up your budget` | Your budgeting profile holds one line or more | Settings, `Budgeting profile` |
+| `Protect your account` | You turn two-factor authentication on, **or** you add one passkey | Settings, `Security` |
 
-The panel renders nothing until all three answers arrive. Once all three rows read **Done**, the panel holds for a moment and then disappears. It comes back if a row turns to **To do** again, as when you disconnect your last bank or empty your budgeting profile.
+The counter is the visible report of your progress. Each row also carries a state for a screen reader, `Done` or `To do`.
 
-## What to do next
+The panel appears only while work remains. An account that arrives with all three rows already ticked never sees it. Tick the last row on screen, and the panel holds for a moment, then goes away. It comes back when a row loses its tick, as when you disconnect your last bank.
 
-Work the checklist in order. A bank connection fills the Budget screen with real transactions. A budgeting profile turns on the **Budget vs. actual** chart. A second factor protects the account.
+## What each row turns on
+
+- A bank connection fills Budget with your own transactions.
+- A budgeting profile turns on the `Budget vs. actual` chart.
+- A second factor or a passkey protects the account.
 
 <Cards>
   <Card
     title="Bank connections"
     href="/docs/guides/bank-connections"
-    description="Connect a bank, sync it, and disconnect it."
+    description="Link your first bank and watch the import."
   />
   <Card
     title="Budget"
     href="/docs/guides/budget"
-    description="Read the charts and correct a category."
+    description="Read the charts and the transaction list your connection fills."
   />
   <Card
-    title="Categories and budget lines"
-    href="/docs/guides/categories"
-    description="Declare a monthly plan and add your own categories."
-  />
-  <Card
-    title="Settings"
-    href="/docs/guides/settings"
-    description="Protect the account and manage your connections."
+    title="The assistant"
+    href="/docs/guides/assistant"
+    description="Ask Home about the data you just imported."
   />
 </Cards>

@@ -1,50 +1,30 @@
 ---
 title: Assistant
-description: Point the assistant at an OpenAI-compatible endpoint, choose between a hosted gateway and a local runtime, know what leaves the instance, and read what the browser model means for you.
+description: Point the assistant at an OpenAI-compatible endpoint, and read exactly which account data leaves the instance with each question.
 icon: Cpu
 ---
 
-Freenary ships with no model. Name an endpoint and a model id, and the API server answers through it: every reader gets that model by default. Name neither, and each reader answers through a model in their own browser. A reader whose browser has WebGPU can pick a browser model on either kind of instance. This page covers the three variables, the endpoints that work, where the variables go in each stack, the rate limit, what each question sends out of the instance, and what the browser model asks of you.
+Freenary ships with no model. Name an endpoint and a model id, and the API server answers through them.
 
-## What the assistant needs
+Name neither, and the API server answers nothing. A reader whose browser has WebGPU can still pick a model that runs on their own device.
 
-Three optional variables in the validated server schema. None of them has a default.
+## The variables
 
-<TypeTable
-  type={{
-    AI_BASE_URL: {
-      description:
-        "The base URL of an OpenAI-compatible chat-completions endpoint, with the version path, for example https://openrouter.ai/api/v1.",
-      type: "URL",
-      default: "unset",
-      required: false,
-    },
-    AI_API_KEY: {
-      description:
-        "The key for that endpoint. Optional, because a local runtime needs none.",
-      type: "string",
-      default: "unset",
-      required: false,
-    },
-    AI_MODEL: {
-      description:
-        "The model id, exactly as the endpoint names it, for example anthropic/claude-3.5-sonnet or qwen2.5:14b.",
-      type: "string",
-      default: "unset",
-      required: false,
-    },
-  }}
-/>
+| Variable | Needed | Notes |
+| --- | --- | --- |
+| `AI_BASE_URL` | yes | The base URL of an OpenAI-compatible endpoint, with its version path |
+| `AI_MODEL` | yes | The model id, exactly as the endpoint names it |
+| `AI_API_KEY` | no | The key for that endpoint. A local runtime needs none |
 
-**`AI_BASE_URL` and `AI_MODEL` together decide whether the assistant answers on the server.** Both must hold a value. With either one empty, the API server reports no server model, and the model list of the reader holds the browser models alone. `AI_API_KEY` never takes part in that test, because a local runtime accepts a call with no key.
+`AI_BASE_URL` and `AI_MODEL` work as a pair.
 
-Freenary defaults none of the three, and that choice is deliberate. An instance with no endpoint sends no financial data to a third party, and it still answers, because the reader then runs a model in their own browser. Read [the browser model](#the-browser-model).
+With either one empty, the API server reports no model. The assistant route then refuses every request.
 
-`AI_BASE_URL` must parse as a URL. A bad value stops the API server at startup, like every other bad value in the [configuration reference](/docs/self-hosting/configuration).
+`AI_API_KEY` takes no part in that test.
 
-## Point the assistant at an endpoint
+`AI_BASE_URL` must parse as a URL. A bad value stops the API server at startup.
 
-A hosted gateway needs all three variables:
+A hosted gateway takes all three variables:
 
 ```dotenv
 AI_BASE_URL=https://openrouter.ai/api/v1
@@ -52,122 +32,171 @@ AI_API_KEY=sk-...
 AI_MODEL=anthropic/claude-3.5-sonnet
 ```
 
-A local runtime on the same Docker network needs two:
+A runtime on your own hardware takes two:
 
 ```dotenv
 AI_BASE_URL=http://ollama:11434/v1
 AI_MODEL=qwen2.5:14b
 ```
 
-Freenary calls the endpoint through the `@ai-sdk/openai-compatible` client. It names that client `freenary-assistant`, which identifies the provider inside the API server, in its logs and in its error messages. The name reaches no request: the client sends no extra header and no extra field, so a hosted provider sees a plain chat-completions call.
-
-## Which endpoints work
-
-The assistant accepts any endpoint that speaks the OpenAI chat-completions protocol.
-
-| Kind | Examples | Key |
-| --- | --- | --- |
-| A gateway in front of many models | OpenRouter, Groq, Together | needed |
-| A model vendor | OpenAI | needed |
-| A runtime on your own hardware | Ollama, LM Studio, vLLM | usually none |
+Give that runtime a service on the same Docker network, then name the service in the URL. The value `http://localhost:11434/v1` names the API server container itself, and it reaches nothing.
 
 <Callout type="warn">
 
-**The model must support tool calling.** The assistant reads the money data of a user through read-only lookups, and each lookup is a tool call. A model without tool calling still answers. It answers about the money of the reader, and it reads none of it, so it invents every figure. That result is worse than a refusal, and no error reports it.
+**The model must support tool calling.** The assistant reads the money data of a user through read-only lookups, and each lookup is a tool call.
+
+A model without tool calling still answers. It answers about the money of the reader, it reads none of it, and it invents every figure. No error reports that.
 
 Pick a model whose provider documents tool calling. Then ask one question that needs a figure, and check the answer before other people use the instance.
 
 </Callout>
 
-**The model must also follow a small grammar for charts.** An answer whose figures form a series ends with a chart, written in [OpenUI Lang](https://www.openui.com/) and drawn by the web app from five registered components. A model that cannot keep to that grammar still answers in prose; under it the user reads **The chart could not be drawn.** Ask one question that compares several months, and check that a chart appears.
+## What a reader sees with no model
 
-## Where the variables go
+The model button reads `Choose a model`. The text box, the send button and the three suggestion chips are all off.
 
-The two stacks read the three variables from different places.
+One line sits above the text box. On a browser with WebGPU:
 
-| Stack | Where you set them | How they arrive |
-| --- | --- | --- |
-| Development, `docker-compose.dev.yml` | your own shell, or the root `.env` file | The compose file passes `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` through from the host environment, each with an empty default |
-| Production, `docker-compose.yml` | the root `.env` file | The `server` service loads that file through `env_file`, so every line of it reaches the container |
-
-`docker-compose.yml` names none of the three in the `environment:` block of the `server` service. So nothing in the compose file wins over your file, and the root `.env` is the one place the three variables belong. Recreate the service after a change, because a restart keeps the old environment:
-
-```bash
-docker compose up -d server
+```text
+Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.
 ```
 
-The `server` container must reach a local runtime over the network. Give the runtime a service on the same compose network, then use that service name in `AI_BASE_URL`, as the second example above does. The value `http://localhost:11434/v1` names the container itself, and it reaches nothing.
+On a browser without WebGPU:
 
-## The rate limit
+```text
+This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask an administrator to set AI_BASE_URL and AI_MODEL.
+```
 
-One account can ask **30 questions per 5 minutes**. The code fixes that limit, and no variable changes it.
+A request that still reaches an unconfigured server surfaces one message:
 
-The key is the user id, not the caller address. Every other limit of the instance keys on the address, as [Security](/docs/self-hosting/security#rate-limits) shows. This one is different on purpose. Each question is a paid request at your provider, so the cost follows the account that asks. One busy office behind one address also keeps a full allowance per person.
+```text
+This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.
+```
 
-Over the limit, the screen asks the user to wait, and the chat route answers 429.
+With both variables set, the model palette gains a group named `On your instance` that holds the id in `AI_MODEL`. That model answers by default.
 
-The same allowance counts a browser answer. `assistant.saveTurn`, the procedure that stores a turn the browser answered, consumes the same 30 per 5 minutes: the model cost the instance nothing, but each turn still writes two rows. Over the limit the answer still shows on the screen, the turn is not stored, and the screen asks the user to wait.
+[The assistant](/docs/guides/assistant) shows the whole screen from the side of the reader.
 
-Each stored question and answer adds database rows, so the database grows with use. Freenary deletes those rows with their user.
+## The transport
+
+The assistant does not use a procedure. It uses one route, `POST /ai/chat`, and that route streams its answer as server-sent events.
+
+It refuses in a fixed order:
+
+| Order | Status | Body | Cause |
+| --- | --- | --- | --- |
+| 1 | `401` | `unauthorized` | No session cookie |
+| 2 | `503` | `unconfigured` | `AI_BASE_URL` or `AI_MODEL` is empty |
+| 3 | `429` | `rate_limited` | The account is over its question limit |
+| 4 | `400` | `bad_request` | The body is not JSON, fails the schema, or holds no user question |
+
+The order matters. An unconfigured instance answers `unconfigured` even to a caller over the limit.
+
+A question of more than 8000 characters is a `bad_request`. One question can drive up to 6 model steps, because each lookup and each retry is a step.
 
 ## What leaves the instance
 
-A configured endpoint receives financial data. Each question sends all of this to `AI_BASE_URL`:
+A configured endpoint receives account data. Freenary posts to `<AI_BASE_URL>/chat/completions`, and each step of a question carries all of this:
 
-| What | Detail |
+| Part of the payload | What it holds |
 | --- | --- |
-| The question | The text the user typed |
-| The conversation so far | Every stored question and answer of the active conversation |
-| The result of every lookup | Account names, institution names, transaction descriptors, amounts, dates, and category and group slugs |
+| The system prompt | A statement that Freenary holds the bank accounts of the user, the locale, today's date, and the date of the first and the last transaction |
+| The chart section of the prompt | The chart grammar and two worked examples |
+| The transcript | Every stored question and answer of the active conversation |
+| The tool signatures | The seven read-only lookups and their input schemas |
+| Every tool result | The rows the lookups returned |
 
-**Freenary sends no IBAN.** The accounts lookup reports the account id, the account name and the institution name. No lookup takes an IBAN as an input.
+A tool result carries real account data:
 
-A hosted gateway holds everything in the table above, under its own terms. A local runtime keeps all of it on your own hardware, and no money data leaves the host. That choice is the whole difference between the two `AI_BASE_URL` examples above.
+- Account ids, account names and institution names.
+- Per-group planned and actual amounts, cash-flow buckets, and fixed and variable totals.
+- Recurring-payment merchant names, merchant keys and cadences.
+- Individual transactions: the description, the counterparty name, the date, the id and the amount.
 
-Two things never leave the instance for the charts. `@openuidev/lang-core`, the library behind the chart grammar, ships an installation-time telemetry script; Bun runs no lifecycle script of an untrusted package, so it never runs. Its runtime telemetry stays off unless `OPENUI_RUNTIME_TELEMETRY_ENABLED` is set, and Freenary never sets it.
+A transaction description and a counterparty name are the raw text the bank sent. They name the shops, the people and the companies the user paid.
+
+**Freenary strips one field: the IBAN.** The accounts lookup drops it before the result leaves. No lookup takes an IBAN as an input either.
+
+Amounts leave as decimal strings. Every lookup labels them `EUR`.
 
 <Callout type="info">
 
-An unset `AI_BASE_URL` sends no financial data anywhere, and the API server makes no outbound call for the assistant at all. One outbound call remains, and the browser of the reader makes it: the download of the browser model from `https://huggingface.co`.
+A hosted gateway holds everything above, under its own terms. A runtime on your own hardware keeps all of it on your own host. That choice is the whole difference between the two `AI_BASE_URL` examples above.
+
+</Callout>
+
+<Callout type="info">
+
+With `AI_BASE_URL` unset, the API server makes no outbound call for the assistant at all. The browser of the reader still makes two. The model weights come from `https://huggingface.co`. The compiled model library comes from `https://raw.githubusercontent.com`.
+
+An egress allow-list must hold both hosts for a device model to load.
 
 </Callout>
 
 ## The browser model
 
-Every reader whose browser has WebGPU can run the assistant on their own device, on a model from [WebLLM](https://github.com/mlc-ai/web-llm). The reader picks that model inside the conversation, the browser downloads it once from the Hugging Face CDN, and the graphics card of the reader runs it. You set no variable for it, and you cannot switch it off. [The assistant](/docs/guides/assistant#choose-a-model) walks the reader through the choice.
+A reader whose browser has WebGPU can run the assistant on their own device. The model comes from [WebLLM](https://github.com/mlc-ai/web-llm).
 
-An instance with no `AI_BASE_URL` and no `AI_MODEL` therefore still answers questions. Its model list holds the browser models alone, and the reader must pick one before the text box accepts a question.
+You set no variable for it, and you cannot switch it off.
 
-| Concern | What the browser model means |
+| Concern | What a device model means for you |
 | --- | --- |
 | Your work | None. You set no variable, and you install no runtime |
-| What the reader needs | A browser with WebGPU, and enough graphics memory for the model. Without WebGPU the model list offers no browser model, and it states why |
-| Outbound traffic | The one-time model download from `https://huggingface.co` to the browser of the reader. No question and no lookup result leaves the browser |
-| Load on the instance | The lookups only. A browser answer makes no model call to the API server, and it does not use `POST /ai/chat` |
-| The rate limit | The same 30 stored turns per 5 minutes, as [the rate limit](#the-rate-limit) above states |
-| The transcript | The browser stores each finished turn through the `assistant.saveTurn` procedure, in the same two tables a server answer writes. That holds on every instance |
-| Answer quality | Lower. A model that fits in a browser is small, so it can pick the wrong lookup, name the wrong period or fail to draw a chart |
+| What the reader needs | WebGPU, and enough graphics memory for the model |
+| Outbound traffic | The one-time model download, from the browser of the reader |
+| Load on the instance | The lookups alone. No model call reaches the API server |
+| The rate limit | The same 30 stored turns per 300 seconds |
+| The transcript | The browser stores each finished turn in the same tables |
+| Answer quality | Lower. A model that fits in a browser is small |
 
-`AI_BASE_URL` and `AI_MODEL` do not take the browser model out of the product. With both set, the model list gains one more entry, the id in `AI_MODEL`, and that entry answers by default. A reader can still pick a browser model, and `assistant.saveTurn` then stores the turn. One transcript can therefore hold turns from both. [Procedure reference](/docs/integrations/procedures#assistantsaveturn) holds that procedure.
+With `AI_BASE_URL` and `AI_MODEL` set, the palette holds both kinds. The instance model answers by default. A device model the reader picked wins over it.
+
+## The rate limit
+
+One account can ask **30 questions per 300 seconds**. The code fixes that limit, and no variable changes it.
+
+The key is the account id, not the caller address. Each question is a call to your model endpoint, so the cost follows the account that asks. One busy office behind one address keeps a full allowance per person.
+
+Over the limit, the route answers `429` and the screen asks the user to wait.
+
+The same allowance counts an answer a device model produced. The procedure that stores such a turn shares the key. Over the limit, the answer still shows on the screen and Freenary stores no turn.
+
+## Where the conversation lives
+
+Every question and answer goes into PostgreSQL, never into process memory. So a restart keeps a conversation, and a second replica reads the same rows.
+
+An account holds one active conversation. The `New conversation` control archives the current thread and opens an empty one, and no picker returns to the old one.
+
+Freenary drops those rows with the account they belong to. The tables grow with use, so they belong in your backup plan.
+
+## Cost
+
+Each question is one call to your model endpoint, and a question with lookups is several. Nothing on the instance caches an answer.
+
+So the cost of the assistant follows how many questions your readers ask, and how large each transcript grows. The 30-per-300-seconds limit is a ceiling per account, not a budget.
+
+A device model costs the instance no model call. It still runs the lookups against the API server and the database.
+
+[Scaling](/docs/self-hosting/scaling) holds the resource sizing and what limits growth.
 
 <Cards>
-  <Card
-    title="Configuration reference"
-    href="/docs/self-hosting/configuration"
-    description="Every environment variable an instance reads, with its default."
-  />
-  <Card
-    title="Security"
-    href="/docs/self-hosting/security"
-    description="Secrets, rate limits and the checks before you expose an instance."
-  />
   <Card
     title="The assistant"
     href="/docs/guides/assistant"
     description="What a user asks, what each lookup row means, and the limits of an answer."
   />
   <Card
-    title="API reference"
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable an instance reads, with its default."
+  />
+  <Card
+    title="Scaling"
+    href="/docs/self-hosting/scaling"
+    description="Replicas, connection pools and what limits growth."
+  />
+  <Card
+    title="API access"
     href="/docs/integrations/api"
     description="The chat route, its status codes and the procedures behind each lookup."
   />
