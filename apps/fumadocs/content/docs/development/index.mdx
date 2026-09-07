@@ -51,7 +51,7 @@ bun install
 cp .env.example .env
 ```
 
-Docker Compose interpolates this root `.env` file, and `scripts/dev.ts` reads it. Every variable in it has a default, so an unedited copy works for local work. For the full variable list, see [Configuration](/docs/self-hosting/configuration).
+Docker Compose interpolates this root `.env` file, and `scripts/dev.ts` reads it. The copy holds development values for every variable, so an unedited copy works for local work. The `db:*` scripts need this file: `docker-compose.yml` declares `env_file: .env`, and it refuses to start while `POSTGRES_PASSWORD` or `BETTER_AUTH_SECRET` is empty. `bun run dev:up` needs no `.env`, because `docker-compose.dev.yml` defaults every variable. For the full variable list, see [Configuration](/docs/self-hosting/configuration).
 
 </Step>
 
@@ -85,7 +85,7 @@ bun run dev
 
 | Command | What it does |
 | --- | --- |
-| `bun run db:start` | `docker compose up -d postgres`. It starts the `postgres` service of `docker-compose.yml` and publishes port `5432`. |
+| `bun run db:start` | `docker compose up -d postgres`. It starts the `postgres` service of `docker-compose.yml` and publishes `127.0.0.1:5432`. |
 | `bun run db:push` | `prisma db push`. It writes the current schema to that database and creates no migration file. |
 | `bun run dev` | `turbo run dev`. The web app serves port `3001`, the API server port `3000`, and the documentation website port `4000`. |
 
@@ -97,9 +97,9 @@ bun run dev
 
 ## The checks CI runs
 
-`.github/workflows/ci.yml` defines one job named `ci`. It runs on `ubuntu-latest`. GitHub starts it on every pull request, and on every push to `main`. The job timeout is 10 minutes.
+`.github/workflows/ci.yml` defines two jobs, `ci` and `compose`. Both run on `ubuntu-latest`. GitHub starts them on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes, and the `compose` timeout is 5 minutes.
 
-Run the same four commands before you open a pull request:
+The `ci` job runs four commands. Run the same four before you open a pull request:
 
 ```bash
 bun install --frozen-lockfile
@@ -115,7 +115,13 @@ bun run build
 | 3     | Type check    | `bun run check-types`           |
 | 4     | Build         | `bun run build`                 |
 
-Those four commands are the whole reproduction. CI runs nothing else.
+The `compose` job needs no Bun and no dependency install. It checks three things:
+
+- `docker compose -f docker-compose.dev.yml config --quiet` parses the development stack.
+- `docker compose -f docker-compose.yml config --quiet` parses the production stack, against a temporary `.env` that holds `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`.
+- The same command against an empty `.env` must fail. If it passes, `docker-compose.yml` accepted two empty secrets, and the job fails.
+
+Those two jobs are the whole reproduction. CI runs nothing else.
 
 ### CI runs no tests
 
@@ -183,6 +189,8 @@ Bun workspaces cover `apps/*` and `packages/*`. Turborepo runs the tasks across 
 [Architecture](/docs/development/monorepo) covers what each workspace owns and how they depend on each other.
 
 ## Branches, commits and pull requests
+
+Two branches live for ever. `dev` is the integration branch, and every pull request targets it. `main` is the release branch: it holds released code only. [Releasing](/docs/development/releasing) covers how `dev` reaches `main` and how a version becomes a tag.
 
 ### Branch names
 

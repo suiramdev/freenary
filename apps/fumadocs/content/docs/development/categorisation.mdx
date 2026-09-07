@@ -340,7 +340,7 @@ The root passthrough is `bun run build:data`, which is `turbo run build:data -F 
 | Field | Value |
 | --- | --- |
 | Schedule | `cron: "0 3 * * 1"` — Monday, 03:00 UTC |
-| Other triggers | `workflow_dispatch`, and a push to `main` that touches `packages/api/scripts/**`, `features.ts`, `normalise/**` or `sirene/**` |
+| Other triggers | `workflow_dispatch`, and a push to `dev` or `main` that touches `packages/api/scripts/**`, `features.ts`, `normalise/**` or `sirene/**` |
 | Job timeout | 60 minutes |
 | Permissions | `contents: write` |
 
@@ -359,7 +359,7 @@ The publish step deletes any same-day release and tag first.
 
 The train step reads its status from `${PIPESTATUS[0]}`, because the default shell has no `pipefail` and the command pipes through `tee`.
 
-`download-data.ts` is the consumer. It deletes any local `model-weights.json` before the download. A failed download plus a local rebuild can then never pair weights with a dictionary they do not match. It resolves the repository from `GITHUB_REPOSITORY`, then `git remote get-url origin`, then the literal fallback `suiramdev/freenary`. Inside the server image there is no `.git`, so the fallback is what a self-hosted image build queries.
+`download-data.ts` is the consumer. It deletes any local `model-weights.json` before the download. A failed download plus a local rebuild can then never pair weights with a dictionary they do not match. It resolves the repository from `GITHUB_REPOSITORY`, then `git remote get-url origin`, then the literal fallback `suiramdev/freenary`. Inside the server image there is no `.git`, so `apps/server/Dockerfile` passes the build argument `GITHUB_REPOSITORY`, which defaults to `suiramdev/freenary`; a fork passes its own slug. Read [Build from source](/docs/self-hosting/docker-compose#build-from-source).
 
 ## Change a category or a rule
 

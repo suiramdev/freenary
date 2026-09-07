@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [dev, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -30,3 +30,22 @@ jobs:
 
       - name: Build
         run: bun run build
+
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Both files must still parse, and the production one must still refuse
+      # to start without its two secrets.
+      - name: Validate the compose files
+        run: |
+          docker compose -f docker-compose.dev.yml config --quiet
+          printf 'POSTGRES_PASSWORD=x\nBETTER_AUTH_SECRET=y\n' > .env
+          docker compose -f docker-compose.yml config --quiet
+          : > .env
+          if docker compose -f docker-compose.yml config --quiet 2>/dev/null; then
+            echo "docker-compose.yml accepted an empty POSTGRES_PASSWORD and BETTER_AUTH_SECRET" >&2
+            exit 1
+          fi

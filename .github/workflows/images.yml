@@ -1,0 +1,180 @@
+name: Images
+
+# Builds and publishes ghcr.io/<owner>/freenary-server and freenary-web.
+#
+#   push to dev or main  →  <branch>, sha-<short>
+#   tag vX.Y.Z           →  X.Y.Z, X.Y, X, latest    (the Release workflow calls this)
+#   tag vX.Y.Z-<pre>     →  X.Y.Z-<pre> only
+#
+# Each platform builds on its own native runner, then one manifest joins the
+# two digests: Bun under QEMU is slow and flaky, and the server build runs it.
+
+on:
+  push:
+    branches: [dev, main]
+    paths-ignore:
+      - "apps/fumadocs/**"
+      - "**/*.md"
+  workflow_call:
+    inputs:
+      ref:
+        description: The git ref to build, such as refs/tags/v1.2.0
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  tags:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - name: Derive the image tags from the ref
+        id: tags
+        env:
+          REF: ${{ inputs.ref || github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          case "$REF" in
+            refs/tags/v*)
+              version="${REF#refs/tags/v}"
+              if [[ "$version" == *-* ]]; then
+                tags="$version"
+              else
+                major="${version%%.*}"
+                minor="${version#*.}"; minor="${minor%%.*}"
+                tags="$version $major.$minor $major latest"
+              fi ;;
+            refs/heads/*)
+              version="${REF#refs/heads/}"
+              tags="$version sha-${SHA:0:7}" ;;
+            *)
+              echo "Unsupported ref: $REF" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.app }} ${{ matrix.platform }}
+    needs: tags
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [server, web]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Name the image
+        id: image
+        run: |
+          echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
+          echo "platform=$(tr '/' '-' <<< '${{ matrix.platform }}')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: type=raw,value=${{ needs.tags.outputs.version }}
+
+      # push-by-digest: the tags land on the merged manifest, not here.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: GITHUB_REPOSITORY=${{ github.repository }}
+          secrets: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.app }}-${{ steps.image.outputs.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}-${{ steps.image.outputs.platform }}
+
+      # The file name is the bare hex: `merge` re-adds the `sha256:` prefix.
+      - name: Export the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.app }}-${{ steps.image.outputs.platform }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: ${{ matrix.app }} manifest
+    needs: [tags, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        app: [server, web]
+    steps:
+      - name: Name the image
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.app }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the manifest
+        working-directory: /tmp/digests
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          TAGS: ${{ needs.tags.outputs.tags }}
+        run: |
+          refs=()
+          for tag in $TAGS; do refs+=(-t "$IMAGE:$tag"); done
+          digests=()
+          for digest in *; do digests+=("$IMAGE@sha256:$digest"); done
+          docker buildx imagetools create "${refs[@]}" "${digests[@]}"
+
+      - name: Inspect
+        run: docker buildx imagetools inspect ${{ steps.image.outputs.name }}:${{ needs.tags.outputs.version }}
