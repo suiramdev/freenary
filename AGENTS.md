@@ -23,11 +23,11 @@ bun run dev        # web 3001, server 3000, docs 4000
 
 The dev stack needs no `.env`: `docker-compose.dev.yml` defaults every variable, and `EMAIL_PROVIDER` defaults to `log`, so the one-time-code flows print the code to the server log instead of sending mail. `createEmailProvider` refuses `log` in production. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
 
-**There is no seed script.** Create an account through the sign-in screen; with no email provider configured, email verification stays off and sign-up returns a session immediately. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
+**There is no seed script.** Create an account through the sign-in screen. The `dev:up` stack sets `EMAIL_PROVIDER=log`, so `requireEmailVerification` is on: sign-up lands on **Confirm your email**, and the API server log prints the 6-digit code as a `[email:log]` line — read it with `bun run dev:logs`. The `bun run dev` path sets no email provider, so verification stays off there and sign-up returns a session at once. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
 
-The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, needs a root `.env` carrying `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`, and applies the migrations itself through its one-shot `migrate` service.
+The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. That third line is not optional: the compose default is `latest`, and GHCR holds no such tag — the published tags are `main`, `dev` and `sha-<7 characters>`, so an unpinned `up -d` fails with `not found`.
 
-Full walkthrough: [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx).
+Full walkthrough: [Local development stack](apps/fumadocs/content/docs/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx).
 
 ## Documentation: Ship It With the Change
 
@@ -49,26 +49,39 @@ Pure refactors, internal helpers, and dependency bumps that change no documented
 
 | Section | Audience | Never contains |
 | --- | --- | --- |
-| `index.mdx`, `concepts.mdx` | Everyone | Instructions |
-| `guides/` | Users of a running instance | Env vars, Docker, file paths, package names |
+| `index.mdx` | Everyone | Instructions |
+| `quickstart.mdx` | A reader with Docker and no instance | The served install: public origins, reverse proxy, hardening |
+| `concepts.mdx` | Users | Prisma model names, enum values, columns — those live in `contributing/data-model.mdx` |
 | `self-hosting/` | Operators | Product walkthroughs |
+| `guides/` | Users of a running instance | Env vars, Docker, file paths, package names, database or enum names |
 | `integrations/` | Developers calling the API | Internal design rationale |
-| `development/` | Contributors and engineers | Anything an end user needs |
+| `contributing/` | Contributors and engineers | Anything an end user needs |
 
-A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent.
+The sidebar order is the root `meta.json`, and its four separators name the audiences: `index`, `quickstart`, `concepts`, `---Run Freenary---`, `self-hosting`, `---Use Freenary---`, `guides`, `---Build on Freenary---`, `integrations`, `---Contribute---`, `contributing`. `quickstart.mdx` owns the shortest install on one machine; `self-hosting/index.mdx` owns the install that serves other people. A folder's index page carries the name of its subject, and no page is titled `Overview`.
 
-**Document what is true, not what is planned.** Read the code before writing the page, quote real names, and never describe a screen, flag, or endpoint that does not exist. If behavior is real in the API but the UI is still a stub, say exactly that in a `<Callout type="info">` and link the reader to what does work — no roadmaps, no dates, no "coming soon".
+A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent. How the system works — architecture, request flow, internals — belongs to `contributing/`; a user wants to run the app and use it.
 
-**Verify it.** `bun run build` in `apps/fumadocs` is the gate, but it is a partial one — measured, not assumed:
+**Document what is true, and only what is true.** Read the code before writing the page, quote real names, and never describe a screen, flag, or endpoint that does not exist. No page carries a roadmap: never write that a feature is planned, is coming soon, or is not built yet, and never write a "what Freenary does today" list or a Built-against-Planned table. State what a reader can do, link them to it, and leave the rest out. (The repository `README.md` is not a docs page and does carry the state of the project.)
 
-| Mistake | `bun run build` |
-| --- | --- |
-| Missing or malformed frontmatter | Fails |
-| Unknown code-fence language | Fails |
-| Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing, warns in the console |
-| MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing |
+**Verify it.** Two gates, and neither one alone is enough:
 
-A green build therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/development/writing-docs.mdx`](apps/fumadocs/content/docs/development/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
+```bash
+bun run docs:check   # icons, components, links, navigation, audience split, language
+cd apps/fumadocs && bun run build
+```
+
+| Mistake | `bun run build` | `bun run docs:check` |
+| --- | --- | --- |
+| Missing or malformed frontmatter, or no `description` or `icon` | Fails | Fails |
+| Unknown code-fence language | Fails | Fails |
+| Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing | Fails |
+| MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing | Fails |
+| Dead internal link or `#anchor` | **Passes** | Fails |
+| Page missing from its folder's `meta.json` | **Passes** | Fails |
+| A shell command or an env var inside `guides/` | **Passes** | Fails |
+| A contraction, a banned word, roadmap language, a 26-word sentence | **Passes** | Fails |
+
+A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
 
 ## Interface Text: Every String Is a Message Key
 
@@ -78,7 +91,7 @@ The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGE
 
 ## Branches and Releases
 
-Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which creates the `vX.Y.Z` tag, the versioned images and the GitHub release. Contributors never tag and never bump a version — see [Releasing](apps/fumadocs/content/docs/development/releasing.mdx).
+Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which creates the `vX.Y.Z` tag, the versioned images and the GitHub release. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/contributing/releasing.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 

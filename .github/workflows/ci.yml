@@ -28,6 +28,12 @@ jobs:
       - name: Type check
         run: bun run check-types
 
+      # The build catches a missing title and an unknown fence language. This
+      # catches the icons, components, links, navigation and language rules it
+      # does not.
+      - name: Documentation
+        run: bun run docs:check
+
       - name: Build
         run: bun run build
 
