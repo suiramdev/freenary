@@ -8,8 +8,8 @@ import {
 } from "@freenary/ui/components/item";
 import { cn } from "@freenary/ui/lib/utils";
 
-import { SUPPORTED_COUNTRY_CODES } from "@/lib/onboarding/countries";
 import type { Country } from "@/lib/onboarding/countries";
+import { isFullySupportedCountry } from "@/lib/onboarding/countries";
 import { m } from "@/paraglide/messages.js";
 
 interface CountryOptionProps {
@@ -23,25 +23,22 @@ export const CountryOption = ({
   isSelected,
   onSelect,
 }: CountryOptionProps) => {
-  const supported = SUPPORTED_COUNTRY_CODES.has(country.code);
+  const fullySupported = isFullySupportedCountry(country.code);
 
   return (
     <Item
       className={cn(
-        "text-left disabled:pointer-events-none disabled:opacity-50",
+        "text-left",
         isSelected ? "border-primary bg-secondary" : "hover:bg-muted"
       )}
       render={
         <button
           aria-label={
-            supported
+            fullySupported
               ? country.name
-              : m.onboarding_country_unsupported_label({
-                  country: country.name,
-                })
+              : m.onboarding_country_partial_label({ country: country.name })
           }
           aria-pressed={isSelected}
-          disabled={!supported}
           type="button"
           onClick={() => onSelect(country.code)}
         />
@@ -55,10 +52,10 @@ export const CountryOption = ({
       <ItemContent>
         <ItemTitle>{country.name}</ItemTitle>
       </ItemContent>
-      {supported ? null : (
+      {fullySupported ? null : (
         <ItemActions>
           <Badge variant="outline">
-            {m.onboarding_country_unsupported_badge()}
+            {m.onboarding_country_partial_badge()}
           </Badge>
         </ItemActions>
       )}
