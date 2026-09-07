@@ -26,8 +26,6 @@ Freenary puts the accounts, the transactions and the categories in one place tha
 | English and French interface, light and dark appearance | Built | [Language and appearance](apps/fumadocs/content/docs/guides/interface.mdx) |
 | Programmatic access over RPC and OpenAPI | Built | [API](apps/fumadocs/content/docs/integrations/api.mdx) |
 
-Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](apps/fumadocs/content/docs/integrations/mcp.mdx) for the API path that replaces it.
-
 ## Requirements
 
 | Item | Version | Note |
@@ -35,7 +33,7 @@ Freenary ships no Model Context Protocol server today. Read [MCP and AI tools](a
 | Docker Engine and Docker Compose | Compose v2 or later | The install path: the stack runs published images |
 | PostgreSQL | 18 | The Compose stack runs it for you |
 | Bun | 1.3.14 | Only to build the images from source, or to develop |
-| Bank provider account | — | Optional. Without one, Freenary runs and imports no bank data. |
+| Bank provider account | — | Required. Without one, no transaction enters Freenary. |
 | Email provider account | — | Optional. Without one, Freenary sends no one-time code. |
 
 ## Quick start
@@ -96,7 +94,7 @@ The complete documentation lives in [`apps/fumadocs`](apps/fumadocs). Run it wit
 | [Configuration reference](apps/fumadocs/content/docs/self-hosting/configuration.mdx) | Every environment variable, with its default |
 | [Scaling](apps/fumadocs/content/docs/self-hosting/scaling.mdx) | What holds state, what a second replica shares, what grows with use |
 | [Troubleshooting](apps/fumadocs/content/docs/self-hosting/troubleshooting.mdx) | A symptom, its cause and its fix |
-| [Integrations](apps/fumadocs/content/docs/integrations/index.mdx) | The API, the procedure reference and MCP |
+| [Integrations](apps/fumadocs/content/docs/integrations/index.mdx) | The API surface and the procedure reference |
 | [Development](apps/fumadocs/content/docs/contributing/index.mdx) | Set up the code, run the checks, open a pull request |
 | [Architecture](apps/fumadocs/content/docs/contributing/architecture.mdx) | Workspaces, request flow and build |
 

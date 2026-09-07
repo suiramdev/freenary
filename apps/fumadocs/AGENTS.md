@@ -42,7 +42,7 @@ index → quickstart → concepts
 | `concepts.mdx` | Users | A plain glossary of the words a user meets in the interface. |
 | `self-hosting/` | Operators | The served install (the folder's index page), configuration, reverse proxy, email, sign-in methods, bank providers, assistant, scaling, updates, backup and restore, maintenance, security, logs, troubleshooting, build from source. |
 | `guides/` | Users of a running instance | Signing in, first steps, bank connections, budget, categories, assistant, settings, language and appearance. |
-| `integrations/` | Developers calling the API | API, procedure reference, MCP. |
+| `integrations/` | Developers calling the API | The HTTP surface, and the procedure reference. |
 | `contributing/` | Contributors and engineers | Workflow, architecture, local stack, data model, categorisation, bank-provider interface, writing docs, releasing. |
 
 `quickstart.mdx` and `self-hosting/index.mdx` split on one line: the quickstart runs an instance for the reader on `localhost`, and `self-hosting/index.mdx` serves an instance to other people. The public origins, the secrets, the reverse proxy and the verification steps belong to the second. Neither repeats the other.
