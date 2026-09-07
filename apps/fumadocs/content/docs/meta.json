@@ -3,13 +3,15 @@
   "defaultOpen": true,
   "pages": [
     "index",
+    "quickstart",
     "concepts",
-    "---Use Freenary---",
-    "guides",
     "---Run Freenary---",
     "self-hosting",
+    "---Use Freenary---",
+    "guides",
     "---Build on Freenary---",
     "integrations",
-    "development"
+    "---Contribute---",
+    "contributing"
   ]
 }

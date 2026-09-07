@@ -1,121 +1,230 @@
 ---
-title: Overview
-description: What one Freenary instance needs, what the Docker Compose stack runs, and the decisions to make before you install.
-icon: Server
+title: The served install
+description: Install one instance for other people, with real secrets, public origins and a checked start.
+icon: Container
 ---
 
-This page tells an operator what one Freenary instance needs. It lists the host, the services of the Docker Compose stack, and the four decisions you must make first. Read it before you install.
+This page installs an instance that serves other people. It needs real secrets, two public origins and TLS in front.
 
-## What you get, and what you supply
-
-Freenary is two published container images and one Docker Compose file. It has no hosted edition and no installer.
-
-| Freenary gives you | You supply |
-| --- | --- |
-| Two images, `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web`, each for `linux/amd64` and `linux/arm64` | A Linux host with Docker |
-| One `docker-compose.yml`, which runs the web app, the API server and a PostgreSQL service | A public domain and TLS termination |
-| Seven database migrations, and a `migrate` service that applies them | Two secrets: the database password and `BETTER_AUTH_SECRET` |
-| A merchant dictionary, built into the API server image | An account at a bank provider, for bank data |
-| Password sign-in, passkeys, and three optional sign-in providers | An email provider, for one-time codes |
-
-Freenary has versioned releases. Each one is a git tag of the form `vX.Y.Z` on GitHub, and both images carry the same version number. `FREENARY_VERSION` in your `.env` file selects the version an instance runs, and it defaults to `latest`. Read [Updates](/docs/self-hosting/updates).
-
-## Requirements
-
-| Requirement | Value | Note |
-| --- | --- | --- |
-| Docker Engine | Any version with the `docker compose` plugin, version 2 | Every command on these pages starts with `docker compose` |
-| PostgreSQL | 18, from the image `postgres:18` | The stack runs it for you. Do not install PostgreSQL on the host |
-| Bun | `1.3.14` | Needed only for a build from source. The published images carry their own runtime |
-| Host port `WEB_PORT` | The web app, `3001` by default | The port a browser opens |
-| Host port `SERVER_PORT` | The API server, `3000` by default | The port the browser calls for data and sign-in |
-| Host port `POSTGRES_PORT` | PostgreSQL, `5432` by default | Bound to `127.0.0.1` only, for backups and for the `db:*` scripts |
-| Domain and TLS | One hostname for the web app, one for the API server | Needed for every instance that is not local |
-
-<Callout type="warn">
-
-`docker-compose.yml` requires `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Neither has a fallback: `docker compose up` stops before any container starts while either value is empty, and it names the variable it needs. PostgreSQL binds to `127.0.0.1` only, so the database port does not reach the network. Read [Security](/docs/self-hosting/security).
-
-</Callout>
-
-## What the stack runs
-
-`docker-compose.yml` declares the Compose project `freenary`, four services and one named volume.
-
-| Service | Image | Published port | Waits for | Healthcheck |
-| --- | --- | --- | --- | --- |
-| `postgres` | `postgres:18` | `127.0.0.1:${POSTGRES_PORT:-5432}:5432` | — | `pg_isready -U postgres -d freenary` |
-| `migrate` | `ghcr.io/suiramdev/freenary-server:${FREENARY_VERSION:-latest}` | — | `postgres`, healthy | None. It runs one command and exits |
-| `server` | `ghcr.io/suiramdev/freenary-server:${FREENARY_VERSION:-latest}` | `${SERVER_PORT:-3000}:3000` | `postgres`, healthy, and `migrate`, complete with exit `0` | A fetch of `http://localhost:3000/` inside the container |
-| `web` | `ghcr.io/suiramdev/freenary-web:${FREENARY_VERSION:-latest}` | `${WEB_PORT:-3001}:3001` | `server`, healthy | A fetch of `http://localhost:3001/` inside the container |
-
-The three healthchecks use a 10 second interval, a 5 second timeout and 5 retries. The two apps add a 10 second start period. Docker starts `postgres` first, then `migrate`, then `server`, then `web`. `postgres`, `server` and `web` restart unless you stop them. `migrate` never restarts, because it is one command that ends.
-
-The named volume `freenary_postgres_data` holds the database at the container path `/var/lib/postgresql`. It is the only state on disk. Read [Backup and restore](/docs/self-hosting/backup-and-restore).
-
-<Callout type="info">
-
-The `migrate` service applies the database migrations on every `docker compose up`. It runs `bun x prisma migrate deploy` from the API server image, and the `server` service starts only after that command exits `0`. The command is idempotent: a stack that is already current applies nothing and still exits `0`.
-
-</Callout>
-
-## What Freenary needs from outside
-
-Three external services at most. Two of them carry data, and one answers questions. For your financial data, Freenary calls no other third party at runtime. Other calls do leave the server, and none of them carries financial data: the password breach check reaches Have I Been Pwned even with none of the three set, and a sign-in provider you turn on adds its own calls. See [Security](/docs/self-hosting/security#passwords) and [Sign-in methods](/docs/self-hosting/authentication).
-
-| Service | What it gives | Page |
-| --- | --- | --- |
-| A bank provider, Powens or Enable Banking | Bank connections, bank accounts and transactions | [Bank providers](/docs/self-hosting/bank-providers) |
-| An email provider, Resend or SMTP | Delivery of the emailed one-time codes | [Email](/docs/self-hosting/email) |
-| An OpenAI-compatible model endpoint | Answers from the assistant on the Home screen. A runtime on your own hardware also counts, and it keeps the data on the host. This one is optional, and the table below states what an instance without it does | [Assistant](/docs/self-hosting/assistant) |
-
-An instance runs with none of the three. Each missing service changes the product:
-
-| Missing service | What stops |
-| --- | --- |
-| No bank provider | A user cannot open a bank connection. Onboarding skips the bank step. Every screen that reads transactions stays empty. |
-| No email provider | The web app hides the **Forgot password?** link. Password reset does not work. Email verification does not work. A new user signs up with an email address and a password, and gets a session at once. |
-| No model endpoint | The assistant runs a model in the browser of each reader instead, on the graphics card of that browser. Each reader picks that model. Every other screen works. Read [the browser model](/docs/self-hosting/assistant#the-browser-model). |
-
-The value `EMAIL_PROVIDER=log` prints one-time codes to the server log. The API server refuses that value when `NODE_ENV=production`, so it is not a production option.
+[Quickstart](/docs/quickstart) owns the other job: one instance on `localhost`, for you alone. Start there when nobody else must reach it.
 
 ## Before you start
 
-Make these four decisions first. All four land in the same file, the root `.env`, and a restart of one or two services carries a change of any of them.
+| Need | Detail |
+| --- | --- |
+| Docker | Docker Engine and Docker Compose v2 on the host. |
+| Host | Any operating system that runs Docker. Both images exist for `linux/amd64` and `linux/arm64`. That pair is the container platform, not the host. |
+| PostgreSQL | Version 18. The stack runs it as a service, so you install no database. |
+| Public origins | One for the web app, and one for the API server. |
+| TLS | A proxy in front of both origins. Read [Behind a reverse proxy](/docs/self-hosting/reverse-proxy). |
 
-| Decision | Where it lands | Later change |
+**A bank provider decides whether the instance is useful.** No screen takes a transaction by hand, so an instance with no provider serves empty screens. Set one up in the same sitting. [Bank providers](/docs/self-hosting/bank-providers) walks the Powens console, and a sandbox domain needs no contract.
+
+An email provider and a model endpoint stay optional. Each one has its own page: [Email](/docs/self-hosting/email) and [Assistant](/docs/self-hosting/assistant).
+
+## The four services
+
+`docker-compose.yml` declares the Compose project `freenary`, four services and one named volume.
+
+| Service | What it is | Published host port |
 | --- | --- | --- |
-| The public URL of the web app | `CORS_ORIGIN` in `.env` | `docker compose up -d server` |
-| The public URL of the API server | `BETTER_AUTH_URL` in `.env`. The `web` service reads the same value as `PUBLIC_SERVER_URL` | `docker compose up -d server web`, not an image rebuild. The browser reads the value at run time |
-| The database password | `POSTGRES_PASSWORD` in `.env` | Change it in PostgreSQL too, then `docker compose up -d` |
-| The sign-in methods | `.env` | `docker compose up -d server` |
+| `postgres` | PostgreSQL 18, and the only service that holds state | `127.0.0.1:${POSTGRES_PORT:-5432}:5432` |
+| `migrate` | One command that applies the database migrations, then exits | none |
+| `server` | The API server | `${SERVER_PORT:-3000}:3000` |
+| `web` | The web app the browser loads | `${WEB_PORT:-3001}:3001` |
 
-Password sign-in and passkeys always work. Google, Apple and one OpenID Connect provider stay off until you give their credentials. Read [Authentication](/docs/self-hosting/authentication).
+- `postgres` binds the loopback interface alone, so no other machine reaches the database over the network.
+- `migrate` publishes nothing. It runs `bun x prisma migrate deploy` on every `up` and exits `0` when the schema is current.
+- `server` and `web` publish on every interface. Put the proxy in front of both.
+- Only `server` reads the root `.env` file. Read [Configuration](/docs/self-hosting/configuration).
+
+## What the stack needs before it serves anybody
+
+Two values are guarded in the compose file. Compose stops before it creates any container when either one is empty, and it names the value:
+
+| Value                | The message Compose prints       |
+| -------------------- | -------------------------------- |
+| `POSTGRES_PASSWORD`  | `Set POSTGRES_PASSWORD in .env`  |
+| `BETTER_AUTH_SECRET` | `Set BETTER_AUTH_SECRET in .env` |
+
+Two more values name the public origins. Both default to `localhost`, which serves the host machine and nothing else:
+
+| Variable | What it must hold |
+| --- | --- |
+| `BETTER_AUTH_URL` | The public origin of the API server, for example `https://api.example.com` |
+| `CORS_ORIGIN` | The public origin of the web app, for example `https://app.example.com` |
+
+Compose gives the `web` service `PUBLIC_SERVER_URL` from `BETTER_AUTH_URL`, so the browser calls the same API origin. A `PUBLIC_SERVER_URL` line of your own does nothing.
+
+`FREENARY_VERSION` names the tag of both images. The compose default is `latest`, and the registry holds no tag of that name, so write a real tag.
+
+[Configuration](/docs/self-hosting/configuration) holds every variable, its default and its refusal message.
+
+## Install
+
+<Steps>
+
+<Step>
+
+### Get the two files
+
+The stack runs published images, so it needs no source code. Two files are enough:
+
+```bash
+mkdir freenary && cd freenary
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/.env.example
+```
+
+A clone gives the same two files, plus the source for a [build from source](/docs/self-hosting/from-source). Every command below runs from the directory that holds the two files.
+
+</Step>
+
+<Step>
+
+### Write the secrets and the origins
+
+```bash
+cp .env.example .env
+openssl rand -hex 16   # POSTGRES_PASSWORD
+openssl rand -hex 32   # BETTER_AUTH_SECRET, 32 characters or more
+```
+
+The template ships a development value for both secrets. Replace both. These five lines are the minimum for a served instance:
+
+```dotenv
+POSTGRES_PASSWORD=<database password>
+BETTER_AUTH_SECRET=<64 hex characters>
+FREENARY_VERSION=main
+BETTER_AUTH_URL=https://api.example.com
+CORS_ORIGIN=https://app.example.com
+```
+
+Put your own hostnames in the last two lines. The API server refuses a secret under 32 characters at startup.
+
+</Step>
+
+<Step>
+
+### Set up the bank provider
+
+Do this before the first start, so the instance serves working screens from the beginning.
+
+Create a sandbox domain and a client application in the [Powens console](https://console.powens.com). Register this redirect URI on the client:
+
+```text
+https://app.example.com/callback/powens
+```
+
+The value is your `CORS_ORIGIN` and the path `/callback/powens`. Powens matches it exactly, and it accepts HTTPS alone.
+
+Activate the connectors of the banks you want to offer. A domain with no active connector answers with an empty bank list.
+
+Then add the credentials of the client to `.env`:
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=<client id>
+POWENS_CLIENT_SECRET=<client secret>
+```
+
+[Bank providers](/docs/self-hosting/bank-providers) holds each console step, the sandbox limits, and the Enable Banking alternative. An empty `POWENS_` variable turns bank linking off, and no message says so.
+
+</Step>
+
+<Step>
+
+### Start the stack
+
+```bash
+docker compose up -d
+```
+
+Compose pulls both images and starts `postgres`. It then runs `migrate` against the healthy database. `server` starts after `migrate` exits `0`, and `web` starts after `server` reports healthy. A fresh database therefore holds the whole schema before the first request arrives.
+
+</Step>
+
+<Step>
+
+### Check that both ports answer
+
+Ask the API server for its root path:
+
+```bash
+curl https://api.example.com/
+```
+
+It answers with the plain string `OK`.
+
+Now ask the web app for its root page:
+
+```bash
+curl -L -o /dev/null -w '%{http_code} %{url_effective}\n' https://app.example.com/
+```
+
+The web app sends a caller with no session to the sign-in screen. The command therefore prints `200 https://app.example.com/login`. Without `-L`, a healthy web app answers a redirect to `/login`.
+
+Read the service state next:
+
+```bash
+docker compose ps -a
+```
+
+`postgres`, `server` and `web` must all show `healthy`. `migrate` shows `Exited (0)`. The `-a` flag matters, because plain `docker compose ps` hides a container that already exited.
+
+When a service does not answer, read its own output:
+
+```bash
+docker compose logs -f server
+```
+
+[Logs](/docs/self-hosting/logs) explains the format and what each line holds. [Troubleshooting](/docs/self-hosting/troubleshooting) matches a symptom to a cause.
+
+</Step>
+
+<Step>
+
+### Create the first account
+
+Open the web app origin in a browser, then sign up with an email address and a password. Freenary has no admin account and no owner role, so the first account is an ordinary user. [First steps](/docs/guides/first-steps) covers what that user does next.
+
+The wizard that opens proves the bank provider. It asks for a country, then offers a bank step with the banks your domain activated. A missing bank step means Freenary read no credentials, and Settings then reads `Bank linking is unavailable`.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+The first sign-up is the moment to decide about email verification. With no email provider, Freenary asks for no confirmation and a new account gets a session at once. Set a provider first when you want confirmed addresses and password reset. Read [Email](/docs/self-hosting/email).
+
+</Callout>
 
 <Cards>
 
 <Card
-  title="Install with Docker Compose"
-  href="/docs/self-hosting/docker-compose"
-  description="Get the two files, write .env, start the stack, and check the result."
-/>
-
-<Card
   title="Configuration"
   href="/docs/self-hosting/configuration"
-  description="Every environment variable, its schema and its default."
+  description="Every environment variable, its default and its refusal message."
 />
 
 <Card
-  title="Bank providers"
-  href="/docs/self-hosting/bank-providers"
-  description="Set up Powens or Enable Banking so users can connect a bank."
+  title="Behind a reverse proxy"
+  href="/docs/self-hosting/reverse-proxy"
+  description="TLS, the public origins, the cookie domain and the trusted proxies."
 />
 
 <Card
-  title="Assistant"
-  href="/docs/self-hosting/assistant"
-  description="Point the assistant at a model endpoint, and read what leaves the instance."
+  title="Security"
+  href="/docs/self-hosting/security"
+  description="Secrets, cookies, rate limits and what the instance exposes."
+/>
+
+<Card
+  title="Backup and restore"
+  href="/docs/self-hosting/backup-and-restore"
+  description="Dump the one volume that holds state, and put it back."
 />
 
 </Cards>

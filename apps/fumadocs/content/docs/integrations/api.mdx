@@ -1,71 +1,93 @@
 ---
 title: API
-description: The endpoints of the Freenary API server, its two transports, sign-in with curl, its error shape and its limits.
+description: The base URL, the mounted paths, the session cookie, the request and error shapes, the assistant stream and the limits.
 icon: Webhook
 ---
 
-Read this page before your first call. It covers the routes the API server mounts, the two request shapes over one router, how a caller signs in, and what the limits are.
+Write a client against this page. It gives every path the API server mounts, the one credential, the exact bodies and the limits.
 
-You need a live instance and one user account. To create the account and the instance, read [Docker Compose](/docs/self-hosting/docker-compose).
+You need a live instance and one account. [Install Freenary](/docs/self-hosting) sets up both.
 
 ## Base URL
 
-The API server binds the port in `PORT`. The default is `3000`, so the default base URL is `http://localhost:3000`.
+The API server listens on the port in `PORT`. The default is `3000`, so the default base URL is `http://localhost:3000`. The Docker Compose stack publishes that port as `SERVER_PORT`.
 
-In a real install the reverse proxy decides the public base URL. Set `BETTER_AUTH_URL` to that URL, and set `CORS_ORIGIN` to the origin of the web app. Read [Configuration](/docs/self-hosting/configuration) for both variables.
+A served install puts the API server behind a reverse proxy. Set `BETTER_AUTH_URL` to the public URL of the API server. Set `CORS_ORIGIN` to the origin of the web app. [Configuration](/docs/self-hosting/configuration) holds both variables.
 
 Every path below is relative to the base URL.
 
-## Endpoints
+## Mounted paths
 
-The API server mounts three route prefixes and two exact paths, and nothing else.
+The API server mounts four handlers and one root route. Nothing else answers.
 
-| Route | Handler | What it is for |
-| --- | --- | --- |
-| `GET /` | Inline Elysia handler | Returns the plain text `OK`. Use it as a liveness probe. |
-| `/api/auth/*` | Better Auth `auth.handler` | Sign-up, sign-in, sign-out, session, one-time code, two-factor and passkey routes. |
-| `/rpc*` | `RPCHandler` from `@orpc/server/fetch` | The oRPC transport over the whole router. |
-| `POST /ai/chat` | `handleAssistantChat` from `packages/api` | The answer stream of the assistant. It is not a procedure. Read [The assistant stream](#the-assistant-stream). |
-| `/api-reference*` | `OpenAPIHandler` from `@orpc/openapi/fetch` | The plain-JSON transport, plus the reference page and the OpenAPI document. |
+| Path | What it answers |
+| --- | --- |
+| `GET /` | The plain text `OK`. The Docker Compose health probe reads it. |
+| `GET` or `POST /api/auth/*` | The Better Auth routes. Another method returns HTTP 405 with no body. |
+| `POST /rpc/<router>/<procedure>` | Every procedure, inside the oRPC envelope. |
+| `POST /api-reference/<router>/<procedure>` | The same procedures, with plain JSON in and plain JSON out. |
+| `GET /api-reference` | The reference UI. |
+| `GET /api-reference/spec.json` | The OpenAPI document. |
+| `POST /ai/chat` | The assistant stream. It is not a procedure. |
 
-Two details decide what a wrong request gets back:
+A path under `/rpc` or `/api-reference` that matches no procedure returns HTTP 404 and the plain text `Not Found`. There is no version prefix: no `/v1`, and no `/api/v1`.
 
-- `/api/auth/*` answers only `POST` and `GET`. A `PUT`, a `PATCH` or a `DELETE` request returns HTTP 405 with no `Allow` header. An `OPTIONS` request never reaches the route, because the CORS layer answers the preflight itself with HTTP 204.
-- A path under `/rpc` or `/api-reference` that matches no procedure returns HTTP 404 with the plain text `Not Found`.
+### The reference UI and the document
 
-## Two shapes, one router
+`GET /api-reference` returns an HTML page. The page loads the Scalar reader from a CDN at render time. A browser with no internet access shows an empty page.
 
-Both handlers wrap the same router and the same context function. The procedure set is the same, and so are the permission rules. Only the wire format differs.
+`GET /api-reference/spec.json` returns the document itself. The plugin emits these values:
 
-No procedure in `packages/api` declares route metadata. There is no `.route()` call anywhere in the package, so oRPC maps every procedure with its own defaults. The default method is `POST`, and the default path joins the dot path with slashes.
+| Field            | Value                              |
+| ---------------- | ---------------------------------- |
+| `openapi`        | `3.1.1`                            |
+| `info.title`     | `API Reference`                    |
+| `info.version`   | `0.0.0`                            |
+| `servers[0].url` | The base URL plus `/api-reference` |
 
-Worked example. The procedure `budget.getTransactions` becomes `POST /api-reference/budget/getTransactions`. A root-level procedure keeps one segment, so `healthCheck` becomes `POST /api-reference/healthCheck`. No procedure answers a `GET` request.
+```bash
+curl http://localhost:3000/api-reference/spec.json
+```
 
-|  | `/rpc` | `/api-reference` |
-| --- | --- | --- |
-| Method | `POST` | `POST` |
-| Path | `/rpc/<router>/<procedure>` | `/api-reference/<router>/<procedure>` |
-| Request body | `{"json": <input>}` | `<input>` |
-| Body for a procedure with no input | `{"json":null}` | `{}` |
-| Success body | `{"json": <output>}` | `<output>` |
-| Extra surface | none | reference page and `spec.json` |
+Three gaps matter to a generated client:
 
-Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` when you use the oRPC client, because that client speaks the envelope for you.
+- The document declares no security scheme and no tags, so it cannot name the procedures that need a session. [Procedure reference](/docs/integrations/procedures) names them.
+- No procedure declares an output schema. The response shapes are inferred, and the server never checks a response against them. Read the output tables of [Procedure reference](/docs/integrations/procedures) instead.
+- The document omits `POST /ai/chat`, because that route is not a procedure. Write that call by hand.
 
 <Callout type="warn">
   `/api-reference` is a live API, not only a document. Any holder of a session
-  cookie can call all 35 procedures there, and the reference page has a
+  cookie can call all 35 procedures there, and the reference UI carries a
   send-request button. Block the prefix at the reverse proxy when you do not
   want it public. Read [Security](/docs/self-hosting/security).
 </Callout>
 
-## Sign in as a caller
+## Authentication
 
-`createContext` reads exactly three things. It keeps the raw request headers. It asks Better Auth for the session behind those headers. It sets a third field to `null`, and no procedure reads that field.
+The session cookie is the only credential. Better Auth sets it, and the API server reads it on every call.
 
-A session cookie named `better-auth.session_token` identifies the caller. The cookie is `HttpOnly`, so hold it in a cookie jar and replay it. Over an https `BETTER_AUTH_URL` the name gains the `__Secure-` prefix, so it becomes `__Secure-better-auth.session_token`. A cookie jar handles that for you.
+| Property | Value |
+| --- | --- |
+| Name over http | `better-auth.session_token` |
+| Name over https | `__Secure-better-auth.session_token` |
+| Attributes | `HttpOnly`, `Path=/`, `SameSite=Lax` or `SameSite=None`, and `Secure` over https |
+| Lifetime | 7 days |
 
-Three procedures are public: `healthCheck`, `auth.accountExists` and `auth.capabilities`. Every other procedure needs a session. With no session it returns HTTP 401 and this exact body:
+The `__Secure-` prefix follows `BETTER_AUTH_URL` alone. A base URL that starts with `https://` gets the prefix, and `NODE_ENV` changes nothing.
+
+<Callout type="warn">
+  A TLS proxy in front of an instance with an `http://` `BETTER_AUTH_URL` gives
+  the unprefixed, non-secure cookie. Set `BETTER_AUTH_URL` to the public https
+  URL. Read [Reverse proxy](/docs/self-hosting/reverse-proxy).
+</Callout>
+
+<Callout type="error">
+  No bearer token and no API key exist. The instance registers no bearer plugin
+  and no API-key plugin. The CORS configuration advertises the `Authorization`
+  header, but no code reads it, so a bearer token alone returns HTTP 401.
+</Callout>
+
+Four procedures answer without a session: `healthCheck`, `auth.capabilities`, `auth.accountExists` and `auth.viewer`. Every other procedure returns HTTP 401 and this exact body:
 
 ```json
 {
@@ -76,19 +98,13 @@ Three procedures are public: `healthCheck`, `auth.accountExists` and `auth.capab
 }
 ```
 
-<Callout type="error">
-  A bearer token does not work. Freenary registers no `bearer` plugin, so
-  `Authorization: Bearer <token>` returns HTTP 401. The CORS configuration
-  advertises the `Authorization` header, but no code reads it.
-</Callout>
-
-### Two steps with curl
+### Sign in, keep the cookie, call a procedure
 
 <Steps>
 
 <Step>
 
-Sign in and write the cookie to a jar. Use `-c` for that.
+Sign in and write the cookie to a jar with `-c`.
 
 ```bash
 curl -c jar.txt -X POST http://localhost:3000/api/auth/sign-in/email \
@@ -96,13 +112,13 @@ curl -c jar.txt -X POST http://localhost:3000/api/auth/sign-in/email \
   -d '{"email":"you@example.com","password":"your-password"}'
 ```
 
-The response carries `token` and `user`, and it sets the session cookie. `POST /api/auth/sign-up/email` with `name`, `email` and `password` creates the account. It sets the same cookie only on an instance with no email provider. With an email provider set, sign-up returns `token: null` and no cookie. Confirm the address with the emailed one-time code, which signs you in, or sign in with the password after that confirmation.
+The response carries `token` and `user`, and it sets the session cookie.
 
 </Step>
 
 <Step>
 
-Call a protected procedure with the same jar. Use `-b` for that.
+Call a protected procedure with the same jar, through `-b`.
 
 ```bash
 curl -b jar.txt -X POST http://localhost:3000/api-reference/onboarding/getStatus \
@@ -111,7 +127,11 @@ curl -b jar.txt -X POST http://localhost:3000/api-reference/onboarding/getStatus
 # 200 {"completed":false,"country":null}
 ```
 
-A public procedure needs no jar at all:
+</Step>
+
+<Step>
+
+A public procedure needs no jar.
 
 ```bash
 curl -X POST http://localhost:3000/api-reference/healthCheck \
@@ -123,9 +143,13 @@ curl -X POST http://localhost:3000/api-reference/healthCheck \
 
 </Steps>
 
+An account creation is `POST /api/auth/sign-up/email` with `name`, `email` and `password`. That call sets the cookie only on an instance with no email provider. With an email provider set, it answers `token: null` and sends a one-time code. Confirm the address with that code, then sign in.
+
+An account with a second factor gets no session cookie from that first call. The answer asks for the second factor instead.
+
 ### CORS
 
-The API server sets one origin, not a list.
+The API server allows one origin, and not a list.
 
 | Option           | Value                                          |
 | ---------------- | ---------------------------------------------- |
@@ -134,207 +158,182 @@ The API server sets one origin, not a list.
 | `methods`        | `GET`, `POST`, `OPTIONS`                       |
 | `allowedHeaders` | `Content-Type`, `Authorization`                |
 
-A browser client must run on the `CORS_ORIGIN` origin, and it must send credentials. A server-to-server caller ignores CORS.
+A browser client must run on the `CORS_ORIGIN` origin, and it must send credentials. The CORS layer answers a preflight itself with HTTP 204. A server-to-server caller ignores CORS.
+
+## Request shape
+
+Every procedure is a `POST`. No procedure declares route metadata, so oRPC maps the dot path to a path under each prefix. The procedure `budget.getTransactions` becomes `POST /api-reference/budget/getTransactions`. A root procedure keeps one segment, so `healthCheck` becomes `POST /api-reference/healthCheck`.
+
+A `GET` request against a procedure under `/rpc` returns HTTP 405 with the code `METHOD_NOT_SUPPORTED`.
+
+|  | `/rpc` | `/api-reference` |
+| --- | --- | --- |
+| Method | `POST` | `POST` |
+| Path | `/rpc/<router>/<procedure>` | `/api-reference/<router>/<procedure>` |
+| Request body | `{"json": <input>}` | `<input>` |
+| Body for a procedure with no input | `{}` | `{}` |
+| Success body | `{"json": <output>}` | `<output>` |
+| Extra surface | none | the reference UI and `spec.json` |
+
+<Callout type="error">
+  Send `{}` for a procedure that takes no input, on both prefixes. The oRPC
+  client serialises a no-input call to `{}`, and never to `{"json":null}`. A
+  `null` passes where a procedure declares no input schema, because the server
+  then skips validation. It fails on `budget.syncAccounts`, whose whole input
+  object is optional: an optional object accepts an absent value, and refuses
+  `null`.
+</Callout>
+
+Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` for the oRPC client, which writes the envelope for you.
+
+There is no published SDK. The `AppRouter` type lives in a workspace package, so only code inside the repository can import it. Outside code calls either prefix with plain `fetch`.
 
 ## Errors
 
-A procedure error body is flat JSON with four fields. `POST /ai/chat` is the one route that answers otherwise, and [The assistant stream](#the-assistant-stream) gives its bodies.
+A procedure error body is flat JSON. The one route that answers otherwise is `POST /ai/chat`, and [The assistant stream](#the-assistant-stream) gives its bodies.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `defined` | boolean | `true` when the procedure declared the error. Every Freenary error is `false`. |
 | `code` | string | The oRPC error code from the table below. |
 | `status` | number | The HTTP status, repeated inside the body. |
-| `message` | string | An English literal. No message key, no translation. |
-| `data` | object | Present on input validation failure. `data.issues` holds the Zod issues. |
+| `message` | string | An English literal. There is no message key, and no translation. |
+| `data` | object | Present on an input validation failure. `data.issues` holds the schema issues. |
 
 On `/api-reference` that object is the whole body. On `/rpc` it sits inside the `json` field.
 
-| Code | HTTP | When a router throws it |
+| Code | HTTP | Cause |
 | --- | --- | --- |
-| `BAD_REQUEST` | 400 | Input validation failed, or a router refused the input. Read `message`. |
+| `BAD_REQUEST` | 400 | The input failed the schema, and `message` is `Input validation failed`. A router refusal uses the same code with its own message. |
 | `UNAUTHORIZED` | 401 | No session cookie on a protected procedure. |
-| `NOT_FOUND` | 404 | A bank connection, a transaction, a category or a bank provider does not exist. |
-| `METHOD_NOT_SUPPORTED` | 405 | A `GET` request reached `/rpc`. |
-| `CONFLICT` | 409 | A custom category label clashes with one the user already has. |
-| `TOO_MANY_REQUESTS` | 429 | `auth.accountExists` went over its cap. |
+| `NOT_FOUND` | 404 | A bank connection, a transaction, a category, a bank provider or an active conversation does not match. |
+| `METHOD_NOT_SUPPORTED` | 405 | A `GET` request reached a procedure under `/rpc`. |
+| `CONFLICT` | 409 | A custom category label clashes with one the account already holds. |
+| `TOO_MANY_REQUESTS` | 429 | `auth.accountExists` or `assistant.saveTurn` went over its cap. |
 | `INTERNAL_SERVER_ERROR` | 500 | An unhandled failure, such as a bank provider network error. |
+
+Two failures carry no JSON at all. A non-`GET` and non-`POST` request to `/api/auth/*` returns HTTP 405 with an empty body. An unmatched path under `/rpc` or `/api-reference` returns HTTP 404 and the text `Not Found`.
 
 [Procedure reference](/docs/integrations/procedures) names the exact message each procedure throws.
 
 ## The assistant stream
 
-The assistant answers questions about the money of the caller. Its answer arrives as a stream of tokens. A unary procedure returns one value and cannot carry a stream, so the assistant posts to a raw route beside the router:
+The assistant answers questions about the money of the caller. A unary procedure returns one value and cannot carry a token stream. The answer therefore arrives from a raw route beside the router.
 
 ```http
 POST /ai/chat
 ```
 
-This route is the single exception on the whole server.
-
-- It is not an oRPC procedure. It has no dot path, and the oRPC client cannot reach it.
-- It is absent from the OpenAPI document and from `/api-reference`. `spec.json` never names it, so no generated client carries it. Write the call by hand.
-- Its failure bodies are plain text, not the JSON of the table above.
-
-What the answer reads still goes through the router. The route holds a server-side oRPC client over the same procedures a caller calls, and each lookup is one of them. [Procedure reference](/docs/integrations/procedures) maps the seven tools to the seven procedures.
-
-### Authentication
-
-The session cookie, and nothing else. The route resolves the session exactly as a protected procedure resolves it: it asks Better Auth for the session behind the request headers. A browser client sends `credentials: "include"`. A script replays the same cookie jar it uses for `/rpc` or `/api-reference`.
+The route reads the session from the same cookie a procedure reads. The web app posts to it with `credentials: "include"`. A script replays the same cookie jar.
 
 ### Request body
 
-The body is the UI-message stream request of the AI SDK, plus one Freenary field.
+The body is the UI-message-stream request of the AI SDK, plus one Freenary field.
 
 | Field | Type | Required | Note |
 | --- | --- | --- | --- |
 | `messages` | array | no, default `[]` | The transcript the client holds. The route reads the last entry only. |
-| `trigger` | string | no | `submit-message` for a new question. `regenerate-message` redoes the last stored turn. |
+| `trigger` | string | no | `regenerate-message` redoes the last stored turn. Any other value is a new question. |
 | `messageId` | string | no | With `regenerate-message`, the id of the assistant message to redo. |
-| `locale` | string | no | The language of the answer. Two lower-case letters, then an optional hyphen and two upper-case letters, so `en` or `fr-FR`. Absent means `en`. |
+| `locale` | string | no | Two lower-case letters, then an optional hyphen and two upper-case letters, so `en` or `fr-FR`. |
 
-The last entry of `messages` must be a user turn whose `parts` array holds text parts only. One part is `{ "type": "text", "text": "<the question>" }`. Any other part type is a bad request.
+The last entry of `messages` must be a user turn whose `parts` array holds text parts only. One part is `{ "type": "text", "text": "<the question>" }`.
 
-### The server owns the history
+The route rebuilds every earlier turn from the stored conversation, and it drops the earlier entries of the body. A single user message is therefore a complete request. A caller cannot seed context or forge an assistant turn.
 
-The route reads the last posted message and nothing else. It rebuilds every earlier turn from the stored conversation of the caller. A caller therefore cannot forge an assistant turn to steer the next answer: the schema accepts the earlier entries unexamined, and then the route drops them.
+### Response
 
-Two consequences for a client:
+Success is HTTP 200 and a UI message stream of the AI SDK.
 
-- A single user message is a complete request. You do not need to post a transcript at all.
-- You cannot seed context, replay an edited answer or add a rule through the body.
+| Header                          | Value               |
+| ------------------------------- | ------------------- |
+| `content-type`                  | `text/event-stream` |
+| `cache-control`                 | `no-cache`          |
+| `connection`                    | `keep-alive`        |
+| `x-vercel-ai-ui-message-stream` | `v1`                |
+| `x-accel-buffering`             | `no`                |
 
-### The response
-
-Success is HTTP 200 and a UI message stream of the AI SDK. The stream carries text tokens and one part per lookup the answer runs. When the figures form a series, the text ends with one fenced code block tagged `openui-lang`: a short program in [OpenUI Lang](https://www.openui.com/) that names one of five components, `Card`, `Stat`, `BarChart`, `LineChart` or `DonutChart`, with literal values. The web app draws it; another client can render it with an OpenUI Lang renderer, or drop the fence and keep the prose. [The assistant](/docs/guides/assistant) describes what a reader sees in it.
+Each chunk carries a `type`. The set holds `start`, `start-step`, `text-start`, `text-delta`, `text-end`, `tool-input-start`, `tool-output-available`, `finish-step`, `finish` and `error`.
 
 The route stores the turn when the answer finishes. A stream the caller aborts leaves nothing behind.
 
-### Failures
+### Refusals
 
-A failure body is a bare machine code in plain text. There is no JSON, no `code` field and no message.
+A refusal body is one machine word in plain text. There is no JSON, no `code` field and no message.
 
-| Status | Body | Cause |
-| --- | --- | --- |
-| 401 | `unauthorized` | No session cookie. |
-| 503 | `unconfigured` | The instance has no model. |
-| 429 | `rate_limited` | The caller went over the question cap. |
-| 400 | `bad_request` | The body is not JSON, or it fails the schema, or the last message is not a text-only user turn, or the question is over the length cap. |
+| Order | Status | Body | Cause |
+| --- | --- | --- | --- |
+| 1 | 401 | `unauthorized` | No session cookie. |
+| 2 | 503 | `unconfigured` | The instance holds no model. |
+| 3 | 429 | `rate_limited` | The account went over the question cap. |
+| 4 | 400 | `bad_request` | The body is not JSON, or it fails the schema, or the last message is not a text-only user turn, or the question passes 8000 characters. |
 
-The route tests those four causes in that order. A caller with no session therefore reads `unauthorized` on an instance with no model too.
+The route tests those causes in that order. A caller with no session therefore reads `unauthorized` on an instance with no model too. A caller over the cap reads `unconfigured` on that same instance.
 
-Read [The assistant](/docs/self-hosting/assistant) for the variables that give an instance a model, and for the question cap.
-
-An instance with no model answers 503 to every call of this route. The web app calls the route only when the reader picked the model of the instance. For a model in the browser it runs the answer loop there, and it stores each finished turn with [`assistant.saveTurn`](/docs/integrations/procedures#assistantsaveturn).
+[The assistant](/docs/self-hosting/assistant) gives the model endpoint an instance calls, and what data leaves the instance.
 
 ## Limits
 
 ### Rate limits
 
-Better Auth limits `/api/auth/*` per caller IP address and per path. The counters live in the database, so a restart does not clear them.
+Better Auth caps `/api/auth/*` per caller address and per path. The counters live in the database, so a restart does not clear them.
 
-The limiter resolves three layers for each path. It reads the built-in rules of Better Auth first, then the rules of a plugin, then the `RATE_LIMIT_RULES` map of `packages/auth/src/policy.ts`. Each layer overwrites the one before it, so the last match wins. A path that no layer names gets the residual default of 100 per 60 seconds.
+| Path | Limit |
+| --- | --- |
+| `/api/auth/sign-in/email` | 10 per 60 seconds |
+| `/api/auth/sign-in/social` | 10 per 60 seconds |
+| `/api/auth/sign-up/email` | 5 per 300 seconds |
+| `/api/auth/two-factor/verify-totp` | 10 per 300 seconds |
+| `/api/auth/two-factor/verify-backup-code` | 5 per 300 seconds |
+| `/api/auth/passkey/generate-authenticate-options` | 20 per 60 seconds |
+| `/api/auth/passkey/verify-authentication` | 20 per 60 seconds |
+| Another path under `/api/auth/sign-in` or `/api/auth/sign-up`, plus `/api/auth/change-password` and `/api/auth/change-email` | 3 per 10 seconds |
+| The password-reset and one-time-code paths | 3 per 60 seconds |
+| Every other `/api/auth/*` path | 100 per 60 seconds |
 
-Freenary sets these seven paths, and each entry replaces the built-in rule:
+That limiter never covers `/rpc*`, `/api-reference*` or `/ai/chat`. Two procedures cap themselves instead.
 
-| Path                                              | Limit              |
-| ------------------------------------------------- | ------------------ |
-| `/api/auth/sign-in/email`                         | 10 per 60 seconds  |
-| `/api/auth/sign-in/social`                        | 10 per 60 seconds  |
-| `/api/auth/sign-up/email`                         | 5 per 300 seconds  |
-| `/api/auth/two-factor/verify-totp`                | 10 per 300 seconds |
-| `/api/auth/two-factor/verify-backup-code`         | 5 per 300 seconds  |
-| `/api/auth/passkey/generate-authenticate-options` | 20 per 60 seconds  |
-| `/api/auth/passkey/verify-authentication`         | 20 per 60 seconds  |
-
-Every other credential path keeps a much tighter cap, which Freenary never raises:
-
-| Path | Limit | Set by |
+| Surface | Limit | Counted per |
 | --- | --- | --- |
-| Any path under `/api/auth/sign-in` or `/api/auth/sign-up` that no other row names, plus `/api/auth/change-password` and `/api/auth/change-email` | 3 per 10 seconds | A built-in rule of Better Auth |
-| `/api/auth/request-password-reset`, `/api/auth/send-verification-email`, and any path under `/api/auth/forget-password` | 3 per 60 seconds | A built-in rule of Better Auth |
-| The nine one-time-code paths: the seven under `/api/auth/email-otp/`, plus `/api/auth/sign-in/email-otp` and `/api/auth/forget-password/email-otp` | 3 per 60 seconds | The one-time-code plugin, which loads only with an email provider |
-| Any other `/api/auth/*` path, such as `/api/auth/get-session` | 100 per 60 seconds | The residual default |
+| `auth.accountExists` | 20 per 60 seconds | Caller address |
+| `assistant.saveTurn` and `POST /ai/chat` | 30 per 300 seconds, shared | Account |
 
-That limiter never covers `/rpc*`, `/api-reference*` or `/ai/chat`. Two surfaces cap themselves. `auth.accountExists` accepts 20 calls per 60 seconds per caller, and then throws `TOO_MANY_REQUESTS`. `POST /ai/chat` caps the questions of one account and then answers `rate_limited`. The other 31 procedures have no cap.
+The turn store and the question stream share one allowance, on the key `ai-chat:<userId>`. The other 33 procedures have no cap.
 
 <Callout type="warn">
-  Three procedures cost real work and have no cap: `budget.syncAccounts` calls
-  the bank provider, `budget.recategorise` re-runs the pipeline over every
-  transaction, and `budget.getSankeyData` reads every transaction in the date
-  range you pass. Pace your own calls.
+
+Three procedures cost real work and have no cap:
+
+- `budget.syncAccounts` calls the bank provider.
+- `budget.recategorise` runs the pipeline over every transaction.
+- `budget.getSankeyData` reads every transaction in the date range you pass.
+
+Pace your own calls.
+
 </Callout>
 
 ### Size and page limits
 
 | Limit | Value |
 | --- | --- |
-| Request body size | None. The API server sets no cap. |
+| Request body size | The application sets no cap. Only the Bun runtime default applies. |
 | Transaction page | `limit` 1 to 100, default 50 |
 | Company list | `limit` 1 to 100, default 30 |
-| Date range on `from` and `to` | None. No maximum span, and no check that `from` is before `to`. |
 | Budget lines per profile | 200 |
-| Custom category label | 1 to 40 characters |
+| Budget line label | 60 characters after a trim |
+| Custom category label | 1 to 40 characters after a trim |
+| Budget line amount | 0 to 2147483647 minor units |
+| Assistant question | 8000 characters |
+| Stored answer parts | 200000 characters as JSON |
+| Date range on `from` and `to` | No maximum span, and no check that `from` comes before `to` |
 
-Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list procedure returns all rows in one response, except `budget.getMerchants`, which returns the most frequent companies up to its `limit`.
-
-## The interactive reference
-
-`GET /api-reference` returns an HTML page. The page loads the Scalar reader from a CDN at render time, so a browser with no internet access shows an empty page.
-
-`GET /api-reference/spec.json` returns the OpenAPI document. Measured values:
-
-| Field            | Value                      |
-| ---------------- | -------------------------- |
-| `openapi`        | `3.1.1`                    |
-| `info.title`     | `API Reference`            |
-| `info.version`   | `0.0.0`                    |
-| `servers[0].url` | `<base URL>/api-reference` |
-
-Open it with a browser at `http://localhost:3000/api-reference`, or read the raw document:
-
-```bash
-curl http://localhost:3000/api-reference/spec.json
-```
-
-The document declares no security scheme and no tags, and it needs no session cookie. It therefore does not tell you which procedures need a session. [Procedure reference](/docs/integrations/procedures) does. The document also omits `POST /ai/chat`, because that route is not a procedure.
-
-## Client libraries
-
-There is no published Freenary SDK. The web app talks to `/rpc` with the oRPC client, and you can do the same.
-
-The packages are `@orpc/client` and `@orpc/server`. This browser client is enough for a caller that holds the session cookie:
-
-```ts
-import type { AppRouter } from "@freenary/api/routers/index";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import type { RouterClient } from "@orpc/server";
-
-const link = new RPCLink({
-  fetch: (url, options) => fetch(url, { ...options, credentials: "include" }),
-  url: "http://localhost:3000/rpc",
-});
-
-const client = createORPCClient(link) as RouterClient<AppRouter>;
-
-const status = await client.onboarding.getStatus();
-```
-
-The `AppRouter` type lives in the workspace package `@freenary/api`, so only code inside this repository can import it. Outside code drops the type and calls `/rpc` or `/api-reference` with plain `fetch`.
-
-The web app adds one thing to that link: a per-call context that carries a `cookie` header. A browser needs none, because `credentials: "include"` sends the cookie already. A call made on the server has no cookie jar. The web app therefore passes the visitor's own cookie header through that context while it renders a page. Read `apps/web/src/utils/orpc.ts` for the full shape.
+Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list returns all rows, except `budget.getMerchants`, which stops at its `limit`.
 
 <Cards>
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="All 35 procedures, their inputs, outputs and errors."
-  />
-  <Card
-    title="MCP and AI tools"
-    href="/docs/integrations/mcp"
-    description="Why no MCP server ships, and how to bridge this API yourself."
+    description="All 35 procedures, their inputs, their bounds, their outputs and their errors."
   />
   <Card
     title="Security"
@@ -344,6 +343,6 @@ The web app adds one thing to that link: a per-call context that carries a `cook
   <Card
     title="Configuration"
     href="/docs/self-hosting/configuration"
-    description="PORT, BETTER_AUTH_URL, CORS_ORIGIN and the rest."
+    description="Every environment variable, including the port, the base URL and the origin."
   />
 </Cards>

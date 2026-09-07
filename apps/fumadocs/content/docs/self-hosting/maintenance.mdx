@@ -1,88 +1,63 @@
 ---
 title: Maintenance
-description: The routine commands that keep a Freenary instance healthy, a suggested schedule, and the four things Freenary never does for you.
+description: Watch the disk and the database volume, prune old images, restart a service, and check that the stack came back.
 icon: Wrench
 ---
 
-This page lists the commands an operator runs on a live instance. Each one targets the Docker Compose stack of [Install with Docker Compose](/docs/self-hosting/docker-compose). Run every command from the directory that holds `docker-compose.yml` and the `.env` file next to it, because Compose reads both from the working directory. That directory needs no clone of the repository.
+Run every command from the directory that holds `docker-compose.yml` and the `.env` file. Compose reads both from there. That directory needs no clone of the repository.
 
-## Routine commands
+## Watch the disk
 
-### Read the service state
-
-```bash
-docker compose ps
-```
-
-The `STATUS` column shows `healthy` for each of the three long-lived services. A service in `starting` state has not passed its healthcheck yet. A service in `unhealthy` state failed 5 checks in a row. Add `-a` to list the one-shot `migrate` container too, which must show `Exited (0)`.
-
-### Restart one service
-
-```bash
-docker compose restart server
-```
-
-Replace `server` with `web` or `postgres`. A restart starts the same container again, so the container keeps the environment Compose gave it at creation.
-
-### Apply a new value from `.env`
-
-```bash
-docker compose up -d server
-```
-
-Compose reads the root `.env` file again, and it recreates each container whose configuration changed. A restart cannot do that. The web app takes a new public API origin the same way, with `docker compose up -d web`, and it needs no new image.
-
-### Read the logs
-
-```bash
-docker compose logs -f --tail=100 server
-```
-
-Drop the service name to follow all three. Read [Logs](/docs/self-hosting/logs) for the shape of each line and for what the API server does not log.
-
-### Open a database shell
-
-```bash
-docker compose exec postgres psql -U postgres -d freenary
-```
-
-The role is `postgres` and the database is `freenary`. Both are literal values in `docker-compose.yml`.
-
-### Read the migration state
-
-```bash
-docker compose exec -w /app/packages/db server bun x prisma migrate status
-```
-
-The command lists the migrations of the image and the ones the database holds. The `migrate` service applies the rest on every `docker compose up`, so a manual `bun x prisma migrate deploy` in the same container is a fallback and not a routine step.
-
-### Pull the published images
-
-```bash
-docker compose pull
-docker compose up -d
-```
-
-`pull` fetches the images that the `FREENARY_VERSION` tag names now. `up -d` then recreates each container that changed, and it runs `migrate` again. Read [Updates](/docs/self-hosting/updates).
-
-### Prune old images
-
-```bash
-docker image prune -f
-```
-
-Each update leaves the previous image without a tag. This command deletes those, and it keeps every image a container uses.
-
-### Check the disk use of the volume
+The database volume grows with the transaction history of your users. Nothing prunes it.
 
 ```bash
 docker compose exec postgres du -sh /var/lib/postgresql
 docker system df -v
 ```
 
-The first command measures the database itself. The second lists every Docker volume with its size, and the database volume appears as `freenary_freenary_postgres_data`.
+The first command measures the database. The second lists every image, container and volume with its size. The database volume appears there as `freenary_freenary_postgres_data`.
 
-### Stop and start the whole stack
+Measure the largest tables when the volume surprises you:
+
+```bash
+docker compose exec -T postgres psql -U postgres -d freenary -c \
+  "SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10;"
+```
+
+The `transaction` table leads that list on a busy instance. A user who deletes a bank connection removes its accounts, transactions and holdings through the database cascade. That delete is the only shrink the product offers.
+
+Container output is the second consumer of disk. Neither compose file sets a `logging:` driver, so the Docker default applies and the output is unbounded. Read [Logs](/docs/self-hosting/logs) for the cap.
+
+## Prune old images
+
+Each update leaves the image of the build before it without a tag.
+
+```bash
+docker image prune -f
+```
+
+The command deletes the untagged images. It keeps every image a container uses.
+
+## Restart a service
+
+```bash
+docker compose restart server
+```
+
+A restart starts the same container again, so the container keeps the environment Compose gave it at creation. Use `up -d` instead after a change to `.env`:
+
+```bash
+docker compose up -d server
+```
+
+Compose reads the root `.env` file again, and it recreates each container whose configuration changed.
+
+| Command | Reads a new `.env` value |
+| --- | --- |
+| `docker compose restart server` | No. The container keeps the environment of its creation |
+| `docker compose up -d server` | Yes. Compose recreates the container |
+
+## Stop and start the whole stack
 
 ```bash
 docker compose down
@@ -91,60 +66,93 @@ docker compose up -d
 
 <Callout type="error">
 
-Never add `-v` to `docker compose down`. The flag deletes the named volume, and the volume holds the whole database.
+Never add `-v` to `docker compose down`. The flag deletes the named volume, and that volume holds the whole database.
 
 </Callout>
 
-## A suggested schedule
+## Check that the stack came back
 
-Freenary needs no fixed schedule. This one keeps an instance recoverable.
+```bash
+docker compose ps -a
+```
 
-| Task | Command | Suggested frequency |
-| --- | --- | --- |
-| Back up the database | See [Backup and restore](/docs/self-hosting/backup-and-restore) | Daily |
-| Read the service state | `docker compose ps` | Daily |
-| Read the logs of the API server | `docker compose logs --tail=100 server` | Weekly |
-| Check the disk use of the volume | `docker compose exec postgres du -sh /var/lib/postgresql` | Monthly |
-| Update to a newer version | `docker compose pull && docker compose up -d`, see [Updates](/docs/self-hosting/updates) | Monthly |
-| Prune old images | `docker image prune -f` | After each update |
-| Test a restore into a throwaway database | See [Backup and restore](/docs/self-hosting/backup-and-restore) | Twice a year |
-| Rotate `BETTER_AUTH_SECRET` | See [Security](/docs/self-hosting/security) | Only after a leak |
-
-## What Freenary does not do for you
-
-Freenary runs two web processes and nothing else. It has no worker, no scheduler and no cron entry. Four jobs are yours.
-
-| Freenary does not do this | You must do this |
+| What the `STATUS` column shows | What it means |
 | --- | --- |
-| Refresh a bank connection on a schedule. A sync runs only when a user opens the budget page, or presses a sync button. | Tell your users to open the budget page for fresh transactions. |
-| Run a scheduled job of any kind. | Put anything periodic in your own scheduler on the host. |
-| Rotate any log. | Cap the container output in the Docker daemon, with a `max-size` option. |
-| Take a backup. | Add the `pg_dump` command of [Backup and restore](/docs/self-hosting/backup-and-restore) to your own scheduler. |
+| `healthy` on `postgres`, `server` and `web` | The three long-lived services answer their healthchecks |
+| `starting` | The service has not passed a healthcheck yet. The start period is 10 seconds |
+| `unhealthy` | Five checks in a row failed. Read the log of that service |
+| `Exited (0)` on `migrate` | The one-shot migration step finished. This is the healthy state |
 
-<Callout type="info">
+The `-a` flag lists the exited `migrate` container. Plain `docker compose ps` hides it.
 
-Three product areas appear in the sidebar of the web app with a **Planned** badge: portfolio, analysis and goals. Freenary does not build them yet, and they need no operator work. The assistant on the Home screen is built, and one decision is yours: the model endpoint. With no endpoint, each reader runs a model in their own browser, which needs nothing from you. Read [Assistant](/docs/self-hosting/assistant).
+Then ask the two apps and the database directly:
 
-</Callout>
+```bash
+curl -fsS http://localhost:3000/
+curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:3001/
+docker compose exec postgres pg_isready -U postgres -d freenary
+```
+
+The API server answers the plain string `OK`. The web app answers `200` with the rendered app. Point your own uptime checker at the same two requests.
+
+## Open a database shell
+
+```bash
+docker compose exec postgres psql -U postgres -d freenary
+```
+
+## Read the migration state
+
+```bash
+docker compose exec -w /app/packages/db server bun x prisma migrate status
+```
+
+The command lists the migrations of the image and the ones the database holds. The `migrate` service applies the rest on every start. A manual `prisma migrate deploy` is a fallback, not a routine step.
+
+## A schedule that keeps an instance recoverable
+
+Freenary needs no fixed schedule. This one is enough.
+
+| Task | How | How often |
+| --- | --- | --- |
+| Dump the database | [Backup and restore](/docs/self-hosting/backup-and-restore) | Daily |
+| Read the service state | `docker compose ps -a` | Daily |
+| Read the API server log | `docker compose logs --tail 100 server` | Weekly |
+| Measure the volume | `docker compose exec postgres du -sh /var/lib/postgresql` | Monthly |
+| Move to a newer tag | [Updates](/docs/self-hosting/updates) | Monthly |
+| Prune old images | `docker image prune -f` | After each update |
+| Prove a dump restores | [Backup and restore](/docs/self-hosting/backup-and-restore) | Twice a year |
+| Rotate `BETTER_AUTH_SECRET` | [Security](/docs/self-hosting/security) | After a leak alone |
+
+## What your own scheduler must carry
+
+Freenary runs two web processes and one database. It holds no worker, no queue and no cron entry. Four jobs are yours.
+
+| Job | How you do it |
+| --- | --- |
+| Take a backup | Put the dump command in your own scheduler |
+| Cap the container output | Add a `logging:` block per service, as [Logs](/docs/self-hosting/logs) shows |
+| Refresh a bank connection | A sync runs inside the request that asks for it. Tell your users to open the budget screen |
+| Run any periodic job | Put it in your own scheduler on the host |
 
 <Cards>
 
 <Card
   title="Backup and restore"
   href="/docs/self-hosting/backup-and-restore"
-  description="Dump the database, restore it, and keep the secret that matches the dump."
+  description="Dump the database, put it back, and keep the secret that matches the dump."
 />
 
 <Card
   title="Logs"
   href="/docs/self-hosting/logs"
-  description="Where the API server writes, what a line holds, and what production drops."
+  description="What the API server writes, where it lands, and how to cap it."
 />
 
 <Card
   title="Troubleshooting"
   href="/docs/self-hosting/troubleshooting"
-  description="What to do when a service stays unhealthy or a screen shows no data."
+  description="A service that stays unhealthy, a refusal at startup, a screen with no data."
 />
 
 </Cards>

@@ -1,108 +1,54 @@
 ---
-title: Introduction
-description: What Freenary is, what it does today, and where to go next.
-icon: Rocket
+title: Freenary
+description: Freenary is an open-source personal finance app that you host yourself, with your data in your own database.
+icon: House
 ---
 
-Freenary is an open-source platform for personal finance and wealth management. You host your own instance, and the financial data stays in your own database, with one exception that [How it works](#how-it-works) states. Freenary reads your bank data, imports the transactions, and sorts them into categories. The Budget area then shows where the money goes.
-
-## The problem it solves
-
-- Your financial life sits in many bank apps, spreadsheets and budget apps.
-- No single screen shows all of it.
-- Each bank app groups the same purchase in its own way.
-- A proprietary service holds the data, and that service decides what you can do with it.
-
-Freenary puts the bank accounts, the transactions and the plan in one place that you own.
-
-## What Freenary does today
-
-Every row below exists in the code today.
-
-| Feature | What it does | Page |
-| --- | --- | --- |
-| Sign-in | Password, emailed one-time code, passkey, Google, Apple and single sign-on. | [Sign in](/docs/guides/signing-in) |
-| Bank connections | Open a link to one bank through the bank provider, and remove it later. | [Bank connections](/docs/guides/bank-connections) |
-| Data import | Sync writes bank accounts, balances, transactions and holdings into the database. | [Bank connections](/docs/guides/bank-connections) |
-| Automatic categorisation | A pipeline gives each transaction a category with no user input. | [Categories](/docs/guides/categories) |
-| Category correction | Set the category of one transaction. Freenary remembers your choice for that merchant. | [Categories](/docs/guides/categories) |
-| Budget area | Period navigator, income and expense figures, cash-flow chart, category breakdown, fixed against variable, budget against actual, and a transaction list with search and filters. | [Budget](/docs/guides/budget) |
-| Budgeting profile | Declare one planned monthly amount per category. | [Settings](/docs/guides/settings) |
-| Custom categories | Add your own categories under one of the fixed groups. | [Categories](/docs/guides/categories) |
-| Assistant | Ask a question about your money on Home, and read an answer from your own data, with a chart when the figures form a series. The operator must configure a model. | [Assistant](/docs/guides/assistant) |
-| Account protection | Two-factor codes from an app, backup codes, passkeys, and a list of your sessions. | [Settings](/docs/guides/settings) |
-| Language | English and French. Each user picks one. | [Interface](/docs/guides/interface) |
-| Appearance | Light, dark, or follow the system. | [Interface](/docs/guides/interface) |
-
-The operator turns each sign-in method on. The bank provider decides which data arrives. Powens reports account types, balances, transactions and holdings. Enable Banking reports transactions, but no account types, no balances and no holdings. Import runs when you open the Budget page, and when you press the sync button.
-
-## Planned areas
-
-The sidebar lists three more areas. Each one renders a placeholder screen with a title and one line of text. The sidebar dims the three rows and adds a "Planned" badge to each one. Each title reads `{page} is planned`.
-
-<Callout type="info">
-
-Portfolio, Analysis and Goals are not built. The three screens hold no data and no controls.
-
-</Callout>
-
-| Area | The text the screen shows |
-| --- | --- |
-| Portfolio | "Track your holdings, accounts and net worth across all your connections — coming soon." |
-| Analysis | "Evaluate whether your financial setup is healthy and efficient — coming soon." |
-| Goals | "Define financial objectives, track progress and plan contributions — coming soon." |
-
-## Who Freenary is for
+Freenary is an open-source personal finance app that you host yourself. It connects your banks and imports your accounts and transactions. It files each transaction under a category, and shows a Budget area beside your own monthly plan. Every figure lives in the PostgreSQL database of your own instance. One exception: each question you ask the assistant sends financial data to the model endpoint the operator configured. Read [Assistant](/docs/self-hosting/assistant).
 
 <Cards>
   <Card
-    title="Try Freenary"
+    title="Quickstart"
+    href="/docs/quickstart"
+    description="Run Freenary on one machine with Docker, then sign in."
+  />
+  <Card
+    title="Use Freenary"
     href="/docs/guides"
-    description="You want to sign in, connect a bank and read your budget."
+    description="What you do on each screen of a running instance."
   />
   <Card
-    title="Host an instance"
+    title="Self-host Freenary"
     href="/docs/self-hosting"
-    description="You run the Docker Compose stack for yourself or for other people."
+    description="Serve one instance to other people, and keep it running."
   />
-  <Card
-    title="Change the code"
-    href="/docs/development"
-    description="You want the monorepo layout, the local stack and the data model."
-  />
-  <Card
-    title="Call the API"
-    href="/docs/integrations/api"
-    description="You want the HTTP surface, the OpenAPI document and the auth rules."
-  />
-</Cards>
-
-## How it works
-
-One instance runs three parts. The web app renders each screen on the server first, then in the browser. The API server answers the web app over HTTP, and it holds all the business rules. PostgreSQL keeps every row, from users and bank connections to transactions, holdings and budget lines.
-
-The API server calls the bank provider, Powens or Enable Banking, to read your bank data. The financial data stays in the PostgreSQL database that the operator runs. The assistant is the one exception, and only where the reader answers through a model endpoint: each question then sends financial data to that endpoint. A reader who picks a model that runs in their own browser sends the question nowhere. The [assistant setup](/docs/self-hosting/assistant) page lists what leaves the instance in each mode.
-
-The web app asks the API server who you are before it sends the first response. A signed-in visitor therefore lands on Home, and a signed-out visitor lands on the sign-in form, with no intermediate screen.
-
-The [monorepo page](/docs/development/monorepo) lists every application and package.
-
-## Next
-
-<Cards>
   <Card
     title="Concepts"
     href="/docs/concepts"
-    description="The words this documentation uses, and what each one means."
-  />
-  <Card
-    title="Self-hosting"
-    href="/docs/self-hosting"
-    description="Run your own instance with Docker Compose."
-  />
-  <Card
-    title="User guides"
-    href="/docs/guides"
-    description="Sign in, connect a bank, and read the Budget area."
+    description="The words the interface uses, and what each one means."
   />
 </Cards>
+
+## Run it
+
+- [**Self-hosting**](/docs/self-hosting) — the install that other people reach, with its own origins and secrets.
+- [**Configuration**](/docs/self-hosting/configuration) — every environment variable the stack reads, with its default.
+- [**Scaling**](/docs/self-hosting/scaling) — replicas, connection pools and what limits growth.
+- [**Backup and restore**](/docs/self-hosting/backup-and-restore) — what holds your state, and how to put it back.
+
+## Use it
+
+- [**First steps**](/docs/guides/first-steps) — the country question, and the three-item checklist a new account gets.
+- [**Bank connections**](/docs/guides/bank-connections) — connect a bank, sync it, disconnect it.
+- [**Budget**](/docs/guides/budget) — the period, the two charts and the transaction list.
+- [**The assistant**](/docs/guides/assistant) — ask a question about your money and read the answer.
+
+## Build on it
+
+- [**API**](/docs/integrations/api) — the HTTP surface of the server, and how a client signs in.
+- [**Procedures**](/docs/integrations/procedures) — every procedure, with its input and its output.
+
+## Contribute
+
+- [**Contributing**](/docs/contributing) — the workflow, the checks and the conventions.
+- [**Architecture**](/docs/contributing/architecture) — the workspaces, the request flow and the build.

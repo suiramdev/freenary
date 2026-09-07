@@ -16,6 +16,9 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "docs:check": {
+      "inputs": ["content/**", "scripts/**", "src/components/mdx.tsx"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

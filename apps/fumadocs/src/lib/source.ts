@@ -1,6 +1,8 @@
 import { loader } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
+import { pageSchema } from "fumadocs-core/source/schema";
 import { defineDocs } from "fumadocs-mdx/macro";
+import { z } from "zod";
 
 import { docsRoute } from "./shared";
 
@@ -11,6 +13,13 @@ export const docs = defineDocs({
     postprocess: {
       includeProcessedMarkdown: true,
     },
+    // The default schema needs `title` only. A page with no description renders
+    // an empty subtitle and no search summary, and a page with no icon renders
+    // a blank sidebar row, so the build refuses both.
+    schema: pageSchema.extend({
+      description: z.string().min(1),
+      icon: z.string().min(1),
+    }),
   },
 });
 

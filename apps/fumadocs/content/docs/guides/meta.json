@@ -1,14 +1,15 @@
 {
   "title": "Using Freenary",
+  "description": "Every screen a Freenary user opens, and what to do on it.",
   "icon": "Compass",
   "pages": [
     "index",
-    "assistant",
-    "signing-in",
     "first-steps",
+    "signing-in",
     "bank-connections",
     "budget",
     "categories",
+    "assistant",
     "settings",
     "interface"
   ]
