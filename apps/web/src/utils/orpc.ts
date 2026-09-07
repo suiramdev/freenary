@@ -1,5 +1,4 @@
 import type { AppRouter } from "@freenary/api/routers/index";
-import { env } from "@freenary/env/web";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";
@@ -47,7 +46,7 @@ const link = new RPCLink<ClientContext>({
   },
   headers: ({ context }) =>
     context.cookie === undefined ? {} : { cookie: context.cookie },
-  url: `${getServerUrl(env.VITE_SERVER_URL)}/rpc`,
+  url: `${getServerUrl()}/rpc`,
 });
 
 // SAFETY: createORPCClient returns a generic client; cast aligns it with the known AppRouter type

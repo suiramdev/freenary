@@ -15,6 +15,7 @@ import { ThemeProvider } from "next-themes";
 
 import { UNKNOWN_VIEWER, getViewer } from "@/functions/get-viewer";
 import { isServer } from "@/lib/is-server";
+import { publicServerUrlScript } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import type { orpc } from "@/utils/orpc";
@@ -78,36 +79,42 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     viewer: isServer ? await getViewer() : UNKNOWN_VIEWER,
   }),
 
-  head: () => ({
-    meta: [
-      {
-        charSet: "utf-8",
-      },
-      {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1",
-      },
-      {
-        title: "Freenary",
-      },
-    ],
-    links: [
-      {
-        rel: "icon",
-        type: "image/svg+xml",
-        href: "/favicon.svg",
-      },
-      {
-        rel: "icon",
-        type: "image/png",
-        href: "/favicon.png",
-      },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
-  }),
+  head: () => {
+    // Runs before the module scripts, so the API clients built at module
+    // scope in the browser read the container's PUBLIC_SERVER_URL.
+    const serverUrlScript = publicServerUrlScript();
+    return {
+      meta: [
+        {
+          charSet: "utf-8",
+        },
+        {
+          name: "viewport",
+          content: "width=device-width, initial-scale=1",
+        },
+        {
+          title: "Freenary",
+        },
+      ],
+      links: [
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          href: "/favicon.svg",
+        },
+        {
+          rel: "icon",
+          type: "image/png",
+          href: "/favicon.png",
+        },
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+      ],
+      scripts: serverUrlScript ? [{ children: serverUrlScript }] : [],
+    };
+  },
 
   component: RootDocument,
 });

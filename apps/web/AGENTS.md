@@ -2,7 +2,7 @@
 
 ## Stack
 
-- **Vite** dev server (`bun run dev:web`, port `WEB_PORT` or 5173). The `dev` script compiles Paraglide **before** Vite starts, and `compose.dev.yml` keeps `web/src/paraglide/` out of its watch sync: Vite caches the first failed resolution of `@/paraglide/server.js`, so a generated directory that appears (or is deleted) after startup turns every SSR request into a permanent 500 until the process restarts.
+- **Vite** dev server (`bun run dev:web`, port `WEB_PORT` or 5173). The `dev` script compiles Paraglide **before** Vite starts, and `docker-compose.dev.yml` keeps `web/src/paraglide/` out of its watch sync: Vite caches the first failed resolution of `@/paraglide/server.js`, so a generated directory that appears (or is deleted) after startup turns every SSR request into a permanent 500 until the process restarts.
 - **TanStack Router** for type-safe file-based routing — routes live in `src/routes/`.
 - **TanStack Query** + `@orpc/tanstack-query` — typed queries derived from the server router type.
 - **Better Auth** client for sessions; auth state syncs with `apps/server`.
@@ -66,7 +66,7 @@ When building UI, still decompose top-down into these levels: split out the smal
 
 From hydration on, the session is the browser's: it signs in, signs out and expires there, and `AuthGate` (`@/components/auth/auth-gate.tsx`) holds the routing rules between page loads. Give it an `audience` (`guest`, `member`, `onboarding`) rather than reimplementing the redirects. The initial page load hydrates with the server's `viewer`, which is why the gate can render a member's page while the session is still pending; every `beforeLoad` that runs in the browser sees `unknown`, so never route on `viewer` there — a stale server answer would fight the live session. The gate navigates from an effect keyed on the destination, never with `<Navigate>`: that component navigates again on every render, and the layout above re-renders while a navigation is pending.
 
-Server-side calls that act for the visitor pass their cookie explicitly — `client.x.y(input, { context: { cookie } })` — because the server has no cookie jar. `SERVER_URL` is the API origin those calls use; the browser bundle keeps `VITE_SERVER_URL`.
+Server-side calls that act for the visitor pass their cookie explicitly — `client.x.y(input, { context: { cookie } })` — because the server has no cookie jar. `SERVER_URL` is the API origin those calls use. The browser calls `PUBLIC_SERVER_URL` when the web app's own server has it — the root route's `head()` emits it as `window.__FREENARY_SERVER_URL__` in an inline script before the module scripts, so the clients built at module scope read it — and the build-time `VITE_SERVER_URL` otherwise. Both sides go through `getServerUrl()` (`@/lib/server-url.ts`), which takes no argument.
 
 There is no router-level pending component. A route that swaps its whole page for a placeholder is a bug — see “Loading states”.
 

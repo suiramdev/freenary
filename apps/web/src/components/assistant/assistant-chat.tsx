@@ -1,5 +1,4 @@
 import { useChat } from "@ai-sdk/react";
-import { env } from "@freenary/env/web";
 import { Button } from "@freenary/ui/components/button";
 import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
 import { RiRefreshLine } from "@remixicon/react";
@@ -174,7 +173,7 @@ export const AssistantChat = ({
     () =>
       selected === SERVER_MODEL
         ? new DefaultChatTransport({
-            api: `${getServerUrl(env.VITE_SERVER_URL)}/ai/chat`,
+            api: `${getServerUrl()}/ai/chat`,
             // The server cannot read the locale: it lives in a cookie on this origin.
             body: { locale: getLocale() },
             // The session cookie belongs to the API's origin, as with the oRPC link.
