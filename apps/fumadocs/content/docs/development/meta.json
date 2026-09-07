@@ -4,6 +4,7 @@
   "pages": [
     "index",
     "local-stack",
+    "releasing",
     "monorepo",
     "data-model",
     "categorisation",

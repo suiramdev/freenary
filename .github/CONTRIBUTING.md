@@ -22,6 +22,7 @@ Local stack, without OrbStack:
 
 ```bash
 bun install
+cp .env.example .env      # the Postgres container reads the root .env
 bun run db:start          # starts the Postgres container
 bun run db:push           # applies the Prisma schema
 bun run dev               # web on 3001, server on 3000, docs on 4000
@@ -63,6 +64,7 @@ If your change alters documented behavior — a screen, an API route, an environ
 
 Follow the [pull request template](pull_request_template.md). Each pull request should:
 
+- open against `dev` — `main` holds released code, and `dev` is the branch a release is cut from
 - explain the user-visible change
 - stay focused on a single topic when possible
 - include screenshots or screen recordings for new UI or behavior changes
@@ -72,4 +74,4 @@ If there is no visual change, say that explicitly in the PR description.
 
 ## Release Process
 
-Version bumps, tags, and releases are maintainer-managed. Do not include release version changes in a normal contribution unless a maintainer asks for them.
+Releases are maintainer-managed: a maintainer merges `dev` into `main` and runs the `Release` workflow, which creates the tag, the images and the GitHub release. Do not tag, and do not include a version bump in a normal contribution unless a maintainer asks for one. See [Releasing](../apps/fumadocs/content/docs/development/releasing.mdx).
