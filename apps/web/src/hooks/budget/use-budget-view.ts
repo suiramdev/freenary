@@ -13,6 +13,7 @@ import type {
   SortMode,
   TransactionDirection,
 } from "@/lib/budget/search";
+import type { AmountRange } from "@/lib/budget/transaction-filters";
 
 // The route file imports this hook, so reach the route by id rather than back
 // through its module.
@@ -72,6 +73,16 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
     [search.cat, search.grp]
   );
 
+  const amount = useMemo<AmountRange>(
+    () => ({
+      max: search.max ?? BUDGET_SEARCH_DEFAULTS.max,
+      min: search.min ?? BUDGET_SEARCH_DEFAULTS.min,
+    }),
+    [search.max, search.min]
+  );
+
+  const merchants = useMemo(() => search.merchant ?? [], [search.merchant]);
+
   // The search box keeps its own text: a keystroke that waited for the URL to
   // round-trip would be re-rendered away, and only the settled text is worth a
   // history entry or a request.
@@ -104,10 +115,12 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
   const view: PrimaryView = search.view ?? BUDGET_SEARCH_DEFAULTS.view;
 
   return {
+    amount,
     applyPatch,
     companion,
     direction,
     filter,
+    merchants,
     period,
     /** What the request uses, once the typing has settled. */
     searchQuery: settled,

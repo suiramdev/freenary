@@ -20,6 +20,11 @@ export type SortMode = (typeof SORT_MODES)[number];
 const MIN_YEAR = 1970;
 const MAX_YEAR = 2999;
 
+// Bounds a reader could plausibly mean, and a filter list a picker could
+// plausibly have produced.
+const MAX_AMOUNT = 1_000_000_000;
+const MAX_MERCHANTS = 50;
+
 const LAST_MONTH_INDEX = 11;
 
 /**
@@ -71,6 +76,36 @@ const searchText = z
   .optional();
 
 /**
+ * An amount bound, in whole currency as the reader typed it. Zero is the
+ * absence of a bound, and the ceiling keeps a mangled link from turning into a
+ * query no index can serve.
+ */
+const amountBound = z
+  .unknown()
+  .transform((raw) => {
+    const parsed = z.coerce.number().min(0).max(MAX_AMOUNT).safeParse(raw);
+    return parsed.success && parsed.data > 0 ? parsed.data : undefined;
+  })
+  .optional();
+
+/**
+ * Merchant keys are bank text rather than a vocabulary this app owns, so the
+ * only rules are non-empty and few enough that a hostile link cannot ask the
+ * database for thousands of exact matches.
+ */
+const merchantList = z
+  .unknown()
+  .transform((raw) => {
+    const values = Array.isArray(raw) ? raw : [raw];
+    const kept = values.flatMap((value) => {
+      const parsed = z.coerce.string().safeParse(value);
+      return parsed.success && parsed.data.length > 0 ? [parsed.data] : [];
+    });
+    return kept.length > 0 ? kept.slice(0, MAX_MERCHANTS) : undefined;
+  })
+  .optional();
+
+/**
  * The whole budget view as URL text. Every field is optional and nothing
  * defaults here: an absent param means the default, so a clean view keeps a
  * clean URL and a shared link carries only what its sender changed.
@@ -81,6 +116,9 @@ export const budgetSearchSchema = z.object({
   companion: oneOf(COMPANION_VIEWS),
   dir: oneOf(TRANSACTION_DIRECTIONS),
   grp: slugList(CATEGORY_GROUPS),
+  max: amountBound,
+  merchant: merchantList,
+  min: amountBound,
   month: boundedInt(0, LAST_MONTH_INDEX),
   q: searchText,
   range: oneOf(TIME_RANGES),
@@ -102,6 +140,8 @@ export const BUDGET_SEARCH_DEFAULTS = {
   agg: "total",
   companion: "fixed",
   dir: "outgoing",
+  max: 0,
+  min: 0,
   q: "",
   range: "1M",
   sort: "date",
@@ -109,7 +149,7 @@ export const BUDGET_SEARCH_DEFAULTS = {
 } as const satisfies Partial<BudgetSearch>;
 
 /** A field holding its default is left out of the URL entirely. */
-const stripDefault = <T extends string>(
+const stripDefault = <T extends number | string>(
   value: T | undefined,
   fallback: T
 ): T | undefined =>
@@ -136,6 +176,9 @@ export const nextBudgetSearch = (
   ),
   dir: stripDefault(patch.dir ?? current.dir, BUDGET_SEARCH_DEFAULTS.dir),
   grp: stripEmpty(patch.grp ?? current.grp),
+  max: stripDefault(patch.max ?? current.max, BUDGET_SEARCH_DEFAULTS.max),
+  merchant: stripEmpty(patch.merchant ?? current.merchant),
+  min: stripDefault(patch.min ?? current.min, BUDGET_SEARCH_DEFAULTS.min),
   month: patch.month ?? current.month,
   q: stripDefault(patch.q ?? current.q, BUDGET_SEARCH_DEFAULTS.q),
   range: stripDefault(

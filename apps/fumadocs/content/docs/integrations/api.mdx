@@ -54,7 +54,7 @@ Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` when you use the 
 
 <Callout type="warn">
   `/api-reference` is a live API, not only a document. Any holder of a session
-  cookie can call all 34 procedures there, and the reference page has a
+  cookie can call all 35 procedures there, and the reference page has a
   send-request button. Block the prefix at the reverse proxy when you do not
   want it public. Read [Security](/docs/self-hosting/security).
 </Callout>
@@ -271,11 +271,12 @@ That limiter never covers `/rpc*`, `/api-reference*` or `/ai/chat`. Two surfaces
 | --- | --- |
 | Request body size | None. The API server sets no cap. |
 | Transaction page | `limit` 1 to 100, default 50 |
+| Company list | `limit` 1 to 100, default 30 |
 | Date range on `from` and `to` | None. No maximum span, and no check that `from` is before `to`. |
 | Budget lines per profile | 200 |
 | Custom category label | 1 to 40 characters |
 
-Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list procedure returns all rows in one response.
+Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list procedure returns all rows in one response, except `budget.getMerchants`, which returns the most frequent companies up to its `limit`.
 
 ## The interactive reference
 
@@ -328,7 +329,7 @@ The web app adds one thing to that link: a per-call context that carries a `cook
   <Card
     title="Procedure reference"
     href="/docs/integrations/procedures"
-    description="All 34 procedures, their inputs, outputs and errors."
+    description="All 35 procedures, their inputs, outputs and errors."
   />
   <Card
     title="MCP and AI tools"

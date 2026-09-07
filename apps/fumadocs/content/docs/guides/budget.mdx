@@ -92,8 +92,14 @@ Under the charts sits the list of transactions in the period.
 | --------------- | --------------------------------------------------------- |
 | Search box      | Filters on the text of the transaction                    |
 | Sort            | **Newest** or **Largest**                                 |
+| Amount filter   | A minimum, a maximum, or both                             |
+| Company filter  | A searchable menu over the companies of the period        |
 | Category filter | A searchable menu over the 16 groups and their categories |
 | Tabs            | `Outgoing · <amount>` and `Incoming · <amount>`           |
+
+The amount filter reads how much money moved, not the sign, so the same bounds apply on both tabs. A minimum above the maximum matches no transaction, and the menu says so.
+
+The company menu lists the companies of the period, most frequent first, with what you paid each one. Where your bank names no company, Freenary lists the description it cleaned up instead. Type to search every company of the period, not only the listed ones.
 
 Each active filter renders as a removable badge above the list. With two filters or more, a **Clear all** button appears.
 
@@ -146,6 +152,8 @@ Every control on this screen writes to the address. Copy the address and you cop
 | `q`             | Search text          | Free text                    |
 | `grp`           | Group filter         | Group slugs                  |
 | `cat`           | Category filter      | Category slugs               |
+| `min`, `max`    | Amount bounds        | Euros, not cents             |
+| `merchant`      | Company filter       | Company names                |
 
 A broken address opens the default view. It never raises an error page.
 

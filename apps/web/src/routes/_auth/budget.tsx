@@ -21,16 +21,20 @@ import type {
   CategorySelection,
 } from "@/lib/budget/category-selection";
 import { budgetSearchSchema } from "@/lib/budget/search";
+import { amountBoundsMinor } from "@/lib/budget/transaction-filters";
+import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
 const BudgetPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
   const {
+    amount,
     applyPatch,
     companion,
     direction,
     filter,
+    merchants,
     period,
     searchQuery,
     searchText,
@@ -90,31 +94,39 @@ const BudgetPage = () => {
     placeholderData: keepPreviousData,
   });
 
+  const { amountMax, amountMin } = amountBoundsMinor(amount);
+
   const transactionsQuery = useInfiniteQuery({
     queryKey: [
       "budget",
       "getTransactions",
       {
-        from: from.toISOString(),
-        to: to.toISOString(),
+        amountMax,
+        amountMin,
         direction,
-        search: searchQuery,
         filter,
+        from: from.toISOString(),
+        merchants,
+        search: searchQuery,
         sort,
+        to: to.toISOString(),
       },
     ],
     queryFn: ({ pageParam }) =>
       client.budget.getTransactions({
-        from,
-        to,
-        direction,
-        search: searchQuery || undefined,
+        amountMax,
+        amountMin,
         categories:
           filter.categories.length > 0 ? filter.categories : undefined,
-        groups: filter.groups.length > 0 ? filter.groups : undefined,
-        sort,
         cursor: pageParam,
+        direction,
+        from,
+        groups: filter.groups.length > 0 ? filter.groups : undefined,
         limit: 50,
+        merchants: merchants.length > 0 ? merchants : undefined,
+        search: searchQuery || undefined,
+        sort,
+        to,
       }),
     // SAFETY: TanStack Query requires initialPageParam typed to match pageParam; undefined is the valid initial state
     initialPageParam: undefined as string | undefined,
@@ -136,6 +148,16 @@ const BudgetPage = () => {
   const handleFilterChange = useCallback(
     (next: CategoryFilter) =>
       applyPatch({ cat: next.categories, grp: next.groups }),
+    [applyPatch]
+  );
+
+  const handleAmountChange = useCallback(
+    (next: AmountRange) => applyPatch({ max: next.max, min: next.min }),
+    [applyPatch]
+  );
+
+  const handleMerchantsChange = useCallback(
+    (next: string[]) => applyPatch({ merchant: next }),
     [applyPatch]
   );
 
@@ -226,14 +248,20 @@ const BudgetPage = () => {
       />
 
       <TransactionList
+        amount={amount}
         transactions={allTransactions}
         totals={totals}
         direction={direction}
         onDirectionChange={(dir) => applyPatch({ dir })}
+        from={from}
+        to={to}
         search={searchText}
         onSearchChange={setSearchText}
         filter={filter}
+        onAmountChange={handleAmountChange}
         onFilterChange={handleFilterChange}
+        merchants={merchants}
+        onMerchantsChange={handleMerchantsChange}
         sort={sort}
         onSortChange={(next) => applyPatch({ sort: next })}
         hasMore={transactionsQuery.hasNextPage}

@@ -30,6 +30,7 @@ import {
 } from "../lib/taxonomy";
 import type { CategoryGroup, SpendingCategory } from "../lib/taxonomy";
 import { getProvider } from "../providers/registry";
+import { amountBoundsCondition } from "./transaction-amount-bounds";
 
 const cashFlowQuery = (labelExpr: string, truncExpr: string) =>
   `SELECT
@@ -566,6 +567,72 @@ export const budgetRouter = {
       // whichever way the per-category rounding went.
       return { fixed, variable: total - fixed };
     }),
+
+  /**
+   * The companies a period's transactions name, most frequent first: what the
+   * transaction list's merchant filter offers. `search` narrows it here rather
+   * than in the picker, which would otherwise only ever search the slice it
+   * was handed.
+   *
+   * One company is one row whichever column named it, so the grouping key is
+   * the case-folded name and `getTransactions` matches both columns
+   * case-insensitively: a bank that names a merchant on its direct debits and
+   * nobody on its card rows would otherwise split into two entries that each
+   * return the other's transactions.
+   */
+  getMerchants: protectedProcedure
+    .input(
+      z.object({
+        direction: z.enum(["incoming", "outgoing"]).optional(),
+        from: z.coerce.date(),
+        limit: z.number().int().min(1).max(100).default(30),
+        search: z.string().optional(),
+        to: z.coerce.date(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const { direction, from, limit, search, to } = input;
+
+      let signPredicate = "";
+      if (direction === "incoming") {
+        signPredicate = 'AND t."amount" > 0';
+      } else if (direction === "outgoing") {
+        signPredicate = 'AND t."amount" < 0';
+      }
+
+      // `initcap` gives a descriptor the case a name has; `MIN` picks one
+      // spelling per key so the row is stable between calls. Dynamic fragments
+      // here are code-controlled; every user value is a parameter.
+      const sql = `SELECT
+          MIN(COALESCE(t."counterpartyName", initcap(t."normalisedDescriptor"))) AS name,
+          COUNT(*)::bigint AS count,
+          SUM(ABS(t."amount"))::bigint AS total
+        FROM "transaction" t
+        JOIN "bank_account" ba ON ba."id" = t."accountId"
+        JOIN "bank_connection" bc ON bc."id" = ba."connectionId"
+        WHERE bc."userId" = $1
+          AND t."date" >= $2
+          AND t."date" <= $3
+          AND COALESCE(t."counterpartyName", t."normalisedDescriptor") <> ''
+          AND ($4::text IS NULL OR COALESCE(t."counterpartyName", t."normalisedDescriptor") ILIKE '%' || $4 || '%')
+          ${signPredicate}
+        GROUP BY lower(COALESCE(t."counterpartyName", t."normalisedDescriptor"))
+        ORDER BY count DESC, name ASC
+        LIMIT $5`;
+
+      const rows = await prisma.$queryRawUnsafe<
+        { count: bigint; name: string; total: bigint }[]
+      >(sql, context.session.user.id, from, to, search ?? null, limit);
+
+      return {
+        merchants: rows.map((row) => ({
+          count: Number(row.count),
+          name: row.name,
+          totalMinor: Number(row.total),
+        })),
+      };
+    }),
+
   getRecurringExpenses: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;
     const expenses = await detectRecurringExpenses(userId, trailingYear());
@@ -772,6 +839,10 @@ export const budgetRouter = {
   getTransactions: protectedProcedure
     .input(
       z.object({
+        // Bounds are absolute values in minor units: the sign says which way
+        // the money went, and the direction tab already carries that.
+        amountMax: z.number().int().min(0).optional(),
+        amountMin: z.number().int().min(0).optional(),
         categories: z.array(z.enum(SPENDING_CATEGORIES)).optional(),
         cursor: z.string().optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),
@@ -779,6 +850,8 @@ export const budgetRouter = {
         // Clicking a group node filters on everything it holds.
         groups: z.array(z.enum(CATEGORY_GROUPS)).optional(),
         limit: z.number().min(1).max(100).default(50),
+        /** Company names as `getMerchants` reports them. */
+        merchants: z.array(z.string().min(1)).optional(),
         search: z.string().optional(),
         sort: z.enum(["date", "amount"]).default("date"),
         to: z.coerce.date(),
@@ -787,12 +860,15 @@ export const budgetRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
       const {
+        amountMax,
+        amountMin,
         categories,
         cursor,
         direction,
         from,
         groups,
         limit,
+        merchants,
         search,
         sort,
         to,
@@ -824,6 +900,32 @@ export const budgetRouter = {
               },
             },
           ],
+        });
+      }
+
+      const amountBounds = amountBoundsCondition(amountMin, amountMax);
+      if (amountBounds) {
+        conditions.push(amountBounds);
+      }
+
+      // `getMerchants` groups a company by its case-folded name over both
+      // columns, so the filter has to read the same way: an exact, case-
+      // insensitive name against the counterparty the bank gave, or against
+      // the normalised descriptor where it gave none.
+      if (merchants && merchants.length > 0) {
+        conditions.push({
+          OR: merchants.flatMap((name) => [
+            {
+              counterpartyName: { equals: name, mode: "insensitive" as const },
+            },
+            {
+              counterpartyName: null,
+              normalisedDescriptor: {
+                equals: name,
+                mode: "insensitive" as const,
+              },
+            },
+          ]),
         });
       }
 

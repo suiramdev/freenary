@@ -176,18 +176,24 @@ export const assistantTools = (api: AppRouterClient) =>
 
     search_transactions: tool({
       description:
-        "Individual transactions in a period, optionally filtered by free text, category, category group or direction. Returns ids so an answer can point at the rows behind it.",
+        "Individual transactions in a period, optionally filtered by free text, category, category group, direction or how much money moved. Returns ids so an answer can point at the rows behind it.",
       execute: async ({
         categories,
         direction,
         from,
         groups,
         limit,
+        maxAmount,
+        minAmount,
         search,
         sort,
         to,
       }) => {
         const { totals, transactions } = await api.budget.getTransactions({
+          amountMax:
+            maxAmount === undefined ? undefined : Math.round(maxAmount * 100),
+          amountMin:
+            minAmount === undefined ? undefined : Math.round(minAmount * 100),
           categories,
           direction,
           groups,
@@ -216,6 +222,18 @@ export const assistantTools = (api: AppRouterClient) =>
         // The procedure allows 100; a hundred raw bank descriptors per turn would
         // crowd out the conversation itself.
         limit: z.number().int().min(1).max(20).default(10),
+        maxAmount: z
+          .number()
+          .min(0)
+          .optional()
+          .describe("largest amount to return, in units of currency"),
+        minAmount: z
+          .number()
+          .min(0)
+          .optional()
+          .describe(
+            "smallest amount to return, in units of currency; both bounds ignore the sign"
+          ),
         search: z.string().optional(),
         sort: z.enum(["date", "amount"]).default("date"),
         ...period,

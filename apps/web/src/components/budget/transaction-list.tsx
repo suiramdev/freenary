@@ -19,14 +19,20 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
-import { RiCloseLine, RiSearchLine } from "@remixicon/react";
+import {
+  RiCloseLine,
+  RiCoinsLine,
+  RiSearchLine,
+  RiStore2Line,
+} from "@remixicon/react";
 
+import { AmountFilterMenu } from "@/components/budget/amount-filter-menu";
 import { CategoryFilterMenu } from "@/components/budget/category-filter-menu";
 import { CategoryIcon } from "@/components/budget/category-icon";
+import { MerchantFilterMenu } from "@/components/budget/merchant-filter-menu";
 import { TransactionRows } from "@/components/budget/transaction-rows";
 import {
   EMPTY_CATEGORY_FILTER,
-  filterCount,
   toggleCategory,
   toggleGroup,
 } from "@/lib/budget/category-selection";
@@ -36,6 +42,12 @@ import type { TimeRange } from "@/lib/budget/period";
 import { SORT_MODES } from "@/lib/budget/search";
 import type { SortMode, TransactionDirection } from "@/lib/budget/search";
 import type { Transaction } from "@/lib/budget/transaction";
+import {
+  activeFilterCount,
+  EMPTY_AMOUNT_RANGE,
+  toggleMerchant,
+} from "@/lib/budget/transaction-filters";
+import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
@@ -44,15 +56,33 @@ import { m } from "@/paraglide/messages.js";
 const SORT_ITEM_CLASS =
   "h-7 text-xs/relaxed transition-transform duration-150 ease-out active:scale-[0.96]";
 
+/** The amount filter as a chip reads: one bound, or the span between two. */
+const amountLabel = (amount: AmountRange): string => {
+  const max = formatCurrency(Math.round(amount.max * 100));
+  const min = formatCurrency(Math.round(amount.min * 100));
+  if (amount.min > 0 && amount.max > 0) {
+    return m.budget_filter_amount_between({ max, min });
+  }
+  return amount.min > 0
+    ? m.budget_filter_amount_from({ amount: min })
+    : m.budget_filter_amount_upto({ amount: max });
+};
+
 export const TransactionList = ({
+  amount,
   transactions,
   totals,
   direction,
   onDirectionChange,
+  from,
+  to,
   search,
   onSearchChange,
   filter,
+  onAmountChange,
   onFilterChange,
+  merchants,
+  onMerchantsChange,
   sort,
   onSortChange,
   hasMore,
@@ -61,14 +91,20 @@ export const TransactionList = ({
   onTransactionClick,
   range,
 }: {
+  amount: AmountRange;
   transactions: Transaction[];
   totals: { incoming: number; outgoing: number };
   direction: TransactionDirection;
   onDirectionChange: (dir: TransactionDirection) => void;
+  from: Date;
+  to: Date;
   search: string;
   onSearchChange: (search: string) => void;
   filter: CategoryFilter;
+  onAmountChange: (amount: AmountRange) => void;
   onFilterChange: (filter: CategoryFilter) => void;
+  merchants: string[];
+  onMerchantsChange: (merchants: string[]) => void;
   sort: SortMode;
   onSortChange: (sort: SortMode) => void;
   hasMore: boolean;
@@ -83,7 +119,8 @@ export const TransactionList = ({
   const incomingLabel = m.budget_tab_incoming({
     amount: formatCurrency(totals.incoming, "EUR"),
   });
-  const activeCount = filterCount(filter);
+  const activeCount = activeFilterCount(filter, merchants, amount);
+  const hasAmountBound = amount.min > 0 || amount.max > 0;
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -119,6 +156,14 @@ export const TransactionList = ({
             {m.budget_sort_amount()}
           </ToggleGroupItem>
         </ToggleGroup>
+        <AmountFilterMenu onRangeChange={onAmountChange} range={amount} />
+        <MerchantFilterMenu
+          direction={direction}
+          from={from}
+          merchants={merchants}
+          onMerchantsChange={onMerchantsChange}
+          to={to}
+        />
         <CategoryFilterMenu filter={filter} onFilterChange={onFilterChange} />
       </div>
 
@@ -170,10 +215,53 @@ export const TransactionList = ({
               <RiCloseLine data-icon="inline-end" />
             </Badge>
           ))}
+          {merchants.map((merchant) => (
+            <Badge
+              key={merchant}
+              className="hover:bg-muted max-w-48"
+              render={
+                <button
+                  aria-label={m.budget_filter_remove({ label: merchant })}
+                  type="button"
+                  onClick={() =>
+                    onMerchantsChange(toggleMerchant(merchants, merchant))
+                  }
+                />
+              }
+              variant="outline"
+            >
+              <RiStore2Line />
+              <span className="min-w-0 truncate">{merchant}</span>
+              <RiCloseLine data-icon="inline-end" />
+            </Badge>
+          ))}
+          {hasAmountBound && (
+            <Badge
+              className="hover:bg-muted"
+              render={
+                <button
+                  aria-label={m.budget_filter_remove({
+                    label: amountLabel(amount),
+                  })}
+                  type="button"
+                  onClick={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
+                />
+              }
+              variant="outline"
+            >
+              <RiCoinsLine />
+              {amountLabel(amount)}
+              <RiCloseLine data-icon="inline-end" />
+            </Badge>
+          )}
           {activeCount >= 2 && (
             <Button
               variant="ghost"
-              onClick={() => onFilterChange(EMPTY_CATEGORY_FILTER)}
+              onClick={() => {
+                onFilterChange(EMPTY_CATEGORY_FILTER);
+                onMerchantsChange([]);
+                onAmountChange(EMPTY_AMOUNT_RANGE);
+              }}
             >
               {m.budget_filter_clear_all()}
             </Button>

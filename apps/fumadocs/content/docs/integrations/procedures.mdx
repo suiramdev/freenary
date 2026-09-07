@@ -4,7 +4,7 @@ description: Every oRPC procedure of the Freenary API server, with its input fie
 icon: List
 ---
 
-This page lists all 34 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
+This page lists all 35 procedures of the Freenary router. It gives the dot path, the access rule, the input fields with their bounds, the output shape and the errors.
 
 Read [API](/docs/integrations/api) first for the base URL, the two transports and the sign-in steps.
 
@@ -16,7 +16,7 @@ Read [API](/docs/integrations/api) first for the base URL, the two transports an
 - Every protected procedure returns `UNAUTHORIZED` (401) with no session. The **Errors** line lists only the errors of that procedure.
 - A date field accepts an ISO 8601 string. Zod coerces the string to a date.
 - Every money amount is an integer in minor units. 12.34 EUR is `1234`.
-- Only `budget.getTransactions` pages its result. Every other list returns all rows.
+- Only `budget.getTransactions` pages its result. Every other list returns all rows, except `budget.getMerchants`, which returns the most frequent companies up to its `limit`.
 
 ## Root procedures
 
@@ -134,13 +134,13 @@ An answer reads through the router, not through the database. Seven tools serve 
 | `get_fixed_vs_variable` | `budget.getFixedVsVariable` | `from`, `to`, `aggregation`. |
 | `get_budget_vs_actual` | `budget.getBudgetVsActual` | `from`, `to`, `aggregation`. |
 | `get_recurring_expenses` | `budget.getRecurringExpenses` | None. |
-| `search_transactions` | `budget.getTransactions` | `from`, `to`, `search`, `categories`, `groups`, `direction`, `limit`, `sort`. |
+| `search_transactions` | `budget.getTransactions` | `from`, `to`, `search`, `categories`, `groups`, `direction`, `limit`, `sort`, `minAmount`, `maxAmount`. |
 
 A tool input is narrower than the input of the procedure behind it:
 
 - `from` and `to` are `YYYY-MM-DD` days. The route expands `to` to the end of that day, because midnight would drop the transactions of the last day.
 - `aggregation` is `total`, `average` or `median`, and it defaults to `total`.
-- `search_transactions` caps `limit` at 20 against the 100 of the procedure, and it defaults to 10. It sorts by `date` or `amount`. It takes category and group slugs as enums, so the model cannot invent a slug.
+- `search_transactions` caps `limit` at 20 against the 100 of the procedure, and it defaults to 10. It sorts by `date` or `amount`. It takes category and group slugs as enums, so the model cannot invent a slug. `minAmount` and `maxAmount` are whole currency, for example `12.50`, because a model states an amount the way a reader does; the route turns each one into the minor units the procedure takes.
 - No tool takes a `cursor`, so an answer reads one page.
 
 A tool output is not the procedure output either. Every money amount leaves a tool as a decimal string beside a `currency` field, for example `"120.00"` for `12000` minor units: a model told to divide by 100 does it for some rows of a list and not for others. `get_recurring_expenses` renames `typicalAmountMinor` to `typicalAmount` for that reason. `get_accounts_overview` returns the account id, the account name and the institution name, and it drops the `iban` field that `budget.getAccounts` carries for the web app.
@@ -428,6 +428,30 @@ A tool output is not the procedure output either. Every money amount leaves a to
 
 **Errors**: None.
 
+### budget.getMerchants
+
+`budget.getMerchants` — **protected**. Lists the companies the transactions of a date range name, most frequent first.
+
+**Input**
+
+| Field | Type | Required | Default | Bounds |
+| --- | --- | --- | --- | --- |
+| `direction` | enum | no | — | `incoming` or `outgoing`. |
+| `from` | date | yes | — |  |
+| `limit` | number | no | `30` | 1 to 100. |
+| `search` | string | no | — | Case-insensitive substring over the same two columns the name comes from. |
+| `to` | date | yes | — |  |
+
+**Output**
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `merchants` | array of `{ count, name, totalMinor }` | Highest `count` first, then the name. `totalMinor` sums the absolute amounts. |
+
+**Errors**: None.
+
+**Note**: a name is `counterpartyName` where the bank sent one, and the capitalised `normalisedDescriptor` where it sent none. One company is one row whichever column named it: the procedure groups on the case-folded name over both columns, so a bank that names a merchant on its direct debits and nobody on its card rows still gives one entry. [`budget.getTransactions`](#budgetgettransactions) matches a name back the same way, case-insensitively over both columns.
+
 ### budget.getRecurringExpenses
 
 `budget.getRecurringExpenses` — **protected**. Lists the merchants the recurrence detector holds as regular.
@@ -508,12 +532,15 @@ A tool output is not the procedure output either. Every money amount leaves a to
 
 | Field | Type | Required | Default | Bounds |
 | --- | --- | --- | --- | --- |
+| `amountMax` | number | no | — | Minor units, `0` or more. Reads the absolute amount, so it applies to both signs. |
+| `amountMin` | number | no | — | Minor units, `0` or more. Reads the absolute amount, so it applies to both signs. |
 | `categories` | array of enum | no | — | Items from the 75 [spending categories](#spending-categories). No length cap. |
 | `cursor` | string | no | — | A `nextCursor` from an earlier call. |
 | `direction` | enum | no | — | `incoming` or `outgoing`. |
 | `from` | date | yes | — |  |
 | `groups` | array of enum | no | — | Items from the 16 [category groups](#category-groups). Each one expands to its categories. |
 | `limit` | number | no | `50` | 1 to 100. |
+| `merchants` | array of string | no | — | Company names as [`budget.getMerchants`](#budgetgetmerchants) returns them. Whole-name match, case-insensitive, on `counterpartyName` or on `normalisedDescriptor` where the row names no company. |
 | `search` | string | no | — | No length cap. Case-insensitive substring over `description` and `counterpartyName`. |
 | `sort` | enum | no | `date` | `date` or `amount`. |
 | `to` | date | yes | — |  |
@@ -540,6 +567,8 @@ A tool output is not the procedure output either. Every money amount leaves a to
 **Errors**: None.
 
 **Note**: `sort: "date"` puts the newest transaction first. `sort: "amount"` with `direction: "incoming"` puts the largest amount first. `sort: "amount"` with `direction: "outgoing"` puts the most negative amount first. The id breaks every tie, highest first.
+
+**Note**: `amountMin` above `amountMax` matches no transaction. The procedure applies both bounds as given rather than swapping them.
 
 ### budget.recategorise
 
