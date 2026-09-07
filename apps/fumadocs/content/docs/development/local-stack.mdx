@@ -10,7 +10,7 @@ Before you start, clone the repository, run `bun install` and copy `.env.example
 
 ## What `bun run dev:up` starts
 
-`compose.dev.yml` declares five services. Every service but `postgres` builds from `.docker/dockerfile.dev`.
+`docker-compose.dev.yml` declares five services. Every service but `postgres` builds from `.docker/dockerfile.dev`.
 
 | Service | Image or build | Working directory | Command | Host port |
 | --- | --- | --- | --- | --- |
@@ -32,9 +32,9 @@ Only `server` gets the full application environment. `web` gets `VITE_SERVER_URL
 
 | Script | Literal command | Resolved `docker compose` call |
 | --- | --- | --- |
-| `bun run dev:up` | `bun scripts/dev.ts up --build --watch` | `docker compose -p freenary-<slug> -f compose.dev.yml up --build --watch` |
-| `bun run dev:down` | `bun scripts/dev.ts down` | `docker compose -p freenary-<slug> -f compose.dev.yml down` |
-| `bun run dev:logs` | `bun scripts/dev.ts logs -f` | `docker compose -p freenary-<slug> -f compose.dev.yml logs -f` |
+| `bun run dev:up` | `bun scripts/dev.ts up --build --watch` | `docker compose -p freenary-<slug> -f docker-compose.dev.yml up --build --watch` |
+| `bun run dev:down` | `bun scripts/dev.ts down` | `docker compose -p freenary-<slug> -f docker-compose.dev.yml down` |
+| `bun run dev:logs` | `bun scripts/dev.ts logs -f` | `docker compose -p freenary-<slug> -f docker-compose.dev.yml logs -f` |
 | `bun run dev:reset` | `bun scripts/dev.ts reset` | `… down -v`, then on exit `0` `… up --build --watch` |
 
 `dev:reset` destroys the `pgdata` volume of the compose project for this worktree. Every row in that database goes. The next `up` re-runs `bootstrap`, so you get an empty database with a current schema. The command touches nothing outside this project name, so the volume of another worktree survives.
@@ -84,18 +84,18 @@ The slug names five things:
 
 Both the project name and the three hostnames carry the slug, so two worktrees run side by side. Each one gets its own containers, its own `pgdata` volume and its own URLs.
 
-`server`, `web` and `docs` each carry two labels, `dev.orbstack.domains` and `dev.orbstack.http-port`. The OrbStack proxy serves each container at that domain over HTTPS, with a certificate from a trusted local CA. The HTTPS part matters: `compose.dev.yml` states that the origins must be `https`, or the cross-origin calls of the web app fail CORS.
+`server`, `web` and `docs` each carry two labels, `dev.orbstack.domains` and `dev.orbstack.http-port`. The OrbStack proxy serves each container at that domain over HTTPS, with a certificate from a trusted local CA. The HTTPS part matters: `docker-compose.dev.yml` states that the origins must be `https`, or the cross-origin calls of the web app fail CORS.
 
 <Callout type="warn">
 No dev service publishes a host port. `postgres` uses `expose`, which is container-internal metadata and opens nothing on the host. `server`, `web` and `docs` declare no `ports` key at all. Outside OrbStack the two labels do nothing, so the whole stack has no reachable address.
 
-Without OrbStack, use the local path instead: `bun run db:start`, then `bun run db:push`, then `bun run dev`. That path serves the web app on `3001`, the API server on `3000` and the documentation website on `4000`, all on `localhost`.
+Without OrbStack, use the local path instead: `bun run db:start`, then `bun run db:push`, then `bun run dev`. That path serves the web app on `3001`, the API server on `3000` and the documentation website on `4000`, all on `localhost`. It needs a root `.env` file, because `docker-compose.yml` refuses to start without one. [Development](/docs/development) has the copy step.
 
 </Callout>
 
 ## File sync
 
-The `x-app-watch` anchor gives three rules. `compose.dev.yml` applies all three to `server`, `web` and `docs`.
+The `x-app-watch` anchor gives three rules. `docker-compose.dev.yml` applies all three to `server`, `web` and `docs`.
 
 | Action | Path | Target | Ignore |
 | --- | --- | --- | --- |
@@ -119,7 +119,7 @@ Three commands change a database. Pick the one that matches your intent.
 | --- | --- | --- | --- |
 | `bun run db:push` | `prisma db push` | Writes the current schema straight to the database. It creates no migration file. | A throwaway local database, or a quick experiment. |
 | `bun run db:migrate` | `prisma migrate dev` | Creates a migration directory under `packages/db/prisma/migrations/` and applies it. | Every schema change you intend to commit. |
-| `db:migrate:deploy` | `prisma migrate deploy` | Applies the pending migration files. It creates nothing. | The `bootstrap` service and a real deployment. |
+| `db:migrate:deploy` | `prisma migrate deploy` | Applies the pending migration files. It creates nothing. | The `bootstrap` service, and the `migrate` service of the production stack. |
 
 For a schema change, run `bun run db:migrate`. Commit the migration directory it writes together with the schema change, in one commit.
 

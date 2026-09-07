@@ -86,9 +86,11 @@ curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:3001/
 | --- | --- | --- | --- | --- | --- |
 | `server` | fetch `http://localhost:3000/` | 10 s | 5 s | 5 | 10 s |
 | `web` | fetch `http://localhost:3001/` | 10 s | 5 s | 5 | 10 s |
-| `postgres` | `pg_isready -U postgres` | 10 s | 5 s | 5 | none |
+| `postgres` | `pg_isready -U postgres -d freenary` | 10 s | 5 s | 5 | none |
 
-The start order follows those checks. PostgreSQL must report healthy before the API server starts, and the API server must report healthy before the web app starts.
+The one-shot `migrate` service declares no healthcheck. It runs once, and its exit code is the only signal it gives.
+
+The start order follows those checks. PostgreSQL must report healthy before `migrate` runs, `migrate` must exit `0` before the API server starts, and the API server must report healthy before the web app starts.
 
 ## What you can monitor with no extra service
 

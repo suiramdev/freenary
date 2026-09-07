@@ -11,7 +11,7 @@ This page backs up and restores one Freenary instance. Freenary keeps all of its
 | State | Where it lives | Back it up |
 | --- | --- | --- |
 | The whole database | The Docker volume `freenary_freenary_postgres_data`, at the container path `/var/lib/postgresql`. The dev stack uses `freenary-<slug>_pgdata` at the same path. | Yes |
-| The generated merchant data | The files `packages/api/data/*` inside the API server image layer. No volume holds them. | No. An image rebuild recreates them. |
+| The generated merchant data | The files `packages/api/data/*` inside the API server image layer. No volume holds them. | No. Each published image carries its own copy. |
 
 `docker-compose.yml` declares the volume as `freenary_postgres_data`, and Compose prefixes it with the project name `freenary`. So Docker reports it as `freenary_freenary_postgres_data`. The dev stack replaces `<slug>` with the name of your worktree.
 
@@ -44,7 +44,7 @@ Use `exec -T`, not `exec`. Without `-T` Docker attaches a terminal to the comman
 
 </Callout>
 
-The stack also publishes port 5432 to the host, so a host tool can dump the database directly. The host `pg_dump` must be version 18 or newer:
+The stack also publishes PostgreSQL on the host loopback interface, at `POSTGRES_PORT` (`5432` by default), so a host tool can dump the database directly. The host `pg_dump` must be version 18 or newer:
 
 ```bash
 pg_dump "postgresql://postgres:<database-password>@localhost:5432/freenary" -Fc > freenary.dump
@@ -66,7 +66,7 @@ Stop the two apps first. An open connection blocks the restore, and a half-resto
 docker compose stop web server
 ```
 
-Leave `postgres` up. Every command below runs inside that container.
+Leave `postgres` up. The restore commands of the next step run inside that container.
 
 </Step>
 
@@ -92,27 +92,14 @@ docker compose exec -T postgres psql -U postgres -d freenary < freenary.sql
 
 <Step>
 
-### Start the API server and apply the migrations
+### Start the stack again
 
 ```bash
-docker compose start server
-docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+docker compose up -d
+docker compose ps -a
 ```
 
-The migration command needs a live `server` container, so start the service first. When the dump comes from the same commit you run now, the command applies nothing and exits `0`. When the dump is older than the code, it applies every migration the restored database does not hold.
-
-</Step>
-
-<Step>
-
-### Start the web app
-
-```bash
-docker compose start web
-docker compose ps
-```
-
-All three services must show `healthy`.
+`up -d` runs the one-shot `migrate` service before the API server, and `migrate` applies every migration the restored database does not hold. When the dump comes from the version you run now, it applies nothing and exits `0`. Read `docker compose logs migrate` to check it, and `docker compose ps -a` must show `migrate` as `Exited (0)` and all three long-lived services as `healthy`.
 
 </Step>
 
@@ -137,9 +124,8 @@ A database dump holds no configuration. It carries no environment file, and it c
 
 | Not in the dump | Where it lives | What you must do |
 | --- | --- | --- |
-| `apps/server/.env` | The host filesystem, outside every container and every image | Copy it to your backup location with each dump |
-| The root `.env` | The host filesystem | Copy it too. It holds `POSTGRES_PASSWORD`. |
-| `BETTER_AUTH_SECRET` | Inside `apps/server/.env` | Keep the value that matches the dump |
+| The root `.env` | The host filesystem, next to `docker-compose.yml`, outside every container and every image | Copy it to your backup location with each dump |
+| `BETTER_AUTH_SECRET` and `POSTGRES_PASSWORD` | Two lines of that same `.env` | Keep the values that match the dump |
 
 `.dockerignore` keeps every `.env` file out of the image, so the images hold no copy of them either.
 
@@ -149,7 +135,7 @@ Keep `BETTER_AUTH_SECRET` with the backup. That one value signs every session co
 
 </Callout>
 
-Bank provider credentials and email provider credentials live in `apps/server/.env` too. A restore without that file leaves an instance that cannot sync a bank or send a one-time code.
+Bank provider credentials and email provider credentials live in the root `.env` too. A restore without that file leaves an instance that cannot sync a bank or send a one-time code.
 
 Freenary runs no scheduled job, so it takes no backup for you. Read [Maintenance](/docs/self-hosting/maintenance).
 
@@ -164,13 +150,13 @@ Freenary runs no scheduled job, so it takes no backup for you. Read [Maintenance
 <Card
   title="Updates"
   href="/docs/self-hosting/updates"
-  description="Back up, pull, rebuild, migrate, and roll back when an update fails."
+  description="Back up, pull the new images, and roll back when an update fails."
 />
 
 <Card
   title="Security"
   href="/docs/self-hosting/security"
-  description="The published database port, the default password, and secret rotation."
+  description="The loopback database port, the two required secrets, and secret rotation."
 />
 
 </Cards>

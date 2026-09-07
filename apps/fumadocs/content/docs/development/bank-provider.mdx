@@ -349,14 +349,14 @@ Register `<CORS_ORIGIN><callbackPath>` at the bank provider as an allowed redire
 
 ### Add the compose entries and document the variables
 
-Add one line per variable to the `x-app-env` anchor in `compose.dev.yml`, in the `${VAR:-}` form the block uses:
+Add one line per variable to the `x-app-env` anchor in `docker-compose.dev.yml`, in the `${VAR:-}` form the block uses:
 
 ```yaml
 MY_BANK_APP_ID: ${MY_BANK_APP_ID:-}
 MY_BANK_APP_SECRET: ${MY_BANK_APP_SECRET:-}
 ```
 
-`docker-compose.yml` needs no edit. The `server` service reads `apps/server/.env` through `env_file`, so an operator sets the variables there.
+`docker-compose.yml` needs no edit. The `server` service loads the root `.env` through `env_file`, so an operator adds the variables there.
 
 Then document each variable in `.env.example`, commented out, next to the Powens and Enable Banking blocks. Say what an operator must do at the bank provider, and name the redirect URL to whitelist.
 

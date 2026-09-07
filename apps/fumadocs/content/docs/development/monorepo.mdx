@@ -33,8 +33,11 @@ This is one real read: the budget page asks for the user's bank accounts.
 
 <Step>
   A component calls the oRPC query utilities. `apps/web/src/utils/orpc.ts`
-  builds one `RPCLink` with the URL `${getServerUrl(env.VITE_SERVER_URL)}/rpc`
-  and a `fetch` wrapper that sets `credentials: "include"`.
+  builds one `RPCLink` with the URL `${getServerUrl()}/rpc` and a `fetch`
+  wrapper that sets `credentials: "include"`.
+
+In the browser, `getServerUrl()` reads `window.__FREENARY_SERVER_URL__`. The root route's `head()` in `apps/web/src/routes/__root.tsx` writes that global from `PUBLIC_SERVER_URL` in an inline script, before the module scripts run. With no such value the browser falls back to the build-time `VITE_SERVER_URL`.
+
 </Step>
 
 <Step>
@@ -189,7 +192,7 @@ The API server listens on `env.PORT`, default `3000`. The web dev server listens
 | File | Key | Reader | Notes |
 | --- | --- | --- | --- |
 | `packages/env/src/server.ts` | `server` | `import { env } from "@freenary/env/server"` | 36 variables, `runtimeEnv: process.env`, `emptyStringAsUndefined: true`, `skipValidation: !!process.env.SKIP_ENV_VALIDATION` |
-| `packages/env/src/web.ts` | `client`, `clientPrefix: "VITE_"` | `import { env } from "@freenary/env/web"` | `VITE_SERVER_URL`, default `http://localhost:3000` |
+| `packages/env/src/web.ts` | `client`, `clientPrefix: "VITE_"` | `import { env } from "@freenary/env/web"` | `VITE_SERVER_URL`, default `http://localhost:3000`. The runtime `PUBLIC_SERVER_URL` is not here: `apps/web/src/lib/server-url.ts` reads it raw from `process.env`, as it does `SERVER_URL` |
 
 Both use `@t3-oss/env-core` with Zod. The rule is simple: add the Zod schema here, then read `env`. No other file reads `process.env`.
 
@@ -209,7 +212,7 @@ Eight places break that rule today. Two of them are legitimate.
 | --- | --- | --- |
 | `packages/env/src/server.ts` | `PORT`, `SKIP_ENV_VALIDATION` | The schema itself. `PORT` is digits-only so the raw string can go into the `BETTER_AUTH_URL` default before coercion. |
 | `apps/server/src/index.ts` | `NODE_ENV` | Picks the evlog drain before `env` is in scope for that expression |
-| `apps/web/src/lib/server-url.ts` | `SERVER_URL` | Server-only value with no `VITE_` prefix, read off `globalThis.process` |
+| `apps/web/src/lib/server-url.ts` | `SERVER_URL`, `PUBLIC_SERVER_URL` | Server-only values with no `VITE_` prefix, read off `globalThis.process` |
 | `packages/api/src/categorisation/verify.ts` | `DICTIONARY_PUBLIC_KEY` | **Not in the schema.** It skips validation and startup failure. See [Transaction categorisation](/docs/development/categorisation). |
 | `packages/db/prisma.config.ts` | `DATABASE_URL` | The Prisma CLI config. A schema read would abort config load, and `postinstall` must work with no `.env` file. |
 | `packages/api/scripts/download-data.ts` | `GITHUB_REPOSITORY`, `GITHUB_TOKEN` | Build-time script, outside the server process |
@@ -233,7 +236,7 @@ The operator view of every server variable is [Configuration](/docs/self-hosting
 | `db:studio` | nothing | no | `persistent: true` |
 | `db:start`, `db:stop`, `db:watch`, `db:down` | nothing | no | The root scripts call `docker compose` directly instead |
 
-`build` has no dependency on `build:data`. The server image build orders them by hand: `apps/server/Dockerfile` runs `cd packages/api && bun run build:data`, then `cd apps/server && bun run build`.
+`build` has no dependency on `build:data`. The server image build orders them by hand: `apps/server/Dockerfile` runs `cd packages/api && bun run build:data`, then `cd apps/server && bun run build`. The `build:data` step takes two inputs from the builder: the build argument `GITHUB_REPOSITORY`, default `suiramdev/freenary`, which names the repository the merchant data comes from, and the BuildKit secret `GITHUB_TOKEN`, which lifts the GitHub API rate limit. The secret mounts for that one step and never reaches the image.
 
 `build:data` is `bun scripts/download-data.ts || bun run build:data:generate`. The download script fetches the newest GitHub release whose tag starts with `data-`, takes the asset `merchant-data.tar.gz`, and extracts it into `packages/api`. When the download fails, the fallback rebuilds the artifacts from the upstream sources, which takes many minutes and much network.
 

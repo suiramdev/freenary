@@ -1,10 +1,10 @@
 ---
 title: Updates
-description: Move a Freenary instance to a newer commit, apply the pending migrations, and roll back when the update fails.
+description: Move a Freenary instance to a newer release, pin the version it runs, and roll back when the update fails.
 icon: RefreshCw
 ---
 
-This page moves one instance to a newer version of the code. Freenary has no application release, so an update is a git checkout plus a rebuild. Back up the database first.
+This page moves one instance to a newer version of the two images. An update is a pull plus a restart, and the `migrate` service applies the pending migrations for you. Back up the database first.
 
 ## Update an instance
 
@@ -16,55 +16,51 @@ This page moves one instance to a newer version of the code. Freenary has no app
 
 Do this every time. A migration can change data, and only a dump takes you back. Read [Backup and restore](/docs/self-hosting/backup-and-restore).
 
-Record the commit you run now, so you can roll back to it and read the diff:
+Record the version you run now, so you can go back to it:
 
 ```bash
-git rev-parse HEAD > ../freenary-previous-commit
+docker compose images server web
 ```
+
+The command prints the tag and the image ID of each service. A stack on `latest` prints the tag `latest`. Note the image ID too: it is the only record of which release you run.
 
 </Step>
 
 <Step>
 
-### Pull the new code
+### Choose the version
 
-```bash
-git pull
+`FREENARY_VERSION` in `.env` names the tag of both images. Unset, it is `latest`.
+
+| Value | What the stack runs |
+| --- | --- |
+| Unset, or `latest` | The newest release. An update takes whatever `latest` points at |
+| `1.2.0` | That release, and nothing else |
+| `1.2`, or `1` | The newest patch or minor release of that line |
+| `dev` | The `dev` branch. That code is unreleased |
+
+Pin a version for a production instance:
+
+```dotenv
+FREENARY_VERSION=1.3.0
 ```
 
-Then read what changed in the two files you own:
+The notes of each `vX.Y.Z` release on GitHub list the changes. A release can add a variable to `.env.example`; add the ones you need to your own `.env`. [Configuration](/docs/self-hosting/configuration#stack) holds `FREENARY_VERSION` and the port variables, and the rest of that page holds every other variable.
 
-```bash
-git diff "$(cat ../freenary-previous-commit)" HEAD -- .env.example docker-compose.yml
-```
-
-A new variable in `.env.example` needs a new line in `apps/server/.env`. A change in `docker-compose.yml` can overwrite your `CORS_ORIGIN` and your `VITE_SERVER_URL` edits, so put them back. Read [Configuration](/docs/self-hosting/configuration).
+`git pull` matters only for a stack that builds the images itself. That stack takes the new source, then runs `docker compose up -d --build`. Read [Build from source](/docs/self-hosting/docker-compose#build-from-source).
 
 </Step>
 
 <Step>
 
-### Rebuild the images
+### Pull the images and start
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-This rebuilds both images from the new source and recreates the two containers. The `postgres` container and its volume stay as they are.
-
-</Step>
-
-<Step>
-
-### Apply the pending migrations
-
-The stack applies no migrations, so run them yourself after every update:
-
-```bash
-docker compose exec -w /app/packages/db server bun x prisma migrate deploy
-```
-
-The command applies each new migration in order and exits `0`. An update that adds no migration still exits `0` and changes nothing.
+Compose downloads the new images and recreates the containers. The `migrate` service runs first and applies every pending migration. `server` starts after `migrate` exits `0`. An update with no new migration still exits `0` and changes nothing. The `postgres` container and its volume stay as they are.
 
 </Step>
 
@@ -77,25 +73,29 @@ docker compose ps
 curl http://localhost:3000/
 ```
 
-All three services must show `healthy`, and the API server must answer `OK`. Then sign in and open one page that reads transactions.
+The `migrate` service must show `Exited (0)`, and `postgres`, `server` and `web` must show `healthy`. The API server must answer `OK`. Then sign in and open one page that reads transactions.
 
 </Step>
 
 </Steps>
 
-## When the web image needs a rebuild
+## When the public API URL changes
 
-One change always needs a new `web` image: a change of the public URL of the API server.
+The `web` image never needs a rebuild for a URL. It learns the public API origin at run time from `PUBLIC_SERVER_URL`, which Compose takes from `BETTER_AUTH_URL`, and the root document writes that value into the page before the browser loads any module script.
 
-Vite inlines `VITE_SERVER_URL` into the browser bundle when it builds the web app. The value becomes a literal string inside the JavaScript files the browser downloads. A container restart re-runs the same bundle, so it keeps the old URL.
+A change of `BETTER_AUTH_URL` in `.env` is therefore a restart of two services:
 
-| Command                            | Picks up a new `VITE_SERVER_URL`     |
-| ---------------------------------- | ------------------------------------ |
-| `docker compose restart web`       | No                                   |
-| `docker compose up -d web`         | No, because the image did not change |
-| `docker compose up -d --build web` | Yes                                  |
+```bash
+docker compose up -d server web
+```
 
-Change the `args` block of the `web` service in `docker-compose.yml`, then run the third command. Every other variable is a runtime value, and a restart is enough for it.
+| Command | Picks up a new `BETTER_AUTH_URL` |
+| --- | --- |
+| `docker compose restart web` | No. A restart reuses the environment of the container that exists |
+| `docker compose up -d server web` | Yes. Compose recreates both containers with the new value |
+| A rebuild of the `web` image | Not needed. The image holds no URL |
+
+Every other variable is a runtime value too, and `docker compose up -d server` is enough for it.
 
 ## Rollback
 
@@ -103,7 +103,7 @@ An update has two halves, and only one of them rolls back.
 
 | Part of the update | Rolls back |
 | --- | --- |
-| The two container images | Yes. Check out the old commit and rebuild. |
+| The two container images | Yes. Set `FREENARY_VERSION` back to the version you recorded. |
 | The database schema and data | No. The repository ships no reverse migration. |
 
 Prisma applies migrations forward only. A migration can also rewrite rows: one of the seven shipped migrations remaps every category value, and another drops a column. After such a migration, the old code meets a schema it does not expect.
@@ -114,8 +114,8 @@ So the database dump is the only safe path back. Do these four steps in order.
 | --- | --- |
 | 1 | Stop the two apps with `docker compose stop web server` |
 | 2 | Restore the dump you took before the update, as [Backup and restore](/docs/self-hosting/backup-and-restore) describes |
-| 3 | Check out the old commit with `git checkout "$(cat ../freenary-previous-commit)"` |
-| 4 | Rebuild and start with `docker compose up -d --build` |
+| 3 | Set `FREENARY_VERSION` in `.env` to the previous version |
+| 4 | Start the stack again with `docker compose up -d` |
 
 <Callout type="warn">
 
@@ -125,23 +125,36 @@ A rollback without a restore leaves the new schema under the old code. Do not sk
 
 ## Version and release
 
-Freenary publishes no application version. The root `package.json` carries no version field, and the repository holds no application tag. One commit is the whole identity of an instance, so keep the commit you ran.
+The root `package.json` carries no version field. The git tag is the version, and the image tag repeats it.
 
-The only releases in the repository carry merchant data. Their tags have the form `data-YYYY-MM-DD`.
+| Fact | Value |
+| --- | --- |
+| What a release is | An annotated git tag `vX.Y.Z` on `main`, plus a GitHub release titled `Freenary X.Y.Z` with generated notes |
+| Who cuts it | A maintainer, with the GitHub Actions workflow `Release` |
+| What it publishes | Both images at `X.Y.Z`, `X.Y`, `X` and `latest`, each for `linux/amd64` and `linux/arm64` |
+| A pre-release | `vX.Y.Z-rc.1` publishes the tag `X.Y.Z-rc.1` alone, and moves neither `latest` nor `X.Y` |
+| Between releases | Every push to the `dev` branch publishes the image tags `dev` and `sha-<7 characters>` |
+
+The two images are `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web`. The notes of each release name both. [Releasing](/docs/development/releasing) covers the branch model and the workflows behind these tags.
+
+### Merchant data releases
+
+The merchant data has its own releases, with tags of the form `data-YYYY-MM-DD`. The workflow publishes each one with `--latest=false`, so a data release never displaces the newest application release.
 
 | Fact | Value |
 | --- | --- |
 | What the release holds | One asset, `merchant-data.tar.gz`, with the merchant dictionary, the place tokens and the brand list |
-| Who builds it | The GitHub Actions workflow `Generate merchant data` |
-| When | Every Monday at 03:00 UTC, on manual dispatch, and on a push to `main` that touches the categorisation scripts |
+| Who builds it | The workflow `Generate merchant data`, on a weekly schedule. Read [Categorisation](/docs/development/categorisation#the-weekly-workflow) |
 | Who downloads it | The API server image build, in the step `bun run build:data` |
-| Which release | The newest tag that starts with `data-`, among the 20 most recent releases of `suiramdev/freenary` |
+| Which release | The newest tag that starts with `data-`, among the 20 most recent releases of the repository |
 
 The workflow signs nothing, so the published data carries no signature. A set `DICTIONARY_PUBLIC_KEY` therefore makes the loader refuse the dictionary. Read [Configuration](/docs/self-hosting/configuration#categorisation).
 
 The classifier weights are separate. The workflow attaches `model-weights.json` only when the model trainer passes its own quality gate. When the gate refuses, the release carries no weights, and the classifier stays inert. The rest of the categorisation pipeline still runs. Read [Categorisation](/docs/development/categorisation).
 
 ### When the image build cannot reach the release
+
+This section matters only for a build from source. The published images already hold the data.
 
 `build:data` is one download with one fallback: `bun scripts/download-data.ts || bun run build:data:generate`.
 
@@ -151,7 +164,7 @@ The classifier weights are separate. The workflow attaches `model-weights.json` 
 | The download fails | It builds the data locally: place tokens from GeoNames, brands from Wikidata, then the merchant dictionary. This takes much longer and needs those two sources. |
 | Both fail, and a dictionary already exists in the tree | The dictionary script warns and exits `0`, and keeps the old file. A stale dictionary can survive a build that looks successful. |
 
-The build runs inside Docker with no `.git` directory, so it always queries the repository slug `suiramdev/freenary`. A fork does not change that. A host with no outbound internet access cannot complete either path.
+The build runs inside Docker with no `.git` directory, so the slug comes from the `GITHUB_REPOSITORY` build argument. It defaults to `suiramdev/freenary`, and a fork passes its own slug. The `GITHUB_TOKEN` build secret authenticates the download and lifts the GitHub API rate limit; it never reaches the image. Read [Build from source](/docs/self-hosting/docker-compose#build-from-source) for both. A host with no outbound internet access completes neither path.
 
 <Cards>
 

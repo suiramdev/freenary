@@ -13,19 +13,19 @@ bun install
 bun run dev:up     # PostgreSQL, migrations, API server, web app, docs site
 ```
 
-`dev:up` runs `compose.dev.yml` under a per-worktree Compose project and prints the URLs it serves. No dev service publishes a host port: the stack reaches you through OrbStack hostnames (`web.<slug>.freenary.orb.local`, `server.<slug>.freenary.orb.local`, `docs.<slug>.freenary.orb.local`), and the slug comes from the git branch. Without OrbStack, use the local path instead:
+`dev:up` runs `docker-compose.dev.yml` under a per-worktree Compose project and prints the URLs it serves. No dev service publishes a host port: the stack reaches you through OrbStack hostnames (`web.<slug>.freenary.orb.local`, `server.<slug>.freenary.orb.local`, `docs.<slug>.freenary.orb.local`), and the slug comes from the git branch. Without OrbStack, use the local path instead:
 
 ```bash
-bun run db:start   # PostgreSQL container from docker-compose.yml
+bun run db:start   # PostgreSQL container from docker-compose.yml (needs the root .env: cp .env.example .env)
 bun run db:push    # apply the Prisma schema
 bun run dev        # web 3001, server 3000, docs 4000
 ```
 
-The dev stack needs no `.env`: `compose.dev.yml` defaults every variable, and `EMAIL_PROVIDER` defaults to `log`, so the one-time-code flows print the code to the server log instead of sending mail. `createEmailProvider` refuses `log` in production. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
+The dev stack needs no `.env`: `docker-compose.dev.yml` defaults every variable, and `EMAIL_PROVIDER` defaults to `log`, so the one-time-code flows print the code to the server log instead of sending mail. `createEmailProvider` refuses `log` in production. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
 
 **There is no seed script.** Create an account through the sign-in screen; with no email provider configured, email verification stays off and sign-up returns a session immediately. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
 
-The production stack is `docker-compose.yml` (`bun run docker:up`). It applies **no** migrations — run `docker compose exec -w /app/packages/db server bun x prisma migrate deploy` after every deploy.
+The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, needs a root `.env` carrying `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`, and applies the migrations itself through its one-shot `migrate` service.
 
 Full walkthrough: [Local development stack](apps/fumadocs/content/docs/development/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx).
 
@@ -38,7 +38,7 @@ Full walkthrough: [Local development stack](apps/fumadocs/content/docs/developme
 - A user-visible flow or screen in `apps/web`.
 - A public API route, its input schema, or its auth/permission rules.
 - A domain concept, status enum, or any vocabulary in `packages/db` — the docs quote these verbatim, so a renamed enum value silently makes a page wrong.
-- An environment variable, `compose*.yml` service, or root `package.json` script.
+- An environment variable, `compose*.yml` service, root `package.json` script, or a GitHub Actions workflow.
 - A bank provider or email provider integration, or the credentials it needs.
 - Architecture a new contributor would have to reverse-engineer from the diff.
 - The contributor workflow itself: tooling, tests, hooks, or review expectations.
@@ -75,6 +75,10 @@ A green build therefore is not proof the page is right. Load the page you change
 `apps/web` ships in English and French. Every user-facing string it renders is a key in `apps/web/messages/en.json` and `messages/fr.json`, and **a change that adds or edits UI adds or edits both catalogs in the same commit**. A key present in `en.json` and missing from `fr.json` compiles with no error and no warning — the French branch aliases to the English one, so English reaches French readers and no build step catches it.
 
 The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. The mechanism is Paraglide: `apps/web/src/paraglide/` is generated, and every component imports the message functions as `m`. What readers see is documented at [`content/docs/guides/interface.mdx`](apps/fumadocs/content/docs/guides/interface.mdx).
+
+## Branches and Releases
+
+Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which creates the `vX.Y.Z` tag, the versioned images and the GitHub release. Contributors never tag and never bump a version — see [Releasing](apps/fumadocs/content/docs/development/releasing.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 

@@ -24,13 +24,13 @@ openssl rand -hex 32
 
 <Callout type="warn">
 
-The default value is the literal string `dev_secret_change_me_at_least_32chars`. It is 37 characters long, so it passes validation, and no production check refuses it. An instance that keeps it lets anyone forge a session cookie. Set your own value before the first sign-in.
+The schema default is the literal string `dev_secret_change_me_at_least_32chars`. It is 37 characters long, so it passes validation, and no production check refuses it. The Docker Compose stack never reaches that default: `docker-compose.yml` makes `BETTER_AUTH_SECRET` a required variable, and `docker compose up` stops before it starts a container while the value is unset or empty. Outside the stack the default applies, and an instance that keeps it lets anyone forge a session cookie.
 
 </Callout>
 
 A rotation is not free. It signs every user out and it invalidates every two-factor enrolment at the same time. Plan it, and tell your users first.
 
-The database password is the second secret. `POSTGRES_PASSWORD` defaults to the literal `password`. See [Exposure](#transport-and-exposure) below.
+The database password is the second secret. `POSTGRES_PASSWORD` has no default in the stack either: `docker compose up` refuses an unset or empty value, so every instance holds a password you chose.
 
 ## Cookies and origins
 
@@ -142,19 +142,17 @@ AUTH_PASSWORD_BREACH_CHECK=false
 
 Put TLS in front of both apps. The API server listens on port 3000 and the web app listens on port 3001, both over plain HTTP. Neither one handles TLS. `BETTER_AUTH_URL` must then start with `https://`, because that is what makes the session cookie `Secure`.
 
-Two facts about `docker-compose.yml` need your action.
+`docker-compose.yml` publishes PostgreSQL as `127.0.0.1:${POSTGRES_PORT:-5432}:5432`, so the port serves host tools such as `pg_dump` and reaches no other machine. Delete the whole `ports:` block of the `postgres` service when no host tool needs the database: the other services reach it over the compose network with no published port.
+
+One fact about the images needs your action.
 
 <Callout type="warn">
 
-The compose file publishes PostgreSQL as `5432:5432`, which binds every interface of the host, and `POSTGRES_PASSWORD` defaults to the literal `password`. Both production images also declare no `USER`, so the web app and the API server run as root inside their containers.
+Both production images declare no `USER`, so the web app and the API server run as root inside their containers.
 
 </Callout>
 
-| Fact | Mitigation |
-| --- | --- |
-| PostgreSQL reachable on every host interface | Change the mapping to `127.0.0.1:5432:5432`, or delete the whole `ports:` block of the `postgres` service. The other services reach it over the compose network with no published port. |
-| The default database password | Set `POSTGRES_PASSWORD` in the root `.env` file before the first start. |
-| Both images run as root | Publish no application port to the internet. Put a reverse proxy in front, and bind ports 3000 and 3001 to `127.0.0.1` as well. |
+Publish no application port to the internet. Put a reverse proxy in front, and bind the two application ports to `127.0.0.1` as well.
 
 ## What the data contains
 
@@ -186,13 +184,13 @@ Tick each line before you open the instance to real users.
 - [ ] `POSTGRES_PASSWORD` holds your own value.
 - [ ] `NODE_ENV=production`.
 - [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` name the real public origins, both over `https`.
-- [ ] The `VITE_SERVER_URL` build argument equals `BETTER_AUTH_URL`, and you rebuilt the web image after the change.
+- [ ] A browser reaches the API at `BETTER_AUTH_URL`, because the `web` service hands that value to the browser as `PUBLIC_SERVER_URL`. A change of it needs `docker compose up -d web`, never an image rebuild.
 - [ ] `AUTH_COOKIE_DOMAIN` names the shared parent domain, if the two apps sit on different subdomains.
 - [ ] `TRUSTED_PROXIES` lists every proxy in front of the API server.
 - [ ] `EMAIL_PROVIDER` is `resend` or `smtp`, so password reset works.
 - [ ] No `ports:` block publishes the PostgreSQL port, or the mapping binds to `127.0.0.1`.
 - [ ] A TLS reverse proxy fronts both apps, and no application port faces the internet.
-- [ ] The seven migrations ran once, with the command on the [maintenance page](/docs/self-hosting/maintenance).
+- [ ] The `migrate` service ran, and `docker compose ps` shows that it exited `0`.
 - [ ] You know which endpoint `AI_BASE_URL` names, or you left it unset and accept a model in the browser of each reader.
 - [ ] A backup runs on a schedule, and you restored one to check it.
 

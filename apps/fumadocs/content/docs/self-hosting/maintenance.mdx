@@ -4,7 +4,7 @@ description: The routine commands that keep a Freenary instance healthy, a sugge
 icon: Wrench
 ---
 
-This page lists the commands an operator runs on a live instance. Each one targets the Docker Compose stack of [Install with Docker Compose](/docs/self-hosting/docker-compose). Run every command from the repository directory, because Compose reads `docker-compose.yml` from there.
+This page lists the commands an operator runs on a live instance. Each one targets the Docker Compose stack of [Install with Docker Compose](/docs/self-hosting/docker-compose). Run every command from the directory that holds `docker-compose.yml` and the `.env` file next to it, because Compose reads both from the working directory. That directory needs no clone of the repository.
 
 ## Routine commands
 
@@ -14,7 +14,7 @@ This page lists the commands an operator runs on a live instance. Each one targe
 docker compose ps
 ```
 
-The `STATUS` column shows `healthy` for each of the three services. A service in `starting` state has not passed its healthcheck yet. A service in `unhealthy` state failed 5 checks in a row.
+The `STATUS` column shows `healthy` for each of the three long-lived services. A service in `starting` state has not passed its healthcheck yet. A service in `unhealthy` state failed 5 checks in a row. Add `-a` to list the one-shot `migrate` container too, which must show `Exited (0)`.
 
 ### Restart one service
 
@@ -22,13 +22,15 @@ The `STATUS` column shows `healthy` for each of the three services. A service in
 docker compose restart server
 ```
 
-Replace `server` with `web` or `postgres`. A restart re-reads `apps/server/.env` and the `environment` block, so it picks up a new runtime variable.
+Replace `server` with `web` or `postgres`. A restart starts the same container again, so the container keeps the environment Compose gave it at creation.
 
-<Callout type="warn">
+### Apply a new value from `.env`
 
-A restart of `web` never picks up a new API server URL. That value sits inside the browser bundle of the image. Read [Updates](/docs/self-hosting/updates).
+```bash
+docker compose up -d server
+```
 
-</Callout>
+Compose reads the root `.env` file again, and it recreates each container whose configuration changed. A restart cannot do that. The web app takes a new public API origin the same way, with `docker compose up -d web`, and it needs no new image.
 
 ### Read the logs
 
@@ -52,7 +54,16 @@ The role is `postgres` and the database is `freenary`. Both are literal values i
 docker compose exec -w /app/packages/db server bun x prisma migrate status
 ```
 
-The command lists the migrations of the repository and the ones the database holds. Apply the rest with `bun x prisma migrate deploy` in the same container.
+The command lists the migrations of the image and the ones the database holds. The `migrate` service applies the rest on every `docker compose up`, so a manual `bun x prisma migrate deploy` in the same container is a fallback and not a routine step.
+
+### Pull the published images
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+`pull` fetches the images that the `FREENARY_VERSION` tag names now. `up -d` then recreates each container that changed, and it runs `migrate` again. Read [Updates](/docs/self-hosting/updates).
 
 ### Prune old images
 
@@ -60,7 +71,7 @@ The command lists the migrations of the repository and the ones the database hol
 docker image prune -f
 ```
 
-Each rebuild leaves the previous image without a tag. This command deletes those, and it keeps every image a container uses.
+Each update leaves the previous image without a tag. This command deletes those, and it keeps every image a container uses.
 
 ### Check the disk use of the volume
 
@@ -94,7 +105,7 @@ Freenary needs no fixed schedule. This one keeps an instance recoverable.
 | Read the service state | `docker compose ps` | Daily |
 | Read the logs of the API server | `docker compose logs --tail=100 server` | Weekly |
 | Check the disk use of the volume | `docker compose exec postgres du -sh /var/lib/postgresql` | Monthly |
-| Update to a newer commit | See [Updates](/docs/self-hosting/updates) | Monthly |
+| Update to a newer version | `docker compose pull && docker compose up -d`, see [Updates](/docs/self-hosting/updates) | Monthly |
 | Prune old images | `docker image prune -f` | After each update |
 | Test a restore into a throwaway database | See [Backup and restore](/docs/self-hosting/backup-and-restore) | Twice a year |
 | Rotate `BETTER_AUTH_SECRET` | See [Security](/docs/self-hosting/security) | Only after a leak |

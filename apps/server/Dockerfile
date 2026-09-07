@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM oven/bun:1 AS builder
 WORKDIR /app
 ENV SKIP_ENV_VALIDATION=1
@@ -8,7 +9,15 @@ COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 ENV NODE_ENV=production
-RUN cd packages/api && bun run build:data
+# The merchant data comes from the newest `data-*` GitHub release of this
+# repository. A fork passes its own slug; the token only lifts the API rate
+# limit and never reaches the image.
+ARG GITHUB_REPOSITORY=suiramdev/freenary
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    cd packages/api && \
+    GITHUB_REPOSITORY=${GITHUB_REPOSITORY} \
+    GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN 2>/dev/null || true)" \
+    bun run build:data
 RUN cd apps/server && bun run build
 
 FROM oven/bun:1 AS runner
