@@ -21,4 +21,4 @@ bun run types:check   # TypeScript
 
 `docs:check` is the gate a documentation change must pass. The build catches a missing frontmatter field and an unknown code-fence language. `docs:check` catches what the build lets through. Add `--strict` to fail on warnings too.
 
-A release freezes the pages as a new version folder. The `Release` workflow does it; by hand it is `bun run docs:snapshot 1.2`.
+A release freezes the pages as a new version folder. The `Release` workflow does it; by hand it is `bun run docs:snapshot 1.2.0`.

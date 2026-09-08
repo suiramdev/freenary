@@ -129,11 +129,11 @@ The documentation site publishes one copy of the pages for each version. `conten
 | `X.Y` | The pages as they were at the release of `X.Y` |
 | `next` | The pages for the unreleased code, which the `dev` and `main` images run |
 
-The `tag` job runs the copy before it writes the tag. The tag therefore names a tree that holds the new folder. Three rules follow:
+The `tag` job runs the copy before it writes the tag. The tag therefore names a tree that holds the new folder. The copy carries one edit: a repository link names `main`, and the frozen page names the release tag. Three rules follow:
 
 - A patch release finds `content/docs/X.Y` in place, and copies nothing. A documentation fix for a released version therefore edits that folder directly.
 - A pre-release copies nothing. Its readers stay on `next`.
-- The step is safe to repeat. A maintainer who runs `cd apps/fumadocs && bun run docs:snapshot X.Y` in the release pull request leaves the workflow nothing to do.
+- The step is safe to repeat. A maintainer who runs `cd apps/fumadocs && bun run docs:snapshot X.Y.Z` in the release pull request leaves the workflow nothing to do. A repeat run also finishes an interrupted one.
 
 The application links to the documentation for the version it runs. `images.yml` passes the version to the web image as the build argument `FREENARY_VERSION`. The account menu opens `/docs/X.Y` for a release, and `/docs/next` for a branch build. [Writing documentation](/docs/contributing/writing-docs#versions) holds the authoring rules.
 

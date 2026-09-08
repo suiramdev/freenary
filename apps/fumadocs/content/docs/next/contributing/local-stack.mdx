@@ -126,7 +126,7 @@ bun run dev
 
 </Callout>
 
-The Prisma CLI reads its own file. `packages/db/prisma.config.ts` loads `apps/server/.env` with dotenv, then hands `process.env.DATABASE_URL || undefined` to the datasource. It sets no default on purpose, so `prisma generate` works in a checkout with no database. So `db:push`, `db:migrate`, `db:generate` and `db:studio` all need `DATABASE_URL` in `apps/server/.env`:
+The Prisma CLI reads its own file. `packages/db/prisma.config.ts` loads `apps/server/.env` with dotenv, then hands `process.env.DATABASE_URL || undefined` to the datasource. It sets no default on purpose, so `db:generate` works in a checkout with no database. The commands that connect — `db:push`, `db:migrate` and `db:studio` — need `DATABASE_URL` in `apps/server/.env`:
 
 ```dotenv
 DATABASE_URL=postgresql://postgres:password@localhost:5432/freenary

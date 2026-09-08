@@ -22,6 +22,7 @@ import { join, relative } from "node:path";
 import { icons } from "lucide-react";
 
 import { getMDXComponents } from "../src/components/mdx";
+import { gitConfig, repoBlobUrl } from "../src/lib/shared";
 import { isVersionId, NEXT_VERSION } from "../src/lib/versions";
 import {
   type DocPage,
@@ -278,6 +279,28 @@ const checkLinks = (page: DocPage, pages: readonly DocPage[]) => {
         `\`${target}\` names no heading on ${targetPage.rel}.`
       );
     }
+  }
+};
+
+/**
+ * A link into this repository is authored against the moving branch, and the
+ * snapshot pins it to the release tag. One left on the branch inside a frozen
+ * version sends a reader from a page about `1.2` to code that has moved since.
+ * The shape checked here is the shape the snapshot rewrites: a link to another
+ * repository's branch is nobody's to pin.
+ */
+const checkRepoLinks = (page: DocPage) => {
+  const moving = `](${repoBlobUrl(gitConfig.branch)}`;
+  let index = page.raw.indexOf(moving);
+  while (index !== -1) {
+    report(
+      "error",
+      page.rel,
+      lineAt(page.raw, index),
+      "link",
+      `a repository link names \`${gitConfig.branch}\`. A released page pins it: \`/blob/v${versionOf(page.rel)}.0/\`, or whichever patch tag holds the code the page describes.`
+    );
+    index = page.raw.indexOf(moving, index + moving.length);
   }
 };
 
@@ -603,11 +626,14 @@ for (const page of pages) {
   checkLinks(page, pages);
 
   // A frozen version passed the language rules when it was written, and the
-  // word lists keep moving. Its structure still has to hold up.
+  // word lists keep moving. Its structure still has to hold up, and its
+  // repository links have to name the release rather than the branch.
   if (versionOf(page.rel) === NEXT_VERSION) {
     checkHeadings(page);
     checkPhrases(page);
     checkSentences(page);
+  } else {
+    checkRepoLinks(page);
   }
 }
 

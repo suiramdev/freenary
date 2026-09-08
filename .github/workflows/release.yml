@@ -73,9 +73,8 @@ jobs:
             echo "Pre-release: the documentation stays on next"
             exit 0
           fi
-          minor="${VERSION%.*}"
-          echo "minor=$minor" >> "$GITHUB_OUTPUT"
-          cd apps/fumadocs && bun scripts/snapshot-version.ts "$minor"
+          echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+          cd apps/fumadocs && bun scripts/snapshot-version.ts "$VERSION"
 
       - name: Commit the snapshot
         env:

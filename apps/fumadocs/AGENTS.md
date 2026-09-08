@@ -36,10 +36,11 @@ Every page is served under a version segment: `/docs/next/quickstart`, `/docs/1.
 
 - **Author in `content/docs/next`.** A change edits that folder alone. `content/docs/<X.Y>` is frozen: only a correction to that release touches it.
 - **A folder under `content/docs` is a version.** Its `meta.json` carries `"root": true` and a `title` equal to the folder name. `root: true` is what scopes the sidebar to one version and makes Fumadocs render the version dropdown (`getLayoutTabs`, `TreeContextProvider`). `docs:check` fails a folder that breaks either rule.
-- **A link never names a version.** Pages write `/docs/guides/budget`; the `a` and `Card` wrappers in `src/components/mdx.tsx` prepend the version of the page being read, and `getLLMText` does the same for the `.md` output. A snapshot is therefore a plain copy — no link rewriting. `docs:check` fails an authored link that names a version.
+- **A docs link never names a version.** Pages write `/docs/guides/budget`; the `a` and `Card` wrappers in `src/components/mdx.tsx` prepend the version of the page being read, and `getLLMText` does the same for the `.md` output. `docs:check` fails an authored link that names a version.
+- **A repository link names the branch, and the snapshot pins it.** Pages write `https://github.com/suiramdev/freenary/blob/main/…`; the snapshot rewrites each one to `blob/v<X.Y.Z>/` in the copy, because that link cannot resolve at render time. `docs:check` fails a `blob/main` link inside a frozen version.
 - **`/docs/*` with no version redirects** (307) to the newest release. `versionMiddleware` in `src/start.ts` owns it, and it runs before `llmMiddleware`. The newest release is `stableVersion()` in `src/lib/source.ts`: the highest `X.Y` folder, or `next` while no release exists.
 - **The language rules apply to `next` alone**; the structure rules apply to every version. `check-docs.ts` skips `checkHeadings`, `checkPhrases` and `checkSentences` outside `next`.
-- **A release snapshots itself.** The `tag` job of `.github/workflows/release.yml` runs `scripts/snapshot-version.ts <X.Y>` and commits the folder before it tags. By hand: `bun run docs:snapshot 1.2`. Every import the script makes resolves to a source file or a node built-in, never to a package, so it runs in a checkout with no `node_modules` — keep `src/lib/versions.ts` and `src/lib/shared.ts` dependency-free. It is idempotent, and a pre-release snapshots nothing.
+- **A release snapshots itself.** The `tag` job of `.github/workflows/release.yml` runs `scripts/snapshot-version.ts <X.Y.Z>` and commits the folder before it tags; the script derives the `X.Y` folder from the release version and pins repository links to `v<X.Y.Z>`. By hand: `bun run docs:snapshot 1.2.0`. Every import the script makes resolves to a source file or a node built-in, never to a package, so it runs in a checkout with no `node_modules` — keep `src/lib/versions.ts` and `src/lib/shared.ts` dependency-free. It stages the copy outside `content/docs` and rewrites the root `meta.json` on every run, so a repeat run finishes an interrupted one; a pre-release snapshots nothing.
 - **Search, the AI panel and the LLM endpoints are scoped.** `/api/search` tags each record with its version and the default dialog passes `defaultTag` — the version of the pathname, or the newest release off the docs tree, from the root loader in `src/routes/__root.tsx`. `/api/chat` builds one index per version and honours the request body's version only when `listVersions()` holds it. `/llms.txt` and `/llms-full.txt` serve the newest release alone.
 
 ## Content structure
@@ -106,6 +107,7 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 | A page missing from its folder's `meta.json` | Passes | Fails |
 | A link that names a version | Passes | Fails |
 | A version folder without `"root": true`, or with a stale title | Passes, drops out of the dropdown | Fails |
+| A `blob/main` repository link in a frozen version | Passes | Fails (releases only) |
 | A shell command or an env var in `guides/` | Passes | Fails |
 | A contraction, a banned word, roadmap language | Passes | Fails (`next` only) |
 | A sentence over 25 words | Passes | Fails (`next` only) |

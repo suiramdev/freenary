@@ -173,9 +173,11 @@ docker compose -p freenary-restore-check exec -T postgres \
 ```bash
 docker compose -p freenary-restore-check exec -T postgres \
   psql -U postgres -d freenary -c 'SELECT count(*) FROM "user";'
+docker compose -p freenary-restore-check exec -T postgres \
+  psql -U postgres -d freenary -c 'SELECT count(*) FROM "transaction";'
 ```
 
-The counts must match the live stack. A mismatch means the dump is not complete.
+Each count must match the live stack. A mismatch on either one means the dump is not complete.
 
 </Step>
 

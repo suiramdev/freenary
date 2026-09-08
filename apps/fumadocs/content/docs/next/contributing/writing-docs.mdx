@@ -59,10 +59,10 @@ The site publishes one copy of the documentation for each version of Freenary. `
 To freeze a version by hand:
 
 ```bash
-cd apps/fumadocs && bun run docs:snapshot 1.2
+cd apps/fumadocs && bun run docs:snapshot 1.2.0
 ```
 
-The script refuses anything but `X.Y`, and it does nothing when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown.
+The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag.
 
 ## The five steps
 
@@ -201,7 +201,7 @@ An internal link is an absolute site path with no extension. The base route is `
 
 `docs:check` resolves every link and every `#anchor` against the real page tree, so a dead link fails the gate.
 
-`createRelativeLink` exists in the Fumadocs package, but `mdx.tsx` does not wire it in. A relative `.mdx` link therefore stays broken. Link a repository file with its full GitHub URL under `https://github.com/suiramdev/freenary/blob/main/`.
+`createRelativeLink` exists in the Fumadocs package, but `mdx.tsx` does not wire it in. A relative `.mdx` link therefore stays broken. Link a repository file with its full GitHub URL under `https://github.com/suiramdev/freenary/blob/main/`. The snapshot replaces `main` with the release tag, so a frozen page keeps its code reference.
 
 ## Navigation
 
@@ -242,6 +242,7 @@ The array also accepts four special entries: `"---Separator---"`, `"..."`, `"!sl
 | A page missing from its folder's `meta.json` | Passes | Fails |
 | A link that names a version | Passes | Fails |
 | A version folder with no `"root": true`, or a stale title | Passes, drops out of the dropdown | Fails |
+| A `blob/main` repository link inside a frozen version | Passes | Fails |
 | A command or a variable inside `guides/` | Passes | Fails |
 | A contraction, a banned word, a plan | Passes | Fails |
 | A sentence over 25 words | Passes | Fails |

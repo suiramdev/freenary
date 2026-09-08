@@ -5,12 +5,20 @@ export const NEXT_VERSION = "next";
 
 const RELEASE_ID = /^\d+\.\d+$/;
 
-/** A released version, `X.Y` — the granularity of the `X.Y` image tag. */
-export const isReleaseId = (segment: string): boolean =>
-  RELEASE_ID.test(segment);
+/** A released version is `X.Y` — the granularity of the `X.Y` image tag. */
+const isReleaseId = (segment: string) => RELEASE_ID.test(segment);
 
 export const isVersionId = (segment: string): boolean =>
   segment === NEXT_VERSION || isReleaseId(segment);
+
+const RELEASE_VERSION = /^(\d+\.\d+)\.\d+$/;
+
+/**
+ * The folder a release freezes: `1.2.0` documents itself as `1.2`, because the
+ * `X.Y` image tag is the finest one an operator pins.
+ */
+export const releaseFolder = (version: string): string | undefined =>
+  RELEASE_VERSION.exec(version)?.[1];
 
 /** Newest release first, `next` last — the order the dropdown shows. */
 export const compareVersionIds = (left: string, right: string): number => {
@@ -39,7 +47,8 @@ export const versionOfPath = (pathname: string): string | undefined => {
 
 /**
  * Authored links carry no version, so a link resolves inside the version the
- * reader is on. A snapshot is then a copy with no link rewriting.
+ * reader is on. A snapshot therefore rewrites no docs link; it pins repository
+ * links alone.
  */
 export const resolveDocsHref = (
   href: string | undefined,

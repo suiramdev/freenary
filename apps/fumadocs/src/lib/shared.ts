@@ -9,6 +9,13 @@ export const gitConfig = {
   branch: "main",
 };
 
+/**
+ * Where a page links a repository file. Pages name the branch; the release
+ * snapshot rewrites the ref, so both sides build the prefix from here.
+ */
+export const repoBlobUrl = (ref: string) =>
+  `https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${ref}/`;
+
 export function encodeMarkdownUrl(slugs: string[], locale?: string) {
   const segments = [...slugs];
   if (segments.length === 0) {

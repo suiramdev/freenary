@@ -28,7 +28,17 @@ import { docs, source, stableVersion } from "@/lib/source";
 import { NEXT_VERSION } from "@/lib/versions";
 
 /** The newest release, when the page being read is not part of it. */
-type Newer = { version: string; splat: string };
+type Newer = { version: string; splat: string; samePage: boolean };
+
+/** Where a reader on an older page goes: the same page, or the version index. */
+const newerOf = (version: string, rest: string[]): Newer => {
+  const same = source.getPage([version, ...rest]);
+  return {
+    version,
+    splat: (same?.url ?? `${docsRoute}/${version}`).slice(docsRoute.length + 1),
+    samePage: Boolean(same),
+  };
+};
 
 const VersionNotice = ({
   version,
@@ -42,7 +52,9 @@ const VersionNotice = ({
       ? `This page describes the unreleased code. Version ${newer.version} is the newest release.`
       : `This page describes version ${version}. Version ${newer.version} is the newest release.`}{" "}
     <Link to="/docs/$" params={{ _splat: newer.splat }}>
-      Read this page for {newer.version}
+      {newer.samePage
+        ? `Read this page for ${newer.version}`
+        : `This page is gone in ${newer.version}; read its documentation`}
     </Link>
     .
   </Callout>
@@ -75,16 +87,7 @@ const serverLoader = createServerFn({
       pageTree: await source.serializePageTree(source.getPageTree()),
       version,
       // The same page in the newest release, or its index when it is gone.
-      newer:
-        version === stable
-          ? null
-          : {
-              version: stable,
-              splat: (
-                source.getPage([stable, ...page.slugs.slice(1)])?.url ??
-                `${docsRoute}/${stable}`
-              ).slice(docsRoute.length + 1),
-            },
+      newer: version === stable ? null : newerOf(stable, page.slugs.slice(1)),
     };
   });
 
