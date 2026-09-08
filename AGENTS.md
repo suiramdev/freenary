@@ -27,7 +27,7 @@ The dev stack needs no `.env`: `docker-compose.dev.yml` defaults every variable,
 
 The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. That third line is not optional: the compose default is `latest`, and GHCR holds no such tag — the published tags are `main`, `dev` and `sha-<7 characters>`, so an unpinned `up -d` fails with `not found`.
 
-Full walkthrough: [Local development stack](apps/fumadocs/content/docs/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/self-hosting/index.mdx).
+Full walkthrough: [Local development stack](apps/fumadocs/content/docs/next/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/next/self-hosting/index.mdx).
 
 ## Documentation: Ship It With the Change
 
@@ -45,7 +45,9 @@ Full walkthrough: [Local development stack](apps/fumadocs/content/docs/contribut
 
 Pure refactors, internal helpers, and dependency bumps that change no documented behavior need no docs change. Say so in the PR rather than leaving it ambiguous.
 
-**Put it in the right section.** `content/docs/` is split by audience, and the split is what makes the site navigable:
+**The docs are versioned.** `content/docs` holds one folder per version of Freenary: `next` for the unreleased code, and one frozen `X.Y` folder per release. **A change edits `next` and nothing else** — the `Release` workflow copies `next` to `content/docs/X.Y` before it tags, and a released folder only ever takes a correction to that release. Every page is served under its version (`/docs/next/guides/budget`), a path with no version redirects to the newest release, and **an authored link never names a version**: write `/docs/guides/budget` and the site resolves it inside the version being read.
+
+**Put it in the right section.** `content/docs/next/` is split by audience, and the split is what makes the site navigable:
 
 | Section | Audience | Never contains |
 | --- | --- | --- |
@@ -57,7 +59,7 @@ Pure refactors, internal helpers, and dependency bumps that change no documented
 | `integrations/` | Developers calling the API | Internal design rationale |
 | `contributing/` | Contributors and engineers | Anything an end user needs |
 
-The sidebar order is the root `meta.json`, and its four separators name the audiences: `index`, `quickstart`, `concepts`, `---Run Freenary---`, `self-hosting`, `---Use Freenary---`, `guides`, `---Build on Freenary---`, `integrations`, `---Contribute---`, `contributing`. `quickstart.mdx` owns the shortest install on one machine; `self-hosting/index.mdx` owns the install that serves other people. A folder's index page carries the name of its subject, and no page is titled `Overview`.
+The sidebar order is each version folder's own `meta.json`, and its four separators name the audiences: `index`, `quickstart`, `concepts`, `---Run Freenary---`, `self-hosting`, `---Use Freenary---`, `guides`, `---Build on Freenary---`, `integrations`, `---Contribute---`, `contributing`. The root `content/docs/meta.json` lists the versions instead, and orders the dropdown. `quickstart.mdx` owns the shortest install on one machine; `self-hosting/index.mdx` owns the install that serves other people. A folder's index page carries the name of its subject, and no page is titled `Overview`.
 
 A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent. How the system works — architecture, request flow, internals — belongs to `contributing/`; a user wants to run the app and use it.
 
@@ -79,19 +81,20 @@ cd apps/fumadocs && bun run build
 | Dead internal link or `#anchor` | **Passes** | Fails |
 | Page missing from its folder's `meta.json` | **Passes** | Fails |
 | A shell command or an env var inside `guides/` | **Passes** | Fails |
-| A contraction, a banned word, roadmap language, a 26-word sentence | **Passes** | Fails |
+| A link that names a version, or a version folder without `"root": true` | **Passes** | Fails |
+| A contraction, a banned word, roadmap language, a 26-word sentence | **Passes** | Fails (in `next`; a frozen version keeps the structure rules only) |
 
-A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/contributing/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
+A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/next/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/next/contributing/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
 
 ## Interface Text: Every String Is a Message Key
 
 `apps/web` ships in English and French. Every user-facing string it renders is a key in `apps/web/messages/en.json` and `messages/fr.json`, and **a change that adds or edits UI adds or edits both catalogs in the same commit**. A key present in `en.json` and missing from `fr.json` compiles with no error and no warning — the French branch aliases to the English one, so English reaches French readers and no build step catches it.
 
-The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. The mechanism is Paraglide: `apps/web/src/paraglide/` is generated, and every component imports the message functions as `m`. What readers see is documented at [`content/docs/guides/interface.mdx`](apps/fumadocs/content/docs/guides/interface.mdx).
+The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGENTS.md#internationalization) for catalogs, message discipline and locale-aware formatting; [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for primitives' accessible names; [`packages/api/AGENTS.md`](packages/api/AGENTS.md) for why responses carry slugs rather than labels. The mechanism is Paraglide: `apps/web/src/paraglide/` is generated, and every component imports the message functions as `m`. What readers see is documented at [`content/docs/next/guides/interface.mdx`](apps/fumadocs/content/docs/next/guides/interface.mdx).
 
 ## Branches and Releases
 
-Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which creates the `vX.Y.Z` tag, the versioned images and the GitHub release. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/contributing/releasing.mdx).
+Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which snapshots the documentation, creates the `vX.Y.Z` tag, the versioned images and the GitHub release. The web image carries its version from the build argument `FREENARY_VERSION`, which is what its account-menu documentation link points at. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/next/contributing/releasing.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 

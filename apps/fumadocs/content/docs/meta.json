@@ -1,17 +1,4 @@
 {
   "title": "Freenary",
-  "defaultOpen": true,
-  "pages": [
-    "index",
-    "quickstart",
-    "concepts",
-    "---Run Freenary---",
-    "self-hosting",
-    "---Use Freenary---",
-    "guides",
-    "---Build on Freenary---",
-    "integrations",
-    "---Contribute---",
-    "contributing"
-  ]
+  "pages": ["next"]
 }

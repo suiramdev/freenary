@@ -12,20 +12,40 @@ The public documentation website.
 ## Layout
 
 ```
-content/docs/       # MDX pages — the whole site's content (see "Content structure")
+content/docs/
+  meta.json         # the version list, and the dropdown order
+  next/             # MDX pages for the unreleased code — the folder you edit
+  <X.Y>/            # one frozen copy per release, written by the snapshot script
 src/
   lib/
-    source.ts       # Fumadocs loader (content dir, page tree, LLM text)
+    source.ts       # Fumadocs loader (content dir, page tree, LLM text, version list)
+    versions.ts     # version ids, ordering, and the link resolver
     shared.ts       # App name, docs base route, repo coordinates, .md URL codec
     layout.shared.tsx  # Nav/GitHub options shared by every layout
   routes/           # TanStack Router file routes
   components/       # MDX component map, markdown renderer, AI search, not-found
   styles/app.css
+scripts/
+  check-docs.ts     # the gate
+  snapshot-version.ts  # freezes `next` as a release folder
 ```
+
+## Versions
+
+Every page is served under a version segment: `/docs/next/quickstart`, `/docs/1.2/quickstart`. The rules that follow from that:
+
+- **Author in `content/docs/next`.** A change edits that folder alone. `content/docs/<X.Y>` is frozen: only a correction to that release touches it.
+- **A folder under `content/docs` is a version.** Its `meta.json` carries `"root": true` and a `title` equal to the folder name. `root: true` is what scopes the sidebar to one version and makes Fumadocs render the version dropdown (`getLayoutTabs`, `TreeContextProvider`). `docs:check` fails a folder that breaks either rule.
+- **A docs link never names a version.** Pages write `/docs/guides/budget`; the `a` and `Card` wrappers in `src/components/mdx.tsx` prepend the version of the page being read, and `getLLMText` does the same for the `.md` output. `docs:check` fails an authored link that names a version.
+- **A repository link names the branch, and the snapshot pins it.** Pages write `https://github.com/suiramdev/freenary/blob/main/…`; the snapshot rewrites each one to `blob/v<X.Y.Z>/` in the copy, because that link cannot resolve at render time. `docs:check` fails a `blob/main` link inside a frozen version.
+- **`/docs/*` with no version redirects** (307) to the newest release. `versionMiddleware` in `src/start.ts` owns it, and it runs before `llmMiddleware`. The newest release is `stableVersion()` in `src/lib/source.ts`: the highest `X.Y` folder, or `next` while no release exists.
+- **The language rules apply to `next` alone**; the structure rules apply to every version. `check-docs.ts` skips `checkHeadings`, `checkPhrases` and `checkSentences` outside `next`.
+- **A release snapshots itself.** The `tag` job of `.github/workflows/release.yml` runs `scripts/snapshot-version.ts <X.Y.Z>` and commits the folder before it tags; the script derives the `X.Y` folder from the release version and pins repository links to `v<X.Y.Z>`. By hand: `bun run docs:snapshot 1.2.0`. Every import the script makes resolves to a source file or a node built-in, never to a package, so it runs in a checkout with no `node_modules` — keep `src/lib/versions.ts` and `src/lib/shared.ts` dependency-free. It stages the copy outside `content/docs` and rewrites the root `meta.json` on every run, so a repeat run finishes an interrupted one; a pre-release snapshots nothing.
+- **Search, the AI panel and the LLM endpoints are scoped.** `/api/search` tags each record with its version and the default dialog passes `defaultTag` — the version of the pathname, or the newest release off the docs tree, from the root loader in `src/routes/__root.tsx`. `/api/chat` builds one index per version and honours the request body's version only when `listVersions()` holds it. `/llms.txt` and `/llms-full.txt` serve the newest release alone.
 
 ## Content structure
 
-The site serves two audiences, in this order: the **person who runs Freenary and uses it**, and the **contributor who changes it**. The first three pages carry a reader from nothing to a working instance; every folder after them goes deeper on one job. The root `meta.json` holds the order and the separators:
+The site serves two audiences, in this order: the **person who runs Freenary and uses it**, and the **contributor who changes it**. The first three pages carry a reader from nothing to a working instance; every folder after them goes deeper on one job. Every path below is inside a version folder, and each version folder's own `meta.json` holds the order and the separators:
 
 ```
 index → quickstart → concepts
@@ -55,7 +75,7 @@ These rules keep the split that way:
 - **How it works belongs to `contributing/`.** Architecture, request flow, and internals go there — not in `guides/`, which tells a user what to do, and not in `self-hosting/`, which tells an operator how to run it.
 - **A fact lives in exactly one section**; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent.
 - **`concepts.mdx` is a user glossary**, in the reader's own words. The technical vocabulary — Prisma model names, enum values, columns — lives in `contributing/data-model.mdx`.
-- **Every page is ASD-STE100 Simplified Technical English.** Short active sentences, one idea each, no `-ing` verb forms, no contractions, `must`/`can`/`do` rather than `shall`/`should`/`may`, and one approved term per concept (the user-facing terms are defined in `content/docs/concepts.mdx`). The rules cover prose, never code blocks.
+- **Every page is ASD-STE100 Simplified Technical English.** Short active sentences, one idea each, no `-ing` verb forms, no contractions, `must`/`can`/`do` rather than `shall`/`should`/`may`, and one approved term per concept (the user-facing terms are defined in `next/concepts.mdx`). The rules cover prose, never code blocks, and `docs:check` applies them to `next` alone.
 
 `contributing/writing-docs.mdx` is the reader-facing version of this section — update both together.
 
@@ -85,16 +105,19 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 | A component `src/components/mdx.tsx` does not register | Passes, renders nothing | Fails |
 | An internal link or `#anchor` that resolves to nothing | Passes | Fails |
 | A page missing from its folder's `meta.json` | Passes | Fails |
+| A link that names a version | Passes | Fails |
+| A version folder without `"root": true`, or with a stale title | Passes, drops out of the dropdown | Fails |
+| A `blob/main` repository link in a frozen version | Passes | Fails (releases only) |
 | A shell command or an env var in `guides/` | Passes | Fails |
-| A contraction, a banned word, roadmap language | Passes | Fails |
-| A sentence over 25 words | Passes | Fails |
-| A sentence over 20 words, a paragraph over 6 sentences | Passes | Warns |
+| A contraction, a banned word, roadmap language | Passes | Fails (`next` only) |
+| A sentence over 25 words | Passes | Fails (`next` only) |
+| A sentence over 20 words, a paragraph over 6 sentences | Passes | Warns (`next` only) |
 
 `scripts/check-docs.ts` reads the component list from `getMDXComponents()` and the icon list from lucide's own record, so neither can drift from the site. `scripts/docs-rules.ts` holds the word lists. A page that has to name a banned word — the authoring page — writes `{/* docs-check disable: ste-word, no-roadmap */}`.
 
 ## Conventions
 
-- Add a page by dropping an `.mdx` file in `content/docs/`; the sidebar and search index pick it up. Order and grouping come from `meta.json` files in that tree — a new page must be added to its folder's `pages` array or it lands at the bottom, unordered. Nested folders each with their own `meta.json` are supported.
+- Add a page by dropping an `.mdx` file in `content/docs/next/`; the sidebar and search index pick it up. Order and grouping come from `meta.json` files in that tree — a new page must be added to its folder's `pages` array or it lands at the bottom, unordered. Nested folders each with their own `meta.json` are supported.
 - The frontmatter schema in `src/lib/source.ts` needs `title`, `description` and `icon`. A page without one of the three fails the build with the file name and the field. `full` is the only other field it accepts.
 - `icon` is resolved by the `lucideIconsPlugin` in `src/lib/source.ts` against **lucide's `icons` record**, which holds canonical PascalCase names only. A deprecated alias such as `AlertCircle` is a top-level `lucide-react` export but is absent from that record, so it renders nothing and only warns in the console. `docs:check` fails on it; to check one name by hand:
   ```bash
@@ -102,17 +125,17 @@ An agent that writes or rewrites documentation runs these five steps in order. S
   ```
 - MDX may use only what `src/components/mdx.tsx` registers: Fumadocs' defaults (`Card`, `Cards`, `Callout`, `CalloutContainer`, `CalloutTitle`, `CalloutDescription`, the `CodeBlockTabs*` family, and the `pre`/`a`/`img`/`h1`-`h6`/`table` overrides) plus the components that file adds explicitly — `Accordion`, `Accordions`, `File`, `Files`, `Folder`, `Step`, `Steps`, `Tab`, `Tabs`, `TypeTable`. Anything else fails to render, the build stays green, and `docs:check` fails.
 - Code fences always name a **Shiki** language. `env` is not one — use `dotenv`. An unknown language fails the build, not just the page. The ids this site uses are the list in `scripts/docs-rules.ts`.
-- Internal links are absolute site paths with no extension (`/docs/guides/budget`). A folder's index page is the folder path itself (`/docs/self-hosting`).
+- Internal links are absolute site paths with no extension and no version (`/docs/guides/budget`). A folder's index page is the folder path itself (`/docs/self-hosting`). The rendered link carries the version of the page it sits on.
 - Routes derive from the docs base route in `src/lib/shared.ts`. Change it there, not inline, so the `.md` and `llms.txt` endpoints stay consistent.
 - Filenames are `kebab-case`; components are arrow functions assigned to a `const`, declared **before** the `Route` that references them (see the root `AGENTS.md`).
 - `types:check` is this app's TypeScript script. The root `bun run check-types` runs `turbo run check-types` and therefore skips it — run `bun run types:check` here after a change to `src/`.
 
 ## Endpoints beyond the pages
 
-- `/docs/<slug>.md` — raw Markdown for a page. The index page is `/docs/index.md`; `/docs.md` 404s (`encodeMarkdownUrl` maps empty slugs to `index.md`).
-- `/llms.txt`, `/llms-full.txt` — the index and full corpus for LLM consumers. The only two that behave identically in dev and production.
-- `/api/search` — local search backend.
-- `/api/chat` — the "Ask AI" panel, backed by OpenRouter. It reads `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` straight from `process.env`; neither is declared in `packages/env`. The trigger renders even with no key.
+- `/docs/<version>/<slug>.md` — raw Markdown for a page. The version index page is `/docs/<version>.md`; a path with no version redirects to the newest release first.
+- `/llms.txt`, `/llms-full.txt` — the index and full corpus for LLM consumers, for the newest release alone. The only two that behave identically in dev and production.
+- `/api/search` — local search backend. Each record carries its version as a `tag`, and the dialog filters on the version being read.
+- `/api/chat` — the "Ask AI" panel, backed by OpenRouter. One search index per version, chosen by the `version` field of the request body. It reads `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` straight from `process.env`; neither is declared in `packages/env`. The trigger renders even with no key.
 
 **Markdown output is production-only, and negotiation never fires.** Measured, both modes:
 

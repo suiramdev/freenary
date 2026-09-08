@@ -28,6 +28,42 @@ bun run dev
 
 The `dev` script is `vite dev --port=4000`, so the site answers on `http://localhost:4000`. The flag overrides `server.port: 3000` in `apps/fumadocs/vite.config.ts`. The development stack serves the same app at `https://docs.<slug>.freenary.orb.local`. See [Local development stack](/docs/contributing/local-stack).
 
+## Versions
+
+The site publishes one copy of the documentation for each version of Freenary. `content/docs` holds one folder per version, and the folder name is the version:
+
+<Files>
+  <Folder name="content/docs" defaultOpen>
+    <File name="meta.json" />
+    <Folder name="next" defaultOpen>
+      <File name="meta.json" />
+      <File name="index.mdx" />
+    </Folder>
+    <Folder name="1.2" />
+  </Folder>
+</Files>
+
+| Folder | What it documents | Who edits it |
+| --- | --- | --- |
+| `next` | The unreleased code, which the `dev` and `main` images run | Every pull request |
+| `X.Y` | The release `X.Y`, frozen at the moment of the release | A correction to that release alone |
+
+**Write in `next`.** A pull request edits `next`, and nothing else. The `Release` workflow copies `next` to `content/docs/X.Y` before it tags, so a release needs no manual copy. See [Release a version](/docs/contributing/releasing).
+
+**A link never names a version.** Write `/docs/guides/budget`. The site adds the version of the page the reader is on, so one page body serves every version. `docs:check` fails a link that names a version. In a browser, a path with no version lands on the newest release.
+
+**The language rules apply to `next` alone.** A frozen version passed them on the day it was written, and the word lists keep moving. Its structure rules stay on: a dead link or a missing `meta.json` entry breaks a page a reader opens today.
+
+**A fix for a released version edits that folder.** Copy the correction into `next` too, when it still applies there.
+
+To freeze a version by hand:
+
+```bash
+cd apps/fumadocs && bun run docs:snapshot 1.2.0
+```
+
+The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag.
+
 ## The five steps
 
 1. **Read the rules.** This page, and the page you replace. A rewrite keeps every true fact the old page holds.
@@ -38,7 +74,7 @@ The `dev` script is `vite dev --port=4000`, so the site answers on `http://local
 
 ## Structure
 
-`content/docs/` splits by audience, and the split is what keeps the site navigable. The reader who runs Freenary comes first. The contributor comes second.
+`content/docs/<version>/` splits by audience, and the split is what keeps the site navigable. The reader who runs Freenary comes first. The contributor comes second. Every path below is inside one version folder.
 
 | Path | Audience | What it holds | What it never holds |
 | --- | --- | --- | --- |
@@ -165,7 +201,7 @@ An internal link is an absolute site path with no extension. The base route is `
 
 `docs:check` resolves every link and every `#anchor` against the real page tree, so a dead link fails the gate.
 
-`createRelativeLink` exists in the Fumadocs package, but `mdx.tsx` does not wire it in. A relative `.mdx` link therefore stays broken. Link a repository file with its full GitHub URL under `https://github.com/suiramdev/freenary/blob/main/`.
+`createRelativeLink` exists in the Fumadocs package, but `mdx.tsx` does not wire it in. A relative `.mdx` link therefore stays broken. Link a repository file with its full GitHub URL under `https://github.com/suiramdev/freenary/blob/main/`. The snapshot replaces `main` with the release tag, so a frozen page keeps its code reference.
 
 ## Navigation
 
@@ -204,6 +240,9 @@ The array also accepts four special entries: `"---Separator---"`, `"..."`, `"!sl
 | A component the registry omits | Passes, renders nothing | Fails |
 | A dead internal link or `#anchor` | Passes | Fails |
 | A page missing from its folder's `meta.json` | Passes | Fails |
+| A link that names a version | Passes | Fails |
+| A version folder with no `"root": true`, or a stale title | Passes, drops out of the dropdown | Fails |
+| A `blob/main` repository link inside a frozen version | Passes | Fails |
 | A command or a variable inside `guides/` | Passes | Fails |
 | A contraction, a banned word, a plan | Passes | Fails |
 | A sentence over 25 words | Passes | Fails |

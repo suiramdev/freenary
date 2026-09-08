@@ -58,6 +58,18 @@ FREENARY_VERSION=sha-1a2b3c4
 
 The package pages of both images list every tag the registry holds. [Release a version](/docs/contributing/releasing) covers the branch model behind them.
 
+## The documentation for your version
+
+This site holds one copy of the documentation for each release. The version dropdown at the top of the sidebar switches between them. A path with no version lands on the newest release.
+
+| What you run | What you read |
+| --- | --- |
+| `FREENARY_VERSION=1.2.0` or `1.2` | The `1.2` documentation |
+| `FREENARY_VERSION=1` or `latest` | The documentation of the release that tag points at now |
+| `main`, `dev` or `sha-<7 characters>` | The `next` documentation, which describes the unreleased code |
+
+Your instance holds the answer. The account menu carries a **Documentation** link, and it opens the documentation for the version of its image.
+
 ## Move the stack to the new tag
 
 <Steps>

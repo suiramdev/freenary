@@ -17,7 +17,12 @@
       "dependsOn": ["^check-types"]
     },
     "docs:check": {
-      "inputs": ["content/**", "scripts/**", "src/components/mdx.tsx"]
+      "inputs": [
+        "content/**",
+        "scripts/**",
+        "src/components/mdx.tsx",
+        "src/lib/versions.ts"
+      ]
     },
     "dev": {
       "cache": false,

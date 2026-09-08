@@ -6,6 +6,9 @@ const runtimeEnv = import.meta.env as Record<string, string | undefined>;
 
 export const env = createEnv({
   client: {
+    // CI passes the release tag as a build argument, so one image is one
+    // version. A branch build carries `dev` or `main`.
+    VITE_FREENARY_VERSION: z.string().optional(),
     VITE_SERVER_URL: z.url().default("http://localhost:3000"),
   },
   clientPrefix: "VITE_",

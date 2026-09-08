@@ -85,6 +85,18 @@ The build step is one download with one fallback.
 
 [Categorisation](/docs/contributing/categorisation) covers the dictionary and the classifier weights the step produces.
 
+## Build the web image by hand
+
+The web image takes one build argument, and Compose declares it for no service. It decides which documentation the account menu opens:
+
+```bash
+docker build -f apps/web/Dockerfile \
+  --build-arg FREENARY_VERSION=1.2.0 \
+  -t freenary-web .
+```
+
+Pass the release the source tree holds. An absent or non-release value, such as a branch name, makes the menu open the `next` documentation. [Configuration reference](/docs/self-hosting/configuration#no-schema-declares-these) holds both variables.
+
 ## What each image holds
 
 | Image | Contents |

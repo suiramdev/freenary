@@ -153,13 +153,13 @@ With `AI_BASE_URL` and `AI_MODEL` set, the palette holds both kinds. The instanc
 
 ## The rate limit
 
-One account can ask **30 questions per 300 seconds**. The code fixes that limit, and no variable changes it.
+One account gets **30 server calls per 300 seconds**. One allowance covers both kinds of answer: a question the instance model answers, and a turn a device model produced. The code fixes that limit, and no variable changes it.
 
 The key is the account id, not the caller address. Each question is a call to your model endpoint, so the cost follows the account that asks. One busy office behind one address keeps a full allowance per person.
 
 Over the limit, the route answers `429` and the screen asks the user to wait.
 
-The same allowance counts an answer a device model produced. The procedure that stores such a turn shares the key. Over the limit, the answer still shows on the screen and Freenary stores no turn.
+A device model runs in the browser, so it needs no allowance to answer. The procedure that stores the finished turn does, and it shares the key. Over the limit, the answer stays on the screen and Freenary stores no turn.
 
 ## Where the conversation lives
 

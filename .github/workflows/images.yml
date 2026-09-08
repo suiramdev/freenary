@@ -116,7 +116,9 @@ jobs:
           file: apps/${{ matrix.app }}/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: GITHUB_REPOSITORY=${{ github.repository }}
+          build-args: |
+            GITHUB_REPOSITORY=${{ github.repository }}
+            FREENARY_VERSION=${{ needs.tags.outputs.version }}
           secrets: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.app }}-${{ steps.image.outputs.platform }}

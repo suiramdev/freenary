@@ -11,7 +11,7 @@ import {
 import { Document, type DocumentData } from "flexsearch";
 import { z } from "zod";
 
-import { source } from "@/lib/source";
+import { listVersions, source, stableVersion } from "@/lib/source";
 
 import { ChatUIMessage, SearchTool } from "../components/ai/search";
 
@@ -21,9 +21,19 @@ interface CustomDocument extends DocumentData {
   description: string;
   content: string;
 }
-const searchServer = createSearchServer();
+/** One index per version: an answer never mixes two versions of a page. */
+const searchServers = new Map<string, Promise<Document<CustomDocument>>>();
 
-async function createSearchServer() {
+function searchServerFor(version: string) {
+  let server = searchServers.get(version);
+  if (!server) {
+    server = createSearchServer(version);
+    searchServers.set(version, server);
+  }
+  return server;
+}
+
+async function createSearchServer(version: string) {
   const search = new Document<CustomDocument>({
     document: {
       id: "url",
@@ -33,16 +43,19 @@ async function createSearchServer() {
   });
 
   const docs = await chunkedAll(
-    source.getPages().map(async (page) => {
-      if (!("getText" in page.data)) return null;
+    source
+      .getPages()
+      .filter((page) => page.slugs[0] === version)
+      .map(async (page) => {
+        if (!("getText" in page.data)) return null;
 
-      return {
-        title: page.data.title,
-        description: page.data.description,
-        url: page.url,
-        content: await page.data.getText("processed"),
-      } as CustomDocument;
-    })
+        return {
+          title: page.data.title,
+          description: page.data.description,
+          url: page.url,
+          content: await page.data.getText("processed"),
+        } as CustomDocument;
+      })
   );
 
   for (const doc of docs) {
@@ -79,6 +92,14 @@ export const Route = createFileRoute("/api/chat")({
       POST: async (ctx) => {
         const req = ctx.request;
         const reqJson = await req.json();
+        // The panel sends the version of the page it was opened from. Only a
+        // version the loader found is honoured: an index for anything else
+        // would hold no page, and `searchServers` keys on this value.
+        const version =
+          typeof reqJson.version === "string" &&
+          listVersions().includes(reqJson.version)
+            ? reqJson.version
+            : stableVersion();
 
         const result = streamText({
           model: openrouter.chat(
@@ -86,7 +107,7 @@ export const Route = createFileRoute("/api/chat")({
           ),
           stopWhen: stepCountIs(5),
           tools: {
-            search: searchTool,
+            search: searchTool(version),
           },
           messages: [
             { role: "system", content: systemPrompt },
@@ -114,18 +135,19 @@ export const Route = createFileRoute("/api/chat")({
   },
 });
 
-const searchTool = tool({
-  description: "Search the docs content and return raw JSON results.",
-  inputSchema: z.object({
-    query: z.string(),
-    limit: z.number().int().min(1).max(100).default(10),
-  }),
-  async execute({ query, limit }) {
-    const search = await searchServer;
-    return await search.searchAsync(query, {
-      limit,
-      merge: true,
-      enrich: true,
-    });
-  },
-}) satisfies SearchTool;
+const searchTool = (version: string) =>
+  tool({
+    description: "Search the docs content and return raw JSON results.",
+    inputSchema: z.object({
+      query: z.string(),
+      limit: z.number().int().min(1).max(100).default(10),
+    }),
+    async execute({ query, limit }) {
+      const search = await searchServerFor(version);
+      return await search.searchAsync(query, {
+        limit,
+        merge: true,
+        enrich: true,
+      });
+    },
+  }) satisfies SearchTool;

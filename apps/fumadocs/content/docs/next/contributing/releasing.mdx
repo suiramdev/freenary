@@ -112,13 +112,30 @@ The pre-release suffix accepts digits, letters and dots. A version with a `-` in
 
 | Job | What it does |
 | --- | --- |
-| `tag` | Pushes the annotated tag `v<version>` on the commit of the run, with the message `Freenary <version>`, as `github-actions[bot]`. It also records the newest earlier `v*` tag for the notes |
+| `tag` | Snapshots `apps/fumadocs/content/docs/next` as `content/docs/X.Y`, commits it on `main`, then pushes the annotated tag `v<version>` on the commit of the run, with the message `Freenary <version>`, as `github-actions[bot]`. It also records the newest earlier `v*` tag for the notes |
 | `images` | Calls the `Images` workflow with the ref `refs/tags/v<version>`, which publishes the four version tags |
 | `publish` | Creates the GitHub release `v<version>`, titled `Freenary <version>`. The notes open with an **Images** section that names both references and their platforms, then GitHub appends generated notes from the previous tag. A version with a `-` marks the release as a pre-release |
 
 ## The merchant data releases
 
 `.github/workflows/generate-data.yml`, named **Generate merchant data**, publishes a second kind of release: the tag `data-<YYYY-MM-DD>` with the asset `merchant-data.tar.gz`. It passes `--latest=false`, because a data release is a build input and not a version of Freenary. The `Release` workflow passes no such flag, so a version release takes that place. [Transaction categorisation](/docs/contributing/categorisation#the-weekly-workflow) covers its triggers and its steps.
+
+## The documentation snapshot
+
+The documentation site publishes one copy of the pages for each version. `content/docs/next` holds the pages a pull request edits, and a release freezes them:
+
+| Version | What it holds |
+| --- | --- |
+| `X.Y` | The pages as they were at the release of `X.Y` |
+| `next` | The pages for the unreleased code, which the `dev` and `main` images run |
+
+The `tag` job runs the copy before it writes the tag. The tag therefore names a tree that holds the new folder. The copy carries one edit: a repository link names `main`, and the frozen page names the release tag. Three rules follow:
+
+- A patch release finds `content/docs/X.Y` in place, and copies nothing. A documentation fix for a released version therefore edits that folder directly.
+- A pre-release copies nothing. Its readers stay on `next`.
+- The step is safe to repeat. A maintainer who runs `cd apps/fumadocs && bun run docs:snapshot X.Y.Z` in the release pull request leaves the workflow nothing to do. A repeat run also finishes an interrupted one.
+
+The application links to the documentation for the version it runs. `images.yml` passes the version to the web image as the build argument `FREENARY_VERSION`. The account menu opens `/docs/X.Y` for a release, and `/docs/next` for a branch build. [Writing documentation](/docs/contributing/writing-docs#versions) holds the authoring rules.
 
 ## What a contributor never does
 
