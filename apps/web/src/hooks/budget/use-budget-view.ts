@@ -1,9 +1,9 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useBudgetPeriod } from "@/hooks/budget/use-budget-period";
 import type { BudgetPeriodPatch } from "@/hooks/budget/use-budget-period";
-import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
+import { useSettledText } from "@/hooks/shared/use-settled-text";
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { BUDGET_SEARCH_DEFAULTS, nextBudgetSearch } from "@/lib/budget/search";
 import type {
@@ -16,21 +16,19 @@ import type {
 import type { AmountRange } from "@/lib/budget/transaction-filters";
 
 // The route file imports this hook, so reach the route by id rather than back
-// through its module.
-const route = getRouteApi("/_auth/budget");
-
-/** How long typing settles before it reaches the URL and the request. */
-const SEARCH_SETTLE_MS = 300;
+// through its module. The params are validated one level up, on the area
+// route, and inherited here.
+const route = getRouteApi("/_auth/budget/transactions");
 
 interface BudgetViewOptions {
   dateBounds?: { first: Date | null; last: Date | null };
 }
 
 /**
- * The whole budget view, read from the URL and written back to it: the period,
- * both chart views, and the transaction list's direction, search, sort and
- * category filter. An absent param reads as its default here, so callers never
- * see the difference between a clean URL and a spelled-out one.
+ * The Transactions view, read from the URL and written back to it: the period,
+ * both chart views, and the list's direction, search, sort and category filter.
+ * An absent param reads as its default here, so callers never see the
+ * difference between a clean URL and a spelled-out one.
  */
 export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
   const search = route.useSearch();
@@ -83,29 +81,14 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
 
   const merchants = useMemo(() => search.merchant ?? [], [search.merchant]);
 
-  // The search box keeps its own text: a keystroke that waited for the URL to
-  // round-trip would be re-rendered away, and only the settled text is worth a
-  // history entry or a request.
-  const urlText = search.q ?? BUDGET_SEARCH_DEFAULTS.q;
-  const [draft, setDraft] = useState(urlText);
-  const settled = useDebouncedValue(draft, SEARCH_SETTLE_MS);
-  const syncedText = useRef(urlText);
-
-  useEffect(() => {
-    if (settled === syncedText.current) {
-      return;
-    }
-    syncedText.current = settled;
-    applyPatch({ q: settled });
-  }, [applyPatch, settled]);
-
-  // A shared link, Back or Forward carries text of its own, which wins.
-  useEffect(() => {
-    if (urlText !== syncedText.current) {
-      syncedText.current = urlText;
-      setDraft(urlText);
-    }
-  }, [urlText]);
+  const publishSearchText = useCallback(
+    (text: string) => applyPatch({ q: text }),
+    [applyPatch]
+  );
+  const searchBox = useSettledText(
+    search.q ?? BUDGET_SEARCH_DEFAULTS.q,
+    publishSearchText
+  );
 
   const companion: CompanionView =
     search.companion ?? BUDGET_SEARCH_DEFAULTS.companion;
@@ -122,11 +105,9 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
     filter,
     merchants,
     period,
-    /** What the request uses, once the typing has settled. */
-    searchQuery: settled,
-    /** What the box shows, updated on every keystroke. */
-    searchText: draft,
-    setSearchText: setDraft,
+    searchQuery: searchBox.settled,
+    searchText: searchBox.draft,
+    setSearchText: searchBox.setDraft,
     sort,
     view,
   };

@@ -8,25 +8,20 @@ import { useCallback, useState } from "react";
 
 import { BudgetCharts } from "@/components/budget/budget-charts";
 import { BudgetKpiStrip } from "@/components/budget/budget-kpi-strip";
-import { NoBankAccount } from "@/components/budget/no-bank-account";
 import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { TransactionDetailDrawer } from "@/components/budget/transaction-detail-drawer";
 import { TransactionList } from "@/components/budget/transaction-list";
-import { SyncButton } from "@/components/shared/sync-button";
-import { useAccountSync } from "@/hooks/budget/use-account-sync";
 import { useBudgetView } from "@/hooks/budget/use-budget-view";
 import { toggleCategoryFilter } from "@/lib/budget/category-selection";
 import type {
   CategoryFilter,
   CategorySelection,
 } from "@/lib/budget/category-selection";
-import { budgetSearchSchema } from "@/lib/budget/search";
 import { amountBoundsMinor } from "@/lib/budget/transaction-filters";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
-import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
-const BudgetPage = () => {
+const TransactionsPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
   const {
     amount,
@@ -134,8 +129,6 @@ const BudgetPage = () => {
     placeholderData: keepPreviousData,
   });
 
-  const { isSyncing, resync } = useAccountSync(accountsQuery.data?.hasAccounts);
-
   const handleLoadMore = useCallback(() => {
     if (
       transactionsQuery.hasNextPage &&
@@ -167,17 +160,6 @@ const BudgetPage = () => {
     [filter, handleFilterChange]
   );
 
-  // Until the account list lands there is no telling whether this is the
-  // budget or the empty state, and painting one only to swap it is worse than
-  // the shell standing alone for a beat.
-  if (accountsQuery.isPending) {
-    return null;
-  }
-
-  if (!accountsQuery.data?.hasAccounts) {
-    return <NoBankAccount />;
-  }
-
   const allTransactions =
     transactionsQuery.data?.pages.flatMap((p) => p.transactions) ?? [];
   const totals = transactionsQuery.data?.pages[0]?.totals ?? {
@@ -189,15 +171,8 @@ const BudgetPage = () => {
     : null;
 
   return (
-    <div className="@container/budget flex flex-1 flex-col gap-6 p-4">
+    <div className="flex flex-1 flex-col gap-6">
       <PeriodNavigator
-        actions={
-          <SyncButton
-            isSyncing={isSyncing}
-            label={m.budget_sync_now()}
-            onSync={resync}
-          />
-        }
         aggregation={aggregation}
         from={from}
         to={to}
@@ -286,7 +261,6 @@ const BudgetPage = () => {
   );
 };
 
-export const Route = createFileRoute("/_auth/budget")({
-  component: BudgetPage,
-  validateSearch: budgetSearchSchema,
+export const Route = createFileRoute("/_auth/budget/transactions")({
+  component: TransactionsPage,
 });

@@ -139,7 +139,7 @@ Every candidate passes `accept()`, which rejects a non-income category on a posi
 | Pass | File | What it writes |
 | --- | --- | --- |
 | Internal transfers | `internal-transfer.ts` | Pairs an outgoing and an incoming transaction of equal absolute amount and the same currency, on two accounts of one user, inside 24 hours. It then sets `isInternalTransfer: true`, `resolvedCategory: "internal-transfer"`, `resolutionStage: "channel"` and `resolutionConfidence: 0.95` |
-| Recurrence | `recurrence.ts` | Nothing. It groups outgoing transactions by merchant key and classifies the median interval. The file holds no write, and each request recomputes the answer |
+| Recurrence | `recurrence.ts` | Nothing. It groups outgoing transactions by merchant key. It then reads a cadence, a recurrence type, a confidence level and a month-by-month split. The file holds no write, and each request recomputes the answer. [Recurrence detection](#recurrence-detection) holds the rules |
 
 The internal-transfer pass includes rows that already carry a category, and it returns `0` on any throw.
 
@@ -170,6 +170,94 @@ The header comment of `resolve.ts` calls stage 5 a stub. That comment is wrong. 
 </Callout>
 
 The header of `resolve.ts` states the contract that does hold. Stages 1 to 4 are deterministic: the same transaction data always gives the same category. No model is involved, and the classifier sees what those stages leave undecided.
+
+## Recurrence detection
+
+`recurrence.ts` reads a cadence out of the stored transactions. It is a pure read: it holds no write, and it never throws. `detectRecurring` returns empty aggregates on a database error. [Budget](/docs/guides/budget) is the reader view of the result. The procedure that serves that view is [`budget.getRecurring`](/docs/integrations/procedures#budgetgetrecurring).
+
+### What a group is
+
+`recurringInWindow(transactions, window)` groups the transactions by `merchantKey`. The read behind it takes outgoing rows alone, and it drops an internal transfer. The window is enforced in the grouping, not in the query. A row with no merchant key joins no group, and a group of fewer than two transactions is dropped.
+
+The detector sorts each group by date. It then measures the interval in days between consecutive transactions. The median of those intervals is the cadence, and `nextExpected` is the last date plus that median.
+
+### The frequency bands
+
+The median interval lands in one band. Each band sets its own minimum of occurrences.
+
+| Frequency   | Median interval                          | Minimum occurrences |
+| ----------- | ---------------------------------------- | ------------------- |
+| `weekly`    | 5 to 9 days                              | 4                   |
+| `monthly`   | 25 to 35 days                            | 3                   |
+| `quarterly` | 80 to 100 days                           | 2                   |
+| `annual`    | 340 to 395 days                          | 2                   |
+| `irregular` | 10 to 400 days, outside every band above | 4                   |
+
+A median interval outside every named band falls back to `irregular`. A group that misses the minimum of its band gives no result at all.
+
+### Dispersion
+
+Both spreads are a relative median absolute deviation: `median(|v − median(v)|) / median(v)`. The value is `0` when the median is `0`. A ratio, rather than cents or days, makes an amount and an interval comparable against one threshold.
+
+| Signal           | Measured over                                  |
+| ---------------- | ---------------------------------------------- |
+| `amountSpread`   | The absolute amounts of the group              |
+| `intervalSpread` | The intervals between consecutive transactions |
+
+The file exports three thresholds.
+
+| Name | Value | Meaning |
+| --- | --- | --- |
+| `STABLE_AMOUNT_SPREAD` | `0.05` | At or below it, the charge repeats at the same price |
+| `VARIABLE_AMOUNT_SPREAD` | `0.25` | Above it, the reader sets the price rather than a contract |
+| `REGULAR_INTERVAL_SPREAD` | `0.2` | At or below it, the cadence holds a schedule |
+
+### The classification
+
+`classifyRecurrence({ amountSpread, frequency, intervalSpread, occurrences })` is pure and exported. It reads those four signals and no transaction list. It returns one `kind` and one `confidence`.
+
+`kind` is `fixed` when all three conditions hold:
+
+1. The frequency is not `irregular`.
+2. `intervalSpread` is at most `REGULAR_INTERVAL_SPREAD`.
+3. `amountSpread` is at most `VARIABLE_AMOUNT_SPREAD`.
+
+Every other group is `behavioral`. The confidence follows from the kind:
+
+| `kind` | Condition | `confidence` |
+| --- | --- | --- |
+| `fixed` | `amountSpread` at most `STABLE_AMOUNT_SPREAD`, and 3 occurrences or more | `confirmed` |
+| `fixed` | Any other fixed group | `likely` |
+| `behavioral` | Always | `pattern` |
+
+<Callout type="info">
+
+**Neither an exact date nor an exact amount is needed.** A bank moves its processing date, and a utility bill moves its amount. A group still reads as `fixed` while both spreads stay inside their thresholds. `REGULAR_INTERVAL_SPREAD` sets how far the date can move, and `VARIABLE_AMOUNT_SPREAD` sets how far the amount can move.
+
+</Callout>
+
+### One read, two aggregates
+
+`detectRecurring(userId, window)` does one transaction read and returns both aggregates. The field `expenses` holds the detected patterns, biggest typical amount first. The field `months` holds the month-by-month split.
+
+`recurringMonthsInWindow(transactions, window, expenses)` attributes each in-window outgoing transaction to one of three totals. The key is `YYYY-MM`, with a 1-based calendar month.
+
+| Total | What it collects |
+| --- | --- |
+| `fixedMinor` | A merchant key the detector classified as `fixed` |
+| `behavioralMinor` | A merchant key the detector classified as `behavioral` |
+| `discretionaryMinor` | Everything else |
+
+The third total is the fallback. A transaction with no `merchantKey`, or one that no detected pattern claims, is discretionary. The split takes the detected expenses rather than a second detection pass, so the two aggregates always agree. It returns the months it saw, and a caller that wants a fixed span fills the gaps itself.
+
+### The two windows
+
+| Helper | Window | What it means |
+| --- | --- | --- |
+| `cadenceWindow(from, to)` | The period widened by one year on each side | A cadence belongs to the merchant, not to where the reader stands, so the same rent never reads fixed in one month and variable in the month before it |
+| `trailingYear(to)` | The year that ends at `to` | The window a forward-looking commitment list means |
+
+`detectRecurringExpenses(userId, window)` keeps its old signature and its old behaviour. It is a projection of `detectRecurring` on the `expenses` field.
 
 ## The taxonomy
 

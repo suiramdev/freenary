@@ -5,8 +5,10 @@ import { z } from "zod";
 
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
 import type { TransactionChannel } from "../categorisation/normalise/types";
+import type { RecurringMonthTotals } from "../categorisation/recurrence";
 import {
   cadenceWindow,
+  detectRecurring,
   detectRecurringExpenses,
   trailingYear,
 } from "../categorisation/recurrence";
@@ -19,7 +21,11 @@ import {
 import { protectedProcedure } from "../index";
 import { findProviderUser } from "../lib/bank-provider-user";
 import { syncConnection } from "../lib/bank-sync";
-import { periodMonthCount, plannedByGroup } from "../lib/budget-planned";
+import {
+  monthSpan,
+  periodMonthCount,
+  plannedByGroup,
+} from "../lib/budget-planned";
 import { budgetLineKindOf } from "../lib/budget-profile";
 import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
@@ -385,6 +391,97 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
   return updated;
 };
 
+// Recurring commitments
+
+/** Months the recurring series covers, which is what a trailing year means. */
+const RECURRING_MONTHS = 12;
+
+/** The currency a figure carries when no account names one. */
+const FALLBACK_CURRENCY = "EUR";
+
+/**
+ * 1-based `YYYY-MM` key. The recurring series is read as calendar months, so
+ * it cannot share `monthKey`, whose 0-based key only ever serves as a grouping
+ * token inside one response.
+ */
+const calendarMonthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+/** The trailing 12 calendar month keys ending with `to`'s own month, oldest first. */
+const trailingMonthKeys = (to: Date): string[] => {
+  const keys: string[] = [];
+  for (let back = RECURRING_MONTHS - 1; back >= 0; back -= 1) {
+    keys.push(
+      calendarMonthKey(new Date(to.getFullYear(), to.getMonth() - back, 1))
+    );
+  }
+  return keys;
+};
+
+/**
+ * A dense trailing year: a month nothing recurred in is a real zero the trend
+ * and the chart must plot, not a gap that shortens the series.
+ */
+const zeroFilledMonths = (
+  totals: RecurringMonthTotals[],
+  keys: string[]
+): RecurringMonthTotals[] => {
+  const byMonth = new Map(totals.map((total) => [total.month, total]));
+  return keys.map(
+    (month) =>
+      byMonth.get(month) ?? {
+        behavioralMinor: 0,
+        discretionaryMinor: 0,
+        fixedMinor: 0,
+        month,
+      }
+  );
+};
+
+/**
+ * What the accounts say about the reader's money: the balance a due payment is
+ * covered from, and the currency the tab reads in. A balance of `null` is an
+ * account the provider never valued, not a zero.
+ */
+interface AccountsSummary {
+  availableBalanceMinor: number | null;
+  currency: string;
+}
+
+const accountsSummary = (
+  accounts: { balanceMinor: number | null; currency: string | null }[]
+): AccountsSummary => {
+  let balance = 0;
+  let valued = false;
+  const currencyCounts = new Map<string, number>();
+
+  for (const account of accounts) {
+    if (account.balanceMinor !== null) {
+      balance += account.balanceMinor;
+      valued = true;
+    }
+    if (account.currency) {
+      currencyCounts.set(
+        account.currency,
+        (currencyCounts.get(account.currency) ?? 0) + 1
+      );
+    }
+  }
+
+  // A tie on the code itself rather than on the row order: `findMany` promises
+  // none, and this currency labels every amount the tab prints.
+  let currency = FALLBACK_CURRENCY;
+  let bestCount = 0;
+  for (const [code, count] of currencyCounts) {
+    if (count > bestCount || (count === bestCount && code < currency)) {
+      currency = code;
+      bestCount = count;
+    }
+  }
+
+  return { availableBalanceMinor: valued ? balance : null, currency };
+};
+
 // Router
 
 export const budgetRouter = {
@@ -632,6 +729,95 @@ export const budgetRouter = {
         })),
       };
     }),
+
+  /**
+   * Everything the Recurring tab reads: the patterns detected over the
+   * trailing year, that year's monthly split, and the three figures a
+   * commitment is judged against — the plan, the income and the balance.
+   */
+  getRecurring: protectedProcedure.handler(async ({ context }) => {
+    const userId = context.session.user.id;
+    const asOf = new Date();
+    const observed = trailingYear(asOf);
+
+    const [detected, lines, incoming, accounts] = await Promise.all([
+      detectRecurring(userId, observed),
+      prisma.budgetLine.findMany({
+        select: {
+          amount: true,
+          category: { select: { parentSlug: true } },
+          categorySlug: true,
+        },
+        where: { userId },
+      }),
+      prisma.transaction.aggregate({
+        _min: { date: true },
+        _sum: { amount: true },
+        where: {
+          account: { connection: { userId } },
+          amount: { gt: 0 },
+          date: { gte: observed.from, lte: observed.to },
+          isInternalTransfer: false,
+        },
+      }),
+      prisma.bankAccount.findMany({
+        select: { balanceMinor: true, currency: true },
+        where: { connection: { userId } },
+      }),
+    ]);
+
+    // Income and investment lines are the other side of the profile's flow,
+    // and a commitment is only ever compared against what goes out.
+    const outgoingLines = lines
+      .map((line) => ({
+        amount: line.amount,
+        categorySlug: line.categorySlug,
+        parentSlug: line.category?.parentSlug ?? null,
+      }))
+      .filter((line) => budgetLineKindOf(line) === "OUTGOING");
+
+    // A declared line is already monthly, so the plan needs no scaling.
+    const plannedOutgoingMinor =
+      outgoingLines.length > 0
+        ? outgoingLines.reduce((sum, line) => sum + line.amount, 0)
+        : null;
+
+    // Measured from the first month that carries income, not from a fixed
+    // twelve: a first import reaches back 90 days, and dividing a quarter of a
+    // year by twelve would report a quarter of the reader's real income.
+    const incomingTotal = incoming._sum.amount;
+    const firstIncoming = incoming._min.date;
+    const monthlyIncomeMinor =
+      incomingTotal === null || firstIncoming === null
+        ? null
+        : Math.round(incomingTotal / monthSpan(firstIncoming, observed.to));
+
+    const { availableBalanceMinor, currency } = accountsSummary(accounts);
+
+    return {
+      asOf: asOf.toISOString(),
+      availableBalanceMinor,
+      currency,
+      items: detected.expenses.map((expense) => ({
+        amountSpread: expense.amountSpread,
+        category: expense.category,
+        confidence: expense.confidence,
+        currency: expense.currency,
+        frequency: expense.frequency,
+        intervalDays: expense.intervalDays,
+        kind: expense.kind,
+        lastSeen: expense.lastSeen.toISOString(),
+        merchantKey: expense.merchantKey,
+        merchantName: expense.merchantName,
+        nextExpected: expense.nextExpected.toISOString(),
+        occurrences: expense.occurrences,
+        typicalAmountMinor: expense.typicalAmountMinor,
+      })),
+      monthly: zeroFilledMonths(detected.months, trailingMonthKeys(asOf)),
+      monthlyIncomeMinor,
+      plannedOutgoingMinor,
+    };
+  }),
 
   getRecurringExpenses: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;

@@ -5,16 +5,32 @@ import {
 import { z } from "zod";
 
 import { AGGREGATION_MODES, TIME_RANGES } from "@/lib/budget/period";
+import {
+  RECURRENCE_CONFIDENCES,
+  RECURRENCE_FREQUENCIES,
+  RECURRENCE_KINDS,
+} from "@/lib/budget/recurring";
 
 export const PRIMARY_VIEWS = ["flow", "categories"] as const;
 export const COMPANION_VIEWS = ["fixed", "planned"] as const;
+export const RECURRING_VIEWS = ["trend", "forecast", "scatter"] as const;
+export const RECURRING_COMPANION_VIEWS = [
+  "categories",
+  "frequency",
+  "split",
+] as const;
 export const TRANSACTION_DIRECTIONS = ["outgoing", "incoming"] as const;
 export const SORT_MODES = ["date", "amount"] as const;
+/** Soonest due, or dearest a month: the Recurring list's two orderings. */
+export const RECURRING_SORT_MODES = ["next", "cost"] as const;
 
 export type PrimaryView = (typeof PRIMARY_VIEWS)[number];
 export type CompanionView = (typeof COMPANION_VIEWS)[number];
+export type RecurringView = (typeof RECURRING_VIEWS)[number];
+export type RecurringCompanionView = (typeof RECURRING_COMPANION_VIEWS)[number];
 export type TransactionDirection = (typeof TRANSACTION_DIRECTIONS)[number];
 export type SortMode = (typeof SORT_MODES)[number];
+export type RecurringSortMode = (typeof RECURRING_SORT_MODES)[number];
 
 // Anything outside a plausible calendar turns every derived Date into noise.
 const MIN_YEAR = 1970;
@@ -106,9 +122,11 @@ const merchantList = z
   .optional();
 
 /**
- * The whole budget view as URL text. Every field is optional and nothing
- * defaults here: an absent param means the default, so a clean view keeps a
- * clean URL and a shared link carries only what its sender changed.
+ * Both budget views as URL text, in one schema on the route that owns them
+ * both. Every field is optional and nothing defaults here: an absent param
+ * means the default, so a clean view keeps a clean URL and a shared link
+ * carries only what its sender changed. The `r`-prefixed fields belong to
+ * Recurring, the rest to Transactions.
  */
 export const budgetSearchSchema = z.object({
   agg: oneOf(AGGREGATION_MODES),
@@ -122,6 +140,17 @@ export const budgetSearchSchema = z.object({
   month: boundedInt(0, LAST_MONTH_INDEX),
   q: searchText,
   range: oneOf(TIME_RANGES),
+  rcat: slugList(SPENDING_CATEGORIES),
+  rcomp: oneOf(RECURRING_COMPANION_VIEWS),
+  rconf: slugList(RECURRENCE_CONFIDENCES),
+  rfreq: slugList(RECURRENCE_FREQUENCIES),
+  rgrp: slugList(CATEGORY_GROUPS),
+  rkind: oneOf(RECURRENCE_KINDS),
+  rmax: amountBound,
+  rmin: amountBound,
+  rq: searchText,
+  rsort: oneOf(RECURRING_SORT_MODES),
+  rview: oneOf(RECURRING_VIEWS),
   sort: oneOf(SORT_MODES),
   view: oneOf(PRIMARY_VIEWS),
   year: boundedInt(MIN_YEAR, MAX_YEAR),
@@ -144,6 +173,13 @@ export const BUDGET_SEARCH_DEFAULTS = {
   min: 0,
   q: "",
   range: "1M",
+  rcomp: "categories",
+  rkind: "fixed",
+  rmax: 0,
+  rmin: 0,
+  rq: "",
+  rsort: "cost",
+  rview: "trend",
   sort: "date",
   view: "flow",
 } as const satisfies Partial<BudgetSearch>;
@@ -159,15 +195,11 @@ const stripDefault = <T extends number | string>(
 const stripEmpty = <T extends string>(value: T[] | undefined) =>
   value && value.length > 0 ? value : undefined;
 
-/**
- * Applies a patch and drops every field that now holds its default, so the URL
- * only ever spells out what the reader actually chose. A field the patch omits
- * keeps its current value; clearing one means passing its default.
- */
-export const nextBudgetSearch = (
+/** The Transactions fields of a merge: the period, the charts and the list. */
+const nextTransactionsSearch = (
   current: BudgetSearch,
   patch: BudgetSearchPatch
-): BudgetSearch => ({
+) => ({
   agg: stripDefault(patch.agg ?? current.agg, BUDGET_SEARCH_DEFAULTS.agg),
   cat: stripEmpty(patch.cat ?? current.cat),
   companion: stripDefault(
@@ -188,4 +220,48 @@ export const nextBudgetSearch = (
   sort: stripDefault(patch.sort ?? current.sort, BUDGET_SEARCH_DEFAULTS.sort),
   view: stripDefault(patch.view ?? current.view, BUDGET_SEARCH_DEFAULTS.view),
   year: patch.year ?? current.year,
+});
+
+/** The Recurring fields of a merge: both charts, the kind, and every filter. */
+const nextRecurringSearch = (
+  current: BudgetSearch,
+  patch: BudgetSearchPatch
+) => ({
+  rcat: stripEmpty(patch.rcat ?? current.rcat),
+  rcomp: stripDefault(
+    patch.rcomp ?? current.rcomp,
+    BUDGET_SEARCH_DEFAULTS.rcomp
+  ),
+  rconf: stripEmpty(patch.rconf ?? current.rconf),
+  rfreq: stripEmpty(patch.rfreq ?? current.rfreq),
+  rgrp: stripEmpty(patch.rgrp ?? current.rgrp),
+  rkind: stripDefault(
+    patch.rkind ?? current.rkind,
+    BUDGET_SEARCH_DEFAULTS.rkind
+  ),
+  rmax: stripDefault(patch.rmax ?? current.rmax, BUDGET_SEARCH_DEFAULTS.rmax),
+  rmin: stripDefault(patch.rmin ?? current.rmin, BUDGET_SEARCH_DEFAULTS.rmin),
+  rq: stripDefault(patch.rq ?? current.rq, BUDGET_SEARCH_DEFAULTS.rq),
+  rsort: stripDefault(
+    patch.rsort ?? current.rsort,
+    BUDGET_SEARCH_DEFAULTS.rsort
+  ),
+  rview: stripDefault(
+    patch.rview ?? current.rview,
+    BUDGET_SEARCH_DEFAULTS.rview
+  ),
+});
+
+/**
+ * Applies a patch and drops every field that now holds its default, so the URL
+ * only ever spells out what the reader actually chose. A field the patch omits
+ * keeps its current value; clearing one means passing its default. Both views
+ * survive the merge: a filter on one must not clear the other's.
+ */
+export const nextBudgetSearch = (
+  current: BudgetSearch,
+  patch: BudgetSearchPatch
+): BudgetSearch => ({
+  ...nextTransactionsSearch(current, patch),
+  ...nextRecurringSearch(current, patch),
 });

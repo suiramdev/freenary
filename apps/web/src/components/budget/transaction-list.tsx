@@ -2,33 +2,25 @@ import {
   categoryGroupAppearance,
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
-import { Badge } from "@freenary/ui/components/badge";
-import { Button } from "@freenary/ui/components/button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@freenary/ui/components/input-group";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@freenary/ui/components/tabs";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@freenary/ui/components/toggle-group";
-import {
-  RiCloseLine,
-  RiCoinsLine,
-  RiSearchLine,
-  RiStore2Line,
-} from "@remixicon/react";
+import { RiCoinsLine, RiStore2Line } from "@remixicon/react";
 
 import { AmountFilterMenu } from "@/components/budget/amount-filter-menu";
 import { CategoryFilterMenu } from "@/components/budget/category-filter-menu";
 import { CategoryIcon } from "@/components/budget/category-icon";
+import {
+  ClearFiltersButton,
+  ListFilterBar,
+  ListFilterChip,
+  ListFilterChips,
+  ListSearchInput,
+  ListSortToggle,
+} from "@/components/budget/list-controls";
 import { MerchantFilterMenu } from "@/components/budget/merchant-filter-menu";
 import { TransactionRows } from "@/components/budget/transaction-rows";
 import {
@@ -39,7 +31,6 @@ import {
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TimeRange } from "@/lib/budget/period";
-import { SORT_MODES } from "@/lib/budget/search";
 import type { SortMode, TransactionDirection } from "@/lib/budget/search";
 import type { Transaction } from "@/lib/budget/transaction";
 import {
@@ -51,10 +42,8 @@ import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** Toggle's sm size sits below the outline trigger beside it, and Toggle
-    carries no press feedback of its own. */
-const SORT_ITEM_CLASS =
-  "h-7 text-xs/relaxed transition-transform duration-150 ease-out active:scale-[0.96]";
+/** A category chip carries its group's mark, at chip scale. */
+const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
 
 /** The amount filter as a chip reads: one bound, or the span between two. */
 const amountLabel = (amount: AmountRange): string => {
@@ -67,6 +56,11 @@ const amountLabel = (amount: AmountRange): string => {
     ? m.budget_filter_amount_from({ amount: min })
     : m.budget_filter_amount_upto({ amount: max });
 };
+
+const SORT_OPTIONS = [
+  { label: m.budget_sort_date, value: "date" },
+  { label: m.budget_sort_amount, value: "amount" },
+] as const satisfies readonly { label: () => string; value: SortMode }[];
 
 export const TransactionList = ({
   amount,
@@ -124,38 +118,21 @@ export const TransactionList = ({
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="min-w-40 flex-1">
-          <InputGroupAddon>
-            <RiSearchLine />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder={m.budget_search_placeholder()}
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            type="search"
-          />
-        </InputGroup>
-        <ToggleGroup
-          aria-label={m.budget_sort_label()}
-          value={[sort]}
-          onValueChange={([next]) => {
-            const mode = SORT_MODES.find((candidate) => candidate === next);
-            if (mode) {
-              onSortChange(mode);
-            }
-          }}
-          size="sm"
-          spacing={0}
-          variant="outline"
-        >
-          <ToggleGroupItem className={SORT_ITEM_CLASS} value="date">
-            {m.budget_sort_date()}
-          </ToggleGroupItem>
-          <ToggleGroupItem className={SORT_ITEM_CLASS} value="amount">
-            {m.budget_sort_amount()}
-          </ToggleGroupItem>
-        </ToggleGroup>
+      <ListFilterBar>
+        <ListSearchInput
+          onChange={onSearchChange}
+          placeholder={m.budget_search_placeholder()}
+          value={search}
+        />
+        <ListSortToggle
+          label={m.budget_sort_label()}
+          onChange={onSortChange}
+          options={SORT_OPTIONS.map((option) => ({
+            label: option.label(),
+            value: option.value,
+          }))}
+          value={sort}
+        />
         <AmountFilterMenu onRangeChange={onAmountChange} range={amount} />
         <MerchantFilterMenu
           direction={direction}
@@ -165,108 +142,64 @@ export const TransactionList = ({
           to={to}
         />
         <CategoryFilterMenu filter={filter} onFilterChange={onFilterChange} />
-      </div>
+      </ListFilterBar>
 
       {activeCount > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <ListFilterChips>
           {filter.groups.map((group) => (
-            <Badge
-              key={group}
-              className="hover:bg-muted"
-              render={
-                <button
-                  aria-label={m.budget_filter_remove({
-                    label: categoryGroupLabel(group),
-                  })}
-                  type="button"
-                  onClick={() => onFilterChange(toggleGroup(filter, group))}
+            <ListFilterChip
+              icon={
+                <CategoryIcon
+                  {...categoryGroupAppearance(group)}
+                  className={CHIP_ICON_CLASS}
                 />
               }
-              variant="outline"
-            >
-              <CategoryIcon
-                {...categoryGroupAppearance(group)}
-                className="size-4 [&_svg]:size-2.5"
-              />
-              {categoryGroupLabel(group)}
-              <RiCloseLine data-icon="inline-end" />
-            </Badge>
+              key={group}
+              label={categoryGroupLabel(group)}
+              onRemove={() => onFilterChange(toggleGroup(filter, group))}
+            />
           ))}
           {filter.categories.map((cat) => (
-            <Badge
-              key={cat}
-              className="hover:bg-muted"
-              render={
-                <button
-                  aria-label={m.budget_filter_remove({
-                    label: categoryLabel(cat),
-                  })}
-                  type="button"
-                  onClick={() => onFilterChange(toggleCategory(filter, cat))}
+            <ListFilterChip
+              icon={
+                <CategoryIcon
+                  {...predefinedCategoryAppearance(cat)}
+                  className={CHIP_ICON_CLASS}
                 />
               }
-              variant="outline"
-            >
-              <CategoryIcon
-                {...predefinedCategoryAppearance(cat)}
-                className="size-4 [&_svg]:size-2.5"
-              />
-              {categoryLabel(cat)}
-              <RiCloseLine data-icon="inline-end" />
-            </Badge>
+              key={cat}
+              label={categoryLabel(cat)}
+              onRemove={() => onFilterChange(toggleCategory(filter, cat))}
+            />
           ))}
           {merchants.map((merchant) => (
-            <Badge
+            <ListFilterChip
+              icon={<RiStore2Line />}
               key={merchant}
-              className="hover:bg-muted max-w-48"
-              render={
-                <button
-                  aria-label={m.budget_filter_remove({ label: merchant })}
-                  type="button"
-                  onClick={() =>
-                    onMerchantsChange(toggleMerchant(merchants, merchant))
-                  }
-                />
+              label={merchant}
+              onRemove={() =>
+                onMerchantsChange(toggleMerchant(merchants, merchant))
               }
-              variant="outline"
-            >
-              <RiStore2Line />
-              <span className="min-w-0 truncate">{merchant}</span>
-              <RiCloseLine data-icon="inline-end" />
-            </Badge>
+              truncate={true}
+            />
           ))}
           {hasAmountBound && (
-            <Badge
-              className="hover:bg-muted"
-              render={
-                <button
-                  aria-label={m.budget_filter_remove({
-                    label: amountLabel(amount),
-                  })}
-                  type="button"
-                  onClick={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
-                />
-              }
-              variant="outline"
-            >
-              <RiCoinsLine />
-              {amountLabel(amount)}
-              <RiCloseLine data-icon="inline-end" />
-            </Badge>
+            <ListFilterChip
+              icon={<RiCoinsLine />}
+              label={amountLabel(amount)}
+              onRemove={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
+            />
           )}
           {activeCount >= 2 && (
-            <Button
-              variant="ghost"
-              onClick={() => {
+            <ClearFiltersButton
+              onClear={() => {
                 onFilterChange(EMPTY_CATEGORY_FILTER);
                 onMerchantsChange([]);
                 onAmountChange(EMPTY_AMOUNT_RANGE);
               }}
-            >
-              {m.budget_filter_clear_all()}
-            </Button>
+            />
           )}
-        </div>
+        </ListFilterChips>
       )}
 
       <Tabs
