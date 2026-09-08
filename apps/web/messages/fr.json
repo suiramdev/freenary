@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "account_documentation": "Documentation",
   "account_menu_loading": "Chargement du compte",
   "account_sign_out": "Se déconnecter",
   "assistant_activity_drawing": "Tracé du graphique…",

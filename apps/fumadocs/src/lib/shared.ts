@@ -29,6 +29,7 @@ export function decodeMarkdownUrl(segments: string[]) {
 
   const out = [...segments];
   out[out.length - 1] = out[out.length - 1].replace(/\.md$/, "");
-  if (out.length === 1 && out[0] === "index") out.pop();
+  // `index` is the folder itself: `/docs/1.2/index.md` is the version index.
+  if (out.at(-1) === "index") out.pop();
   return out;
 }

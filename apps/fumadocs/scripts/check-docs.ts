@@ -16,11 +16,13 @@
  * the site renders with.
  */
 
-import { relative } from "node:path";
+import { readdir } from "node:fs/promises";
+import { join, relative } from "node:path";
 
 import { icons } from "lucide-react";
 
 import { getMDXComponents } from "../src/components/mdx";
+import { isVersionId, NEXT_VERSION } from "../src/lib/versions";
 import {
   type DocPage,
   lineAt,
@@ -45,6 +47,10 @@ import {
 
 const CONTENT_DIR = "content/docs";
 const BASE_ROUTE = "/docs";
+/** The version a page belongs to: `content/docs/<version>/…`. */
+const versionOf = (rel: string) => rel.split("/")[0];
+/** A file this site owns: a page, or a `meta.json`. */
+const CONTENT_FILE = /\.(?:mdx|json)$/;
 /** Entries a `meta.json` `pages` array accepts besides a page or folder name. */
 const META_DIRECTIVE = /^(?:---.*---|\.\.\..*|!.+|(?:external:)?\[.*\]\(.*\))$/;
 // A sentence can end inside markup (`… one line.**`) and the next one can open
@@ -141,7 +147,7 @@ const checkFrontmatter = (page: DocPage) => {
 // --- code fences and components --------------------------------------------
 
 const checkFences = (page: DocPage) => {
-  const isGuide = page.rel.startsWith("guides/");
+  const isGuide = page.rel.split("/")[1] === "guides";
 
   for (const fence of page.fences) {
     const line = lineAt(page.raw, fence.index);
@@ -226,8 +232,30 @@ const checkLinks = (page: DocPage, pages: readonly DocPage[]) => {
     }
 
     const parts = ANCHOR_LINK.exec(target);
-    const path = (parts?.[1] ?? target).replace(/\/$/, "");
+    const written = (parts?.[1] ?? target).replace(/\/$/, "");
     const anchor = parts?.[2];
+    const [first] = written.slice(BASE_ROUTE.length + 1).split("/");
+
+    // A link carries no version: it resolves inside the version it is read in,
+    // which is what makes a release snapshot a plain copy.
+    if (isVersionId(first)) {
+      report(
+        "error",
+        page.rel,
+        line,
+        "link",
+        `\`${target}\` names a version. Write \`${BASE_ROUTE}/${written
+          .slice(BASE_ROUTE.length + 1)
+          .split("/")
+          .slice(1)
+          .join("/")}\`, which resolves inside the version the reader is on.`
+      );
+      continue;
+    }
+
+    const path = `${BASE_ROUTE}/${versionOf(page.rel)}${written.slice(
+      BASE_ROUTE.length
+    )}`;
     const targetPage = byUrl[path];
 
     if (!targetPage) {
@@ -353,7 +381,7 @@ const checkPhrases = (page: DocPage) => {
     flag(pattern, "ste-modal", (hit) => `\`${hit}\` — write "${replacement}".`);
   }
 
-  if (page.rel.startsWith("guides/")) {
+  if (page.rel.split("/")[1] === "guides") {
     flag(
       SCREAMING_SNAKE,
       "guides-audience",
@@ -446,6 +474,101 @@ const checkSentences = (page: DocPage) => {
   }
 };
 
+// --- versions --------------------------------------------------------------
+
+/**
+ * `content/docs` holds one folder per version. A release snapshot that keeps
+ * `next` in its `meta.json` would drop out of the version dropdown, and the
+ * build would stay green.
+ */
+const checkVersions = async (
+  pages: readonly DocPage[],
+  metas: readonly MetaFile[]
+) => {
+  const entries = await readdir(CONTENT_DIR, { withFileTypes: true });
+  const metaByFolder: Record<string, MetaFile> = {};
+  for (const meta of metas) {
+    metaByFolder[meta.folder] = meta;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      // The version list is the one file that belongs beside the version
+      // folders. A page or a nav file here belongs to no version, so no URL
+      // reaches it. Anything else — an editor or OS artifact — is not ours.
+      if (CONTENT_FILE.test(entry.name) && entry.name !== "meta.json") {
+        report(
+          "error",
+          entry.name,
+          1,
+          "version",
+          `\`${entry.name}\` sits outside every version. Move it into \`${NEXT_VERSION}/\`.`
+        );
+      }
+      continue;
+    }
+    const file = join(CONTENT_DIR, entry.name, "meta.json");
+
+    if (!isVersionId(entry.name)) {
+      report(
+        "error",
+        relative(CONTENT_DIR, file),
+        1,
+        "version",
+        `\`${entry.name}\` is not a version. A folder under content/docs is \`${NEXT_VERSION}\` or \`X.Y\`.`
+      );
+      continue;
+    }
+
+    if (!pages.some((page) => page.rel === `${entry.name}/index.mdx`)) {
+      report(
+        "error",
+        relative(CONTENT_DIR, file),
+        1,
+        "version",
+        `\`${entry.name}\` has no index.mdx, so the version dropdown has nowhere to land.`
+      );
+    }
+
+    const meta = metaByFolder[entry.name];
+    if (!meta) {
+      report(
+        "error",
+        relative(CONTENT_DIR, file),
+        1,
+        "version",
+        `\`${entry.name}\` has no meta.json.`
+      );
+      continue;
+    }
+
+    const parsed = JSON.parse(meta.raw) as {
+      root?: unknown;
+      title?: unknown;
+    };
+
+    if (parsed.root !== true) {
+      report(
+        "error",
+        relative(CONTENT_DIR, meta.file),
+        1,
+        "version",
+        'no `"root": true`, so the sidebar mixes every version and no dropdown appears.'
+      );
+    }
+
+    if (parsed.title !== entry.name) {
+      report(
+        "error",
+        relative(CONTENT_DIR, meta.file),
+        1,
+        "version",
+        `the title is \`${String(parsed.title)}\`; the dropdown labels this version \`${entry.name}\`.`
+      );
+    }
+  }
+};
+
 // --- run -------------------------------------------------------------------
 
 const strict = process.argv.includes("--strict");
@@ -478,15 +601,22 @@ for (const page of pages) {
   checkFences(page);
   checkComponents(page, registered);
   checkLinks(page, pages);
-  checkHeadings(page);
-  checkPhrases(page);
-  checkSentences(page);
+
+  // A frozen version passed the language rules when it was written, and the
+  // word lists keep moving. Its structure still has to hold up.
+  if (versionOf(page.rel) === NEXT_VERSION) {
+    checkHeadings(page);
+    checkPhrases(page);
+    checkSentences(page);
+  }
 }
 
 ignoredRules = {};
 for (const meta of metas) {
   checkMeta(meta, pages, CONTENT_DIR);
 }
+
+await checkVersions(pages, metas);
 
 // A duplicate anchor on one page breaks a link that names it.
 for (const page of pages) {

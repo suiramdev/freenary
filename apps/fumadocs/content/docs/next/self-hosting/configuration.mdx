@@ -212,12 +212,14 @@ The code reads each variable below straight from `process.env`. None of them bel
 | `SKIP_ENV_VALIDATION` | the API server | Any non-empty value turns the whole server schema off. The image sets it in the builder stage alone. |
 | `GITHUB_REPOSITORY` | the server image build | Which repository the merchant data release comes from. The default is `suiramdev/freenary`. |
 | `GITHUB_TOKEN` | the server image build | It lifts the GitHub API rate limit of that download. The build reads it as a BuildKit secret, so the value never enters a layer. |
+| `FREENARY_VERSION` | the web image build | The release the image is built from. The `Images` workflow passes the version of the ref: `1.2.0` for a release tag, and `dev` or `main` for a branch push. It fills `VITE_FREENARY_VERSION`. |
 
-One more variable belongs to a schema, but to the client schema, not the server one:
+Two more variables belong to a schema, but to the client schema, not the server one. Vite inlines each one into the client bundle, so the image build decides their values:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VITE_SERVER_URL` | `http://localhost:3000` | The build-time fallback API origin. Vite inlines it into the client bundle. It applies only while `SERVER_URL` and `PUBLIC_SERVER_URL` are both unset. |
+| `VITE_SERVER_URL` | `http://localhost:3000` | The build-time fallback API origin. It applies only while `SERVER_URL` and `PUBLIC_SERVER_URL` are both unset. |
+| `VITE_FREENARY_VERSION` | none | The release the account menu links to. `1.2.0` opens the `1.2` documentation; any other value, and an empty one, opens the `next` documentation. The Dockerfile fills it from the `FREENARY_VERSION` build argument. |
 
 ## Compose-only variables
 
