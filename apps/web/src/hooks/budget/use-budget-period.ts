@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 
+import type { PeriodInput } from "@/lib/budget/budget-queries";
 import { computeDateRange, isMultiMonth } from "@/lib/budget/period";
 import type { AggregationMode, TimeRange } from "@/lib/budget/period";
 import { BUDGET_SEARCH_DEFAULTS } from "@/lib/budget/search";
@@ -45,8 +46,8 @@ export const useBudgetPeriod = ({
     };
   }, [lastDataDate, month, year]);
 
-  const changeRange = useCallback(
-    (next: TimeRange) => {
+  const rangePatch = useCallback(
+    (next: TimeRange): BudgetPeriodPatch => {
       const patch: BudgetPeriodPatch = { range: next };
       if (!isMultiMonth(next)) {
         patch.aggregation = "total";
@@ -69,9 +70,27 @@ export const useBudgetPeriod = ({
           patch.year = lastYear;
         }
       }
-      onChange(patch);
+      return patch;
     },
-    [anchor, lastDataDate, onChange]
+    [anchor, lastDataDate]
+  );
+
+  const changeRange = useCallback(
+    (next: TimeRange) => onChange(rangePatch(next)),
+    [onChange, rangePatch]
+  );
+
+  /** The period a patch would land on, without navigating to it. */
+  const resolve = useCallback(
+    (patch: BudgetPeriodPatch): PeriodInput => ({
+      aggregation: patch.aggregation ?? aggregation,
+      ...computeDateRange(
+        patch.year ?? anchor.year,
+        patch.month ?? anchor.month,
+        patch.range ?? range
+      ),
+    }),
+    [aggregation, anchor, range]
   );
 
   const setAggregation = useCallback(
@@ -101,6 +120,11 @@ export const useBudgetPeriod = ({
     lastMonth: dateBounds?.last
       ? new Date(dateBounds.last.getFullYear(), dateBounds.last.getMonth(), 1)
       : undefined,
+    /** Where an arrow or the calendar would take the page. */
+    previewMonth: (nextYear: number, nextMonth: number) =>
+      resolve({ month: nextMonth, year: nextYear }),
+    /** Where a range toggle would take it, clamp included. */
+    previewRange: (next: TimeRange) => resolve(rangePatch(next)),
     range,
     setAggregation,
     setMonth,

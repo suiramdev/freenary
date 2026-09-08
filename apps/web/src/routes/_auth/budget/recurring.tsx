@@ -38,8 +38,8 @@ const RecurringPage = () => {
     companion,
     filter,
     kind,
-    searchText,
-    setSearchText,
+    searchQuery,
+    setSearchQuery,
     sort,
     view,
   } = useRecurringView();
@@ -170,9 +170,9 @@ const RecurringPage = () => {
         onConfidencesChange={handleConfidencesChange}
         onFrequenciesChange={handleFrequenciesChange}
         onKindChange={(next) => applyPatch({ rkind: next })}
-        onSearchChange={setSearchText}
+        onSearchChange={setSearchQuery}
         onSortChange={(next) => applyPatch({ rsort: next })}
-        search={searchText}
+        search={searchQuery}
         sort={sort}
       />
     </div>

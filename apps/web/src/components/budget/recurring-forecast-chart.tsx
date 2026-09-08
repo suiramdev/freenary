@@ -174,6 +174,7 @@ export const RecurringForecastChart = ({
             dot={false}
             fill={`var(--color-${BALANCE_KEY})`}
             fillOpacity={AREA_FILL_OPACITY}
+            isAnimationActive={false}
             name={BALANCE_KEY}
             stroke={`var(--color-${BALANCE_KEY})`}
             strokeWidth={2}

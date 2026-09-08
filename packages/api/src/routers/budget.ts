@@ -1171,24 +1171,25 @@ export const budgetRouter = {
         findManyOpts.skip = 1;
       }
 
-      const transactions = await prisma.transaction.findMany(findManyOpts);
+      // Totals cover the whole filtered range, pagination aside, and neither
+      // aggregate depends on the page: one round trip of wall time, not three.
+      const [transactions, incomingTotal, outgoingTotal] = await Promise.all([
+        prisma.transaction.findMany(findManyOpts),
+        prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: { ...baseWhere, amount: { gt: 0 } },
+        }),
+        prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: { ...baseWhere, amount: { lt: 0 } },
+        }),
+      ]);
 
       let nextCursor: string | null = null;
       if (transactions.length > limit) {
         const last = transactions.pop();
         nextCursor = last?.id ?? null;
       }
-
-      // Compute totals for the full filtered range (ignoring pagination)
-      const incomingTotal = await prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { ...baseWhere, amount: { gt: 0 } },
-      });
-
-      const outgoingTotal = await prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { ...baseWhere, amount: { lt: 0 } },
-      });
 
       return {
         nextCursor,

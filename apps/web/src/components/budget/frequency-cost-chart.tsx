@@ -139,6 +139,7 @@ export const FrequencyCostChart = ({
             <Scatter
               data={points.filter((row) => row.kind === kind.key)}
               fill={`var(--color-${kind.key})`}
+              isAnimationActive={false}
               key={kind.key}
               name={kind.key}
             />

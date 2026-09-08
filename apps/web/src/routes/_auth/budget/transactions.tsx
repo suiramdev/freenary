@@ -2,9 +2,10 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useQuery,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { BudgetCharts } from "@/components/budget/budget-charts";
 import { BudgetKpiStrip } from "@/components/budget/budget-kpi-strip";
@@ -12,14 +13,25 @@ import { PeriodNavigator } from "@/components/budget/period-navigator";
 import { TransactionDetailDrawer } from "@/components/budget/transaction-detail-drawer";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { useBudgetView } from "@/hooks/budget/use-budget-view";
+import {
+  isStaleView,
+  prefetchPeriod,
+  prefetchTransactions,
+  transactionsQueryOptions,
+} from "@/lib/budget/budget-queries";
+import type {
+  PeriodInput,
+  TransactionsInput,
+} from "@/lib/budget/budget-queries";
 import { toggleCategoryFilter } from "@/lib/budget/category-selection";
 import type {
   CategoryFilter,
   CategorySelection,
 } from "@/lib/budget/category-selection";
-import { amountBoundsMinor } from "@/lib/budget/transaction-filters";
+import type { SortMode, TransactionDirection } from "@/lib/budget/search";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
-import { client, orpc } from "@/utils/orpc";
+import { m } from "@/paraglide/messages.js";
+import { orpc } from "@/utils/orpc";
 
 const TransactionsPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
@@ -32,8 +44,7 @@ const TransactionsPage = () => {
     merchants,
     period,
     searchQuery,
-    searchText,
-    setSearchText,
+    setSearchQuery,
     sort,
     view,
   } = useBudgetView({
@@ -49,6 +60,8 @@ const TransactionsPage = () => {
     firstMonth,
     from,
     lastMonth,
+    previewMonth,
+    previewRange,
     range,
     setAggregation: handleAggregationChange,
     setMonth: handleMonthChange,
@@ -89,45 +102,42 @@ const TransactionsPage = () => {
     placeholderData: keepPreviousData,
   });
 
-  const { amountMax, amountMin } = amountBoundsMinor(amount);
+  const listInput = useMemo<TransactionsInput>(
+    () => ({
+      amount,
+      direction,
+      filter,
+      from,
+      merchants,
+      search: searchQuery,
+      sort,
+      to,
+    }),
+    [amount, direction, filter, from, merchants, searchQuery, sort, to]
+  );
 
-  const transactionsQuery = useInfiniteQuery({
-    queryKey: [
-      "budget",
-      "getTransactions",
-      {
-        amountMax,
-        amountMin,
-        direction,
-        filter,
-        from: from.toISOString(),
-        merchants,
-        search: searchQuery,
-        sort,
-        to: to.toISOString(),
-      },
-    ],
-    queryFn: ({ pageParam }) =>
-      client.budget.getTransactions({
-        amountMax,
-        amountMin,
-        categories:
-          filter.categories.length > 0 ? filter.categories : undefined,
-        cursor: pageParam,
-        direction,
-        from,
-        groups: filter.groups.length > 0 ? filter.groups : undefined,
-        limit: 50,
-        merchants: merchants.length > 0 ? merchants : undefined,
-        search: searchQuery || undefined,
-        sort,
-        to,
-      }),
-    // SAFETY: TanStack Query requires initialPageParam typed to match pageParam; undefined is the valid initial state
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    placeholderData: keepPreviousData,
-  });
+  const transactionsQuery = useInfiniteQuery(
+    transactionsQueryOptions(listInput)
+  );
+
+  const queryClient = useQueryClient();
+
+  const handleDirectionIntent = useCallback(
+    (dir: TransactionDirection) =>
+      prefetchTransactions(queryClient, { ...listInput, direction: dir }),
+    [listInput, queryClient]
+  );
+
+  const handleSortIntent = useCallback(
+    (next: SortMode) =>
+      prefetchTransactions(queryClient, { ...listInput, sort: next }),
+    [listInput, queryClient]
+  );
+
+  const handlePeriodIntent = useCallback(
+    (target: PeriodInput) => prefetchPeriod(queryClient, target, listInput),
+    [listInput, queryClient]
+  );
 
   const handleLoadMore = useCallback(() => {
     if (
@@ -170,8 +180,22 @@ const TransactionsPage = () => {
     ? (allTransactions.find((t) => t.id === selectedTransactionId) ?? null)
     : null;
 
+  // One announcement for the whole page: every dimmed region is the same
+  // answer on its way.
+  const isUpdating = [
+    breakdownQuery,
+    sankeyQuery,
+    fixedVsVariableQuery,
+    budgetVsActualQuery,
+    transactionsQuery,
+  ].some(isStaleView);
+
   return (
     <div className="flex flex-1 flex-col gap-6">
+      {isUpdating ? (
+        <output className="sr-only">{m.budget_view_updating()}</output>
+      ) : null}
+
       <PeriodNavigator
         aggregation={aggregation}
         from={from}
@@ -181,13 +205,18 @@ const TransactionsPage = () => {
         lastMonth={lastMonth}
         onAggregationChange={handleAggregationChange}
         onRangeChange={handleRangeChange}
+        onRangeIntent={(next) => handlePeriodIntent(previewRange(next))}
         onMonthChange={handleMonthChange}
+        onMonthIntent={(year, month) =>
+          handlePeriodIntent(previewMonth(year, month))
+        }
       />
 
       <BudgetKpiStrip
         aggregation={aggregation}
         isError={sankeyQuery.isError}
         isPending={sankeyQuery.isLoading}
+        isStale={isStaleView(sankeyQuery)}
         totalExpenses={sankeyQuery.data?.totalExpenses ?? 0}
         totalIncome={sankeyQuery.data?.totalIncome ?? 0}
       />
@@ -199,17 +228,20 @@ const TransactionsPage = () => {
           data: breakdownQuery.data?.groups,
           isError: breakdownQuery.isError,
           isPending: breakdownQuery.isLoading,
+          isStale: isStaleView(breakdownQuery),
         }}
         cashFlow={{
           data: sankeyQuery.data,
           isError: sankeyQuery.isError,
           isPending: sankeyQuery.isLoading,
+          isStale: isStaleView(sankeyQuery),
         }}
         companion={companion}
         fixedVsVariable={{
           data: fixedVsVariableQuery.data,
           isError: fixedVsVariableQuery.isError,
           isPending: fixedVsVariableQuery.isLoading,
+          isStale: isStaleView(fixedVsVariableQuery),
         }}
         onCompanionChange={(next) => applyPatch({ companion: next })}
         onSelect={handleSelect}
@@ -218,6 +250,7 @@ const TransactionsPage = () => {
           data: budgetVsActualQuery.data,
           isError: budgetVsActualQuery.isError,
           isPending: budgetVsActualQuery.isLoading,
+          isStale: isStaleView(budgetVsActualQuery),
         }}
         view={view}
       />
@@ -228,10 +261,11 @@ const TransactionsPage = () => {
         totals={totals}
         direction={direction}
         onDirectionChange={(dir) => applyPatch({ dir })}
+        onDirectionIntent={handleDirectionIntent}
         from={from}
         to={to}
-        search={searchText}
-        onSearchChange={setSearchText}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
         filter={filter}
         onAmountChange={handleAmountChange}
         onFilterChange={handleFilterChange}
@@ -239,11 +273,13 @@ const TransactionsPage = () => {
         onMerchantsChange={handleMerchantsChange}
         sort={sort}
         onSortChange={(next) => applyPatch({ sort: next })}
+        onSortIntent={handleSortIntent}
         hasMore={transactionsQuery.hasNextPage}
         onLoadMore={handleLoadMore}
         isLoading={
           transactionsQuery.isLoading || transactionsQuery.isFetchingNextPage
         }
+        isStale={isStaleView(transactionsQuery)}
         onTransactionClick={(tx) => setSelectedTransactionId(tx.id)}
         range={range}
       />
