@@ -23,6 +23,7 @@ import {
 } from "@freenary/ui/components/sidebar";
 import { RiArrowRightSLine } from "@remixicon/react";
 import { Link, useLocation } from "@tanstack/react-router";
+import type { CSSProperties } from "react";
 
 import { SidebarBrand } from "@/components/shared/sidebar-brand";
 import { SidebarFirstSteps } from "@/components/shared/sidebar-first-steps";
@@ -39,6 +40,20 @@ const PLANNED_CLASS =
 
 /** The label takes the row's spare width so the chevron keeps its own column. */
 const LABEL_CLASS = "min-w-0 flex-1 truncate";
+
+/**
+ * The panel's height opens the group; the rows then fade and lift into it in
+ * turn. The exit is one undelayed fade: softer, and done before the close is.
+ */
+const SUB_ROW_CLASS =
+  "transition-[opacity,translate,filter] duration-200 ease-fluid [transition-delay:calc(var(--nav-sub-index,0)*60ms)] group-data-starting-style/collapsible-content:-translate-y-1 group-data-starting-style/collapsible-content:opacity-0 group-data-starting-style/collapsible-content:blur-[4px] group-data-ending-style/collapsible-content:opacity-0 group-data-ending-style/collapsible-content:delay-0 motion-reduce:transition-none";
+
+/** Feeds the row's position in its group to the delay in `SUB_ROW_CLASS`. */
+const subRowStyle = (
+  index: number
+): CSSProperties & { "--nav-sub-index": number } => ({
+  "--nav-sub-index": index,
+});
 
 const isCurrent = (pathname: string, to: string) =>
   to === "/"
@@ -97,13 +112,17 @@ const NavArea = ({
         <span className={LABEL_CLASS}>{title}</span>
         <RiArrowRightSLine
           aria-hidden="true"
-          className="text-sidebar-foreground/50 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90"
+          className="text-sidebar-foreground/50 ease-fluid transition-transform duration-150 group-data-panel-open/collapsible-trigger:rotate-90"
         />
       </SidebarMenuButton>
       <CollapsibleContent>
         <SidebarMenuSub>
-          {item.children.map((page) => (
-            <SidebarMenuSubItem key={page.to}>
+          {item.children.map((page, index) => (
+            <SidebarMenuSubItem
+              className={SUB_ROW_CLASS}
+              key={page.to}
+              style={subRowStyle(index)}
+            >
               <SidebarMenuSubButton
                 isActive={isCurrent(pathname, page.to)}
                 render={<Link to={page.to} />}
