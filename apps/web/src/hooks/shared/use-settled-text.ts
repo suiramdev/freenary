@@ -40,7 +40,5 @@ export const useSettledText = (
     /** What the box shows, updated on every keystroke. */
     draft,
     setDraft,
-    /** What the request uses, once the typing has settled. */
-    settled,
   };
 };

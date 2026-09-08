@@ -23,6 +23,7 @@ import {
 } from "@/components/budget/list-controls";
 import { MerchantFilterMenu } from "@/components/budget/merchant-filter-menu";
 import { TransactionRows } from "@/components/budget/transaction-rows";
+import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
 import {
   EMPTY_CATEGORY_FILTER,
   toggleCategory,
@@ -68,6 +69,7 @@ export const TransactionList = ({
   totals,
   direction,
   onDirectionChange,
+  onDirectionIntent,
   from,
   to,
   search,
@@ -79,9 +81,11 @@ export const TransactionList = ({
   onMerchantsChange,
   sort,
   onSortChange,
+  onSortIntent,
   hasMore,
   onLoadMore,
   isLoading,
+  isStale,
   onTransactionClick,
   range,
 }: {
@@ -90,6 +94,7 @@ export const TransactionList = ({
   totals: { incoming: number; outgoing: number };
   direction: TransactionDirection;
   onDirectionChange: (dir: TransactionDirection) => void;
+  onDirectionIntent: (dir: TransactionDirection) => void;
   from: Date;
   to: Date;
   search: string;
@@ -101,12 +106,15 @@ export const TransactionList = ({
   onMerchantsChange: (merchants: string[]) => void;
   sort: SortMode;
   onSortChange: (sort: SortMode) => void;
+  onSortIntent: (sort: SortMode) => void;
   hasMore: boolean;
   onLoadMore: () => void;
   isLoading: boolean;
+  isStale: boolean;
   onTransactionClick: (tx: Transaction) => void;
   range: TimeRange;
 }) => {
+  const directionIntent = useHoverIntent(onDirectionIntent);
   const outgoingLabel = m.budget_tab_outgoing({
     amount: formatCurrency(Math.abs(totals.outgoing), "EUR"),
   });
@@ -127,6 +135,7 @@ export const TransactionList = ({
         <ListSortToggle
           label={m.budget_sort_label()}
           onChange={onSortChange}
+          onIntent={onSortIntent}
           options={SORT_OPTIONS.map((option) => ({
             label: option.label(),
             value: option.value,
@@ -209,8 +218,22 @@ export const TransactionList = ({
         className="flex flex-1 flex-col"
       >
         <TabsList variant="line">
-          <TabsTrigger value="outgoing">{outgoingLabel}</TabsTrigger>
-          <TabsTrigger value="incoming">{incomingLabel}</TabsTrigger>
+          <TabsTrigger
+            value="outgoing"
+            {...(direction === "outgoing"
+              ? undefined
+              : directionIntent("outgoing"))}
+          >
+            {outgoingLabel}
+          </TabsTrigger>
+          <TabsTrigger
+            value="incoming"
+            {...(direction === "incoming"
+              ? undefined
+              : directionIntent("incoming"))}
+          >
+            {incomingLabel}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="outgoing" className="flex flex-1 flex-col">
           <TransactionRows
@@ -219,6 +242,7 @@ export const TransactionList = ({
             onLoadMore={onLoadMore}
             isLoading={isLoading}
             isIncoming={false}
+            isStale={isStale}
             onTransactionClick={onTransactionClick}
             range={range}
           />
@@ -230,6 +254,7 @@ export const TransactionList = ({
             onLoadMore={onLoadMore}
             isLoading={isLoading}
             isIncoming={true}
+            isStale={isStale}
             onTransactionClick={onTransactionClick}
             range={range}
           />

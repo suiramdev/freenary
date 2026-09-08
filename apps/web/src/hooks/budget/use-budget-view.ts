@@ -3,7 +3,6 @@ import { useCallback, useMemo } from "react";
 
 import { useBudgetPeriod } from "@/hooks/budget/use-budget-period";
 import type { BudgetPeriodPatch } from "@/hooks/budget/use-budget-period";
-import { useSettledText } from "@/hooks/shared/use-settled-text";
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { BUDGET_SEARCH_DEFAULTS, nextBudgetSearch } from "@/lib/budget/search";
 import type {
@@ -87,10 +86,6 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
     (text: string) => applyPatch({ q: text }),
     [applyPatch]
   );
-  const searchBox = useSettledText(
-    search.q ?? BUDGET_SEARCH_DEFAULTS.q,
-    publishSearchText
-  );
 
   const companion: CompanionView =
     search.companion ?? BUDGET_SEARCH_DEFAULTS.companion;
@@ -107,9 +102,8 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
     filter,
     merchants,
     period,
-    searchQuery: searchBox.settled,
-    searchText: searchBox.draft,
-    setSearchText: searchBox.setDraft,
+    searchQuery: search.q ?? BUDGET_SEARCH_DEFAULTS.q,
+    setSearchQuery: publishSearchText,
     sort,
     view,
   };

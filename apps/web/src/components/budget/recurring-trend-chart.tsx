@@ -157,6 +157,7 @@ export const RecurringTrendChart = ({
             <Bar
               dataKey={series.key}
               fill={`var(--color-${series.key})`}
+              isAnimationActive={false}
               key={series.key}
               maxBarSize={40}
               name={series.key}

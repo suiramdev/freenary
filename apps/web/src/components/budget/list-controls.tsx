@@ -13,6 +13,8 @@ import { cn } from "@freenary/ui/lib/utils";
 import { RiCloseLine, RiSearchLine } from "@remixicon/react";
 import type { ReactNode } from "react";
 
+import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
+import { useSettledText } from "@/hooks/shared/use-settled-text";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -31,6 +33,11 @@ export const ListFilterBar = ({ children }: { children: ReactNode }) => (
   <div className="flex flex-wrap items-center gap-2">{children}</div>
 );
 
+/**
+ * The box owns its draft, so a keystroke re-renders the input and nothing
+ * else: `value` is the text in the URL, and `onChange` receives text that has
+ * settled.
+ */
 export const ListSearchInput = ({
   onChange,
   placeholder,
@@ -39,56 +46,67 @@ export const ListSearchInput = ({
   onChange: (value: string) => void;
   placeholder: string;
   value: string;
-}) => (
-  <InputGroup className="min-w-40 flex-1">
-    <InputGroupAddon>
-      <RiSearchLine />
-    </InputGroupAddon>
-    <InputGroupInput
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      type="search"
-      value={value}
-    />
-  </InputGroup>
-);
+}) => {
+  const { draft, setDraft } = useSettledText(value, onChange);
+
+  return (
+    <InputGroup className="min-w-40 flex-1">
+      <InputGroupAddon>
+        <RiSearchLine />
+      </InputGroupAddon>
+      <InputGroupInput
+        onChange={(event) => setDraft(event.target.value)}
+        placeholder={placeholder}
+        type="search"
+        value={draft}
+      />
+    </InputGroup>
+  );
+};
 
 /** The ordering of a list, as two or three words rather than a menu. */
 export const ListSortToggle = <T extends string>({
   label,
   onChange,
+  onIntent,
   options,
   value,
 }: {
   label: string;
   onChange: (value: T) => void;
+  onIntent?: (value: T) => void;
   options: readonly { label: string; value: T }[];
   value: T;
-}) => (
-  <ToggleGroup
-    aria-label={label}
-    onValueChange={([next]) => {
-      const chosen = options.find((option) => option.value === next);
-      if (chosen) {
-        onChange(chosen.value);
-      }
-    }}
-    size="sm"
-    spacing={0}
-    value={[value]}
-    variant="outline"
-  >
-    {options.map((option) => (
-      <ToggleGroupItem
-        className={SORT_ITEM_CLASS}
-        key={option.value}
-        value={option.value}
-      >
-        {option.label}
-      </ToggleGroupItem>
-    ))}
-  </ToggleGroup>
-);
+}) => {
+  const intent = useHoverIntent(onIntent);
+
+  return (
+    <ToggleGroup
+      aria-label={label}
+      onValueChange={([next]) => {
+        const chosen = options.find((option) => option.value === next);
+        if (chosen) {
+          onChange(chosen.value);
+        }
+      }}
+      size="sm"
+      spacing={0}
+      value={[value]}
+      variant="outline"
+    >
+      {options.map((option) => (
+        <ToggleGroupItem
+          className={SORT_ITEM_CLASS}
+          key={option.value}
+          value={option.value}
+          {...(option.value === value ? undefined : intent(option.value))}
+        >
+          {option.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+};
 
 /** The chips sit tighter than the controls that produced them. */
 export const ListFilterChips = ({ children }: { children: ReactNode }) => (

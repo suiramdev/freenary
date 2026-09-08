@@ -1,7 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
-import { useSettledText } from "@/hooks/shared/use-settled-text";
 import type { RecurrenceKind } from "@/lib/budget/recurring";
 import type { RecurringFilter } from "@/lib/budget/recurring-filters";
 import { BUDGET_SEARCH_DEFAULTS, nextBudgetSearch } from "@/lib/budget/search";
@@ -44,10 +43,6 @@ export const useRecurringView = () => {
     (text: string) => applyPatch({ rq: text }),
     [applyPatch]
   );
-  const searchBox = useSettledText(
-    search.rq ?? BUDGET_SEARCH_DEFAULTS.rq,
-    publishSearchText
-  );
 
   const filter = useMemo<RecurringFilter>(
     () => ({
@@ -61,7 +56,7 @@ export const useRecurringView = () => {
       },
       confidences: search.rconf ?? [],
       frequencies: search.rfreq ?? [],
-      search: searchBox.settled,
+      search: search.rq ?? BUDGET_SEARCH_DEFAULTS.rq,
     }),
     [
       search.rcat,
@@ -70,7 +65,7 @@ export const useRecurringView = () => {
       search.rgrp,
       search.rmax,
       search.rmin,
-      searchBox.settled,
+      search.rq,
     ]
   );
 
@@ -85,8 +80,8 @@ export const useRecurringView = () => {
     companion,
     filter,
     kind,
-    searchText: searchBox.draft,
-    setSearchText: searchBox.setDraft,
+    searchQuery: search.rq ?? BUDGET_SEARCH_DEFAULTS.rq,
+    setSearchQuery: publishSearchText,
     sort,
     view,
   };
