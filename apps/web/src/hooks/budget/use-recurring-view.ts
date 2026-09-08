@@ -29,9 +29,11 @@ export const useRecurringView = () => {
   const applyPatch = useCallback(
     (patch: BudgetSearchPatch) => {
       // The URL mirrors the view, so a filter or a keystroke must not fill the
-      // Back button with one history entry each.
+      // Back button with one history entry each, nor throw the reader back to
+      // the top of a page that never left the screen.
       navigate({
         replace: true,
+        resetScroll: false,
         search: (prev) => nextBudgetSearch(prev, patch),
       });
     },
