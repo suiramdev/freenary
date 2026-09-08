@@ -18,7 +18,6 @@ import {
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import type { ReactNode } from "react";
 import { useState } from "react";
 
 import {
@@ -96,7 +95,6 @@ const PeriodYearPicker = ({
 };
 
 export const PeriodNavigator = ({
-  actions,
   aggregation,
   from,
   to,
@@ -107,8 +105,6 @@ export const PeriodNavigator = ({
   onRangeChange,
   onMonthChange,
 }: {
-  /** Controls that belong to the header row but not to the period itself. */
-  actions?: ReactNode;
   aggregation: AggregationMode;
   from: Date;
   to: Date;
@@ -232,7 +228,6 @@ export const PeriodNavigator = ({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        {actions}
       </div>
     </div>
   );

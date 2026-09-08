@@ -3,6 +3,7 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@freenary/ui/components/breadcrumb";
 import { Separator } from "@freenary/ui/components/separator";
 import {
@@ -17,14 +18,15 @@ import {
   redirect,
   useMatches,
 } from "@tanstack/react-router";
+import { Fragment } from "react";
 
 import { AuthGate } from "@/components/auth/auth-gate";
 import { AppSidebar } from "@/components/shared/app-sidebar";
-import { navTitleOf } from "@/lib/nav-items";
+import { navTrailOf } from "@/lib/nav-items";
 
 const AuthLayout = () => {
   const matches = useMatches();
-  const pageTitle = navTitleOf(matches.at(-1)?.routeId);
+  const trail = navTrailOf(matches.at(-1)?.routeId);
 
   return (
     <TooltipProvider>
@@ -38,9 +40,20 @@ const AuthLayout = () => {
             <Separator orientation="vertical" className="me-2 h-4 !self-auto" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{pageTitle}</BreadcrumbPage>
-                </BreadcrumbItem>
+                {trail.map((title, depth) => (
+                  <Fragment key={title}>
+                    {depth > 0 && <BreadcrumbSeparator />}
+                    <BreadcrumbItem>
+                      {/* Only the last crumb is the page; an area above it
+                          names where the page lives and links nowhere. */}
+                      {depth === trail.length - 1 ? (
+                        <BreadcrumbPage>{title}</BreadcrumbPage>
+                      ) : (
+                        title
+                      )}
+                    </BreadcrumbItem>
+                  </Fragment>
+                ))}
               </BreadcrumbList>
             </Breadcrumb>
           </header>

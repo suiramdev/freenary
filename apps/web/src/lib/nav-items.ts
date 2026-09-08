@@ -1,3 +1,4 @@
+import type { RemixiconComponentType } from "@remixicon/react";
 import {
   RiBarChartLine,
   RiHomeLine,
@@ -8,6 +9,20 @@ import {
 } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
+
+interface NavChild {
+  /** The message function, so the label follows a locale change with the tree. */
+  label: () => string;
+  routeId: string;
+  to: string;
+}
+
+interface NavItem extends NavChild {
+  /** Nested pages of one area, shown under a collapsible parent row. */
+  children?: readonly NavChild[];
+  icon: RemixiconComponentType;
+  planned: boolean;
+}
 
 /**
  * The authenticated shell's navigation, and the source of each page's title.
@@ -32,6 +47,18 @@ export const NAV_ITEMS = [
     to: "/portfolio",
   },
   {
+    children: [
+      {
+        label: m.nav_budget_transactions,
+        routeId: "/_auth/budget/transactions",
+        to: "/budget/transactions",
+      },
+      {
+        label: m.nav_budget_recurring,
+        routeId: "/_auth/budget/recurring",
+        to: "/budget/recurring",
+      },
+    ],
     icon: RiMoneyDollarCircleLine,
     label: m.nav_budget,
     planned: false,
@@ -59,10 +86,32 @@ export const NAV_ITEMS = [
     routeId: "/_auth/settings",
     to: "/settings",
   },
-] as const;
+] as const satisfies readonly NavItem[];
 
-export const navTitleOf = (routeId: string | undefined): string => {
-  const label = NAV_ITEMS.find((item) => item.routeId === routeId)?.label;
+export type NavEntry = (typeof NAV_ITEMS)[number];
+/** An entry with pages of its own; `to` keeps its literal type for `Link`. */
+export type NavAreaEntry = Extract<NavEntry, { children: readonly unknown[] }>;
 
-  return label ? label() : m.nav_home();
+export const isNavArea = (item: NavEntry): item is NavAreaEntry =>
+  "children" in item;
+
+/**
+ * The breadcrumb for a page, outermost first: one entry for a top-level page
+ * and two for a nested one, so a reader on Recurring keeps the area it belongs
+ * to. An unknown route falls back to Home rather than an empty header.
+ */
+export const navTrailOf = (routeId: string | undefined): string[] => {
+  for (const item of NAV_ITEMS) {
+    if (item.routeId === routeId) {
+      return [item.label()];
+    }
+    const child = isNavArea(item)
+      ? item.children.find((entry) => entry.routeId === routeId)
+      : undefined;
+    if (child) {
+      return [item.label(), child.label()];
+    }
+  }
+
+  return [m.nav_home()];
 };

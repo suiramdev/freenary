@@ -1,10 +1,10 @@
 ---
 title: Procedure reference
-description: All 35 procedures of the Freenary router, with their access rule, their input bounds, their output shape and their errors.
+description: All 36 procedures of the Freenary router, with their access rule, their input bounds, their output shape and their errors.
 icon: ListTree
 ---
 
-All 35 procedures, grouped by router. [API](/docs/integrations/api) holds the base URL, the transports and the sign-in steps.
+All 36 procedures, grouped by router. [API](/docs/integrations/api) holds the base URL, the transports and the sign-in steps.
 
 ## How to read this page
 
@@ -413,6 +413,49 @@ Protected. Lists the companies the transactions of a date range name, most frequ
 | Field | Type | Note |
 | --- | --- | --- |
 | `merchants` | array of `{ count, name, totalMinor }` | Highest count first, then the name. `totalMinor` sums the absolute amounts. |
+
+**Errors**: none.
+
+### budget.getRecurring
+
+Protected. Returns everything the Recurring page of the budget screen reads, in one call. [Categorisation](/docs/contributing/categorisation) holds the detection rules behind `confidence` and `kind`.
+
+**Input**: none.
+
+**Output**
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `asOf` | string | ISO 8601 date-time. When the detection ran. Every projection counts from here. |
+| `availableBalanceMinor` | number or `null` | Minor units. The sum of every account balance, and `null` when no account reports one. |
+| `currency` | string | The most common account currency. `EUR` when no account reports one. |
+| `items` | array | One detected pattern per entry. |
+| `monthly` | array | Exactly the trailing 12 calendar months, oldest first, zero-filled. |
+| `monthlyIncomeMinor` | number or `null` | Minor units. The window's incoming sum divided by the months from its first incoming transaction, and `null` when none came in. A short history is therefore not divided by 12. |
+| `plannedOutgoingMinor` | number or `null` | Minor units. The monthly sum of the outgoing budget lines, and `null` with no plan. |
+
+| Field of one item | Type | Note |
+| --- | --- | --- |
+| `amountSpread` | number | The relative spread of the amounts. `0` when they are all the same. |
+| `category` | string | A [spending category](#spending-categories) slug. |
+| `confidence` | enum | `confirmed`, `likely` or `pattern`. |
+| `currency` | string | The ISO 4217 code of the most recent occurrence. |
+| `frequency` | enum | `weekly`, `monthly`, `quarterly`, `annual` or `irregular`. |
+| `intervalDays` | number | The median day gap between two occurrences. |
+| `kind` | enum | `fixed` or `behavioral`. |
+| `lastSeen` | string | ISO 8601 date-time. |
+| `merchantKey` | string | The lookup key of the merchant. |
+| `merchantName` | string or `null` | The counterparty name of the most recent occurrence. |
+| `nextExpected` | string | ISO 8601 date-time. |
+| `occurrences` | number | The transaction count inside the trailing year of `asOf`. |
+| `typicalAmountMinor` | number | Minor units, positive. |
+
+| Field of one month | Type | Note |
+| --- | --- | --- |
+| `behavioralMinor` | number | Minor units. The part of the month the repeated purchases hold. |
+| `discretionaryMinor` | number | Minor units. The rest of the money out of that month. |
+| `fixedMinor` | number | Minor units. The part of the month the commitments hold. |
+| `month` | string | `YYYY-MM`. The month number is 1-based. |
 
 **Errors**: none.
 

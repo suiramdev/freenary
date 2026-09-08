@@ -30,11 +30,11 @@ function CollapsibleTrigger({
       {...props}
     >
       {chevron === "leading" && (
-        <RiArrowRightSLine className="text-muted-foreground size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-90" />
+        <RiArrowRightSLine className="text-muted-foreground ease-fluid size-3 shrink-0 transition-transform duration-150 group-data-panel-open/collapsible-trigger:rotate-90" />
       )}
       {children}
       {chevron === "trailing" && (
-        <RiArrowDownSLine className="text-muted-foreground size-3.5 shrink-0 transition-transform duration-150 ease-out group-data-panel-open/collapsible-trigger:rotate-180" />
+        <RiArrowDownSLine className="text-muted-foreground ease-fluid size-3.5 shrink-0 transition-transform duration-150 group-data-panel-open/collapsible-trigger:rotate-180" />
       )}
     </CollapsiblePrimitive.Trigger>
   );
@@ -48,7 +48,7 @@ function CollapsibleContent({
     <CollapsiblePrimitive.Panel
       data-slot="collapsible-content"
       className={cn(
-        "flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden",
+        "group/collapsible-content ease-fluid flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden transition-[height] duration-200 data-ending-style:h-0 data-starting-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden",
         className
       )}
       {...props}
