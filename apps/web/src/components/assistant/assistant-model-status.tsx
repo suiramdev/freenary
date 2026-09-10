@@ -47,8 +47,8 @@ export const AssistantModelStatus = ({
         </span>
         <Button
           onClick={() => loadBrowserModel(selected)}
-          size="xs"
-          variant="link"
+          size="compact"
+          variant="ghost"
         >
           {m.assistant_retry()}
         </Button>

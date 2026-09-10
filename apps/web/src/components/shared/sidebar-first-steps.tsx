@@ -143,7 +143,6 @@ export const SidebarFirstSteps = () => {
                     }
                     onClick={() => scrollToStepAlreadyNavigatedTo(step.hash)}
                     render={<Link hash={step.hash} to={step.to} />}
-                    tooltip={label}
                   >
                     <SidebarFirstStepIcon done={isStepDone} icon={step.icon} />
                     <span className="sr-only">

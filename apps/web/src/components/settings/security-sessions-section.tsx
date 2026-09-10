@@ -111,7 +111,7 @@ export const SecuritySessionsSection = ({
       action={
         otherCount > 0 ? (
           <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="outline" />}>
+            <AlertDialogTrigger render={<Button variant="tertiary" />}>
               {m.settings_sessions_revoke_others()}
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -130,7 +130,8 @@ export const SecuritySessionsSection = ({
                 <AlertDialogAction
                   disabled={isRevokingOthers}
                   onClick={() => revokeOtherSessions()}
-                  variant="destructive"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
                 >
                   {isRevokingOthers && <Spinner data-icon="inline-start" />}
                   {m.settings_sessions_revoke_others_confirm()}

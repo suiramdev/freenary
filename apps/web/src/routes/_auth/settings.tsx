@@ -174,7 +174,7 @@ const SettingsPage = () => {
               void categoriesQuery.refetch();
               void profileQuery.refetch();
             }}
-            variant="outline"
+            variant="tertiary"
           >
             {isRetrying && <Spinner data-icon="inline-start" />}
             {m.settings_retry()}

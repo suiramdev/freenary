@@ -72,14 +72,14 @@ const DevAvatarPage = () => {
         <Button
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           size="sm"
-          variant="outline"
+          variant="tertiary"
         >
           {resolvedTheme === "dark" ? "light" : "dark"}
         </Button>
         <Button
           onClick={() => setCycling((on) => !on)}
           size="sm"
-          variant={cycling ? "default" : "outline"}
+          variant={cycling ? "primary" : "tertiary"}
         >
           {cycling ? "morphing all" : "morph all"}
         </Button>
@@ -115,7 +115,7 @@ const DevAvatarPage = () => {
                 key={preset}
                 onClick={() => setDemoSize(preset)}
                 size="sm"
-                variant={demoSize === preset ? "default" : "ghost"}
+                variant={demoSize === preset ? "primary" : "ghost"}
               >
                 {preset}
               </Button>
@@ -126,8 +126,8 @@ const DevAvatarPage = () => {
               <Button
                 key={state}
                 onClick={() => morphTo(state)}
-                size="xs"
-                variant={state === demo ? "default" : "outline"}
+                size="compact"
+                variant={state === demo ? "primary" : "tertiary"}
               >
                 {state}
               </Button>
@@ -145,7 +145,7 @@ const DevAvatarPage = () => {
             key={preset}
             onClick={() => setGridSize(preset)}
             size="sm"
-            variant={gridSize === preset ? "default" : "ghost"}
+            variant={gridSize === preset ? "primary" : "ghost"}
           >
             {preset}
           </Button>
@@ -153,7 +153,7 @@ const DevAvatarPage = () => {
         <Button
           onClick={() => setGridReplayNonce((nonce) => nonce + 1)}
           size="sm"
-          variant="outline"
+          variant="tertiary"
         >
           replay grid
         </Button>

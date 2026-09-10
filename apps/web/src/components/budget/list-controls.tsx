@@ -4,7 +4,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@freenary/ui/components/input-group";
+} from "@freenary/ui/components/input-addons";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -109,21 +109,21 @@ export const ListFilterChip = ({
   onRemove: () => void;
   truncate?: boolean;
 }) => (
-  <Badge
-    className={cn("hover:bg-muted", truncate && "max-w-48")}
-    render={
-      <button
-        aria-label={m.budget_filter_remove({ label })}
-        onClick={onRemove}
-        type="button"
-      />
-    }
-    variant="outline"
+  <button
+    aria-label={m.budget_filter_remove({ label })}
+    className="contents"
+    onClick={onRemove}
+    type="button"
   >
-    {icon}
-    {truncate ? <span className="min-w-0 truncate">{label}</span> : label}
-    <RiCloseLine data-icon="inline-end" />
-  </Badge>
+    <Badge
+      className={cn("hover:bg-muted", truncate && "max-w-48")}
+      variant="dot"
+    >
+      {icon}
+      {truncate ? <span className="min-w-0 truncate">{label}</span> : label}
+      <RiCloseLine data-icon="inline-end" />
+    </Badge>
+  </button>
 );
 
 export const ClearFiltersButton = ({ onClear }: { onClear: () => void }) => (

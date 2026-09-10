@@ -1,7 +1,4 @@
-import {
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@freenary/ui/components/dropdown-menu";
+import { MenuItem } from "@freenary/ui/components/menu-item";
 import { useTheme } from "next-themes";
 
 import { m } from "@/paraglide/messages.js";
@@ -12,20 +9,22 @@ const THEME_OPTIONS = [
   { getLabel: m.theme_light, value: "light" },
 ] as const;
 
-export const ThemeMenuItems = () => {
+export const THEME_OPTION_COUNT = THEME_OPTIONS.length;
+
+export const ThemeMenuItems = ({ startIndex = 0 }: { startIndex?: number }) => {
   const { setTheme, theme } = useTheme();
 
   return (
-    <DropdownMenuRadioGroup value={theme}>
-      {THEME_OPTIONS.map(({ getLabel, value }) => (
-        <DropdownMenuRadioItem
+    <>
+      {THEME_OPTIONS.map(({ getLabel, value }, position) => (
+        <MenuItem
+          checked={theme === value}
+          index={startIndex + position}
           key={value}
-          onClick={() => setTheme(value)}
-          value={value}
-        >
-          {getLabel()}
-        </DropdownMenuRadioItem>
+          label={getLabel()}
+          onSelect={() => setTheme(value)}
+        />
       ))}
-    </DropdownMenuRadioGroup>
+    </>
   );
 };

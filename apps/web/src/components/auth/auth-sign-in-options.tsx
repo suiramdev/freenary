@@ -55,7 +55,7 @@ export const AuthSignInOptions = ({
         <output className="text-muted-foreground text-sm">
           {m.auth_methods_load_error()}
         </output>
-        <Button size="sm" type="button" variant="outline" onClick={onRetry}>
+        <Button size="sm" type="button" variant="tertiary" onClick={onRetry}>
           {m.auth_retry()}
         </Button>
       </div>
@@ -94,7 +94,7 @@ export const AuthSignInOptions = ({
             disabled={isPasskeyPending || isRedirecting}
             size="lg"
             type="button"
-            variant="outline"
+            variant="tertiary"
             onClick={onPasskey}
           >
             {isPasskeyPending && <Spinner data-icon="inline-start" />}
@@ -108,7 +108,7 @@ export const AuthSignInOptions = ({
             disabled={isRedirecting || isPasskeyPending}
             size="lg"
             type="button"
-            variant="outline"
+            variant="tertiary"
             onClick={() => onProvider(provider.id)}
           >
             {pendingProvider === provider.id && (

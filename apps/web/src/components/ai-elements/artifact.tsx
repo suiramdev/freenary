@@ -1,12 +1,7 @@
 "use client";
 
 import { Button } from "@freenary/ui/components/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@freenary/ui/components/tooltip";
+import { Tooltip, TooltipProvider } from "@freenary/ui/components/tooltip";
 import { cn } from "@freenary/ui/lib/utils";
 import type { ComponentProps, HTMLAttributes } from "react";
 
@@ -81,14 +76,7 @@ export const ArtifactAction = ({
   if (tooltip) {
     return (
       <TooltipProvider>
-        <Tooltip>
-          {/* Base UI's TooltipTrigger renders its own button; `render` replaces
-              it, where the vendor's Radix `asChild` nested one inside another. */}
-          <TooltipTrigger render={button} />
-          <TooltipContent>
-            <p>{tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
+        <Tooltip content={<p>{tooltip}</p>}>{button}</Tooltip>
       </TooltipProvider>
     );
   }

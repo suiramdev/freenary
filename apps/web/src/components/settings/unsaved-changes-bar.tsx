@@ -36,7 +36,7 @@ export const UnsavedChangesBar = ({
         initial={{ filter: "blur(4px)", opacity: 0, y: 12 }}
         transition={spring}
       >
-        <Card className="shadow-md" size="sm">
+        <Card className="shadow-md" size="compact">
           <CardContent className="flex items-center gap-3">
             <span className="text-muted-foreground text-xs font-medium">
               {m.settings_unsaved_change({ count: changeCount })}

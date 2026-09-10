@@ -1,23 +1,21 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
-import { isSpendingCategory } from "@freenary/api/lib/taxonomy";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import {
+  DropdownContent,
+  DropdownEmpty,
+  DropdownLabel,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSearch,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
+  DropdownSearch,
+  DropdownTrigger,
+} from "@freenary/ui/components/dropdown";
+import { MenuItem } from "@freenary/ui/components/menu-item";
 import { RiExpandUpDownLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
-import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
 import { matchCategoryGroups } from "@/lib/budget/category-search";
+import { remixIcon } from "@/lib/remix-icon";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
@@ -32,57 +30,69 @@ export const SpendingCategoryPicker = ({
 }: SpendingCategoryPickerProps) => {
   const [query, setQuery] = useState("");
 
-  const matchingGroups = useMemo(() => matchCategoryGroups(query), [query]);
+  const matches = useMemo(() => matchCategoryGroups(query), [query]);
+
+  const grouped = useMemo(() => {
+    const sections: {
+      categories: (typeof matches)[number]["categories"];
+      group: (typeof matches)[number]["group"];
+      offset: number;
+    }[] = [];
+    let offset = 0;
+
+    for (const { categories, group } of matches) {
+      sections.push({ categories, group, offset });
+      offset += categories.length;
+    }
+
+    return sections;
+  }, [matches]);
+  const checkedIndex = matches
+    .flatMap(({ categories }) => categories)
+    .indexOf(value);
 
   return (
     <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownMenuTrigger render={<Button variant="outline" />}>
+      <DropdownTrigger
+        render={
+          <Button
+            trailingIcon={remixIcon(RiExpandUpDownLine)}
+            variant="tertiary"
+          />
+        }
+      >
         {categoryLabel(value)}
-        <RiExpandUpDownLine data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </DropdownTrigger>
+      <DropdownContent
         align="start"
+        checkedIndex={checkedIndex === -1 ? undefined : checkedIndex}
         className="max-h-96 min-w-56 overflow-y-auto"
       >
-        <DropdownMenuSearch
-          onChange={(e) => setQuery(e.target.value)}
+        <DropdownSearch
+          onValueChange={setQuery}
           placeholder={m.budget_category_search_placeholder()}
           value={query}
         />
-        {matchingGroups.length === 0 && (
-          <DropdownMenuEmpty>
-            {m.budget_category_search_empty()}
-          </DropdownMenuEmpty>
+        {matches.length === 0 && (
+          <DropdownEmpty>{m.budget_category_search_empty()}</DropdownEmpty>
         )}
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next: string) => {
-            if (isSpendingCategory(next)) {
-              onValueChange(next);
-            }
-          }}
-        >
-          {matchingGroups.map(({ categories, group }) => (
-            <DropdownMenuGroup key={group}>
-              <DropdownMenuLabel>{categoryGroupLabel(group)}</DropdownMenuLabel>
-              {categories.map((category) => (
-                <DropdownMenuRadioItem
-                  className="ps-8"
-                  closeOnClick={true}
-                  key={category}
-                  value={category}
-                >
-                  <CategoryIcon
-                    {...predefinedCategoryAppearance(category)}
-                    className="size-5 [&_svg]:size-3"
-                  />
-                  {categoryLabel(category)}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuGroup>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+        {grouped.map(({ categories, group, offset }) => (
+          <div key={group}>
+            <DropdownLabel>{categoryGroupLabel(group)}</DropdownLabel>
+            {categories.map((category, position) => (
+              <MenuItem
+                checked={value === category}
+                className="ps-8"
+                icon={categoryMenuIcon(predefinedCategoryAppearance(category))}
+                index={offset + position}
+                key={category}
+                label={categoryLabel(category)}
+                onSelect={() => onValueChange(category)}
+              />
+            ))}
+          </div>
+        ))}
+      </DropdownContent>
     </DropdownMenu>
   );
 };

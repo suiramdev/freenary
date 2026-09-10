@@ -5,7 +5,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@freenary/ui/components/input-group";
+} from "@freenary/ui/components/input-addons";
 import {
   Popover,
   PopoverContent,
@@ -91,10 +91,10 @@ export const AmountFilterMenu = ({
         }
       }}
     >
-      <PopoverTrigger render={<Button variant="outline" />}>
+      <PopoverTrigger render={<Button variant="tertiary" />}>
         <RiCoinsLine data-icon="inline-start" />
         {label}
-        {isActive && <Badge variant="secondary">1</Badge>}
+        {isActive && <Badge>1</Badge>}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 gap-2.5">
         <div className="flex items-end gap-2">

@@ -54,9 +54,7 @@ export const CountryOption = ({
       </ItemContent>
       {fullySupported ? null : (
         <ItemActions>
-          <Badge variant="outline">
-            {m.onboarding_country_partial_badge()}
-          </Badge>
+          <Badge variant="dot">{m.onboarding_country_partial_badge()}</Badge>
         </ItemActions>
       )}
     </Item>

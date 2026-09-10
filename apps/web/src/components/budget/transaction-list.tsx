@@ -3,10 +3,10 @@ import {
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
 import {
+  TabItem,
+  TabPanel,
   Tabs,
-  TabsContent,
   TabsList,
-  TabsTrigger,
 } from "@freenary/ui/components/tabs";
 import { RiCoinsLine, RiStore2Line } from "@remixicon/react";
 
@@ -213,29 +213,27 @@ export const TransactionList = ({
 
       <Tabs
         value={direction}
-        // SAFETY: TabsTrigger values are constrained to the two directions
+        // SAFETY: TabItem values are constrained to the two directions
         onValueChange={(v) => onDirectionChange(v as TransactionDirection)}
         className="flex flex-1 flex-col"
       >
-        <TabsList variant="line">
-          <TabsTrigger
+        <TabsList>
+          <TabItem
+            label={outgoingLabel}
             value="outgoing"
             {...(direction === "outgoing"
               ? undefined
               : directionIntent("outgoing"))}
-          >
-            {outgoingLabel}
-          </TabsTrigger>
-          <TabsTrigger
+          />
+          <TabItem
+            label={incomingLabel}
             value="incoming"
             {...(direction === "incoming"
               ? undefined
               : directionIntent("incoming"))}
-          >
-            {incomingLabel}
-          </TabsTrigger>
+          />
         </TabsList>
-        <TabsContent value="outgoing" className="flex flex-1 flex-col">
+        <TabPanel value="outgoing" className="flex flex-1 flex-col">
           <TransactionRows
             transactions={transactions}
             hasMore={hasMore}
@@ -246,8 +244,8 @@ export const TransactionList = ({
             onTransactionClick={onTransactionClick}
             range={range}
           />
-        </TabsContent>
-        <TabsContent value="incoming" className="flex flex-1 flex-col">
+        </TabPanel>
+        <TabPanel value="incoming" className="flex flex-1 flex-col">
           <TransactionRows
             transactions={transactions}
             hasMore={hasMore}
@@ -258,7 +256,7 @@ export const TransactionList = ({
             onTransactionClick={onTransactionClick}
             range={range}
           />
-        </TabsContent>
+        </TabPanel>
       </Tabs>
     </div>
   );

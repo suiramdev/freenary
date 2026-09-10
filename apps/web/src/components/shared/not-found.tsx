@@ -20,9 +20,11 @@ export const NotFound = () => (
         {m.shell_not_found_description()}
       </p>
       <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both mt-2 delay-150">
-        <Button render={<Link to="/" />}>
-          <RiArrowLeftLine data-icon="inline-start" aria-hidden="true" />
-          {m.shell_not_found_back_home()}
+        <Button asChild>
+          <Link to="/">
+            <RiArrowLeftLine data-icon="inline-start" aria-hidden="true" />
+            {m.shell_not_found_back_home()}
+          </Link>
         </Button>
       </div>
     </div>

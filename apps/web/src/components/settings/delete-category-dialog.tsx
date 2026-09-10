@@ -59,7 +59,8 @@ export const DeleteCategoryDialog = ({
           <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
           <AlertDialogAction
             disabled={isDeleting}
-            variant="destructive"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
             onClick={onConfirm}
           >
             {isDeleting && <Spinner data-icon="inline-start" />}

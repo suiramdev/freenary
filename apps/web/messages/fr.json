@@ -1057,7 +1057,6 @@
     }
   ],
   "shell_brand_name": "Freenary",
-  "shell_brand_tooltip": "Accueil Freenary",
   "shell_dashboard_welcome": "Ravi de vous revoir, {name}",
   "shell_nav_planned_badge": "Prévu",
   "shell_nav_planned_tooltip": "{page} (prévu)",

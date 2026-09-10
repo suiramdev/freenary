@@ -138,8 +138,9 @@ const DisconnectProviderDialog = ({
         <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
         <AlertDialogAction
           disabled={isDisconnecting}
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
           onClick={onConfirm}
-          variant="destructive"
         >
           {isDisconnecting && <Spinner data-icon="inline-start" />}
           {m.settings_accounts_disconnect_confirm()}
@@ -225,9 +226,7 @@ export const SecurityAccountsSection = ({
                   <ItemTitle className="flex flex-wrap items-center gap-2">
                     {row.label}
                     {row.linkedAccountId === null ? null : (
-                      <Badge variant="secondary">
-                        {m.settings_accounts_connected()}
-                      </Badge>
+                      <Badge>{m.settings_accounts_connected()}</Badge>
                     )}
                   </ItemTitle>
                   {row.isRetiredButStillLinked && (
@@ -245,7 +244,7 @@ export const SecurityAccountsSection = ({
                       })}
                       disabled={connectingProvider === row.providerId}
                       onClick={() => connect(row.providerId)}
-                      variant="outline"
+                      variant="tertiary"
                     >
                       {connectingProvider === row.providerId && (
                         <Spinner data-icon="inline-start" />

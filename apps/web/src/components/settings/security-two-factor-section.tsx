@@ -49,7 +49,7 @@ export const SecurityTwoFactorSection = ({
               setPurpose("regenerate");
               setIsDrawerOpen(true);
             }}
-            variant="outline"
+            variant="tertiary"
           >
             {m.settings_2fa_regenerate()}
           </Button>
@@ -87,10 +87,7 @@ export const SecurityTwoFactorSection = ({
           </div>
         ) : (
           <>
-            <Badge
-              className="self-start"
-              variant={isEnabled ? "default" : "outline"}
-            >
+            <Badge className="self-start" variant={isEnabled ? "solid" : "dot"}>
               {isEnabled
                 ? m.settings_2fa_status_on()
                 : m.settings_2fa_status_off()}

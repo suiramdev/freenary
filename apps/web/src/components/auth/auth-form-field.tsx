@@ -3,7 +3,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@freenary/ui/components/input-group";
+} from "@freenary/ui/components/input-addons";
 import type { ComponentProps, ReactNode } from "react";
 
 interface AuthFormFieldProps {

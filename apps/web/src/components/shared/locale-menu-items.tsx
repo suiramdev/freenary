@@ -1,21 +1,24 @@
-import {
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@freenary/ui/components/dropdown-menu";
+import { MenuItem } from "@freenary/ui/components/menu-item";
 
 import { LOCALE_LABELS } from "@/lib/i18n";
 import { getLocale, locales, setLocale } from "@/paraglide/runtime.js";
 
-export const LocaleMenuItems = () => (
-  <DropdownMenuRadioGroup value={getLocale()}>
-    {locales.map((locale) => (
-      <DropdownMenuRadioItem
+export const LOCALE_OPTION_COUNT = locales.length;
+
+export const LocaleMenuItems = ({
+  startIndex = 0,
+}: {
+  startIndex?: number;
+}) => (
+  <>
+    {locales.map((locale, position) => (
+      <MenuItem
+        checked={getLocale() === locale}
+        index={startIndex + position}
         key={locale}
-        onClick={() => setLocale(locale)}
-        value={locale}
-      >
-        {LOCALE_LABELS[locale]}
-      </DropdownMenuRadioItem>
+        label={LOCALE_LABELS[locale]}
+        onSelect={() => setLocale(locale)}
+      />
     ))}
-  </DropdownMenuRadioGroup>
+  </>
 );

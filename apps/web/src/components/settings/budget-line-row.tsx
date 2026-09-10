@@ -6,7 +6,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@freenary/ui/components/input-group";
+} from "@freenary/ui/components/input-addons";
 import { RiDeleteBinLine, RiDraggable } from "@remixicon/react";
 import { Reorder, useDragControls } from "motion/react";
 import type { KeyboardEvent } from "react";
