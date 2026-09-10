@@ -42,7 +42,7 @@ export const DisconnectBankDialog = ({
             aria-label={m.bank_disconnect_aria_label({
               institution: institutionName,
             })}
-            variant="outline"
+            variant="tertiary"
           />
         }
       >
@@ -59,7 +59,8 @@ export const DisconnectBankDialog = ({
           <AlertDialogCancel>{m.bank_disconnect_cancel()}</AlertDialogCancel>
           <AlertDialogAction
             disabled={isDisconnecting}
-            variant="destructive"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
             onClick={onConfirm}
           >
             {isDisconnecting && <Spinner data-icon="inline-start" />}

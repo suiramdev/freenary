@@ -1,5 +1,7 @@
 import { Toaster } from "@freenary/ui/components/sonner";
+import { IconProvider } from "@freenary/ui/lib/icon-context";
 import { UiLabelsProvider } from "@freenary/ui/lib/labels";
+import { SizeProvider } from "@freenary/ui/lib/size-context";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -14,6 +16,7 @@ import { evlogErrorHandler } from "evlog/nitro/v3";
 import { ThemeProvider } from "next-themes";
 
 import { UNKNOWN_VIEWER, getViewer } from "@/functions/get-viewer";
+import { ffIcons } from "@/lib/ff-icons";
 import { isServer } from "@/lib/is-server";
 import { publicServerUrlScript } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
@@ -43,20 +46,27 @@ const RootDocument = () => (
         disableTransitionOnChange
         enableSystem
       >
-        <UiLabelsProvider
-          labels={{
-            close: m.ui_close(),
-            loading: m.ui_loading(),
-            more: m.ui_more(),
-            scrollToEnd: m.ui_scroll_to_end(),
-            scrollToStart: m.ui_scroll_to_start(),
-            sidebar: m.ui_sidebar(),
-            sidebarDescription: m.ui_sidebar_description(),
-            toggleSidebar: m.ui_toggle_sidebar(),
-          }}
-        >
-          <Outlet />
-        </UiLabelsProvider>
+        {/* The app predates the Fluid Functionalism size ladder and was
+            designed around 28px controls, so the compact step is the default;
+            surfaces that want 36px opt in with size="default". */}
+        <SizeProvider defaultSize="compact">
+          <IconProvider icons={ffIcons}>
+            <UiLabelsProvider
+              labels={{
+                close: m.ui_close(),
+                loading: m.ui_loading(),
+                more: m.ui_more(),
+                scrollToEnd: m.ui_scroll_to_end(),
+                scrollToStart: m.ui_scroll_to_start(),
+                sidebar: m.ui_sidebar(),
+                sidebarDescription: m.ui_sidebar_description(),
+                toggleSidebar: m.ui_toggle_sidebar(),
+              }}
+            >
+              <Outlet />
+            </UiLabelsProvider>
+          </IconProvider>
+        </SizeProvider>
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />

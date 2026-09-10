@@ -102,7 +102,7 @@ export const CategoryRow = ({
             />
           </>
         ) : (
-          <Badge variant="outline">{m.settings_category_built_in()}</Badge>
+          <Badge variant="dot">{m.settings_category_built_in()}</Badge>
         )}
       </ItemActions>
     </Item>

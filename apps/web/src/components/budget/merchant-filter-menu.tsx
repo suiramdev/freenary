@@ -1,13 +1,13 @@
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
+  DropdownContent,
+  DropdownEmpty,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuSearch,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
+  DropdownSearch,
+  DropdownTrigger,
+} from "@freenary/ui/components/dropdown";
+import { MenuItem } from "@freenary/ui/components/menu-item";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import { RiStore2Line } from "@remixicon/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TransactionDirection } from "@/lib/budget/search";
 import { toggleMerchant } from "@/lib/budget/transaction-filters";
+import { remixIcon } from "@/lib/remix-icon";
 import { foldForSearch } from "@/lib/search-text";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
@@ -75,6 +76,10 @@ export const MerchantFilterMenu = ({
 
   const isLoading = merchantsQuery.isPending && isOpen;
 
+  const checkedIndices = rows.flatMap((row, index) =>
+    merchants.includes(row.name) ? [index] : []
+  );
+
   return (
     <DropdownMenu
       onOpenChange={(open) => {
@@ -84,19 +89,21 @@ export const MerchantFilterMenu = ({
         }
       }}
     >
-      <DropdownMenuTrigger render={<Button variant="outline" />}>
-        <RiStore2Line data-icon="inline-start" />
+      <DropdownTrigger
+        render={
+          <Button leadingIcon={remixIcon(RiStore2Line)} variant="tertiary" />
+        }
+      >
         {m.budget_filter_merchant()}
-        {merchants.length > 0 && (
-          <Badge variant="secondary">{merchants.length}</Badge>
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+        {merchants.length > 0 && <Badge>{merchants.length}</Badge>}
+      </DropdownTrigger>
+      <DropdownContent
         align="end"
+        checkedIndices={checkedIndices}
         className="max-h-96 min-w-72 overflow-y-auto"
       >
-        <DropdownMenuSearch
-          onChange={(event) => setQuery(event.target.value)}
+        <DropdownSearch
+          onValueChange={setQuery}
           placeholder={m.budget_merchant_search_placeholder()}
           value={query}
         />
@@ -113,30 +120,31 @@ export const MerchantFilterMenu = ({
           </div>
         )}
         {!isLoading && rows.length === 0 && (
-          <DropdownMenuEmpty>
+          <DropdownEmpty>
             {merchantsQuery.isError
               ? m.budget_merchant_error()
               : m.budget_merchant_search_empty()}
-          </DropdownMenuEmpty>
+          </DropdownEmpty>
         )}
         {!isLoading &&
-          rows.map((row) => (
-            <DropdownMenuCheckboxItem
+          rows.map((row, index) => (
+            <MenuItem
               checked={merchants.includes(row.name)}
+              index={index}
               key={row.name}
-              onCheckedChange={() =>
+              // The menu row carries one text slot, so the period total rides
+              // in the label after the name.
+              label={
+                row.count > 0
+                  ? `${row.name} — ${formatCurrency(row.totalMinor)}`
+                  : row.name
+              }
+              onSelect={() =>
                 onMerchantsChange(toggleMerchant(merchants, row.name))
               }
-            >
-              <span className="min-w-0 flex-1 truncate">{row.name}</span>
-              {row.count > 0 && (
-                <span className="text-muted-foreground tabular-nums">
-                  {formatCurrency(row.totalMinor)}
-                </span>
-              )}
-            </DropdownMenuCheckboxItem>
+            />
           ))}
-      </DropdownMenuContent>
+      </DropdownContent>
     </DropdownMenu>
   );
 };

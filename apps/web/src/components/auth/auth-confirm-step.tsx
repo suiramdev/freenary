@@ -81,13 +81,13 @@ export const AuthConfirmStep = ({
         <Button
           disabled={isResending}
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={onResend}
         >
           {isResending && <Spinner data-icon="inline-start" />}
           {m.auth_code_resend()}
         </Button>
-        <Button type="button" variant="link" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack}>
           {m.auth_use_different_email()}
         </Button>
       </div>

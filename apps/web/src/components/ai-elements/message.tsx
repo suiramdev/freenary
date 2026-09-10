@@ -5,12 +5,7 @@ import {
   ButtonGroup,
   ButtonGroupText,
 } from "@freenary/ui/components/button-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@freenary/ui/components/tooltip";
+import { Tooltip, TooltipProvider } from "@freenary/ui/components/tooltip";
 import { cn } from "@freenary/ui/lib/utils";
 import {
   RiArrowLeftSLine,
@@ -93,14 +88,7 @@ export const MessageAction = ({
   if (tooltip) {
     return (
       <TooltipProvider>
-        <Tooltip>
-          {/* Base UI's TooltipTrigger renders its own button; `render` replaces
-              it, where the vendor's Radix `asChild` nested one inside another. */}
-          <TooltipTrigger render={button} />
-          <TooltipContent>
-            <p>{tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
+        <Tooltip content={<p>{tooltip}</p>}>{button}</Tooltip>
       </TooltipProvider>
     );
   }
@@ -376,17 +364,10 @@ export function MessageAttachment({
         </>
       ) : (
         <>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <div className="bg-muted text-muted-foreground flex size-full shrink-0 items-center justify-center rounded-lg" />
-              }
-            >
+          <Tooltip content={<p>{attachmentLabel}</p>}>
+            <div className="bg-muted text-muted-foreground flex size-full shrink-0 items-center justify-center rounded-lg">
               <RiAttachment2 className="size-4" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{attachmentLabel}</p>
-            </TooltipContent>
+            </div>
           </Tooltip>
           {onRemove && (
             <Button

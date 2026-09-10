@@ -141,7 +141,7 @@ export const AuthTwoFactorStep = ({
       <div className="mt-2 flex flex-col items-center">
         <Button
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={() => {
             form.reset();
             onMethodSwitch();
@@ -151,7 +151,7 @@ export const AuthTwoFactorStep = ({
             ? m.auth_two_factor_use_recovery()
             : m.auth_two_factor_use_app()}
         </Button>
-        <Button type="button" variant="link" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack}>
           {m.auth_back_to_sign_in()}
         </Button>
       </div>

@@ -28,11 +28,7 @@ export const SidebarBrand = () => {
         onPointerEnter={() => setGreeted(true)}
         onPointerLeave={() => setGreeted(false)}
       >
-        <SidebarMenuButton
-          render={<Link to="/" />}
-          size="lg"
-          tooltip={m.shell_brand_tooltip()}
-        >
+        <SidebarMenuButton render={<Link to="/" />} size="lg">
           {/* `size-6!`, not `size-6`: the button styles every descendant svg
               with `[&_svg]:size-4`, and that descendant selector outranks a
               plain utility class on the mark itself. */}

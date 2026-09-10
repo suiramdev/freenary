@@ -3,10 +3,10 @@ import {
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
 import {
+  TabItem,
+  TabPanel,
   Tabs,
-  TabsContent,
   TabsList,
-  TabsTrigger,
 } from "@freenary/ui/components/tabs";
 import { RiCoinsLine, RiRepeatLine } from "@remixicon/react";
 
@@ -245,20 +245,22 @@ export const RecurringList = ({
         }}
         value={kind}
       >
-        <TabsList variant="line">
+        <TabsList>
           {KIND_TABS.map((candidate) => (
-            <TabsTrigger key={candidate} value={candidate}>
-              {KIND_TAB_LABELS[candidate]({
+            <TabItem
+              key={candidate}
+              label={KIND_TAB_LABELS[candidate]({
                 amount: formatCurrency(
                   groups[candidate].monthlyMinor,
                   currency
                 ),
               })}
-            </TabsTrigger>
+              value={candidate}
+            />
           ))}
         </TabsList>
         {KIND_TABS.map((candidate) => (
-          <TabsContent
+          <TabPanel
             className="flex flex-1 flex-col gap-3"
             key={candidate}
             value={candidate}
@@ -276,7 +278,7 @@ export const RecurringList = ({
               items={groups[candidate].items}
               kind={candidate}
             />
-          </TabsContent>
+          </TabPanel>
         ))}
       </Tabs>
     </div>

@@ -37,7 +37,7 @@ export const UnsavedChangesBar = ({
         transition={spring}
       >
         {/* Elevated: the bar floats over the page it is editing. */}
-        <Card className="shadow-md" size="sm">
+        <Card className="shadow-md" size="compact">
           <CardContent className="flex items-center gap-3">
             <span className="text-muted-foreground text-xs font-medium">
               {m.settings_unsaved_change({ count: changeCount })}

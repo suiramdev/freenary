@@ -12,7 +12,6 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
@@ -185,102 +184,93 @@ export const BudgetCharts = ({
   onViewChange,
   planned,
   view,
-}: BudgetChartsProps) => {
-  const companionTitle =
-    companion === "fixed"
-      ? m.budget_view_fixed_variable()
-      : m.budget_view_planned();
-
-  return (
-    <div className="grid grid-cols-1 gap-4 @min-[52rem]/budget:grid-cols-[2fr_1fr]">
-      <div className="min-w-0">
-        <Card>
-          <CardHeader>
-            <CardTitle className="truncate">
-              {view === "flow"
-                ? m.budget_cash_flow_title()
-                : m.budget_breakdown_title()}
-              {aggregation !== "total" && (
-                <span className="text-muted-foreground font-normal">
-                  {" "}
-                  · {aggregationLabel(aggregation)}
-                </span>
-              )}
-            </CardTitle>
-            <CardAction>
-              <ToggleGroup
-                aria-label={m.budget_view_switch_label()}
-                onValueChange={([next]) => {
-                  if (next === "flow" || next === "categories") {
-                    onViewChange(next);
-                  }
-                }}
-                size="sm"
-                spacing={0}
-                value={[view]}
-                variant="outline"
-              >
-                <ToggleGroupItem className={PRESS} value="flow">
-                  {m.budget_view_flow()}
-                </ToggleGroupItem>
-                <ToggleGroupItem className={PRESS} value="categories">
-                  {m.budget_view_categories()}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </CardAction>
-          </CardHeader>
-          <CardContent className={CHART_BODY}>
-            <PrimaryChartBody
-              breakdown={breakdown}
-              cashFlow={cashFlow}
-              onSelect={onSelect}
-              view={view}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="min-w-0">
-        <Card>
-          <CardHeader>
-            {/* The trigger already names the view; a title beside it would
-                print the same words twice in a 293px header. */}
-            <Select
-              onValueChange={(next) =>
-                onCompanionChange(next === "planned" ? "planned" : "fixed")
-              }
-              value={companion}
+}: BudgetChartsProps) => (
+  <div className="grid grid-cols-1 gap-4 @min-[52rem]/budget:grid-cols-[2fr_1fr]">
+    <div className="min-w-0">
+      <Card>
+        <CardHeader>
+          <CardTitle className="truncate">
+            {view === "flow"
+              ? m.budget_cash_flow_title()
+              : m.budget_breakdown_title()}
+            {aggregation !== "total" && (
+              <span className="text-muted-foreground font-normal">
+                {" "}
+                · {aggregationLabel(aggregation)}
+              </span>
+            )}
+          </CardTitle>
+          <CardAction>
+            <ToggleGroup
+              aria-label={m.budget_view_switch_label()}
+              onValueChange={([next]) => {
+                if (next === "flow" || next === "categories") {
+                  onViewChange(next);
+                }
+              }}
+              size="sm"
+              spacing={0}
+              value={[view]}
+              variant="outline"
             >
-              <SelectTrigger
-                aria-label={m.budget_companion_switch_label()}
-                className={PRESS}
-                size="sm"
-              >
-                <SelectValue>{() => companionTitle}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="fixed">
-                    {m.budget_view_fixed_variable()}
-                  </SelectItem>
-                  <SelectItem value="planned">
-                    {m.budget_view_planned()}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </CardHeader>
-          <CardContent className={CHART_BODY}>
-            <CompanionChartBody
-              activeGroups={activeGroups}
-              fixedVsVariable={fixedVsVariable}
-              onSelect={onSelect}
-              planned={planned}
-              view={companion}
-            />
-          </CardContent>
-        </Card>
-      </div>
+              <ToggleGroupItem className={PRESS} value="flow">
+                {m.budget_view_flow()}
+              </ToggleGroupItem>
+              <ToggleGroupItem className={PRESS} value="categories">
+                {m.budget_view_categories()}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </CardAction>
+        </CardHeader>
+        <CardContent className={CHART_BODY}>
+          <PrimaryChartBody
+            breakdown={breakdown}
+            cashFlow={cashFlow}
+            onSelect={onSelect}
+            view={view}
+          />
+        </CardContent>
+      </Card>
     </div>
-  );
-};
+
+    <div className="min-w-0">
+      <Card>
+        <CardHeader>
+          {/* The trigger already names the view; a title beside it would
+                print the same words twice in a 293px header. */}
+          <Select
+            onValueChange={(next) =>
+              onCompanionChange(next === "planned" ? "planned" : "fixed")
+            }
+            value={companion}
+          >
+            <SelectTrigger
+              aria-label={m.budget_companion_switch_label()}
+              className={PRESS}
+              size="compact"
+            />
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem index={0} value="fixed">
+                  {m.budget_view_fixed_variable()}
+                </SelectItem>
+                <SelectItem index={1} value="planned">
+                  {m.budget_view_planned()}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </CardHeader>
+        <CardContent className={CHART_BODY}>
+          <CompanionChartBody
+            activeGroups={activeGroups}
+            fixedVsVariable={fixedVsVariable}
+            onSelect={onSelect}
+            planned={planned}
+            view={companion}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+);

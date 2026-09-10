@@ -62,9 +62,6 @@ const isCurrent = (pathname: string, to: string) =>
 
 const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => {
   const title = item.label();
-  const tooltip = item.planned
-    ? m.shell_nav_planned_tooltip({ page: title })
-    : title;
 
   return (
     <SidebarMenuItem>
@@ -72,7 +69,6 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => {
         className={item.planned ? PLANNED_CLASS : undefined}
         isActive={isCurrent(pathname, item.to)}
         render={<Link to={item.to} />}
-        tooltip={tooltip}
       >
         <item.icon data-icon="inline-start" />
         <span>{title}</span>
@@ -106,7 +102,6 @@ const NavArea = ({
       <SidebarMenuButton
         isActive={isAreaCurrent}
         render={<CollapsibleTrigger />}
-        tooltip={title}
       >
         <item.icon data-icon="inline-start" />
         <span className={LABEL_CLASS}>{title}</span>
@@ -144,7 +139,7 @@ export const AppSidebar = () => {
   const isRail = state === "collapsed" && !isMobile;
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar collapsible="offcanvas" variant="floating">
       <SidebarHeader>
         <SidebarBrand />
       </SidebarHeader>

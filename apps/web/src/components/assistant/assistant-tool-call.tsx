@@ -137,7 +137,7 @@ export const AssistantToolCall = ({
     <Tool className="mb-0" onOpenChange={setOpen} open={open}>
       <ToolHeader
         badge={
-          <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
+          <Badge className="gap-1.5 rounded-full text-xs">
             {STATUS_ICONS[status]}
             {STATUS_LABELS[status]()}
             {durationMs !== undefined && (
@@ -173,7 +173,7 @@ export const AssistantToolCall = ({
         )}
         {status === "failed" && onRetry && (
           <div className="p-4 pt-0">
-            <Button onClick={onRetry} size="sm" variant="outline">
+            <Button onClick={onRetry} size="sm" variant="tertiary">
               <RiRefreshLine className="size-3" />
               {m.assistant_retry()}
             </Button>

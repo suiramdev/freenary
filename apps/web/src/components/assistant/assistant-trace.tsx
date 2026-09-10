@@ -174,7 +174,7 @@ export const AssistantTrace = ({
           <div className="flex justify-end gap-1">
             <Button
               onClick={() => setExpanded({ tick: Date.now(), value: true })}
-              size="xs"
+              size="compact"
               variant="ghost"
             >
               <RiExpandUpDownLine className="size-3" />
@@ -182,7 +182,7 @@ export const AssistantTrace = ({
             </Button>
             <Button
               onClick={() => setExpanded({ tick: Date.now(), value: false })}
-              size="xs"
+              size="compact"
               variant="ghost"
             >
               <RiContractUpDownLine className="size-3" />

@@ -11,7 +11,6 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 import {
   ToggleGroup,
@@ -81,7 +80,7 @@ const PeriodYearPicker = ({
           return (
             <Button
               key={year}
-              variant={year === selectedYear ? "default" : "ghost"}
+              variant={year === selectedYear ? "primary" : "ghost"}
               disabled={disabled}
               onClick={() => onSelectYear(year)}
               className="tabular-nums"
@@ -214,13 +213,11 @@ export const PeriodNavigator = ({
               }
             }}
           >
-            <SelectTrigger>
-              <SelectValue>{() => aggregationLabel(aggregation)}</SelectValue>
-            </SelectTrigger>
+            <SelectTrigger />
             <SelectContent>
               <SelectGroup>
-                {AGGREGATION_MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
+                {AGGREGATION_MODES.map((mode, position) => (
+                  <SelectItem index={position} key={mode} value={mode}>
                     {aggregationLabel(mode)}
                   </SelectItem>
                 ))}

@@ -1,23 +1,21 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
 import {
+  DropdownContent,
+  DropdownEmpty,
+  DropdownLabel,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSearch,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
+  DropdownSearch,
+  DropdownSeparator,
+  DropdownTrigger,
+} from "@freenary/ui/components/dropdown";
+import { MenuItem } from "@freenary/ui/components/menu-item";
 import { cn } from "@freenary/ui/lib/utils";
 import { RiAddLine, RiExpandUpDownLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
-import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
+import { remixIcon } from "@/lib/remix-icon";
 import { toCategorySections } from "@/lib/settings/category-sections";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
@@ -49,11 +47,31 @@ export const CategoryPicker = ({
     [categories, query]
   );
 
+  // Fluid Functionalism menu rows register by flat index across the popup;
+  // each section carries the offset its rows start at, and the trailing
+  // "create one" row sits after every category row.
+  const grouped = useMemo(() => {
+    const out: { offset: number; section: (typeof sections)[number] }[] = [];
+    let offset = 0;
+    for (const section of sections) {
+      out.push({ offset, section });
+      offset += section.items.length;
+    }
+    return out;
+  }, [sections]);
+  const flatEntries = sections.flatMap((section) => section.items);
+  const checkedIndex = flatEntries.findIndex((entry) => entry.key === value);
+  const createIndex = flatEntries.length;
+
   return (
     <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownMenuTrigger
+      <DropdownTrigger
         render={
-          <Button className="w-40 shrink-0 justify-between" variant="outline" />
+          <Button
+            className="w-40 shrink-0 justify-between"
+            trailingIcon={remixIcon(RiExpandUpDownLine)}
+            variant="tertiary"
+          />
         }
       >
         <span className="truncate">
@@ -61,59 +79,50 @@ export const CategoryPicker = ({
             ? categoryEntryLabel(selected)
             : m.settings_category_picker_placeholder()}
         </span>
-        <RiExpandUpDownLine data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </DropdownTrigger>
+      <DropdownContent
         align="start"
+        checkedIndex={checkedIndex === -1 ? undefined : checkedIndex}
         className="max-h-72 w-64 overflow-y-auto"
       >
-        <DropdownMenuSearch
-          onChange={(e) => setQuery(e.target.value)}
+        <DropdownSearch
+          onValueChange={setQuery}
           placeholder={m.settings_category_search_placeholder()}
           value={query}
         />
-        <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
-          {sections.map((section) => (
-            <DropdownMenuGroup key={section.key}>
-              {/* A group is a heading; a line is assigned a category. Each
-                  heading labels its own section, not the whole radio group. */}
-              {section.heading && (
-                <DropdownMenuLabel>
-                  {categoryEntryLabel(section.heading)}
-                </DropdownMenuLabel>
-              )}
-              {section.items.map((entry) => (
-                <DropdownMenuRadioItem
-                  key={entry.key}
-                  value={entry.key}
-                  // One category is the whole answer, so picking one is done.
-                  closeOnClick={true}
-                  className={cn(section.heading && "ps-8")}
-                >
-                  <CategoryIcon
-                    color={entry.color}
-                    icon={entry.icon}
-                    className="size-5 [&_svg]:size-3"
-                  />
-                  {categoryEntryLabel(entry)}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuGroup>
-          ))}
-        </DropdownMenuRadioGroup>
+        {grouped.map(({ offset, section }) => (
+          <div key={section.key}>
+            {/* A group is a heading; a line is assigned a category. Each
+                heading labels its own section, not the whole list. */}
+            {section.heading && (
+              <DropdownLabel>
+                {categoryEntryLabel(section.heading)}
+              </DropdownLabel>
+            )}
+            {section.items.map((entry, position) => (
+              <MenuItem
+                checked={entry.key === value}
+                className={cn(section.heading && "ps-8")}
+                icon={categoryMenuIcon(entry)}
+                index={offset + position}
+                key={entry.key}
+                label={categoryEntryLabel(entry)}
+                onSelect={() => onSelect(entry.key)}
+              />
+            ))}
+          </div>
+        ))}
         {sections.length === 0 && (
-          <DropdownMenuEmpty>
-            {m.settings_category_search_empty()}
-          </DropdownMenuEmpty>
+          <DropdownEmpty>{m.settings_category_search_empty()}</DropdownEmpty>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem onClick={onCreateRequest}>
-            <RiAddLine data-icon="inline-start" />
-            {m.settings_category_new_ellipsis()}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
+        <DropdownSeparator />
+        <MenuItem
+          icon={remixIcon(RiAddLine)}
+          index={createIndex}
+          label={m.settings_category_new_ellipsis()}
+          onSelect={onCreateRequest}
+        />
+      </DropdownContent>
     </DropdownMenu>
   );
 };

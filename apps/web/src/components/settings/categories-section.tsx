@@ -84,7 +84,7 @@ export const CategoriesSection = ({
         <Button
           disabled={isPending}
           onClick={() => setDrawer("new")}
-          variant="outline"
+          variant="tertiary"
         >
           <RiAddLine data-icon="inline-start" />
           {m.settings_category_new()}
@@ -141,7 +141,7 @@ export const CategoriesSection = ({
                   <span className="flex-1 truncate text-sm font-medium">
                     {categoryEntryLabel(group)}
                   </span>
-                  <Badge variant="secondary">{children.length}</Badge>
+                  <Badge>{children.length}</Badge>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <ul className="flex flex-col">

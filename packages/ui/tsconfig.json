@@ -7,7 +7,10 @@
     "paths": {
       "@freenary/ui/*": ["./src/*"]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    // Fluid Functionalism registry sources are vendored as-is and predate
+    // this flag; keep them un-forked.
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   // Tests run under Bun and need its ambient types, which `types: []` keeps out

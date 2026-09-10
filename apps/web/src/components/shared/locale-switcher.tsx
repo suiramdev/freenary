@@ -1,15 +1,15 @@
 import { Button } from "@freenary/ui/components/button";
 import {
+  DropdownContent,
+  DropdownLabel,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
+  DropdownTrigger,
+} from "@freenary/ui/components/dropdown";
 import { RiTranslate2 } from "@remixicon/react";
 
 import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
 import { LOCALE_LABELS } from "@/lib/i18n";
+import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
@@ -19,15 +19,14 @@ import { getLocale } from "@/paraglide/runtime.js";
  */
 export const LocaleSwitcher = () => (
   <DropdownMenu>
-    <DropdownMenuTrigger render={<Button variant="ghost" />}>
-      <RiTranslate2 data-icon="inline-start" />
+    <DropdownTrigger
+      render={<Button leadingIcon={remixIcon(RiTranslate2)} variant="ghost" />}
+    >
       {LOCALE_LABELS[getLocale()]}
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>{m.locale_switcher_label()}</DropdownMenuLabel>
-        <LocaleMenuItems />
-      </DropdownMenuGroup>
-    </DropdownMenuContent>
+    </DropdownTrigger>
+    <DropdownContent align="end">
+      <DropdownLabel>{m.locale_switcher_label()}</DropdownLabel>
+      <LocaleMenuItems />
+    </DropdownContent>
   </DropdownMenu>
 );

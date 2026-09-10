@@ -48,9 +48,7 @@ export const SecuritySessionRow = ({
       <ItemContent className="min-w-0">
         <ItemTitle className="flex flex-wrap items-center gap-2">
           {device}
-          {isCurrent && (
-            <Badge variant="secondary">{m.settings_sessions_current()}</Badge>
-          )}
+          {isCurrent && <Badge>{m.settings_sessions_current()}</Badge>}
         </ItemTitle>
         <ItemDescription className="flex flex-wrap gap-x-3">
           <span>

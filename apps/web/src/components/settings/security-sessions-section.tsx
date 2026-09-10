@@ -110,7 +110,7 @@ export const SecuritySessionsSection = ({
           // Left open on confirm: success drops the other sessions, which
           // unmounts this action, and a failure keeps it available to retry.
           <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="outline" />}>
+            <AlertDialogTrigger render={<Button variant="tertiary" />}>
               {m.settings_sessions_revoke_others()}
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -129,7 +129,8 @@ export const SecuritySessionsSection = ({
                 <AlertDialogAction
                   disabled={isRevokingOthers}
                   onClick={() => revokeOtherSessions()}
-                  variant="destructive"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
                 >
                   {isRevokingOthers && <Spinner data-icon="inline-start" />}
                   {m.settings_sessions_revoke_others_confirm()}

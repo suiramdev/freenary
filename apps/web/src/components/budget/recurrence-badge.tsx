@@ -18,7 +18,7 @@ export const ConfidenceBadge = ({
   className?: string;
   confidence: RecurrenceConfidence;
 }) => (
-  <Badge className={className} variant={confidenceVariant(confidence)}>
+  <Badge className={className} {...confidenceVariant(confidence)}>
     {confidenceLabel(confidence)}
   </Badge>
 );

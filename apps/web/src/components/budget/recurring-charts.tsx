@@ -11,7 +11,6 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
@@ -318,14 +317,16 @@ export const RecurringCharts = ({
               <SelectTrigger
                 aria-label={m.budget_companion_switch_label()}
                 className={PRESS}
-                size="sm"
-              >
-                <SelectValue>{() => COMPANION_LABELS[companion]()}</SelectValue>
-              </SelectTrigger>
+                size="compact"
+              />
               <SelectContent>
                 <SelectGroup>
-                  {RECURRING_COMPANION_VIEWS.map((candidate) => (
-                    <SelectItem key={candidate} value={candidate}>
+                  {RECURRING_COMPANION_VIEWS.map((candidate, position) => (
+                    <SelectItem
+                      index={position}
+                      key={candidate}
+                      value={candidate}
+                    >
                       {COMPANION_LABELS[candidate]()}
                     </SelectItem>
                   ))}

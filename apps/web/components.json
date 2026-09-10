@@ -15,8 +15,8 @@
     "components": "@/components",
     "utils": "@freenary/ui/lib/utils",
     "ui": "@freenary/ui/components",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "lib": "@freenary/ui/lib",
+    "hooks": "@freenary/ui/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

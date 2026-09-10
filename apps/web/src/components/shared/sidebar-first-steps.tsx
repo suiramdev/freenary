@@ -162,7 +162,6 @@ export const SidebarFirstSteps = () => {
                       }
                     }}
                     render={<Link hash={step.hash} to={step.to} />}
-                    tooltip={label}
                   >
                     <SidebarFirstStepIcon done={isStepDone} icon={step.icon} />
                     {/* Before the label: the button truncates its last child. */}

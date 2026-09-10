@@ -45,7 +45,14 @@ export const SecurityTwoFactorDisableDialog = ({
 
   return (
     <AlertDialog onOpenChange={setOpen} open={open}>
-      <AlertDialogTrigger render={<Button variant="destructive" />}>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+          />
+        }
+      >
         {m.settings_2fa_disable()}
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -102,7 +109,8 @@ export const SecurityTwoFactorDisableDialog = ({
                 <AlertDialogAction
                   disabled={isSubmitting}
                   type="submit"
-                  variant="destructive"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
                 >
                   {isSubmitting && <Spinner data-icon="inline-start" />}
                   {m.settings_2fa_disable_confirm()}

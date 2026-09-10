@@ -295,7 +295,7 @@ export const SecurityTwoFactorDrawer = ({
                     void copyCodes();
                   }}
                   type="button"
-                  variant="outline"
+                  variant="tertiary"
                 >
                   <RiFileCopyLine />
                   {m.settings_2fa_codes_copy()}

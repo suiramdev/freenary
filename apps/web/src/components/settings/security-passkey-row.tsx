@@ -76,7 +76,7 @@ export const SecurityPasskeyRow = ({
       <ItemContent className="min-w-0">
         <ItemTitle className="flex flex-wrap items-center gap-2">
           {name}
-          <Badge variant="secondary">{reach}</Badge>
+          <Badge>{reach}</Badge>
         </ItemTitle>
         <ItemDescription>
           {m.settings_passkeys_registered({
@@ -90,7 +90,7 @@ export const SecurityPasskeyRow = ({
           aria-label={m.settings_passkeys_rename_passkey({ passkey: name })}
           disabled={isRenaming}
           onClick={() => setIsRenameOpen(true)}
-          variant="outline"
+          variant="tertiary"
         >
           {isRenaming && <Spinner data-icon="inline-start" />}
           {m.settings_passkeys_rename()}
@@ -126,7 +126,8 @@ export const SecurityPasskeyRow = ({
               <AlertDialogAction
                 disabled={isRemoving}
                 onClick={() => onRemove(passkey.id)}
-                variant="destructive"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
               >
                 {isRemoving && <Spinner data-icon="inline-start" />}
                 {m.settings_passkeys_remove_confirm()}

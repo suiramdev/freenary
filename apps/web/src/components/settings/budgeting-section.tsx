@@ -100,7 +100,7 @@ export const BudgetingSection = ({
 
             {/* Outline, not ghost: this is the section's primary action and it
                 carries the same weight as Categories' "New category". */}
-            <Button className="self-start" onClick={addLine} variant="outline">
+            <Button className="self-start" onClick={addLine} variant="tertiary">
               <RiAddLine data-icon="inline-start" />
               {m.settings_budgeting_add_line()}
             </Button>

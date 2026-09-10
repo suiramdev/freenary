@@ -49,12 +49,12 @@ const SECTION_EMPTY_MESSAGES = {
  * a measurement, so the difference survives a reader who does not read the word.
  */
 const CONFIDENCE_VARIANTS = {
-  confirmed: "default",
-  likely: "secondary",
-  pattern: "outline",
+  confirmed: { color: "green", variant: "solid" },
+  likely: { color: "amber", variant: "solid" },
+  pattern: { color: "gray", variant: "dot" },
 } as const satisfies Record<
   RecurrenceConfidence,
-  "default" | "outline" | "secondary"
+  { color: "amber" | "gray" | "green"; variant: "dot" | "solid" }
 >;
 
 export const frequencyLabel = (frequency: RecurrenceFrequency): string =>

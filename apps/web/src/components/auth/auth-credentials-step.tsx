@@ -1,6 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
 import { Field, FieldGroup } from "@freenary/ui/components/field";
-import { InputGroupButton } from "@freenary/ui/components/input-group";
+import { InputGroupButton } from "@freenary/ui/components/input-addons";
 import { Spinner } from "@freenary/ui/components/spinner";
 import { RiRefreshLine } from "@remixicon/react";
 import { useForm } from "@tanstack/react-form";
@@ -277,7 +277,7 @@ export const AuthCredentialsStep = ({
                   <div className="flex justify-center">
                     <Button
                       type="button"
-                      variant="link"
+                      variant="ghost"
                       onClick={() => onForgotPassword(email)}
                     >
                       {m.auth_forgot_password()}

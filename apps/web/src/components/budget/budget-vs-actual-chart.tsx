@@ -119,11 +119,11 @@ export const BudgetVsActualChart = ({
           {m.budget_planned_empty()}
         </p>
         <Button
+          asChild
           className="transition-transform duration-150 ease-out active:scale-[0.96]"
-          render={<Link to="/settings" />}
-          variant="outline"
+          variant="tertiary"
         >
-          {m.budget_planned_empty_cta()}
+          <Link to="/settings">{m.budget_planned_empty_cta()}</Link>
         </Button>
       </div>
     );

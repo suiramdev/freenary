@@ -184,9 +184,7 @@ export const SecurityAccountsSection = ({
                   <ItemTitle className="flex flex-wrap items-center gap-2">
                     {row.label}
                     {row.accountId === null ? null : (
-                      <Badge variant="secondary">
-                        {m.settings_accounts_connected()}
-                      </Badge>
+                      <Badge>{m.settings_accounts_connected()}</Badge>
                     )}
                   </ItemTitle>
                   {row.isRetired && (
@@ -204,7 +202,7 @@ export const SecurityAccountsSection = ({
                       })}
                       disabled={connectingProvider === row.providerId}
                       onClick={() => connect(row.providerId)}
-                      variant="outline"
+                      variant="tertiary"
                     >
                       {connectingProvider === row.providerId && (
                         <Spinner data-icon="inline-start" />
@@ -249,7 +247,8 @@ export const SecurityAccountsSection = ({
                                 disconnect(row.accountId);
                               }
                             }}
-                            variant="destructive"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
                           >
                             {disconnectingId === row.accountId && (
                               <Spinner data-icon="inline-start" />
