@@ -1,0 +1,490 @@
+---
+title: Docker
+description: Run a served Freenary instance with Docker Compose, from the host prerequisites to an update.
+---
+
+This page covers a Docker Compose instance, from the host prerequisites to an update.
+
+Check these five items before the install. Each one blocks a served instance when it is missing.
+
+## What the host needs
+
+| Need | Detail |
+| --- | --- |
+| Docker | Docker Engine and Docker Compose v2 on the host. |
+| Host | Any operating system that runs Docker. Both images exist for `linux/amd64` and `linux/arm64`. That pair is the container platform, not the host. |
+| PostgreSQL | Version 18. The stack runs it as a service, so you install no database. |
+| Public origins | One for the web app, and one for the API server. |
+| TLS | A proxy in front of both origins. Read [Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy). |
+
+The two origins are the pair readers meet again and again. `BETTER_AUTH_URL` names the API server, and `CORS_ORIGIN` names the web app. Two subdomains of one domain are the simplest shape, for example `api.example.com` and `app.example.com`.
+
+## What you also want ready
+
+**A bank provider decides whether the instance is useful.** No screen takes a transaction by hand, so an instance with no provider serves empty screens. A Powens sandbox domain needs no contract, and [Set up Powens](/docs/integrations/powens#setup) walks the console.
+
+An email provider and a model endpoint stay optional. Each one has its own section: [Email](/docs/self-hosting/configuration#email-delivery) and [Assistant](/docs/self-hosting/configuration#assistant).
+
+## Resources
+
+The stack runs four containers, and one of them exits at once. A small virtual machine with two cores and 2 GB of memory carries a household instance. [Scale one instance](/docs/self-hosting/scaling) covers what to measure and what to grow.
+
+Disk goes to one named volume, the PostgreSQL data directory. [Maintenance](/docs/self-hosting/maintenance) covers disk and image pruning.
+
+## Installation
+
+This section prepares the two files a served instance needs. It stops before the first start.
+
+<Steps>
+
+<Step>
+
+### Get the two files
+
+The stack runs published images, so it needs no source code. Two files are enough:
+
+```bash
+mkdir freenary && cd freenary
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/suiramdev/freenary/main/.env.example
+```
+
+A clone gives the same two files, plus the source for a [build from source](/docs/self-hosting/from-source). Every command below runs from the directory that holds the two files.
+
+</Step>
+
+<Step>
+
+### Write the secrets
+
+```bash
+cp .env.example .env
+openssl rand -hex 16   # POSTGRES_PASSWORD
+openssl rand -hex 32   # BETTER_AUTH_SECRET, 32 characters or more
+```
+
+The template ships a development value for both secrets. Replace both. The API server refuses a secret under 32 characters at startup.
+
+</Step>
+
+<Step>
+
+### Name the two public origins
+
+These five lines are the minimum for a served instance:
+
+```dotenv
+POSTGRES_PASSWORD=<database password>
+BETTER_AUTH_SECRET=<64 hex characters>
+FREENARY_VERSION=main
+BETTER_AUTH_URL=https://api.example.com
+CORS_ORIGIN=https://app.example.com
+```
+
+Put your own hostnames in the last two lines. `FREENARY_VERSION` names the tag of both images, and the compose default `latest` does not exist in the registry.
+
+</Step>
+
+<Step>
+
+### Add the bank credentials
+
+Do this before the first start, so the instance serves working screens from the beginning.
+
+```dotenv
+BANKING_PROVIDER=powens
+POWENS_DOMAIN=acme-sandbox
+POWENS_CLIENT_ID=<client id>
+POWENS_CLIENT_SECRET=<client secret>
+```
+
+[Set up Powens](/docs/integrations/powens#setup) holds each console step, the redirect URI and the sandbox limits. An empty `POWENS_` variable turns bank linking off, and no message says so.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+Decide about email before the first sign-up. With no email provider, Freenary asks for no confirmation and a new account gets a session at once. Set a provider first when you want confirmed addresses and password reset. Read [Email](/docs/self-hosting/configuration#email-delivery).
+
+</Callout>
+
+The stack is ready to start. Read [Start Freenary](#start-freenary).
+
+## Configuration
+
+`docker-compose.yml` declares the Compose project `freenary`, four services and one named volume.
+
+### The four services
+
+| Service | What it is | Published host port |
+| --- | --- | --- |
+| `postgres` | PostgreSQL 18, and the only service that holds state | `127.0.0.1:${POSTGRES_PORT:-5432}:5432` |
+| `migrate` | One command that applies the database migrations, then exits | none |
+| `server` | The API server | `${SERVER_PORT:-3000}:3000` |
+| `web` | The web app the browser loads | `${WEB_PORT:-3001}:3001` |
+
+- `postgres` binds the loopback interface alone, so no other machine reaches the database over the network.
+- `migrate` publishes nothing. It runs `bun x prisma migrate deploy` on every `up` and exits `0` when the schema is current.
+- `server` and `web` publish on every interface. Put the proxy in front of both.
+- Only `server` reads the root `.env` file.
+
+### How a variable reaches a container
+
+The stack reads one file: the `.env` next to `docker-compose.yml`. It reaches the containers in three steps, in this order:
+
+| Step | What happens | File |
+| --- | --- | --- |
+| 1 | Compose expands the `${VAR}` placeholders inside the compose file | `.env` |
+| 2 | The `server` service loads the same file through `env_file`, so every line reaches the container | `.env` |
+| 3 | The `environment:` keys of the compose file win over the file | `docker-compose.yml` |
+
+Step 3 is the one an operator misses. `docker-compose.yml` sets five keys on `server`: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN` and `NODE_ENV`. Each one wins over the `.env` line of the same name. Three of them read a `.env` variable of the same name, so an edit still takes effect. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD`, so a `DATABASE_URL` line of your own does nothing. `NODE_ENV` is always `production`.
+
+<Callout type="warn">
+
+**The `web` service has no `env_file`.** It gets exactly two keys from `docker-compose.yml`: `SERVER_URL` and `PUBLIC_SERVER_URL`. A line in `.env` never reaches the web app. To change what the browser calls, change `BETTER_AUTH_URL`, because Compose builds `PUBLIC_SERVER_URL` from it.
+
+</Callout>
+
+`migrate` gets one key, `DATABASE_URL`. `postgres` gets three: `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`.
+
+### The values Compose guards
+
+Two values are guarded in the compose file. Compose stops before it creates any container when either one is empty, and it names the value:
+
+| Value                | The message Compose prints       |
+| -------------------- | -------------------------------- |
+| `POSTGRES_PASSWORD`  | `Set POSTGRES_PASSWORD in .env`  |
+| `BETTER_AUTH_SECRET` | `Set BETTER_AUTH_SECRET in .env` |
+
+Two more values name the public origins. Both default to `localhost`, which serves the host machine and nothing else:
+
+| Variable | What it must hold |
+| --- | --- |
+| `BETTER_AUTH_URL` | The public origin of the API server, for example `https://api.example.com` |
+| `CORS_ORIGIN` | The public origin of the web app, for example `https://app.example.com` |
+
+Compose gives the `web` service `PUBLIC_SERVER_URL` from `BETTER_AUTH_URL`, so the browser calls the same API origin. A `PUBLIC_SERVER_URL` line of your own does nothing.
+
+`FREENARY_VERSION` names the tag of both images. The compose default is `latest`, and the registry holds no tag of that name, so write a real tag.
+
+## Start Freenary
+
+One command starts the stack. Run it from the directory that holds `docker-compose.yml` and `.env`.
+
+```bash
+docker compose up -d
+```
+
+### The boot order
+
+Compose pulls both images, then starts the services in a fixed order. Each step waits for the one before it.
+
+| Order | What happens |
+| --- | --- |
+| 1 | `postgres` starts and reports healthy |
+| 2 | `migrate` applies every migration the database does not hold, then exits `0` |
+| 3 | `server` starts, because it waits for `migrate` to complete successfully |
+| 4 | `web` starts, because it waits for `server` to report healthy |
+
+A fresh database therefore holds the whole schema before the first request arrives. The step is idempotent, so a start with no new migration changes nothing.
+
+### Create the first account
+
+Open the web app origin in a browser, then sign up with an email address and a password. Freenary has no admin account and no owner role, so the first account is an ordinary user.
+
+The wizard that opens proves the bank provider. It asks for a country, then offers a bank step with the banks your domain activated. A missing bank step means Freenary read no credentials, and Settings then reads `Bank linking is unavailable`.
+
+<Callout type="warn">
+
+**Set the bank provider up now.** No screen takes a transaction by hand. An instance with no provider serves empty screens to every account. Read [Set up Powens](/docs/integrations/powens#setup).
+
+</Callout>
+
+### Read the output of a service
+
+```bash
+docker compose logs -f server
+```
+
+[Logs](/docs/self-hosting/logs) explains the format and what each line holds.
+
+Next, prove that both origins answer. Read [Check the installation](#check-the-installation).
+
+## Check the installation
+
+Three checks tell you the stack works. Run them after the first start, and after every update.
+
+### Ask the API server
+
+```bash
+curl https://api.example.com/
+```
+
+It answers with the plain string `OK`.
+
+### Ask the web app
+
+```bash
+curl -L -o /dev/null -w '%{http_code} %{url_effective}\n' https://app.example.com/
+```
+
+The web app sends a caller with no session to the sign-in screen. The command therefore prints `200 https://app.example.com/login`. Without `-L`, a healthy web app answers a redirect to `/login`.
+
+### Read the service state
+
+```bash
+docker compose ps -a
+```
+
+| Service    | What healthy looks like |
+| ---------- | ----------------------- |
+| `postgres` | `healthy`               |
+| `migrate`  | `Exited (0)`            |
+| `server`   | `healthy`               |
+| `web`      | `healthy`               |
+
+The `-a` flag matters, because plain `docker compose ps` hides a container that already exited.
+
+When a service does not answer, read its own output:
+
+```bash
+docker compose logs -f server
+```
+
+[Troubleshooting](/docs/help/troubleshooting) matches a symptom to a cause. [Logs](/docs/self-hosting/logs) explains the format of each line.
+
+## Updates
+
+An update is a pull and a restart. The `migrate` service applies each pending migration for you.
+
+### Before you update
+
+<Steps>
+
+<Step>
+
+#### Dump the database
+
+A migration can rewrite rows, and a dump is the only way back. Read [Backup and restore](/docs/self-hosting/backup-and-restore).
+
+</Step>
+
+<Step>
+
+#### Record the build you run now
+
+```bash
+docker compose images server web
+```
+
+The command prints the tag and the image ID of each service. Keep both lines. The tags `main` and `dev` move with every push, so the image ID is the exact record.
+
+</Step>
+
+</Steps>
+
+### The tags GHCR holds
+
+The two images are `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web`. `FREENARY_VERSION` in the root `.env` file names the tag of both.
+
+| Tag | What publishes it |
+| --- | --- |
+| `main` | A push to the `main` branch. The tag moves with each push |
+| `dev` | A push to the `dev` branch. The tag moves with each push |
+| `sha-<7 characters>` | The same push. The tag names one commit and never moves |
+| `X.Y.Z`, `X.Y`, `X`, `latest` | A `vX.Y.Z` tag, which only the Release workflow creates |
+| `X.Y.Z-<pre>` | A `vX.Y.Z-<pre>` tag. It publishes that one tag alone |
+
+Three more facts about the tags:
+
+- A push that touches only `apps/fumadocs/` or a `.md` file publishes no image.
+- Each tag joins `linux/amd64` and `linux/arm64` in one manifest.
+- The compose default is `latest`, and GHCR holds no such tag until a maintainer cuts a release.
+
+Pin one commit for a production instance:
+
+```dotenv
+FREENARY_VERSION=sha-1a2b3c4
+```
+
+The package pages of both images list every tag the registry holds. [Release a version](/docs/developers/contributing#release-a-version) covers the branch model behind them.
+
+### The documentation for your version
+
+This site holds one copy of the documentation for each release. The version dropdown at the top of the sidebar switches between them. A path with no version lands on the newest release.
+
+| What you run | What you read |
+| --- | --- |
+| `FREENARY_VERSION=1.2.0` or `1.2` | The `1.2` documentation |
+| `FREENARY_VERSION=1` or `latest` | The documentation of the release that tag points at now |
+| `main`, `dev` or `sha-<7 characters>` | The `next` documentation, which describes the unreleased code |
+
+Your instance holds the answer. The account menu carries a **Documentation** link, and it opens the documentation for the version of its image.
+
+### Move the stack to the new tag
+
+<Steps>
+
+<Step>
+
+#### Set the tag
+
+Edit `FREENARY_VERSION` in the root `.env` file. An update can add a variable to `.env.example`, so read that file too. [Configuration](/docs/self-hosting/configuration) holds every variable.
+
+</Step>
+
+<Step>
+
+#### Pull the images
+
+```bash
+docker compose pull
+```
+
+</Step>
+
+<Step>
+
+#### Recreate the containers
+
+```bash
+docker compose up -d
+```
+
+Compose recreates each container whose image or configuration changed. The `postgres` container and its volume stay as they are.
+
+</Step>
+
+<Step>
+
+#### Check the result
+
+```bash
+docker compose ps -a
+curl http://localhost:3000/
+```
+
+The `migrate` container must show `Exited (0)`. The other three must show `healthy`. The API server must answer `OK`. Then sign in and open one page that lists transactions.
+
+</Step>
+
+</Steps>
+
+The `-a` flag matters here too, because `migrate` has already exited. [Read the service state](#read-the-service-state) holds the state of each service.
+
+### The migration runs on every start
+
+The `migrate` service is one-shot. It runs `bun x prisma migrate deploy` from the server image, in the working directory `/app/packages/db`.
+
+| Order | What happens |
+| --- | --- |
+| 1 | `migrate` waits until the `postgres` healthcheck passes |
+| 2 | `migrate` applies every migration the database does not hold |
+| 3 | `server` starts, because it waits for `migrate` to complete successfully |
+
+The step is idempotent. An update with no new migration still exits `0` and changes nothing. Read what it did:
+
+```bash
+docker compose logs migrate
+```
+
+### Roll back
+
+An update has two halves, and only one of them goes back on its own.
+
+| Half of the update | Goes back |
+| --- | --- |
+| The two container images | Yes, when you recorded a `sha-` tag or an image ID |
+| The database schema and the data | No. The repository ships no reverse migration |
+
+Prisma applies migrations forward only. One shipped migration drops a column, and another remaps every category value. So an older image can meet a schema it does not expect.
+
+<Callout type="warn">
+
+A rollback without a restore leaves the new schema under the old code. Do not skip the restore.
+
+</Callout>
+
+<Steps>
+
+<Step>
+
+#### Stop the two apps
+
+```bash
+docker compose stop web server
+```
+
+</Step>
+
+<Step>
+
+#### Restore the dump you took before the update
+
+Read [Backup and restore](/docs/self-hosting/backup-and-restore) for the commands.
+
+</Step>
+
+<Step>
+
+#### Name the old tag
+
+Set `FREENARY_VERSION` to the `sha-` tag you recorded.
+
+</Step>
+
+<Step>
+
+#### Start the stack again
+
+```bash
+docker compose up -d
+docker compose ps -a
+```
+
+</Step>
+
+</Steps>
+
+<Cards>
+
+<Card
+  title="Configuration reference"
+  href="/docs/self-hosting/configuration"
+  description="Every environment variable, its default and the message it prints when it is wrong."
+/>
+
+<Card
+  title="Database"
+  href="/docs/self-hosting/configuration#database"
+  description="The connection string, the four PostgreSQL variables, and the volume."
+/>
+
+<Card
+  title="Next steps"
+  href="/docs/self-hosting/next-steps"
+  description="What to set up once the stack answers."
+/>
+
+<Card
+  title="Backup and restore"
+  href="/docs/self-hosting/backup-and-restore"
+  description="Dump the database before every update, and put it back when one fails."
+/>
+
+<Card
+  title="Maintenance"
+  href="/docs/self-hosting/maintenance"
+  description="Disk, image pruning, restarts, and the checks after a restart."
+/>
+
+<Card
+  title="Troubleshooting"
+  href="/docs/help/troubleshooting"
+  description="A pull that fails, a service that stays unhealthy, a screen with no data."
+/>
+
+</Cards>

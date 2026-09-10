@@ -1,0 +1,364 @@
+---
+title: Development Setup
+description: The tools a contributor needs, the two development paths, the environment files, and the command that runs the tests.
+---
+
+Three moves take you from a clone to a running stack. Install the tools, install the dependencies, then build the merchant data once.
+
+## What you need
+
+| Tool | Version | Why you need it |
+| --- | --- | --- |
+| Bun | `1.3.14` | The runtime, the package manager and the test runner. `packageManager` in the root `package.json` pins it. |
+| Docker | Any current release | Both stack paths run PostgreSQL in a container. |
+| OrbStack | Any current release | The containerised path only. No development service publishes a host port. |
+| PostgreSQL | `18` | The image `bun run db:start` starts for you. You install nothing by hand. |
+
+The repository holds a `.nvmrc` file with the content `v25.6.1`. No script and no workflow reads it. Bun runs everything here.
+
+## Set up
+
+<Steps>
+
+<Step>
+
+### Clone and install
+
+```bash
+git clone https://github.com/suiramdev/freenary.git
+cd freenary
+bun install
+```
+
+`bun install` also runs the `postinstall` script of `@freenary/db`, which runs `prisma generate`. The client lands in `packages/db/prisma/generated`. It needs the schema files, not a live database.
+
+</Step>
+
+<Step>
+
+### Build the merchant data once
+
+```bash
+bun run build:data
+```
+
+The categorisation pipeline reads `packages/api/data/merchants.jsonl.gz`. The development image `.docker/dockerfile.dev` does not build that artifact, and only the production server image does. Run the command on your host before you start the stack. [Transaction categorisation](/docs/developers/architecture#transaction-categorisation) covers the artifact.
+
+</Step>
+
+<Step>
+
+### Start the stack
+
+Pick one of the two paths in [Run the app](#run-the-app). Then create your account in the browser.
+
+</Step>
+
+</Steps>
+
+## Local development stack
+
+Two paths run Freenary on your machine. The containerised path runs every part in Docker, and the local path runs the three applications on your host. Both need Docker for PostgreSQL.
+
+| Path | Start it with | It needs | It gives you |
+| --- | --- | --- | --- |
+| Containerised | `bun run dev:up` | Docker and OrbStack | Five services, one HTTPS hostname per application, one isolated stack per worktree, and no host port |
+| Local | `bun run db:start`, then `bun run dev` | Docker and two variables in two files | Three host processes on ports `3000`, `3001` and `4000`, with PostgreSQL on `127.0.0.1:5432` |
+
+### The containerised path
+
+`bun run dev:up` is `bun scripts/dev.ts up --build --watch`. One command builds the images, applies the migrations and starts five services. It prints the three URLs it serves, one per application.
+
+The stack needs no `.env` file. [Environment configuration](#environment-configuration) holds the defaults that make that true.
+
+#### The five services
+
+`docker-compose.dev.yml` declares five services. Every service but `postgres` builds from `.docker/dockerfile.dev`.
+
+| Service | Image or build | Working directory | Command | Reachability |
+| --- | --- | --- | --- | --- |
+| `postgres` | `postgres:18-alpine` | image default | image default | `expose` only, plus the `pgdata` volume and a `pg_isready` health check |
+| `bootstrap` | `.docker/dockerfile.dev` | `/app/packages/db` | `bun x prisma migrate deploy` | none. It gets `DATABASE_URL` alone |
+| `server` | `.docker/dockerfile.dev` | `/app/apps/server` | `bun run --hot src/index.ts` | OrbStack labels, `http-port=3000` |
+| `web` | `.docker/dockerfile.dev` | `/app/apps/web` | `bun run dev -- --host 0.0.0.0` | OrbStack labels, `http-port=3001` |
+| `docs` | `.docker/dockerfile.dev` | `/app/apps/fumadocs` | `bun run dev -- --host 0.0.0.0` | OrbStack labels, `http-port=4000` |
+
+Only `server` gets the whole application environment. The `web` service gets `VITE_SERVER_URL` and `SERVER_URL`, which defaults to `http://server:3000`. A server-rendered page therefore reaches the API over the container network. The `docs` service gets `DOCS_PORT`, which no code reads.
+
+The `bootstrap` service is one-shot. It waits for `postgres` to report healthy, then applies the migrations. The `server` service waits for it with the condition `service_completed_successfully`, so the schema lands first. Bootstrap re-runs on every `up`, and it exits `0` when the schema is already current.
+
+#### The four scripts
+
+| Script | What it does | Literal command | The `docker compose` call |
+| --- | --- | --- | --- |
+| `bun run dev:up` | Build, migrate and start, with file sync on | `bun scripts/dev.ts up --build --watch` | `docker compose -p freenary-<slug> -f docker-compose.dev.yml up --build --watch` |
+| `bun run dev:down` | Stop the stack of this worktree | `bun scripts/dev.ts down` | the same prefix, then `down` |
+| `bun run dev:logs` | Follow the logs of every service | `bun scripts/dev.ts logs -f` | the same prefix, then `logs -f` |
+| `bun run dev:reset` | Destroy the volumes, then start again | `bun scripts/dev.ts reset` | `down -v`, then `up --build --watch` |
+
+`reset` is the one verb the wrapper owns. Every other argument reaches `docker compose` unchanged, always with the project name of this worktree:
+
+```bash
+bun scripts/dev.ts ps
+bun scripts/dev.ts restart web
+bun scripts/dev.ts exec server sh
+```
+
+#### Hostnames
+
+`scripts/dev-identity.ts` derives one slug per worktree. It takes the first source that answers:
+
+| Order | Source |
+| --- | --- |
+| 1 | `FREENARY_SLUG`, read from the shell first and from the worktree `.env` second |
+| 2 | The git branch name. A detached `HEAD` counts as no branch |
+| 3 | The directory name of the worktree |
+| 4 | The constant `dev` |
+
+The `slugify` helper lowercases the name and collapses each run outside `[a-z0-9]` to one dash. It then trims the edge dashes and caps the result at 40 characters. The slug names five things:
+
+| Field | Template | With `slug=dev` |
+| --- | --- | --- |
+| Compose project | `freenary-${slug}` | `freenary-dev` |
+| Web host | `web.${slug}.freenary.orb.local` | `web.dev.freenary.orb.local` |
+| Server host | `server.${slug}.freenary.orb.local` | `server.dev.freenary.orb.local` |
+| Docs host | `docs.${slug}.freenary.orb.local` | `docs.dev.freenary.orb.local` |
+| Cookie domain | `.${slug}.freenary.orb.local` | `.dev.freenary.orb.local` |
+
+The wrapper passes the cookie domain as `AUTH_COOKIE_DOMAIN`, so both origins share the session cookie. Every origin uses `https`, because OrbStack fronts each `*.orb.local` name with its own certificate. A plain-HTTP origin breaks the cross-origin calls of the web app on CORS.
+
+`dev:up` prints the banner before compose runs:
+
+```bash
+[freenary dev] worktree "<slug>"
+  web     https://web.<slug>.freenary.orb.local
+  server  https://server.<slug>.freenary.orb.local
+  docs    https://docs.<slug>.freenary.orb.local
+  project freenary-<slug>
+```
+
+The project name and the three hostnames both carry the slug, so two worktrees run side by side. Each one gets its own containers, its own `pgdata` volume and its own URLs.
+
+<Callout type="warn">
+
+**No development service publishes a host port.** `postgres` uses `expose`, which opens nothing on the host. `server`, `web` and `docs` declare no `ports` key. Outside OrbStack the two labels do nothing, so the whole stack has no address you can open. Use the local path instead.
+
+</Callout>
+
+#### File sync
+
+The `x-app-watch` anchor holds three rules, and `server`, `web` and `docs` share it.
+
+| Action | Path | Target | Ignore |
+| --- | --- | --- | --- |
+| `sync` | `./apps` | `/app/apps` | `node_modules/`, `web/src/paraglide/` |
+| `sync` | `./packages` | `/app/packages` | `node_modules/` |
+| `rebuild` | `./bun.lock` | — | — |
+
+An edit under `apps/` or `packages/` copies into the container and the hot reload picks it up. An edit to `bun.lock` rebuilds the image.
+
+The paraglide ignore prevents one exact failure. Both sides compile that directory, so a sync of the host copy deletes the container copy mid-session. Vite then caches the failed resolution of `@/paraglide/server.js`, and the web app answers 500 until a restart. Never edit `apps/web/src/paraglide/` by hand: the next compile overwrites it. [Architecture](/docs/developers/architecture#boundaries) holds the rule for the two message catalogs.
+
+### The local path
+
+```bash
+bun run db:start
+bun run db:generate
+bun run dev
+```
+
+| Command | What it does |
+| --- | --- |
+| `bun run db:start` | `docker compose up -d postgres` against `docker-compose.yml`. It publishes `127.0.0.1:5432` and names the database `freenary` |
+| `bun run dev` | `turbo run dev` for the three applications |
+| `bun run dev:web`, `bun run dev:server` | The same task for one application |
+| `bun run db:watch`, `bun run db:stop`, `bun run db:down` | Follow, stop and remove the same PostgreSQL container |
+
+This path needs two variables in two files. [Environment configuration](#environment-configuration) names both files, and it holds the rule the Prisma CLI follows.
+
+#### The ports
+
+| Application | Port | URL | Where the port comes from |
+| --- | --- | --- | --- |
+| API server | `3000` | `http://localhost:3000` | `env.PORT`, default `3000` |
+| Web app | `3001` | `http://localhost:3001` | `server.port` in `apps/web/vite.config.ts`, with `allowedHosts: true` |
+| Documentation site | `4000` | `http://localhost:4000` | The `--port=4000` flag in the `dev` script of `apps/fumadocs` |
+
+<Callout type="error">
+
+**`apps/fumadocs/vite.config.ts` declares `port: 3000`, and the `dev` script overrides it with `--port=4000`.** Run `bun run dev` or `bun run dev:up` and the site answers on `4000`. Run `vite dev` inside that app by hand and it takes `3000`, which collides with the API server. Always start the site through its `dev` script.
+
+</Callout>
+
+### Reach the database
+
+On the containerised path nothing is published, so go through the wrapper:
+
+```bash
+bun scripts/dev.ts exec postgres psql -U postgres -d freenary
+```
+
+On the local path PostgreSQL answers on `127.0.0.1:5432`, so `psql` and `bun run db:studio` reach it straight.
+
+#### The database commands
+
+| Command | Prisma command | Use it for |
+| --- | --- | --- |
+| `bun run db:migrate --name <snake_case>` | `prisma migrate dev` | Every schema change you commit |
+| `bun run db:generate` | `prisma generate` | A fresh client after a schema edit or a branch switch |
+| `bun run db:studio` | `prisma studio` | A table browser on the database in `DATABASE_URL` |
+| `bun run db:migrate:deploy` | `prisma migrate deploy` | Apply pending migrations. It lives in `packages/db` alone, with no root passthrough |
+| `FREENARY_DB_PUSH=1 bun run db:push` | `prisma db push` | A scratch database only. The gate variable is deliberate |
+
+[Data model](/docs/developers/architecture#migrations) holds the migration rules and the whole list of migrations.
+
+### Your first account
+
+The repository holds no seed script. Open the web app and create the account on the sign-in screen.
+
+The containerised stack sets `EMAIL_PROVIDER: log`, so it sends no mail. The browser asks for a one-time code, and the API server prints it:
+
+```bash
+bun run dev:logs
+```
+
+Read the `[email:log]` line and the six digits under it, then type them in the form. The local path sets no email provider, so a sign-up there returns a session at once.
+
+### Reset
+
+`bun run dev:reset` destroys the `pgdata` volume of this worktree, so every row goes. The next `up` re-runs `bootstrap`, and you get an empty database with a current schema. The command touches no other project name, so the volume of another worktree survives.
+
+### Common failures
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| A permanent 500 that names `@/paraglide/server.js` | Vite cached a failed resolution after the paraglide directory vanished | `bun scripts/dev.ts restart web` |
+| Prisma methods or types that do not match the schema | A stale generated client | `bun run db:generate` |
+| `bind: address already in use` on `3000` | Another `bun run dev`, or a bare `vite dev` inside `apps/fumadocs` | Stop that process, or start the site through its `dev` script |
+| `bind: address already in use` on `3001` or `4000` | Another host process holds the port | Stop it, or use the containerised path, which publishes no host port |
+| The production compose file refuses to parse | An unset or empty `POSTGRES_PASSWORD` or `BETTER_AUTH_SECRET` | Set both in the root `.env` |
+| A route the router does not know, or type errors in `routeTree.gen.ts` | A stale generated route tree | Restart the web development server |
+| Every transaction stays uncategorised | The merchant dictionary artifact is absent | `bun run build:data` on the host |
+
+## Environment configuration
+
+Each path reads its configuration from a different place. The containerised path needs no file. The local path needs two variables in two files.
+
+### The containerised path needs no file
+
+`docker-compose.dev.yml` gives every variable a default, `BETTER_AUTH_SECRET` and `EMAIL_PROVIDER` included. So `bun run dev:up` starts with an empty checkout.
+
+Two defaults change how the stack behaves:
+
+| Default | Effect |
+| --- | --- |
+| The email provider is `log` | The stack sends no mail. The API server prints each one-time code in its log |
+| The bank provider holds no credentials | The bank list reports that bank linking is unavailable, and onboarding skips the connect step |
+
+The wrapper `scripts/dev.ts` adds one value of its own, and [Hostnames](#hostnames) covers that variable.
+
+Add a credential by exporting it in your shell, or by writing it in the root `.env`. Compose reads both. A new variable takes one line in the `x-app-env` anchor of `docker-compose.dev.yml`, in the `${VAR:-}` form that block uses.
+
+### The local path needs two files
+
+| File | What it holds | Read by |
+| --- | --- | --- |
+| The root `.env` | `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET` | `docker-compose.yml`, which `bun run db:start` uses |
+| `apps/server/.env` | `DATABASE_URL` | `packages/db/prisma.config.ts`, and the API server |
+
+<Callout type="warn">
+
+**`docker-compose.yml` needs two variables, not a file.** It writes `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET` as `${VAR:?…}`, which fails on an unset or empty value from any source. Copy `.env.example` to `.env` and set both. A shell export works the same way. The CI `compose` job proves the rule. It parses the file with an emptied `.env`, and it fails when the parse succeeds.
+
+</Callout>
+
+The Prisma CLI reads its own file. `packages/db/prisma.config.ts` loads `apps/server/.env` with dotenv, then hands `process.env.DATABASE_URL || undefined` to the datasource. It sets no default on purpose, so `bun run db:generate` works in a checkout with no database. The commands that connect — `db:push`, `db:migrate` and `db:studio` — need `DATABASE_URL` in `apps/server/.env`:
+
+```dotenv
+DATABASE_URL=postgresql://postgres:password@localhost:5432/freenary
+```
+
+The password there is the `POSTGRES_PASSWORD` of the root `.env`. The schema default for that variable is the same URL.
+
+### Where a new variable goes
+
+`packages/env` is the one seam for a new variable, and [Architecture](/docs/developers/architecture#boundaries) states that rule.
+
+An operator needs the same variable, so document it too. [Configuration](/docs/self-hosting/configuration) is the operator reference for every variable. `.env.example` carries a commented line for each optional one.
+
+## Run the app
+
+Two paths run Freenary on your machine. One line separates them. Take [the containerised path](#the-containerised-path) for the Docker stack behind OrbStack hostnames. Take [the local path](#the-local-path) for three host processes. Complete [Set up](#set-up) first. Once the stack answers, [Your first account](#your-first-account) covers the sign-in screen and the code.
+
+## Run tests
+
+CI runs no tests. The root `package.json` and all ten workspace manifests declare no `test` script, and `turbo.json` declares no `test` task. So you run the files your change touches, by hand, before you push.
+
+### The command
+
+```bash
+bun test scripts/dev-identity.test.ts
+bun test packages/api/src
+```
+
+The first form runs one file. The second runs every test file under a directory. Bun is the test runner, and it needs no configuration file.
+
+A test that reaches PostgreSQL needs a database. Start one first, and apply the schema:
+
+```bash
+bun run db:start
+cd packages/db && bun run db:migrate:deploy
+```
+
+### Where the tests live
+
+The repository holds 50 test files outside `node_modules`, each named `*.test.ts` or `*.test.tsx`.
+
+| Location         | Test files |
+| ---------------- | ---------- |
+| `packages/api`   | 28         |
+| `apps/web/src`   | 17         |
+| `packages/ui`    | 2          |
+| `packages/auth`  | 1          |
+| `packages/email` | 1          |
+| `scripts`        | 1          |
+
+Each test file sits beside the file it covers. `apps/server`, `packages/db` and `packages/env` hold none.
+
+### The checks that do run
+
+The five commands CI runs hold no test. [Pull requests](/docs/developers/contributing#pull-requests) holds that gate, the `compose` job included.
+
+<Cards>
+
+<Card
+  title="Architecture"
+  href="/docs/developers/architecture"
+  description="What each workspace owns, and where each boundary sits."
+/>
+
+<Card
+  title="Data model"
+  href="/docs/developers/architecture#data-model"
+  description="The schema, the enums and the migration loop."
+/>
+
+<Card
+  title="Testing practices"
+  href="/docs/developers/contributing#testing-practices"
+  description="What a test asserts, the style each suite follows, and the stub pattern."
+/>
+
+<Card
+  title="Configuration"
+  href="/docs/self-hosting/configuration"
+  description="The operator reference for every variable an instance reads."
+/>
+
+<Card
+  title="Self-hosting"
+  href="/docs/self-hosting"
+  description="The served install, for an operator rather than a contributor."
+/>
+
+</Cards>

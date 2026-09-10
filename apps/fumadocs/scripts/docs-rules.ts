@@ -5,11 +5,13 @@
  * `vite build` does not catch. Keep the two in step.
  */
 
-/** Frontmatter keys a page may carry. Anything else is a mistake. */
+/**
+ * Frontmatter keys a page may carry. Anything else is a mistake, `icon`
+ * included: an icon marks a section in its `meta.json`, never a page.
+ */
 export const ALLOWED_FRONTMATTER_KEYS: Record<string, true> = {
   description: true,
   full: true,
-  icon: true,
   title: true,
 };
 

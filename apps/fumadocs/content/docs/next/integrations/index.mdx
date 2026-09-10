@@ -1,32 +1,38 @@
 ---
 title: Integrations
-description: The surfaces a Freenary instance exposes to outside code, and where each one is documented.
-icon: Plug
+description: How Freenary connects to an outside service for automatic data, and which bank provider to pick.
 ---
 
-The API server holds every procedure the web app calls. Your own code calls the same procedures over HTTP. One credential opens them: the session cookie of a real account. A script can read accounts, transactions, budget figures and categories. A script can also write a category, save a budget profile or start a bank sync.
+An integration connects Freenary to an outside service that carries data. The bank integration is the one that matters. It brings your accounts, your balances and your transactions in, and it keeps them fresh.
 
-## The surfaces an instance exposes
+<Callout type="warn">
 
-| Surface | Path | What it carries |
-| --- | --- | --- |
-| oRPC endpoint | `POST /rpc/<router>/<procedure>` | Every procedure, inside the oRPC envelope. The web app uses this prefix. |
-| OpenAPI endpoint | `POST /api-reference/<router>/<procedure>` | The same procedures, with plain JSON in and plain JSON out. |
-| Reference UI | `GET /api-reference` | An HTML page that lists every procedure and its schema. |
-| OpenAPI document | `GET /api-reference/spec.json` | The OpenAPI 3.1.1 document, titled `API Reference`. |
-| Auth routes | `GET` or `POST /api/auth/*` | Sign-up, sign-in, sessions, one-time codes, two-factor and passkeys. |
-| Assistant stream | `POST /ai/chat` | The token stream of one assistant answer. It is not a procedure. |
-| Health route | `GET /` | The plain text `OK`. |
+**Powens is the recommended integration.** It lets Freenary pull and sync bank transactions, accounts and balances automatically.
+
+No screen in Freenary accepts a transaction by hand. So an instance with no bank integration has no data to show, and every screen stays empty.
+
+</Callout>
+
+## What a bank integration carries
+
+| Freenary imports | Detail |
+| --- | --- |
+| Bank accounts | The accounts you share at the bank, with the name and the number the bank reports |
+| Balances | Recorded each time the provider reports one |
+| Transactions | Every transaction inside the sync window, filed under a category |
+| Investment holdings | Recorded on an investment account, and only through Powens |
+
+Freenary talks to no bank itself. A bank provider holds that connection, and the operator of the instance picks the provider. [Configuration](/docs/self-hosting/configuration) holds the variable that names it.
 
 <Cards>
   <Card
-    title="API"
-    href="/docs/integrations/api"
-    description="Base URL, mounted paths, the session cookie, request and error shapes, the assistant stream, and the limits."
+    title="Why use Powens"
+    href="/docs/integrations/powens"
+    description="The default provider, what it imports, and how it compares to the second adapter."
   />
   <Card
-    title="Procedure reference"
-    href="/docs/integrations/procedures"
-    description="All 36 procedures, with their input fields, their bounds and their output shapes."
+    title="Other integrations"
+    href="/docs/integrations/other"
+    description="Enable Banking, the merchant dictionary, and what each one carries."
   />
 </Cards>

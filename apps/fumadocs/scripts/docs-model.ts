@@ -62,6 +62,8 @@ export type DocPage = {
 export type MetaFile = {
   readonly file: string;
   readonly folder: string;
+  /** Read to be refused: a section labels itself in its separator, not here. */
+  readonly icon?: string;
   readonly pages: readonly string[];
   readonly raw: string;
 };
@@ -265,10 +267,11 @@ export const readMetaFiles = async (
   for (const rel of files) {
     const file = join(contentDir, rel);
     const raw = await readFile(file, "utf8");
-    const parsed = JSON.parse(raw) as { pages?: string[] };
+    const parsed = JSON.parse(raw) as { icon?: string; pages?: string[] };
     metas.push({
       file,
       folder: rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "",
+      icon: parsed.icon,
       pages: parsed.pages ?? [],
       raw,
     });

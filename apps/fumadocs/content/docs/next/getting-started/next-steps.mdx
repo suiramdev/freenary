@@ -1,0 +1,47 @@
+---
+title: Next steps
+description: The four routes out of the quickstart, and how to pick the one that fits what you want next.
+---
+
+The [Quickstart](/docs/getting-started/quickstart) leaves you signed in to an empty instance. Your account exists, the bank list works, and no transaction has arrived yet. Four routes lead out of that point. Pick the one that matches your goal.
+
+## Fill the instance with your own data
+
+Freenary shows figures only after a bank connection imports transactions. So a bank link is the first move for most readers. The link opens your bank in the browser, brings its accounts back, and starts the first sync.
+
+Start at [Connect a bank](/docs/integrations/powens#connect-a-bank-account).
+
+## Learn the screens
+
+Once transactions land, the product itself is the next thing to read. [Using Freenary](/docs/guides) covers your accounts and their transactions. It also covers the Budget screen, the assistant, the settings and the short setup that your first sign-in opens.
+
+## Serve the instance to other people
+
+The quickstart install answers on `localhost` and nowhere else. An instance that other people reach needs public origins, TLS in front of them and real secrets. [Self-hosting](/docs/self-hosting) holds that install, from the first origin to the backup schedule.
+
+## Change how the instance behaves
+
+Email delivery, single sign-on, the assistant model and the bank provider are all operator choices. Each one is an environment variable that the stack reads at start. [Configuration](/docs/self-hosting/configuration) lists every variable with its default.
+
+<Cards>
+  <Card
+    title="Connect a bank"
+    href="/docs/integrations/powens#connect-a-bank-account"
+    description="Link a bank, import its accounts, and sync them."
+  />
+  <Card
+    title="Using Freenary"
+    href="/docs/guides"
+    description="Accounts, transactions, budgets, the assistant and settings."
+  />
+  <Card
+    title="Self-hosting"
+    href="/docs/self-hosting"
+    description="The install that serves other people, and how to operate it."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable the stack reads, with its default."
+  />
+</Cards>

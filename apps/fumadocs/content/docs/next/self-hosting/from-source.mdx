@@ -1,7 +1,6 @@
 ---
 title: Build from source
 description: Build the two images from a checkout, know what each one holds, and run the apps with no Docker at all.
-icon: Hammer
 ---
 
 The published images fit a normal install, so a build of your own is one of three cases.
@@ -83,7 +82,7 @@ The build step is one download with one fallback.
 | The download fails | It generates the data from its sources, which takes much longer |
 | No outbound access | Neither path completes, and the build fails |
 
-[Categorisation](/docs/contributing/categorisation) covers the dictionary and the classifier weights the step produces.
+[Categorisation](/docs/developers/architecture#transaction-categorisation) covers the dictionary and the classifier weights the step produces.
 
 ## Build the web image by hand
 
@@ -196,7 +195,7 @@ cd apps/web && HOST=0.0.0.0 PORT=3001 PUBLIC_SERVER_URL=https://api.example.com 
 
 <Callout type="info">
 
-This is not the contributor workflow. A contributor runs the development stack, which watches the files and applies the migrations. Read [The development stack](/docs/contributing/local-stack).
+This is not the contributor workflow. A contributor runs the development stack, which watches the files and applies the migrations. Read [The development stack](/docs/developers/setup#local-development-stack).
 
 </Callout>
 
@@ -210,13 +209,13 @@ This is not the contributor workflow. A contributor runs the development stack, 
 
 <Card
   title="Updates"
-  href="/docs/self-hosting/updates"
+  href="/docs/self-hosting/docker#updates"
   description="The tags, the pull, the migration and the rollback."
 />
 
 <Card
   title="Troubleshooting"
-  href="/docs/self-hosting/troubleshooting"
+  href="/docs/help/troubleshooting"
   description="A refusal at startup, a wrong origin, a screen with no data."
 />
 

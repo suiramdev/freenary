@@ -1,0 +1,79 @@
+---
+title: Get support
+description: Where to open an issue, which of the three forms to pick, and the facts each one asks for.
+---
+
+Freenary has one place for a question, a bug and a request: the issue tracker of the repository. Read [Troubleshooting](/docs/help/troubleshooting) and [Frequently asked questions](/docs/help/faq) first. Most symptoms already carry a fix there.
+
+## Open an issue
+
+Start at [github.com/suiramdev/freenary/issues/new/choose](https://github.com/suiramdev/freenary/issues/new/choose). Blank issues are off, so pick one of three forms.
+
+| Form | Use it for | Title prefix |
+| --- | --- | --- |
+| `Bug report` | Something behaves in a way the documentation does not describe | `[Bug]:` |
+| `Feature request` | A workflow you want, and the problem behind it | `[Feature]:` |
+| `Other` | A question, or anything the first two do not fit | `[Other]:` |
+
+Search the open issues before you write a new one. A comment on the issue that matches carries more weight than a duplicate.
+
+## What the bug form asks
+
+Two fields sit at the top, and the first one is mandatory.
+
+| Field | What to put |
+| --- | --- |
+| `Area` | `Web app`, `Server / API`, `Database / migrations`, `Docker / local setup` or `Other` |
+| `Version or commit` | The branch or commit you run, such as `main @ abc1234` |
+
+Add these to the details, and your report needs no follow-up question:
+
+- What you did, what you expected, and what happened.
+- The exact error text, or the log lines around it.
+- The output of `docker compose ps -a`.
+- How you serve TLS, and which origins you set.
+- The variables you set, with every secret removed.
+
+<Callout type="warn">
+
+An issue is public. Remove every secret, every access token and every bank identifier before you paste a log line. [Logs](/docs/self-hosting/logs) names what the output holds.
+
+</Callout>
+
+## What the feature form asks
+
+Three fields, and the first two are mandatory. The form wants the problem before the solution.
+
+| Field | What to put |
+| --- | --- |
+| `Problem or use case` | What you try to do, and what is missing |
+| `Proposed solution` | The change you want to see |
+| `Alternatives or additional context` | Workarounds, related tools or mockups |
+
+## Send a fix instead
+
+A pull request is welcome, and the repository states what it expects of one. Read [Contributing](/docs/developers/contributing) for the tools, the checks and the pull request rules.
+
+A documentation page that is wrong counts as a bug. [Writing documentation](/docs/developers/contributing#writing-documentation) holds the authoring rules and the two gates every page passes.
+
+<Cards>
+
+<Card
+  title="Troubleshooting"
+  href="/docs/help/troubleshooting"
+  description="Match a symptom to its cause and its fix."
+/>
+
+<Card
+  title="Frequently asked questions"
+  href="/docs/help/faq"
+  description="What Freenary stores, which banks it reads, and where your data goes."
+/>
+
+<Card
+  title="Contributing"
+  href="/docs/developers/contributing"
+  description="The tools, the checks and the pull request rules."
+/>
+
+</Cards>

@@ -1,12 +1,345 @@
 ---
-title: Procedure reference
-description: All 36 procedures of the Freenary router, with their access rule, their input bounds, their output shape and their errors.
-icon: ListTree
+title: API
+description: The base URL, the mounted paths, the request and error shapes, the session cookie and all 36 procedures.
 ---
 
-All 36 procedures, grouped by router. [API](/docs/integrations/api) holds the base URL, the transports and the sign-in steps.
+Write a client against this page. It gives every path the API server mounts, the exact bodies and the limits. [Authentication](#authentication) gives the one credential.
 
-## How to read this page
+You need a live instance and one account. [Install Freenary](/docs/self-hosting) sets up both.
+
+## Base URL
+
+The API server listens on the port in `PORT`. The default is `3000`, so the default base URL is `http://localhost:3000`. The Docker Compose stack publishes that port as `SERVER_PORT`.
+
+A served install puts the API server behind a reverse proxy. Set `BETTER_AUTH_URL` to the public URL of the API server. Set `CORS_ORIGIN` to the origin of the web app. [Configuration](/docs/self-hosting/configuration) holds both variables.
+
+Every path below is relative to the base URL.
+
+## Mounted paths
+
+The API server mounts four handlers and one root route. Nothing else answers.
+
+| Path | What it answers |
+| --- | --- |
+| `GET /` | The plain text `OK`. The Docker Compose health probe reads it. |
+| `GET` or `POST /api/auth/*` | The Better Auth routes. Another method returns HTTP 405 with no body. |
+| `POST /rpc/<router>/<procedure>` | Every procedure, inside the oRPC envelope. |
+| `POST /api-reference/<router>/<procedure>` | The same procedures, with plain JSON in and plain JSON out. |
+| `GET /api-reference` | The reference UI. |
+| `GET /api-reference/spec.json` | The OpenAPI document. |
+| `POST /ai/chat` | The assistant stream. It is not a procedure. |
+
+A path under `/rpc` or `/api-reference` that matches no procedure returns HTTP 404 and the plain text `Not Found`. There is no version prefix: no `/v1`, and no `/api/v1`.
+
+### The reference UI and the document
+
+`GET /api-reference` returns an HTML page. The page loads the Scalar reader from a CDN at render time. A browser with no internet access shows an empty page.
+
+`GET /api-reference/spec.json` returns the document itself. The plugin emits these values:
+
+| Field            | Value                              |
+| ---------------- | ---------------------------------- |
+| `openapi`        | `3.1.1`                            |
+| `info.title`     | `API Reference`                    |
+| `info.version`   | `0.0.0`                            |
+| `servers[0].url` | The base URL plus `/api-reference` |
+
+```bash
+curl http://localhost:3000/api-reference/spec.json
+```
+
+Three gaps matter to a generated client:
+
+- The document declares no security scheme and no tags, so it cannot name the procedures that need a session. [Procedure reference](#procedure-reference) names them.
+- No procedure declares an output schema. The response shapes are inferred, and the server never checks a response against them. Read the output tables of [Procedure reference](#procedure-reference) instead.
+- The document omits `POST /ai/chat`, because that route is not a procedure. Write that call by hand.
+
+<Callout type="warn">
+  `/api-reference` is a live API, not only a document. Any holder of a session
+  cookie can call all 36 procedures there, and the reference UI carries a
+  send-request button. Block the prefix at the reverse proxy when you do not
+  want it public. Read [Security](/docs/self-hosting/security).
+</Callout>
+
+## CORS
+
+The API server allows one origin, and not a list.
+
+| Option           | Value                                          |
+| ---------------- | ---------------------------------------------- |
+| `origin`         | `CORS_ORIGIN`, default `http://localhost:3001` |
+| `credentials`    | `true`                                         |
+| `methods`        | `GET`, `POST`, `OPTIONS`                       |
+| `allowedHeaders` | `Content-Type`, `Authorization`                |
+
+A browser client must run on the `CORS_ORIGIN` origin, and it must send credentials. The CORS layer answers a preflight itself with HTTP 204. A server-to-server caller ignores CORS.
+
+## Request shape
+
+Every procedure is a `POST`. No procedure declares route metadata, so oRPC maps the dot path to a path under each prefix. The procedure `budget.getTransactions` becomes `POST /api-reference/budget/getTransactions`. A root procedure keeps one segment, so `healthCheck` becomes `POST /api-reference/healthCheck`.
+
+A `GET` request against a procedure under `/rpc` returns HTTP 405 with the code `METHOD_NOT_SUPPORTED`.
+
+|  | `/rpc` | `/api-reference` |
+| --- | --- | --- |
+| Method | `POST` | `POST` |
+| Path | `/rpc/<router>/<procedure>` | `/api-reference/<router>/<procedure>` |
+| Request body | `{"json": <input>}` | `<input>` |
+| Body for a procedure with no input | `{}` | `{}` |
+| Success body | `{"json": <output>}` | `<output>` |
+| Extra surface | none | the reference UI and `spec.json` |
+
+<Callout type="error">
+  Send `{}` for a procedure that takes no input, on both prefixes. The oRPC
+  client serialises a no-input call to `{}`, and never to `{"json":null}`. A
+  `null` passes where a procedure declares no input schema, because the server
+  then skips validation. It fails on `budget.syncAccounts`, whose whole input
+  object is optional: an optional object accepts an absent value, and refuses
+  `null`.
+</Callout>
+
+Pick `/api-reference` for hand-written HTTP calls. Pick `/rpc` for the oRPC client, which writes the envelope for you.
+
+There is no published SDK. The `AppRouter` type lives in a workspace package, so only code inside the repository can import it. Outside code calls either prefix with plain `fetch`.
+
+## Errors
+
+A procedure error body is flat JSON. The one route that answers otherwise is `POST /ai/chat`, and [The assistant stream](#the-assistant-stream) gives its bodies.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `defined` | boolean | `true` when the procedure declared the error. Every Freenary error is `false`. |
+| `code` | string | The oRPC error code from the table below. |
+| `status` | number | The HTTP status, repeated inside the body. |
+| `message` | string | An English literal. There is no message key, and no translation. |
+| `data` | object | Present on an input validation failure. `data.issues` holds the schema issues. |
+
+On `/api-reference` that object is the whole body. On `/rpc` it sits inside the `json` field.
+
+| Code | HTTP | Cause |
+| --- | --- | --- |
+| `BAD_REQUEST` | 400 | The input failed the schema, and `message` is `Input validation failed`. A router refusal uses the same code with its own message. |
+| `UNAUTHORIZED` | 401 | No session cookie on a protected procedure. |
+| `NOT_FOUND` | 404 | A bank connection, a transaction, a category, a bank provider or an active conversation does not match. |
+| `METHOD_NOT_SUPPORTED` | 405 | A `GET` request reached a procedure under `/rpc`. |
+| `CONFLICT` | 409 | A custom category label clashes with one the account already holds. |
+| `TOO_MANY_REQUESTS` | 429 | `auth.accountExists` or `assistant.saveTurn` went over its cap. |
+| `INTERNAL_SERVER_ERROR` | 500 | An unhandled failure, such as a bank provider network error. |
+
+Two failures carry no JSON at all. A non-`GET` and non-`POST` request to `/api/auth/*` returns HTTP 405 with an empty body. An unmatched path under `/rpc` or `/api-reference` returns HTTP 404 and the text `Not Found`.
+
+[Procedure reference](#procedure-reference) names the exact message each procedure throws.
+
+## The assistant stream
+
+The assistant answers questions about the money of the caller. A unary procedure returns one value and cannot carry a token stream. The answer therefore arrives from a raw route beside the router.
+
+```http
+POST /ai/chat
+```
+
+The route reads the session from the same cookie a procedure reads. The web app posts to it with `credentials: "include"`. A script replays the same cookie jar.
+
+### Request body
+
+The body is the UI-message-stream request of the AI SDK, plus one Freenary field.
+
+| Field | Type | Required | Note |
+| --- | --- | --- | --- |
+| `messages` | array | no, default `[]` | The transcript the client holds. The route reads the last entry only. |
+| `trigger` | string | no | `regenerate-message` redoes the last stored turn. Any other value is a new question. |
+| `messageId` | string | no | With `regenerate-message`, the id of the assistant message to redo. |
+| `locale` | string | no | Two lower-case letters, then an optional hyphen and two upper-case letters, so `en` or `fr-FR`. |
+
+The last entry of `messages` must be a user turn whose `parts` array holds text parts only. One part is `{ "type": "text", "text": "<the question>" }`.
+
+The route rebuilds every earlier turn from the stored conversation, and it drops the earlier entries of the body. A single user message is therefore a complete request. A caller cannot seed context or forge an assistant turn.
+
+### Response
+
+Success is HTTP 200 and a UI message stream of the AI SDK.
+
+| Header                          | Value               |
+| ------------------------------- | ------------------- |
+| `content-type`                  | `text/event-stream` |
+| `cache-control`                 | `no-cache`          |
+| `connection`                    | `keep-alive`        |
+| `x-vercel-ai-ui-message-stream` | `v1`                |
+| `x-accel-buffering`             | `no`                |
+
+Each chunk carries a `type`. The set holds `start`, `start-step`, `text-start`, `text-delta`, `text-end`, `tool-input-start`, `tool-output-available`, `finish-step`, `finish` and `error`.
+
+The route stores the turn when the answer finishes. A stream the caller aborts leaves nothing behind.
+
+### Refusals
+
+A refusal body is one machine word in plain text. There is no JSON, no `code` field and no message.
+
+| Order | Status | Body | Cause |
+| --- | --- | --- | --- |
+| 1 | 401 | `unauthorized` | No session cookie. |
+| 2 | 503 | `unconfigured` | The instance holds no model. |
+| 3 | 429 | `rate_limited` | The account went over the question cap. |
+| 4 | 400 | `bad_request` | The body is not JSON, or it fails the schema, or the last message is not a text-only user turn, or the question passes 8000 characters. |
+
+The route tests those causes in that order. A caller with no session therefore reads `unauthorized` on an instance with no model too. A caller over the cap reads `unconfigured` on that same instance.
+
+[The assistant](/docs/self-hosting/configuration#assistant) gives the model endpoint an instance calls, and what data leaves the instance.
+
+## Limits
+
+### Rate limits
+
+Better Auth caps `/api/auth/*` per caller address and per path. The counters live in the database, so a restart does not clear them.
+
+| Path | Limit |
+| --- | --- |
+| `/api/auth/sign-in/email` | 10 per 60 seconds |
+| `/api/auth/sign-in/social` | 10 per 60 seconds |
+| `/api/auth/sign-up/email` | 5 per 300 seconds |
+| `/api/auth/two-factor/verify-totp` | 10 per 300 seconds |
+| `/api/auth/two-factor/verify-backup-code` | 5 per 300 seconds |
+| `/api/auth/passkey/generate-authenticate-options` | 20 per 60 seconds |
+| `/api/auth/passkey/verify-authentication` | 20 per 60 seconds |
+| Another path under `/api/auth/sign-in` or `/api/auth/sign-up`, plus `/api/auth/change-password` and `/api/auth/change-email` | 3 per 10 seconds |
+| The password-reset and one-time-code paths | 3 per 60 seconds |
+| Every other `/api/auth/*` path | 100 per 60 seconds |
+
+That limiter never covers `/rpc*`, `/api-reference*` or `/ai/chat`. Two procedures cap themselves instead.
+
+| Surface | Limit | Counted per |
+| --- | --- | --- |
+| `auth.accountExists` | 20 per 60 seconds | Caller address |
+| `assistant.saveTurn` and `POST /ai/chat` | 30 per 300 seconds, shared | Account |
+
+The turn store and the question stream share one allowance, on the key `ai-chat:<userId>`. The other 33 procedures have no cap.
+
+<Callout type="warn">
+
+Three procedures cost real work and have no cap:
+
+- `budget.syncAccounts` calls the bank provider.
+- `budget.recategorise` runs the pipeline over every transaction.
+- `budget.getSankeyData` reads every transaction in the date range you pass.
+
+Pace your own calls.
+
+</Callout>
+
+### Size and page limits
+
+| Limit | Value |
+| --- | --- |
+| Request body size | The application sets no cap. Only the Bun runtime default applies. |
+| Transaction page | `limit` 1 to 100, default 50 |
+| Company list | `limit` 1 to 100, default 30 |
+| Budget lines per profile | 200 |
+| Budget line label | 60 characters after a trim |
+| Custom category label | 1 to 40 characters after a trim |
+| Budget line amount | 0 to 2147483647 minor units |
+| Assistant question | 8000 characters |
+| Stored answer parts | 200000 characters as JSON |
+| Date range on `from` and `to` | No maximum span, and no check that `from` comes before `to` |
+
+Only `budget.getTransactions` pages its result. It takes a `cursor` and returns `nextCursor`. Every other list returns all rows, except `budget.getMerchants`, which stops at its `limit`.
+
+## Authentication
+
+The session cookie is the only credential, and no bearer token exists. Better Auth sets it, and the API server reads it on every call.
+
+### The session cookie
+
+| Property | Value |
+| --- | --- |
+| Name over http | `better-auth.session_token` |
+| Name over https | `__Secure-better-auth.session_token` |
+| Attributes | `HttpOnly`, `Path=/`, `SameSite=Lax` or `SameSite=None`, and `Secure` over https |
+| Lifetime | 7 days |
+
+The `__Secure-` prefix follows `BETTER_AUTH_URL` alone. A base URL that starts with `https://` gets the prefix, and `NODE_ENV` changes nothing.
+
+<Callout type="warn">
+  A TLS proxy in front of an instance with an `http://` `BETTER_AUTH_URL` gives
+  the unprefixed, non-secure cookie. Set `BETTER_AUTH_URL` to the public https
+  URL. Read [Reverse
+  proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy).
+</Callout>
+
+<Callout type="error">
+  No bearer token and no API key exist. The instance registers no bearer plugin
+  and no API-key plugin. The CORS configuration advertises the `Authorization`
+  header, but no code reads it, so a bearer token alone returns HTTP 401.
+</Callout>
+
+### The public procedures
+
+Four procedures answer without a session: `healthCheck`, `auth.capabilities`, `auth.accountExists` and `auth.viewer`. Every other procedure returns HTTP 401 and this exact body:
+
+```json
+{
+  "defined": false,
+  "code": "UNAUTHORIZED",
+  "status": 401,
+  "message": "Unauthorized"
+}
+```
+
+### Sign in, keep the cookie, call a procedure
+
+<Steps>
+
+<Step>
+
+Sign in and write the cookie to a jar with `-c`.
+
+```bash
+curl -c jar.txt -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}'
+```
+
+The response carries `token` and `user`, and it sets the session cookie.
+
+</Step>
+
+<Step>
+
+Call a protected procedure with the same jar, through `-b`.
+
+```bash
+curl -b jar.txt -X POST http://localhost:3000/api-reference/onboarding/getStatus \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+# 200 {"completed":false,"country":null}
+```
+
+</Step>
+
+<Step>
+
+A public procedure needs no jar.
+
+```bash
+curl -X POST http://localhost:3000/api-reference/healthCheck \
+  -H 'Content-Type: application/json' -d '{}'
+# 200 "OK"
+```
+
+</Step>
+
+</Steps>
+
+### Create an account
+
+An account creation is `POST /api/auth/sign-up/email` with `name`, `email` and `password`. That call sets the cookie only on an instance with no email provider. With an email provider set, it answers `token: null` and sends a one-time code. Confirm the address with that code, then sign in.
+
+An account with a second factor gets no session cookie from that first call. The answer asks for the second factor instead.
+
+## Procedure reference
+
+All 36 procedures, grouped by router. [Base URL](#base-url) and [Request shape](#request-shape) hold the transports. [Authentication](#authentication) holds the sign-in steps.
+
+### How to read this page
 
 - The dot path is the client path. Over HTTP it becomes `POST /rpc/<router>/<procedure>` or `POST /api-reference/<router>/<procedure>`.
 - **Public** means the procedure answers with no session. **Protected** means it needs the session cookie.
@@ -15,9 +348,9 @@ All 36 procedures, grouped by router. [API](/docs/integrations/api) holds the ba
 - A date field accepts an ISO 8601 string, which the schema coerces to a date.
 - Every money amount is an integer in minor units. 12.34 EUR is `1234`.
 
-## Root procedures
+### Root procedures
 
-### healthCheck
+#### healthCheck
 
 Public. Returns a fixed string, so a caller can probe the router itself.
 
@@ -27,7 +360,7 @@ Public. Returns a fixed string, so a caller can probe the router itself.
 
 **Errors**: none.
 
-### privateData
+#### privateData
 
 Protected. Returns a fixed string and the Better Auth user of the session.
 
@@ -48,9 +381,9 @@ The web app never calls `privateData`. Use it to prove that your cookie works, a
 
 </Callout>
 
-## `assistant`
+### `assistant`
 
-### assistant.getConversation
+#### assistant.getConversation
 
 Protected. Returns the active conversation of the caller, and the model of the instance.
 
@@ -72,7 +405,7 @@ Protected. Returns the active conversation of the caller, and the model of the i
 
 **Errors**: none.
 
-### assistant.saveTurn
+#### assistant.saveTurn
 
 Protected. Stores one finished turn that the caller answered itself.
 
@@ -99,7 +432,7 @@ Protected. Stores one finished turn that the caller answered itself.
 - `BAD_REQUEST` (400) `Empty answer` — no text part and no resolved tool part survived the filter.
 - `TOO_MANY_REQUESTS` (429) — over 30 turns per 300 seconds. The stream route shares that allowance.
 
-### assistant.startNewConversation
+#### assistant.startNewConversation
 
 Protected. Archives the active conversation of the caller, and deletes nothing.
 
@@ -113,9 +446,9 @@ Protected. Archives the active conversation of the caller, and deletes nothing.
 
 **Errors**: none.
 
-## `auth`
+### `auth`
 
-### auth.accountExists
+#### auth.accountExists
 
 Public. Tells a caller whether an address already holds an account.
 
@@ -136,7 +469,7 @@ Public. Tells a caller whether an address already holds an account.
 - `TOO_MANY_REQUESTS` (429) — over 20 calls per 60 seconds per caller address.
 - `BAD_REQUEST` (400) `Input validation failed` — the address does not parse.
 
-### auth.capabilities
+#### auth.capabilities
 
 Public. Describes the sign-in doors this instance opens.
 
@@ -157,7 +490,7 @@ Public. Describes the sign-in doors this instance opens.
 
 **Errors**: none.
 
-### auth.viewer
+#### auth.viewer
 
 Public. Names the caller. A caller with no session gets a `guest` answer, and not a 401.
 
@@ -173,9 +506,9 @@ Public. Names the caller. A caller with no session gets a `guest` answer, and no
 
 **Errors**: none.
 
-## `bankConnection`
+### `bankConnection`
 
-### bankConnection.disconnect
+#### bankConnection.disconnect
 
 Protected. Deletes one bank connection and every row under it.
 
@@ -197,7 +530,7 @@ Protected. Deletes one bank connection and every row under it.
 
 - `NOT_FOUND` (404) `Bank connection not found`.
 
-### bankConnection.exchangeCode
+#### bankConnection.exchangeCode
 
 Protected. Turns the bank provider callback query into a bank connection.
 
@@ -228,7 +561,7 @@ Protected. Turns the bank provider callback query into a bank connection.
 - `BAD_REQUEST` (400) `Bank institution is no longer available`.
 - `BAD_REQUEST` (400) `No provider session for this user`.
 
-### bankConnection.getProviderAvailability
+#### bankConnection.getProviderAvailability
 
 Protected. Reports whether the operator configured the bank provider.
 
@@ -242,7 +575,7 @@ Protected. Reports whether the operator configured the bank provider.
 
 **Errors**: none.
 
-### bankConnection.listConnections
+#### bankConnection.listConnections
 
 Protected. Lists the bank connections of the caller and their bank accounts, oldest first.
 
@@ -261,7 +594,7 @@ Protected. Lists the bank connections of the caller and their bank accounts, old
 
 **Errors**: none.
 
-### bankConnection.listInstitutions
+#### bankConnection.listInstitutions
 
 Protected. Lists the banks the provider can link in one country.
 
@@ -285,7 +618,7 @@ Protected. Lists the banks the provider can link in one country.
 
 - `BAD_REQUEST` (400) `No country to list banks for` — no input country, and the account holds none.
 
-### bankConnection.startConnection
+#### bankConnection.startConnection
 
 Protected. Opens a bank consent session and returns the URL to send the user to.
 
@@ -314,9 +647,9 @@ The redirect URL is `CORS_ORIGIN` plus the provider callback path, so `/callback
 
 </Callout>
 
-## `budget`
+### `budget`
 
-### budget.getAccounts
+#### budget.getAccounts
 
 Protected. Lists the bank accounts of the caller and the date bounds of their transactions.
 
@@ -333,7 +666,7 @@ Protected. Lists the bank accounts of the caller and the date bounds of their tr
 
 **Errors**: none.
 
-### budget.getBudgetVsActual
+#### budget.getBudgetVsActual
 
 Protected. Compares the planned amount per category group with the real spend.
 
@@ -354,7 +687,7 @@ Protected. Compares the planned amount per category group with the real spend.
 
 **Errors**: none.
 
-### budget.getCashFlow
+#### budget.getCashFlow
 
 Protected. Sums money in and money out per period.
 
@@ -373,7 +706,7 @@ Protected. Sums money in and money out per period.
 
 **Errors**: none.
 
-### budget.getFixedVsVariable
+#### budget.getFixedVsVariable
 
 Protected. Splits money out into a recurrent part and the rest.
 
@@ -394,7 +727,7 @@ Protected. Splits money out into a recurrent part and the rest.
 
 **Errors**: none.
 
-### budget.getMerchants
+#### budget.getMerchants
 
 Protected. Lists the companies the transactions of a date range name, most frequent first.
 
@@ -416,9 +749,9 @@ Protected. Lists the companies the transactions of a date range name, most frequ
 
 **Errors**: none.
 
-### budget.getRecurring
+#### budget.getRecurring
 
-Protected. Returns everything the Recurring page of the budget screen reads, in one call. [Categorisation](/docs/contributing/categorisation) holds the detection rules behind `confidence` and `kind`.
+Protected. Returns everything the Recurring page of the budget screen reads, in one call. [Categorisation](/docs/developers/architecture#transaction-categorisation) holds the detection rules behind `confidence` and `kind`.
 
 **Input**: none.
 
@@ -459,7 +792,7 @@ Protected. Returns everything the Recurring page of the budget screen reads, in 
 
 **Errors**: none.
 
-### budget.getRecurringExpenses
+#### budget.getRecurringExpenses
 
 Protected. Lists the merchants the recurrence detector holds as regular.
 
@@ -482,7 +815,7 @@ Protected. Lists the merchants the recurrence detector holds as regular.
 
 **Errors**: none.
 
-### budget.getSankeyData
+#### budget.getSankeyData
 
 Protected. Returns the nodes of the income-to-category flow.
 
@@ -506,7 +839,7 @@ Protected. Returns the nodes of the income-to-category flow.
 
 **Errors**: none.
 
-### budget.getSpendingBreakdown
+#### budget.getSpendingBreakdown
 
 Protected. Sums money out per category group.
 
@@ -526,7 +859,7 @@ Protected. Sums money out per category group.
 
 **Errors**: none.
 
-### budget.getTransactions
+#### budget.getTransactions
 
 Protected. The one paged procedure. Returns transactions in a date range, with the range totals.
 
@@ -568,7 +901,7 @@ Protected. The one paged procedure. Returns transactions in a date range, with t
 
 **Errors**: none.
 
-### budget.recategorise
+#### budget.recategorise
 
 Protected. Drops the pipeline verdicts and runs the pipeline again.
 
@@ -582,7 +915,7 @@ Protected. Drops the pipeline verdicts and runs the pipeline again.
 
 **Errors**: none.
 
-### budget.syncAccounts
+#### budget.syncAccounts
 
 Protected. Pulls fresh data from the bank provider, then categorises what is new.
 
@@ -610,7 +943,7 @@ This procedure returns HTTP 200 even when every connection failed. Read the `suc
 
 </Callout>
 
-### budget.updateTransactionCategory
+#### budget.updateTransactionCategory
 
 Protected. Sets the category of one transaction, and remembers the merchant.
 
@@ -633,9 +966,9 @@ Protected. Sets the category of one transaction, and remembers the merchant.
 
 - `NOT_FOUND` (404) `Transaction not found`.
 
-## `onboarding`
+### `onboarding`
 
-### onboarding.completeOnboarding
+#### onboarding.completeOnboarding
 
 Protected. Stores the country and marks the first-run flow as done.
 
@@ -653,7 +986,7 @@ Protected. Stores the country and marks the first-run flow as done.
 
 **Errors**: none.
 
-### onboarding.getStatus
+#### onboarding.getStatus
 
 Protected. Reports whether the caller finished the first-run flow.
 
@@ -668,9 +1001,9 @@ Protected. Reports whether the caller finished the first-run flow.
 
 **Errors**: none.
 
-## `settings`
+### `settings`
 
-### settings.createCustomCategory
+#### settings.createCustomCategory
 
 Protected. Creates one custom category for the caller.
 
@@ -693,7 +1026,7 @@ Protected. Creates one custom category for the caller.
 
 - `CONFLICT` (409) `A category with that name already exists`.
 
-### settings.deleteCustomCategory
+#### settings.deleteCustomCategory
 
 Protected. Deletes one custom category and rehomes its budget lines.
 
@@ -714,7 +1047,7 @@ Protected. Deletes one custom category and rehomes its budget lines.
 
 - `NOT_FOUND` (404) `Category not found`.
 
-### settings.getBudgetProfile
+#### settings.getBudgetProfile
 
 Protected. Returns the budget lines of the caller in their saved order.
 
@@ -731,7 +1064,7 @@ Protected. Returns the budget lines of the caller in their saved order.
 
 **Errors**: none.
 
-### settings.listCategories
+#### settings.listCategories
 
 Protected. Returns the whole category tree the caller can pick from.
 
@@ -753,7 +1086,7 @@ Protected. Returns the whole category tree the caller can pick from.
 
 **Errors**: none.
 
-### settings.moveCustomCategory
+#### settings.moveCustomCategory
 
 Protected. Swaps one custom category with its neighbour inside the same parent.
 
@@ -774,7 +1107,7 @@ Protected. Swaps one custom category with its neighbour inside the same parent.
 
 - `NOT_FOUND` (404) `Category not found`.
 
-### settings.saveBudgetProfile
+#### settings.saveBudgetProfile
 
 Protected. Replaces every budget line of the caller in one write.
 
@@ -806,7 +1139,7 @@ The write deletes every old line first, so a partial array drops the lines you l
 
 </Callout>
 
-### settings.updateCustomCategory
+#### settings.updateCustomCategory
 
 Protected. Rewrites one custom category.
 
@@ -831,11 +1164,11 @@ Protected. Rewrites one custom category.
 - `NOT_FOUND` (404) `Category not found`.
 - `CONFLICT` (409) `A category with that name already exists`.
 
-## Enum values
+### Enum values
 
-These are the literal values the input schemas accept. [Categories](/docs/guides/categories) explains what they mean to a user.
+These are the literal values the input schemas accept. [Categories](/docs/guides/transactions#categories-and-budget-lines) explains what they mean to a user.
 
-### Category groups
+#### Category groups
 
 16 values, in this order:
 
@@ -860,7 +1193,7 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 ]
 ```
 
-### Spending categories
+#### Spending categories
 
 75 values. The comment marks the group each block belongs to.
 
@@ -960,7 +1293,7 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 ]
 ```
 
-### Category colours
+#### Category colours
 
 7 values:
 
@@ -968,7 +1301,7 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 ["blue", "green", "grey", "orange", "pink", "purple", "red"]
 ```
 
-### Category icons
+#### Category icons
 
 18 values:
 
@@ -997,18 +1330,28 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 
 <Cards>
   <Card
-    title="API"
-    href="/docs/integrations/api"
-    description="Base URL, transports, the session cookie, errors and limits."
+    title="Security"
+    href="/docs/self-hosting/security"
+    description="Cookie attributes, the reference prefix, and what to block at the proxy."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every environment variable, including the port, the base URL and the origin."
+  />
+  <Card
+    title="Sign-in methods"
+    href="/docs/self-hosting/configuration#sign-in-methods"
+    description="The operator view: the secret, the cookie domain and the second factors."
   />
   <Card
     title="Categorisation"
-    href="/docs/contributing/categorisation"
+    href="/docs/developers/architecture#transaction-categorisation"
     description="How the pipeline resolves a transaction to a category."
   />
   <Card
     title="Data model"
-    href="/docs/contributing/data-model"
+    href="/docs/developers/architecture#data-model"
     description="The Prisma models and enum values behind these outputs."
   />
 </Cards>

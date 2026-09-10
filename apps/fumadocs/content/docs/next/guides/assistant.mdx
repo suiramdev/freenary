@@ -1,12 +1,11 @@
 ---
 title: The assistant
 description: Ask Home a question about your money, read where each figure came from, and know what leaves your instance.
-icon: Sparkles
 ---
 
 Home is the assistant. Ask it about your accounts, your spending or your budget. It answers from the data your bank already sent to Freenary, and from nothing else.
 
-**Before you start:** connect a bank, or the assistant has little to read. See [Bank connections](/docs/guides/bank-connections).
+**Before you start:** connect a bank, or the assistant has little to read. See [Connect a bank](/docs/integrations/powens#connect-a-bank-account).
 
 ## The empty conversation
 
@@ -79,7 +78,7 @@ The group `On this device` lists the models your browser can download and run. E
 
 Each question sends your question and the results of its lookups to the model that answers. Those results hold your own financial data: your accounts, your transactions, your spending by category and your plan.
 
-- A model on the instance receives that data at the endpoint your operator set. See [The assistant](/docs/self-hosting/assistant).
+- A model on the instance receives that data at the endpoint your operator set. See [The assistant](/docs/self-hosting/configuration#assistant).
 - A model in your own browser keeps the whole conversation in that browser.
 
 A question sent to an instance with no model reads:
@@ -159,8 +158,8 @@ The error takes the place of the answer, with `Retry` beside it.
     description="The charts and the list behind every figure an answer quotes."
   />
   <Card
-    title="Bank connections"
-    href="/docs/guides/bank-connections"
+    title="Connect a bank"
+    href="/docs/integrations/powens#connect-a-bank-account"
     description="Give the assistant something to read."
   />
 </Cards>

@@ -1,7 +1,6 @@
 ---
 title: Scale one instance
 description: What holds state, what a second API replica shares, what limits growth, and what to measure.
-icon: Gauge
 ---
 
 Two questions decide how far one instance goes: what holds state, and what grows with use. This page answers both from the code of the stack. Every statement below describes the stack as it stands.
@@ -92,7 +91,7 @@ services:
 | Cost | What drives it |
 | --- | --- |
 | The database volume | Transactions per connected bank account. Each account adds its history, and the history only grows. Accounts, bank connections, categories and assistant transcripts share the same volume. |
-| The model endpoint | Each assistant question calls it. The cap is 30 questions per 300 seconds per user. Read [Assistant](/docs/self-hosting/assistant). |
+| The model endpoint | Each assistant question calls it. The cap is 30 questions per 300 seconds per user. Read [Assistant](/docs/self-hosting/configuration#assistant). |
 
 The merchant data is not state. The build writes it into the server image, and the server never writes it at runtime. An image update replaces it.
 
@@ -130,7 +129,7 @@ The stack exposes no metrics endpoint and no exporter. These three numbers come 
 
 <Card
   title="Assistant"
-  href="/docs/self-hosting/assistant"
+  href="/docs/self-hosting/configuration#assistant"
   description="The model endpoint, the rate limit, and what leaves the instance."
 />
 

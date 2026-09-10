@@ -1,7 +1,6 @@
 ---
 title: Quickstart
 description: Run Freenary on one machine with Docker Compose, then create the first account and sign in.
-icon: Rocket
 ---
 
 At the end of this page you run Freenary on your own machine, and you are signed in.
@@ -58,7 +57,7 @@ FREENARY_VERSION=main
 | `dev`                | the code of the `dev` branch                    |
 | `sha-<7 characters>` | one commit of either branch                     |
 
-No `latest` tag exists, and `latest` is the fallback of the Compose file. An unset `FREENARY_VERSION` therefore fails the pull. Read [Updates](/docs/self-hosting/updates) for the tags that a release adds.
+No `latest` tag exists, and `latest` is the fallback of the Compose file. An unset `FREENARY_VERSION` therefore fails the pull. Read [Updating](/docs/self-hosting/docker#updates) for the tags that a release adds.
 
 </Step>
 
@@ -74,11 +73,11 @@ Powens is the default provider and the one to pick. A sandbox domain in the [Pow
 
 A link ends at `<CORS_ORIGIN>/callback/powens` in the browser, and Powens sends the browser only to an origin you registered. The `localhost` stack of this page therefore lists banks and cannot finish a link.
 
-So give the web app an HTTPS origin before you link a bank. [The served install](/docs/self-hosting) holds the two public origins. [Behind a reverse proxy](/docs/self-hosting/reverse-proxy) holds the TLS in front of them.
+So give the web app an HTTPS origin before you link a bank. [The served install](/docs/self-hosting) holds the two public origins. [Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) holds the TLS in front of them.
 
 </Callout>
 
-The console work takes four steps, and [Bank providers](/docs/self-hosting/bank-providers) walks each one:
+The console work takes four steps, and [Powens setup](/docs/integrations/powens#setup) walks each one:
 
 1. Sign up, then create the organization the console asks for.
 2. Create a domain. Powens makes it a sandbox and appends `-sandbox.biapi.pro`.
@@ -121,7 +120,7 @@ curl -L -o /dev/null -w '%{http_code} %{url_effective}\n' http://localhost:3001/
 
 The API server answers with the plain string `OK`. The web app sends a visitor with no session to the sign-in screen. The second command therefore prints `200 http://localhost:3001/login`.
 
-Read [Troubleshooting](/docs/self-hosting/troubleshooting) when a command answers something else.
+Read [Troubleshooting](/docs/help/troubleshooting) when a command answers something else.
 
 </Step>
 
@@ -150,17 +149,17 @@ Freenary has no admin account and no owner role. The first account is an ordinar
 - **Settings** lists the banks of your country, because the credentials of the provider are set.
 - No bank is connected, so the Budget screen asks you to connect one.
 
-[Connect a bank](/docs/guides/bank-connections) covers the link itself.
+[Connect a bank](/docs/integrations/powens#connect-a-bank-account) covers the link itself.
 
 <Cards>
   <Card
-    title="First steps"
-    href="/docs/guides/first-steps"
-    description="The country question, and the checklist a new account gets."
+    title="Next steps"
+    href="/docs/getting-started/next-steps"
+    description="The route that fits you once you are signed in."
   />
   <Card
     title="Connect a bank"
-    href="/docs/guides/bank-connections"
+    href="/docs/integrations/powens#connect-a-bank-account"
     description="Link a bank, import its accounts, and sync them."
   />
   <Card

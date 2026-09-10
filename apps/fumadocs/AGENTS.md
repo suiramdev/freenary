@@ -45,39 +45,40 @@ Every page is served under a version segment: `/docs/next/quickstart`, `/docs/1.
 
 ## Content structure
 
-The site serves two audiences, in this order: the **person who runs Freenary and uses it**, and the **contributor who changes it**. The first three pages carry a reader from nothing to a working instance; every folder after them goes deeper on one job. Every path below is inside a version folder, and each version folder's own `meta.json` holds the order and the separators:
+The site serves three audiences: the **person who uses Freenary**, the **operator who runs an instance**, and the **contributor who changes the code**. Six top-level sections group the pages by the reader's intent. Every path below is inside a version folder, and that folder's own `meta.json` carries both the order and the label of each section:
 
 ```
-index → quickstart → concepts
-  → ---Run Freenary--- → self-hosting
-  → ---Use Freenary--- → guides
-  → ---Build on Freenary--- → integrations
-  → ---Contribute--- → contributing
+index
+  → getting-started
+  → guides (label: "Using Freenary")
+  → integrations
+  → self-hosting
+  → developers
+  → help
 ```
 
 | Path | Audience | Contains |
 | --- | --- | --- |
-| `index.mdx` | Everyone | What Freenary is, and the three routes into the site. A hub: one line and one link per destination. |
-| `quickstart.mdx` | A reader with Docker and no instance | The shortest path to a running instance on one machine, and the first sign-in. It owns the short install. |
-| `concepts.mdx` | Users | A plain glossary of the words a user meets in the interface. |
-| `self-hosting/` | Operators | The served install (the folder's index page), configuration, reverse proxy, email, sign-in methods, bank providers, assistant, scaling, updates, backup and restore, maintenance, security, logs, troubleshooting, build from source. |
-| `guides/` | Users of a running instance | Signing in, first steps, bank connections, budget, categories, assistant, settings, language and appearance. |
-| `integrations/` | Developers calling the API | The HTTP surface, and the procedure reference. |
-| `contributing/` | Contributors and engineers | Workflow, architecture, local stack, data model, categorisation, bank-provider interface, writing docs, releasing. |
+| `index.mdx` | Everyone | What Freenary is, and one link per section. |
+| `getting-started/` | A reader with no instance | Introduction, quickstart, how Freenary works, next steps. |
+| `guides/` | Users of a running instance | Accounts, transactions, budget, goals, investments, reports, signing in, the assistant, settings, language and appearance. |
+| `integrations/` | Users and operators | Powens, and other integrations (Enable Banking). |
+| `self-hosting/` | Operators | Docker, configuration, backup and restore, security, maintenance, scaling, logs, build from source, next steps. |
+| `developers/` | Contributors and engineers | Development setup, architecture, API, integrations, contributing. |
+| `help/` | Everyone | Troubleshooting, FAQ, get support. |
 
-`quickstart.mdx` and `self-hosting/index.mdx` split on one line: the quickstart runs an instance for the reader on `localhost`, and `self-hosting/index.mdx` serves an instance to other people. The public origins, the secrets, the reverse proxy and the verification steps belong to the second. Neither repeats the other.
+These rules keep the split:
 
-These rules keep the split that way:
-
-- **No terminal in `guides/`.** Env vars, file paths, Docker, package names, and database or enum names belong in the other sections. If a reader needs a shell, the page is in the wrong folder. `docs:check` fails a guide that holds a shell fence or a `SCREAMING_SNAKE` token.
-- **No page titled `Overview`, and no section heading called Overview.** A folder's index page is named after its subject and puts the reader straight on the task — `self-hosting/index.mdx` _is_ the served install.
-- **No roadmap anywhere.** Never write that a feature is planned, is coming soon, or is not built yet; never write a "what Freenary does today" list or a Built-against-Planned table. State only what a reader can do, and leave the rest out.
-- **How it works belongs to `contributing/`.** Architecture, request flow, and internals go there — not in `guides/`, which tells a user what to do, and not in `self-hosting/`, which tells an operator how to run it.
+- **No terminal in `guides/`.** Env vars, file paths, Docker, package names, and database or enum names belong in integrations/, self-hosting/ or developers/. If a reader needs a shell, the page is in the wrong folder. `docs:check` fails a guide that holds a shell fence or a `SCREAMING_SNAKE` token.
+- **No page titled `Overview`, and no section heading called Overview.** A folder's index page is named after its subject.
+- **A subject is one page, never a folder.** A section holds pages only: `guides/accounts.mdx` carries the account types, adding, editing and balances under one `##` heading each, rather than a `guides/accounts/` folder of four pages. The sidebar draws a section as one always-open separator with its pages flat under it, so a folder there would be a disclosure row inside a group that needs none. `docs:check` fails a page or a `meta.json` below `<version>/<section>/`. A page that grows past a screenful of headings is a sign the subject belongs in two sibling pages, not in a folder.
+- **No roadmap anywhere.** Never write that a feature is planned, is coming soon, or is not built yet. State only what a reader can do, and leave the rest out.
+- **How it works belongs to `developers/`.** Architecture, request flow, and internals go there — not in `guides/`, which tells a user what to do, and not in `self-hosting/`, which tells an operator how to run it.
 - **A fact lives in exactly one section**; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent.
-- **`concepts.mdx` is a user glossary**, in the reader's own words. The technical vocabulary — Prisma model names, enum values, columns — lives in `contributing/data-model.mdx`.
-- **Every page is ASD-STE100 Simplified Technical English.** Short active sentences, one idea each, no `-ing` verb forms, no contractions, `must`/`can`/`do` rather than `shall`/`should`/`may`, and one approved term per concept (the user-facing terms are defined in `next/concepts.mdx`). The rules cover prose, never code blocks, and `docs:check` applies them to `next` alone.
+- **`getting-started/how-it-works.mdx` is a user glossary**, in the reader's own words. The technical vocabulary — Prisma model names, enum values, columns — lives in the `## Data model` section of `developers/architecture.mdx`.
+- **Every page is ASD-STE100 Simplified Technical English.** Short active sentences, one idea each, no `-ing` verb forms, no contractions, `must`/`can`/`do` rather than `shall`/`should`/`may`, and one approved term per concept (the user-facing terms are in `next/getting-started/how-it-works.mdx`). The rules cover prose, never code blocks, and `docs:check` applies them to `next` alone.
 
-`contributing/writing-docs.mdx` is the reader-facing version of this section — update both together.
+The `Writing documentation` section of `developers/contributing.mdx` is the reader-facing version of this section — update both together.
 
 ## The workflow: how a page gets written
 
@@ -98,13 +99,15 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 
 | Mistake | `bun run build` | `bun run docs:check` |
 | --- | --- | --- |
-| No frontmatter `title`, `description` or `icon` | Fails | Fails |
-| A frontmatter field outside title/description/icon/full | Passes | Fails |
+| No frontmatter `title` or `description` | Fails | Fails |
+| A frontmatter field outside title/description/full, `icon` included | Passes | Fails |
 | An unknown code-fence language | Fails | Fails |
-| An `icon` that is not in lucide's `icons` record | Passes, renders nothing | Fails |
+| A section separator with no icon, or an icon outside lucide's `icons` record | Passes, renders nothing | Fails |
+| A section folder named in a version `meta.json` rather than extracted with `...` | Passes, renders a disclosure row | Fails |
 | A component `src/components/mdx.tsx` does not register | Passes, renders nothing | Fails |
 | An internal link or `#anchor` that resolves to nothing | Passes | Fails |
 | A page missing from its folder's `meta.json` | Passes | Fails |
+| A page or a `meta.json` below `<version>/<section>/` | Passes | Fails |
 | A link that names a version | Passes | Fails |
 | A version folder without `"root": true`, or with a stale title | Passes, drops out of the dropdown | Fails |
 | A `blob/main` repository link in a frozen version | Passes | Fails (releases only) |
@@ -113,19 +116,20 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 | A sentence over 25 words | Passes | Fails (`next` only) |
 | A sentence over 20 words, a paragraph over 6 sentences | Passes | Warns (`next` only) |
 
-`scripts/check-docs.ts` reads the component list from `getMDXComponents()` and the icon list from lucide's own record, so neither can drift from the site. `scripts/docs-rules.ts` holds the word lists. A page that has to name a banned word — the authoring page — writes `{/* docs-check disable: ste-word, no-roadmap */}`.
+`scripts/check-docs.ts` reads the component list from `getMDXComponents()` and the icon list from lucide's own record, so neither can drift from the site. `scripts/docs-rules.ts` holds the word lists. A passage that has to name a banned word — the authoring standard in `developers/contributing.mdx` — opens with `{/* docs-check disable: ste-word, no-roadmap */}` and closes with `{/* docs-check enable */}`; the rules stay on above and below that pair, and a `disable` with no `enable` runs to the end of the page.
 
 ## Conventions
 
-- Add a page by dropping an `.mdx` file in `content/docs/next/`; the sidebar and search index pick it up. Order and grouping come from `meta.json` files in that tree — a new page must be added to its folder's `pages` array or it lands at the bottom, unordered. Nested folders each with their own `meta.json` are supported.
-- The frontmatter schema in `src/lib/source.ts` needs `title`, `description` and `icon`. A page without one of the three fails the build with the file name and the field. `full` is the only other field it accepts.
+- Add a page by dropping an `.mdx` file in a section folder of `content/docs/next/`; the sidebar and search index pick it up. Order comes from the section's `meta.json` — a new page must be added to its `pages` array or it lands at the bottom, unordered. A folder below a section is a gate error: see **A subject is one page, never a folder**.
+- The frontmatter schema in `src/lib/source.ts` needs `title` and `description`. A page without one of the two fails the build with the file name and the field. `full` is the only other field it accepts.
+- **An icon marks a section, and nothing else.** A section is a Fumadocs separator in `content/docs/next/meta.json` — `"---[Compass]Using Freenary---"` — followed by `"...guides"`, which lifts the folder's pages up beside it. So the label and its icon live in that one array, a page and a `meta.json` carry none, and `docs:check` fails either that does. The sidebar therefore draws the theme's own separator, always open with its pages flat under it, rather than a disclosure row; `src/routes/docs/$.tsx` passes `breadcrumb={{ includeSeparator: true }}` to `DocsPage` so the section still names itself above the title. A section's own `meta.json` holds `pages` alone: it orders the pages, and nothing else in it renders.
 - `icon` is resolved by the `lucideIconsPlugin` in `src/lib/source.ts` against **lucide's `icons` record**, which holds canonical PascalCase names only. A deprecated alias such as `AlertCircle` is a top-level `lucide-react` export but is absent from that record, so it renders nothing and only warns in the console. `docs:check` fails on it; to check one name by hand:
   ```bash
   grep -c "as CircleAlert }" node_modules/lucide-react/dist/esm/icons/index.mjs
   ```
 - MDX may use only what `src/components/mdx.tsx` registers: Fumadocs' defaults (`Card`, `Cards`, `Callout`, `CalloutContainer`, `CalloutTitle`, `CalloutDescription`, the `CodeBlockTabs*` family, and the `pre`/`a`/`img`/`h1`-`h6`/`table` overrides) plus the components that file adds explicitly — `Accordion`, `Accordions`, `File`, `Files`, `Folder`, `Step`, `Steps`, `Tab`, `Tabs`, `TypeTable`. Anything else fails to render, the build stays green, and `docs:check` fails.
 - Code fences always name a **Shiki** language. `env` is not one — use `dotenv`. An unknown language fails the build, not just the page. The ids this site uses are the list in `scripts/docs-rules.ts`.
-- Internal links are absolute site paths with no extension and no version (`/docs/guides/budget`). A folder's index page is the folder path itself (`/docs/self-hosting`). The rendered link carries the version of the page it sits on.
+- Internal links are absolute site paths with no extension and no version (`/docs/guides/budget`). A section's index page is the section path itself (`/docs/self-hosting`), and a part of a page is its anchor (`/docs/guides/accounts#balances`). The rendered link carries the version of the page it sits on.
 - Routes derive from the docs base route in `src/lib/shared.ts`. Change it there, not inline, so the `.md` and `llms.txt` endpoints stay consistent.
 - Filenames are `kebab-case`; components are arrow functions assigned to a `const`, declared **before** the `Route` that references them (see the root `AGENTS.md`).
 - `types:check` is this app's TypeScript script. The root `bun run check-types` runs `turbo run check-types` and therefore skips it — run `bun run types:check` here after a change to `src/`.

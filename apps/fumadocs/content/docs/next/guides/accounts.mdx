@@ -1,0 +1,231 @@
+---
+title: Accounts
+description: Where the accounts in Freenary come from, how you add one, and how a balance arrives.
+---
+
+Every account in Freenary arrives from a bank connection. A connection is the link between Freenary and one bank, and it holds the accounts that bank shared with you.
+
+## No account by hand
+
+Freenary opens no screen to create an account, and none to type a balance. Your bank is the source of every account, and a sync keeps each one current.
+
+To hold an account in Freenary, connect the bank that holds it. See [Connect a bank account](/docs/integrations/powens#connect-a-bank-account).
+
+## What an account carries
+
+| Field | Where it comes from |
+| --- | --- |
+| The name | The name your bank reports for the account |
+| The account number | The number your bank sends, when it sends one |
+| The kind of account | The kind your bank reports |
+| The currency | The currency your bank books the account in |
+| The balance | The last balance the linking service reported, with the date it valued it |
+
+Freenary keeps the name your bank gave. No screen renames an account. See [Edit an account](#edit-an-account).
+
+## The kinds of account
+
+Your bank names the kind of each account it shares. A kind is a current account, a savings account, a card, a loan, or an investment account. Freenary keeps that kind with the account.
+
+An investment account also holds the securities inside it. Only one of the two linking services returns them, so ask your operator which one your instance uses. See [Powens setup](/docs/integrations/powens#setup).
+
+## Where you meet your accounts
+
+- Settings, group `Connections`, section `Bank accounts`. One row per bank, with a sub-line that counts the accounts that bank shared and dates the last sync.
+- Budget. It reads the transactions of every account of every connection together, over the period you pick.
+
+<Callout type="info">
+
+No screen lists your accounts one by one, and no screen prints the balance of one account. The bank row counts them instead: `{accounts} · Synced {date}`. See [Balances](#balances).
+
+</Callout>
+
+## Add an account
+
+You add an account by connecting the bank that holds it. Freenary then records every account that bank shared, with its transactions.
+
+### The two places to start
+
+The same bank panel sits on two screens.
+
+| Screen | When you meet it |
+| --- | --- |
+| The `Connect your bank` step of the setup | Right after your first sign-in. See [Next steps](/docs/getting-started/next-steps) |
+| Settings, group `Connections`, section `Bank accounts` | At any later moment |
+
+Each screen holds one searchable bank list, with the search box `Search banks…`. Your connected banks sit at the top, and every other row carries a `Connect` button.
+
+### What the flow does
+
+<Steps>
+
+<Step>
+
+#### Press Connect
+
+Freenary asks the linking service for a one-time link, then sends your browser to it.
+
+</Step>
+
+<Step>
+
+#### Answer the bank page
+
+The page belongs to your bank, or to the service that links it. Sign in there, pass the strong authentication your bank asks for, and pick the accounts to share.
+
+</Step>
+
+<Step>
+
+#### Read what came back
+
+The bank sends your browser to a Freenary page. You read `Bank connected`, then `Connected {count} account(s)`. Those accounts are yours in Freenary from that moment.
+
+</Step>
+
+</Steps>
+
+The whole walkthrough, with every failure message, lives in [Connect a bank account](/docs/integrations/powens#connect-a-bank-account).
+
+### What arrives with the accounts
+
+- The name, the account number, the kind and the currency your bank reports. See [What an account carries](#what-an-account-carries).
+- The balance of each account, when the linking service reports one. See [Balances](#balances).
+- Every transaction inside the sync window, each one filed under a category. See [Transactions](/docs/guides/transactions).
+
+<Callout type="warn">
+
+Your instance links banks through one service, and your operator sets it up. Without one, the section reads `Bank linking is unavailable` over `This instance has no banking provider configured, so there is nothing to link against yet.` Ask your operator, and send them [Powens setup](/docs/integrations/powens#setup).
+
+</Callout>
+
+### A bank you already hold
+
+A bank you connected drops out of the list of banks to connect. You cannot link the same bank twice from here. Its accounts stay with the connection you already hold. To bring in an account you left out, disconnect that bank. Then connect it again. See [Bring in an account you left out](#bring-in-an-account-you-left-out).
+
+## Edit an account
+
+An account belongs to your bank, and Freenary holds a copy of it. So the fields of an account are read-only, and the actions sit on the bank row that owns them.
+
+### The two actions on a bank row
+
+Open Settings, group `Connections`, section `Bank accounts`. A connected row carries the bank logo, the bank name, a sub-line, and two buttons.
+
+| Action | What it does |
+| --- | --- |
+| Re-sync | Reads that one connection again. A screen reader reads it as `Re-sync {institution}`, and it reports `{institution} re-synced` |
+| Disconnect | Asks the bank to revoke the access of Freenary, then deletes the connection, its accounts, their transactions and their holdings |
+
+The dialog behind `Disconnect` reads `Disconnect {institution}?` and counts what goes. The whole flow, with each failure message, lives in [Connect a bank account](/docs/integrations/powens#connect-a-bank-account).
+
+### What no screen changes
+
+| Field | Why |
+| --- | --- |
+| The name of an account | Your bank reports it, and each sync writes it again |
+| The account number, the kind and the currency | The same: your bank owns all three |
+| The balance | The linking service reports it. See [Balances](#balances) |
+| A transaction | No screen adds, edits or deletes one |
+
+### What you do change
+
+- The category of a transaction, from the transaction drawer. See [Fix a category](/docs/guides/transactions#fix-a-category).
+- Your own categories, and the monthly plan you declare. See [Categories and budget lines](/docs/guides/transactions#categories-and-budget-lines).
+
+<Callout type="info">
+
+A disconnect keeps your budgeting profile, your custom categories, and the category corrections you made by hand. It takes the accounts and their transactions with it.
+
+</Callout>
+
+### Bring in an account you left out
+
+Your bank owns the choice of accounts to share, and it made that choice on its own page. Freenary offers no screen to add one account to a connection you already hold.
+
+<Steps>
+
+<Step>
+
+#### Disconnect the bank
+
+Its accounts and their transactions go with it.
+
+</Step>
+
+<Step>
+
+#### Connect the bank again
+
+The bank comes back to the list of banks to connect. Answer its page again, and share the accounts you want this time.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+A new connection starts its import at the top of the sync window. It reads 90 days of transactions at most. See [Transaction synchronization](/docs/integrations/powens#transaction-synchronization).
+
+</Callout>
+
+## Balances
+
+A balance is what your bank says an account holds. Freenary keeps the last balance the linking service reported, with the date it valued it.
+
+### How a balance arrives
+
+A balance comes in with a sync, and with nothing else. Freenary asks for no balance of its own, and no screen takes one you type.
+
+The linking service decides whether it reports a balance at all. Ask your operator which service your instance uses. See [Transaction synchronization](/docs/integrations/powens#transaction-synchronization).
+
+| What happens | What Freenary holds |
+| --- | --- |
+| The service reports a balance | The amount, its currency, and the date the service valued it |
+| The service reports none | Nothing. The account keeps its transactions and no balance |
+| A later sync reports a new balance | The new one takes the place of the old. Freenary keeps no history |
+
+### Where a balance renders
+
+One chart draws it: `Cash-Flow Forecast`, on the Recurring page of Budget. It walks your balance forward 30 days, and each payment it expects lands on the day it falls due. A dashed red line marks zero when the balance runs out.
+
+With no balance reported by your bank, that card reads `No balance reported, so no forecast.` See [Recurring transactions](/docs/guides/transactions#recurring-transactions).
+
+<Callout type="info">
+
+No other screen prints a balance. The three figures of Budget measure the money that moved in the period, not what an account holds. See [Budget](/docs/guides/budget).
+
+</Callout>
+
+### When a balance stops moving
+
+The date of the last sync stops moving with it. A bank consent that ran out fails the sync for that bank. The balance then holds the value of the last sync that worked.
+
+Press the re-sync button on the bank row first. A connection your bank refuses needs a disconnect and a fresh connect. See [The two actions on a bank row](#the-two-actions-on-a-bank-row).
+
+<Cards>
+  <Card
+    title="Connect a bank account"
+    href="/docs/integrations/powens#connect-a-bank-account"
+    description="The whole life of a bank connection, from the first link to a disconnect."
+  />
+  <Card
+    title="Transactions"
+    href="/docs/guides/transactions"
+    description="Read the rows your first connection brought in."
+  />
+  <Card
+    title="Recurring transactions"
+    href="/docs/guides/transactions#recurring-transactions"
+    description="The forecast that reads your balance."
+  />
+  <Card
+    title="Transaction synchronization"
+    href="/docs/integrations/powens#transaction-synchronization"
+    description="What a sync reads, and when it runs."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="The screen that holds the bank list."
+  />
+</Cards>

@@ -27,7 +27,7 @@ The dev stack needs no `.env`: `docker-compose.dev.yml` defaults every variable,
 
 The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. That third line is not optional: the compose default is `latest`, and GHCR holds no such tag — the published tags are `main`, `dev` and `sha-<7 characters>`, so an unpinned `up -d` fails with `not found`.
 
-Full walkthrough: [Local development stack](apps/fumadocs/content/docs/next/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/next/self-hosting/index.mdx).
+Full walkthrough: [Local development stack](apps/fumadocs/content/docs/next/developers/setup.mdx) and [Self-hosting](apps/fumadocs/content/docs/next/self-hosting/index.mdx).
 
 ## Documentation: Ship It With the Change
 
@@ -47,21 +47,22 @@ Pure refactors, internal helpers, and dependency bumps that change no documented
 
 **The docs are versioned.** `content/docs` holds one folder per version of Freenary: `next` for the unreleased code, and one frozen `X.Y` folder per release. **A change edits `next` and nothing else** — the `Release` workflow copies `next` to `content/docs/X.Y` before it tags, and a released folder only ever takes a correction to that release. Every page is served under its version (`/docs/next/guides/budget`), a path with no version redirects to the newest release, and **an authored link never names a version**: write `/docs/guides/budget` and the site resolves it inside the version being read.
 
-**Put it in the right section.** `content/docs/next/` is split by audience, and the split is what makes the site navigable:
+**Put it in the right section.** `content/docs/next/` is split into six sections by the reader's intent:
 
 | Section | Audience | Never contains |
 | --- | --- | --- |
-| `index.mdx` | Everyone | Instructions |
-| `quickstart.mdx` | A reader with Docker and no instance | The served install: public origins, reverse proxy, hardening |
-| `concepts.mdx` | Users | Prisma model names, enum values, columns — those live in `contributing/data-model.mdx` |
+| `getting-started/` | A reader with no instance | Operator or contributor material |
+| `guides/` (Using Freenary) | Users of a running instance | Env vars, Docker, file paths, package names, database or enum names |
+| `integrations/` | Users and operators | Internal design rationale |
 | `self-hosting/` | Operators | Product walkthroughs |
-| `guides/` | Users of a running instance | Env vars, Docker, file paths, package names, database or enum names |
-| `integrations/` | Developers calling the API | Internal design rationale |
-| `contributing/` | Contributors and engineers | Anything an end user needs |
+| `developers/` | Contributors and engineers | Anything an end user needs |
+| `help/` | Everyone | How-it-works internals |
 
-The sidebar order is each version folder's own `meta.json`, and its four separators name the audiences: `index`, `quickstart`, `concepts`, `---Run Freenary---`, `self-hosting`, `---Use Freenary---`, `guides`, `---Build on Freenary---`, `integrations`, `---Contribute---`, `contributing`. The root `content/docs/meta.json` lists the versions instead, and orders the dropdown. `quickstart.mdx` owns the shortest install on one machine; `self-hosting/index.mdx` owns the install that serves other people. A folder's index page carries the name of its subject, and no page is titled `Overview`.
+Each version folder's `meta.json` carries the sidebar: one Fumadocs separator per section, `"---[Compass]Using Freenary---"`, and `"...guides"` under it to pull that folder's pages up beside it. So the label and the icon of a section live in that one array, and a section's own `meta.json` holds `pages` alone — its `title`, `description` and `icon` render nowhere. The root `content/docs/meta.json` lists the versions and orders the dropdown. A section's index page carries the name of its subject, and no page is titled `Overview`.
 
-A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent. How the system works — architecture, request flow, internals — belongs to `contributing/`; a user wants to run the app and use it.
+**A section holds pages, never folders.** A subject that needs several parts is one page with a `##` heading per part — `guides/accounts.mdx`, not a `guides/accounts/` folder — because the sidebar draws each section as the theme's own always-open separator with its pages flat under it. `docs:check` fails a page or a `meta.json` below `<version>/<section>/`, and a folder the version `meta.json` names instead of extracting.
+
+A fact lives in **exactly one** section; everywhere else links to it. Duplicated prose is the failure mode this structure exists to prevent. How the system works — architecture, request flow, internals — belongs to `developers/`; a user wants to run the app and use it.
 
 **Document what is true, and only what is true.** Read the code before writing the page, quote real names, and never describe a screen, flag, or endpoint that does not exist. No page carries a roadmap: never write that a feature is planned, is coming soon, or is not built yet, and never write a "what Freenary does today" list or a Built-against-Planned table. State what a reader can do, link them to it, and leave the rest out. (The repository `README.md` is not a docs page and does carry the state of the project.)
 
@@ -74,17 +75,21 @@ cd apps/fumadocs && bun run build
 
 | Mistake | `bun run build` | `bun run docs:check` |
 | --- | --- | --- |
-| Missing or malformed frontmatter, or no `description` or `icon` | Fails | Fails |
+| Missing or malformed frontmatter, or no `description` | Fails | Fails |
 | Unknown code-fence language | Fails | Fails |
-| Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing | Fails |
+| A page carrying an `icon` | **Passes** — renders one on the page row | Fails |
+| A `meta.json` carrying an `icon` | **Passes** — renders nothing | Fails |
+| A section separator carrying no icon, or one outside lucide's `icons` record | **Passes** — renders nothing | Fails |
+| A section folder named in a version `meta.json` instead of extracted with `...` | **Passes** — renders a collapsible row | Fails |
 | MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing | Fails |
 | Dead internal link or `#anchor` | **Passes** | Fails |
 | Page missing from its folder's `meta.json` | **Passes** | Fails |
+| A page or a `meta.json` below `<version>/<section>/` | **Passes** | Fails |
 | A shell command or an env var inside `guides/` | **Passes** | Fails |
 | A link that names a version, or a version folder without `"root": true` | **Passes** | Fails |
 | A contraction, a banned word, roadmap language, a 26-word sentence | **Passes** | Fails (in `next`; a frozen version keeps the structure rules only) |
 
-A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/next/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/next/contributing/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
+A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is the Writing documentation section of [`content/docs/next/developers/contributing.mdx`](apps/fumadocs/content/docs/next/developers/contributing.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
 
 ## Interface Text: Every String Is a Message Key
 
@@ -94,7 +99,7 @@ The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGE
 
 ## Branches and Releases
 
-Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which snapshots the documentation, creates the `vX.Y.Z` tag, the versioned images and the GitHub release. The web image carries its version from the build argument `FREENARY_VERSION`, which is what its account-menu documentation link points at. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/next/contributing/releasing.mdx).
+Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which snapshots the documentation, creates the `vX.Y.Z` tag, the versioned images and the GitHub release. The web image carries its version from the build argument `FREENARY_VERSION`, which is what its account-menu documentation link points at. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/next/developers/contributing.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 

@@ -1,30 +1,19 @@
 ---
-title: Configuration reference
-description: Every environment variable Freenary reads, with its default, its job and the refusal it prints.
-icon: Cog
+title: Configuration
+description: Every environment variable Freenary reads, plus the database, email, sign-in, assistant and proxy settings.
 ---
 
-Freenary takes all of its configuration from environment variables. This page lists every one the code reads.
+Freenary takes all of its configuration from environment variables. This page lists every one the code reads. Five groups of settings get their own section below the tables:
+
+- [Database](#database)
+- [Email delivery](#email-delivery)
+- [Sign-in methods](#sign-in-methods)
+- [Assistant](#assistant)
+- [Behind a reverse proxy](#behind-a-reverse-proxy)
 
 ## Where a variable is read from
 
-The stack reads one file: the `.env` next to `docker-compose.yml`. It reaches the containers in three steps, in this order:
-
-| Step | What happens | File |
-| --- | --- | --- |
-| 1 | Compose expands the `${VAR}` placeholders inside the compose file | `.env` |
-| 2 | The `server` service loads the same file through `env_file`, so every line reaches the container | `.env` |
-| 3 | The `environment:` keys of the compose file win over the file | `docker-compose.yml` |
-
-Step 3 is the one an operator misses. `docker-compose.yml` sets five keys on `server`: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN` and `NODE_ENV`. Each one wins over the `.env` line of the same name. Three of them read a `.env` variable of the same name, so an edit still takes effect. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD`, so a `DATABASE_URL` line of your own does nothing. `NODE_ENV` is always `production`.
-
-<Callout type="warn">
-
-**The `web` service has no `env_file`.** It gets exactly two keys from `docker-compose.yml`: `SERVER_URL` and `PUBLIC_SERVER_URL`. A line in `.env` never reaches the web app. To change what the browser calls, change `BETTER_AUTH_URL`, because Compose builds `PUBLIC_SERVER_URL` from it.
-
-</Callout>
-
-`migrate` gets one key, `DATABASE_URL`. `postgres` gets three: `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`.
+The stack reads one file: the `.env` next to `docker-compose.yml`. [Docker configuration](/docs/self-hosting/docker#configuration) explains how each line reaches a container, and which keys the compose file overrides.
 
 ## How the server checks its environment
 
@@ -84,7 +73,7 @@ One more refusal depends on two variables at once. Two different hostnames with 
 The API (<api origin>) and the web app (<web origin>) are on different hosts, so the session cookie needs SameSite=None — which browsers reject over plain HTTP. Serve BETTER_AUTH_URL over HTTPS, put both behind one hostname, or set AUTH_COOKIE_DOMAIN to the parent domain they share.
 ```
 
-Outside production the same text is a `console.warn` line. Compose always sets `production`, so a served instance always gets the refusal. Read [Behind a reverse proxy](/docs/self-hosting/reverse-proxy).
+Outside production the same text is a `console.warn` line. Compose always sets `production`, so a served instance always gets the refusal. Read [Behind a reverse proxy](#behind-a-reverse-proxy).
 
 `EMAIL_PROVIDER=resend` checks its key before the sender, and `EMAIL_PROVIDER=smtp` checks the sender before the host. A stack that misses both values reports the first name of that pair.
 
@@ -113,19 +102,11 @@ A new secret invalidates every session and every two-factor enrolment. Read [Sec
 | `AUTH_COOKIE_DOMAIN` | unset | The parent domain the API server and the web app share, for example `.example.com`. It keeps the session cookie at `SameSite=Lax` and adds `Domain`. | Three shapes stop the start, quoted above. Unset with two hostnames drops the cookie to `SameSite=None`. |
 | `TRUSTED_PROXIES` | unset | The addresses or CIDR ranges of the proxies in front of the API server. Rate limits key on the caller address behind them. | A malformed entry stops the start. Unset behind a multi-hop proxy makes every caller share one rate-limit bucket. |
 
-The browser gets its API origin from `PUBLIC_SERVER_URL`, and no schema declares that variable. Read [No schema declares these](#no-schema-declares-these) and [Behind a reverse proxy](/docs/self-hosting/reverse-proxy).
-
-## Database
-
-| Variable | Default | What it does | Absent or wrong |
-| --- | --- | --- | --- |
-| `DATABASE_URL` | `postgresql://postgres:password@localhost:5432/freenary` | The PostgreSQL connection string the Prisma driver adapter opens. | An empty value stops the start. An unreachable host fails at the first query, not at boot, because the driver connects late. In the Docker stack Compose builds this value from `POSTGRES_PASSWORD`. |
-
-No variable sets a pool size. Read [Scale one instance](/docs/self-hosting/scaling).
+The browser gets its API origin from `PUBLIC_SERVER_URL`, and no schema declares that variable. Read [No schema declares these](#no-schema-declares-these) and [Behind a reverse proxy](#behind-a-reverse-proxy).
 
 ## Email
 
-Set `EMAIL_PROVIDER` to send email. With no provider, Freenary sends no one-time code, and it asks for no address confirmation. [Email](/docs/self-hosting/email) covers the setup.
+Set `EMAIL_PROVIDER` to send email. With no provider, Freenary sends no one-time code, and it asks for no address confirmation. [Email delivery](#email-delivery) covers the setup.
 
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
@@ -140,7 +121,7 @@ Set `EMAIL_PROVIDER` to send email. With no provider, Freenary sends no one-time
 
 ## Sign-in
 
-Each provider stays inert until both of its values hold something. [Sign-in methods](/docs/self-hosting/authentication) covers the redirect URLs and the provider consoles.
+Each provider stays inert until both of its values hold something. [Sign-in methods](#sign-in-methods) covers the redirect URLs and the provider consoles.
 
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
@@ -158,7 +139,7 @@ Each provider stays inert until both of its values hold something. [Sign-in meth
 
 ## Bank providers
 
-One provider supplies bank accounts and transactions. [Bank providers](/docs/self-hosting/bank-providers) covers the accounts, the keys and the redirect URLs.
+One provider supplies bank accounts and transactions. [Bank providers](/docs/integrations/powens#setup) covers the accounts, the keys and the redirect URLs.
 
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
@@ -170,16 +151,6 @@ One provider supplies bank accounts and transactions. [Bank providers](/docs/sel
 | `ENABLE_BANKING_PRIVATE_KEY` | unset | The Enable Banking PEM private key. | Enable Banking needs both of its values. |
 
 An incomplete set is not a startup error. Freenary reports no bank provider instead, and the bank step disappears.
-
-## Assistant
-
-The assistant calls one OpenAI-compatible endpoint. [Assistant](/docs/self-hosting/assistant) covers the endpoint choices, the rate limit and what each question sends out.
-
-| Variable | Default | What it does | Absent or wrong |
-| --- | --- | --- | --- |
-| `AI_BASE_URL` | unset | The base URL of the chat-completions endpoint, with its version path. | A value that is not a URL stops the start. Unset means the instance reports no server model. |
-| `AI_MODEL` | unset | The model id as the endpoint names it. | It needs `AI_BASE_URL` too. With either one unset, the assistant route answers `503 unconfigured`. |
-| `AI_API_KEY` | unset | The key for that endpoint. | Unset is valid, because a local endpoint needs no key. |
 
 ## Categorisation
 
@@ -223,15 +194,13 @@ Two more variables belong to a schema, but to the client schema, not the server 
 
 ## Compose-only variables
 
-These variables configure the stack, not the application. No application code reads any of them. Put them in the root `.env` file.
+These variables configure the stack, not the application. No application code reads any of them. Put them in the root `.env` file. The database variables sit in [Database](#database).
 
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
 | `FREENARY_VERSION` | `latest` | The tag of both published images. | The registry holds no `latest` tag, so an unset value fails the pull. The tags that exist are `main`, `dev` and `sha-<7 characters>`. A Release adds `X.Y.Z`, `X.Y`, `X` and `latest`. |
 | `SERVER_PORT` | `3000` | The host port of the API server. | — |
 | `WEB_PORT` | `3001` | The host port of the web app. | — |
-| `POSTGRES_PORT` | `5432` | The host port of PostgreSQL. Compose publishes `127.0.0.1:<POSTGRES_PORT>:5432`, so the loopback interface alone gets it. | — |
-| `POSTGRES_PASSWORD` | none | The database password. It fills both the container password and the `DATABASE_URL` of `migrate` and `server`. | Compose refuses an unset or empty value. |
 
 Five more Compose-only variables belong to the development stack alone. The production stack ignores every one:
 
@@ -243,7 +212,7 @@ Five more Compose-only variables belong to the development stack alone. The prod
 | `DOCS_HOST` | `docs.<slug>.freenary.orb.local` | The documentation hostname, in the OrbStack label alone. |
 | `DOCS_PORT` | `4000` | Nothing reads it. |
 
-[The development stack](/docs/contributing/local-stack) covers those five in context.
+[The development stack](/docs/developers/setup#local-development-stack) covers those five in context.
 
 ## Variables with no effect
 
@@ -251,9 +220,9 @@ Each variable below appears in a template and reads like a live setting. None of
 
 | Variable | Why it does nothing |
 | --- | --- |
-| `POSTGRES_DB` | The production compose file hard-codes the database name `freenary`. The development stack does read the variable. |
-| `POSTGRES_USER` | The production compose file hard-codes the user `postgres`. The development stack does read the variable. |
 | `DOCS_PORT` | No source file reads it. The documentation app hard-codes `vite dev --port=4000`. |
+
+`POSTGRES_DB` and `POSTGRES_USER` join that list in the production stack. [Database](#database) explains why.
 
 ## The minimum for a served instance
 
@@ -281,18 +250,859 @@ SMTP_PASSWORD=<mail password>
 
 `NODE_ENV` needs no line, because Compose always sets `production`.
 
+## Database
+
+Freenary keeps every row in one PostgreSQL database. The Docker stack runs it as the `postgres` service, so you install no database of your own. This section holds `DATABASE_URL`, the four `POSTGRES_` variables and the volume that carries the data.
+
+### The connection string
+
+| Variable | Default | What it does | Absent or wrong |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | `postgresql://postgres:password@localhost:5432/freenary` | The PostgreSQL connection string the Prisma driver adapter opens. | An empty value stops the start. An unreachable host fails at the first query, not at boot, because the driver connects late. |
+
+In the Docker stack Compose builds this value from `POSTGRES_PASSWORD` and hands it to `migrate` and `server`. A `DATABASE_URL` line in `.env` therefore does nothing. Read [Docker configuration](/docs/self-hosting/docker#configuration).
+
+No variable sets a pool size. Read [Scale one instance](/docs/self-hosting/scaling).
+
+### The PostgreSQL variables
+
+| Variable | Default | What it does | Absent or wrong |
+| --- | --- | --- | --- |
+| `POSTGRES_PASSWORD` | none | The database password. It fills both the container password and the `DATABASE_URL` of `migrate` and `server`. | Compose refuses an unset or empty value, and it prints `Set POSTGRES_PASSWORD in .env`. |
+| `POSTGRES_PORT` | `5432` | The host port of PostgreSQL. Compose publishes `127.0.0.1:<POSTGRES_PORT>:5432`, so the loopback interface alone gets it. | — |
+| `POSTGRES_DB` | `freenary` | Nothing in the production stack. The compose file hard-codes the database name `freenary`. | The development stack does read the variable. |
+| `POSTGRES_USER` | `postgres` | Nothing in the production stack. The compose file hard-codes the user `postgres`. | The development stack does read the variable. |
+
+`POSTGRES_PASSWORD` reaches the database once, when the image initialises an empty data directory. A later edit changes the connection string alone, so the containers then present a password the database does not hold. Put the first value back, or take a dump, empty the volume and restore.
+
+### The volume
+
+One named volume holds the data directory at `/var/lib/postgresql`. It is the only state in the stack, and every other container is disposable. [Backup and restore](/docs/self-hosting/backup-and-restore) names it and holds the dump and restore commands.
+
+A `docker compose down -v` destroys that volume, and every account, connection and transaction with it.
+
+### Reach the database
+
+The stack publishes PostgreSQL on the loopback interface of the host alone. A shell on the host reaches it:
+
+```bash
+docker compose exec postgres psql -U postgres -d freenary
+```
+
+No other machine reaches the database over the network, so a firewall rule is not needed for this port. Read [Security](/docs/self-hosting/security).
+
+## Email delivery
+
+`EMAIL_PROVIDER` has no default. A fresh instance sends no email at all, and Freenary registers no one-time-code plugin.
+
+Set the variable to `log`, `resend` or `smtp`. There is no fourth adapter.
+
+### Choose an adapter
+
+| Value | Delivery | Needs |
+| --- | --- | --- |
+| unset | nothing. Address confirmation and password reset are off | — |
+| `log` | one line on the API server log | nothing. It does not read `EMAIL_FROM` |
+| `resend` | the Resend REST API | `RESEND_API_KEY`, `EMAIL_FROM` |
+| `smtp` | any SMTP relay, over one pooled connection | `SMTP_HOST`, `EMAIL_FROM` |
+
+A named but half-configured adapter stops the process at startup. The message names the missing variable:
+
+```text
+EMAIL_PROVIDER=smtp requires EMAIL_FROM to be set.
+```
+
+Freenary checks `EMAIL_FROM` before `SMTP_HOST`. A stack that sets neither therefore reports `EMAIL_FROM` first.
+
+The tables above define every variable named here.
+
+### What stops with no adapter
+
+These sign-in paths still work: email and password, passkeys, and two-factor with an authenticator app.
+
+These stop:
+
+- Address confirmation. Freenary needs no confirmation either, so sign-up returns a session at once.
+- Password reset. The `Forgot password?` link leaves the sign-in screen, because the API server reports no email delivery.
+
+A sign-in provider is the exception. Google, Apple and single sign-on report a confirmed address in the identity token, and Freenary stores that value.
+
+Account linking waits on a confirmed address. An instance with no adapter confirms no password account, so a provider sign-in against one fails with `account_not_linked`. The user can still join the provider in Settings, where the session is the proof.
+
+Nothing else waits on a confirmed address. Every protected procedure accepts the session of an unconfirmed account.
+
+<Callout type="warn">
+
+Set an adapter before you open an instance to other people. With none, a user who forgets a password needs an operator with database access.
+
+</Callout>
+
+### The four messages
+
+Every message Freenary sends is a one-time code. The copy is plain text, and English only.
+
+| Purpose | Subject | Body |
+| --- | --- | --- |
+| Address confirmation | `Confirm your Freenary email address` | `Your Freenary confirmation code is <code>.` |
+| Password reset | `Reset your Freenary password` | `Your Freenary password reset code is <code>.` |
+| A new address on an account | `Confirm your new Freenary email address` | `Your Freenary confirmation code is <code>.` |
+| Any other purpose | `Your Freenary verification code` | `Your Freenary verification code is <code>.` |
+
+The first two arms are the ones a user reaches. **No screen calls the third or the fourth.** The web app holds no change-email control, so those two subjects sit in the code and never leave it.
+
+Every body ends with the same footer, built from the code lifetime:
+
+```text
+This code expires in 10 minutes. If you did not request it, ignore this email — nothing has changed.
+```
+
+There is no `sign-in` arm, because the sign-in policy refuses that purpose. Read [Sign-in methods](#sign-in-methods) for the three refusals that hold the line.
+
+Two more facts about the message:
+
+- No HTML version exists. The adapter takes a recipient, a subject and a text body.
+- Freenary hashes each code before it stores it. A database dump holds no code that still opens an account.
+
+### `log`
+
+```dotenv
+EMAIL_PROVIDER=log
+```
+
+For each message the adapter writes two lines to standard output. The first reads `[email:log] to=<address> subject=<subject>`, and the body follows.
+
+The development stack uses this adapter by default, so address confirmation and password reset work with no mail account.
+
+<Callout type="error">
+
+`EMAIL_PROVIDER=log` and `NODE_ENV=production` together stop the process at startup. The refusal reads:
+
+```text
+EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
+```
+
+Startup is the last cheap moment to catch an adapter that writes codes to a log file.
+
+</Callout>
+
+### `resend`
+
+```dotenv
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+| Variable         | Notes                                     |
+| ---------------- | ----------------------------------------- |
+| `RESEND_API_KEY` | Needed. Create it in the Resend dashboard |
+| `EMAIL_FROM`     | Needed                                    |
+
+The adapter posts to `https://api.resend.com/emails` with the header `Authorization: Bearer <RESEND_API_KEY>`. The body carries `from`, `subject`, `text` and one recipient. Freenary calls the REST API directly and installs no vendor package.
+
+A response outside the 2xx range throws `Resend rejected the message (<status>): <body>`.
+
+### `smtp`
+
+```dotenv
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=freenary
+SMTP_PASSWORD=xxxxxxxx
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SMTP_HOST` | unset | Needed |
+| `SMTP_PORT` | `465` when `SMTP_SECURE` is `true`, otherwise `587` | An integer up to 65535 |
+| `SMTP_SECURE` | `false` | `true` turns implicit TLS on |
+| `SMTP_USER` | unset | Leave it unset to send no credentials |
+| `SMTP_PASSWORD` | unset | The adapter reads it only when `SMTP_USER` holds a value |
+| `EMAIL_FROM` | unset | Needed |
+
+`SMTP_SECURE` picks the TLS mode, and the TLS mode picks the default port:
+
+- `SMTP_SECURE=true` means implicit TLS on port 465. TLS wraps the session from the first byte.
+- `SMTP_SECURE=false` is the default. It means STARTTLS on port 587. The client opens a plain session, then upgrades it.
+
+`SMTP_PORT` overrides both defaults. Set it when your relay listens elsewhere.
+
+**The adapter opens one pooled transport** and keeps it for the life of the process. With `SMTP_USER` unset it sends no credentials, which suits a relay that trusts the network position of the caller.
+
+### `EMAIL_FROM`
+
+Write the sender as a display name and an address:
+
+```dotenv
+EMAIL_FROM="Freenary <no-reply@example.com>"
+```
+
+Freenary hands the value to the adapter untouched, so the provider decides which shapes it accepts. Both `resend` and `smtp` need it. The `log` adapter never reads it.
+
+### Read a code
+
+| Adapter | Where the code lands |
+| --- | --- |
+| `log` | The API server log |
+| `resend` | The target mailbox, then the Resend dashboard for the delivery record |
+| `smtp` | The target mailbox, then the log of your relay |
+
+With the `log` adapter, read the code from the running stack:
+
+```bash
+docker compose logs -f server
+```
+
+Search that output for `[email:log]`. On the development stack the command is `bun run dev:logs`.
+
+To produce a code, sign up with an address that has no account. To produce a reset code instead, open `Forgot password?` on the sign-in screen.
+
+### Problems and fixes
+
+| Problem | Fix |
+| --- | --- |
+| The process refuses to start and names a variable | Set that variable, or unset `EMAIL_PROVIDER`. A half-configured adapter never starts |
+| The process refuses to start and names `log` | An instance in production cannot use the `log` adapter. Configure `resend` or `smtp` |
+| No message arrives, and no startup error | Check `EMAIL_PROVIDER`. The `log` adapter delivers nothing to a mailbox by design |
+| The message lands in spam | Publish SPF, DKIM and DMARC records for the domain in `EMAIL_FROM`, and register that domain at your provider |
+| The provider refuses the sender | Freenary reports the provider answer, for example `Resend rejected the message (403): <body>`. Use an address on a domain you registered |
+| The code no longer works | A code lives 10 minutes, and three wrong tries burn it. The user asks for a new one |
+| A new code does not arrive | Each one-time-code route accepts 3 calls per 60 seconds per caller. The user waits |
+
+[Troubleshooting](/docs/help/troubleshooting) holds the rest of the symptom list.
+
+## Sign-in methods
+
+A fresh instance with no variables set offers two ways in: email and password, and passkeys.
+
+Two-factor is a second factor on top of a password. It never opens an account alone. The emailed one-time code confirms an address, or resets a password. The code that confirms a fresh sign-up signs that user in. No code opens an account whose address is already confirmed.
+
+[Signing in](/docs/guides/signing-in) shows the flow a reader walks. The tables above define every variable named here.
+
+### The methods and their variables
+
+| Method | What enables it | What the user then sees |
+| --- | --- | --- |
+| Email and password | nothing. Every instance carries it | The `Email` field, then `Password` after the address resolves |
+| Emailed one-time code | `EMAIL_PROVIDER` | The `Confirm your email` step, and the `Forgot password?` link |
+| Two-factor with an authenticator app | nothing. Every instance carries it | An `Enable` button in Settings, for an account that has a password |
+| Passkeys | nothing. Every instance carries it | `Sign in with a passkey`, under the divider |
+| Google | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, both | `Continue with Google` |
+| Apple | `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET`, both | `Continue with Apple` |
+| Single sign-on with OpenID Connect | `OIDC_DISCOVERY_URL` and `OIDC_CLIENT_ID`, both | `Continue with single sign-on`, or the name you set |
+
+No variable removes email and password, two-factor or passkeys. An instance can never end up with no way in.
+
+The sign-in screen draws a provider button only after the API server names that provider. An unset provider therefore draws no button at all.
+
+<Callout type="warn">
+
+**One half of a pair does nothing.** Freenary builds the Google provider only when the client id and the client secret both hold a value. The same rule holds for Apple.
+
+`APPLE_APP_BUNDLE_IDENTIFIER` alone registers nothing. It is one field of the Apple provider, and that provider needs both halves first.
+
+Single sign-on needs `OIDC_DISCOVERY_URL` and `OIDC_CLIENT_ID`. `OIDC_CLIENT_SECRET`, `OIDC_PROVIDER_NAME` and `OIDC_SCOPES` register nothing on their own.
+
+</Callout>
+
+#### Where a provider sends the user back
+
+Every provider needs one redirect URI, and you register it on the provider side. `.env.example` documents the shape:
+
+```http
+<BETTER_AUTH_URL>/api/auth/callback/<id>
+```
+
+`<id>` is `google`, `apple` or `oidc`. `BETTER_AUTH_URL` is the public origin of the API server. It defaults to `http://localhost:3000`, which fits a laptop and fits no provider registration.
+
+Apple posts its callback from `https://appleid.apple.com`. Freenary adds that origin to its trusted list as soon as Apple holds both halves.
+
+### Passwords
+
+| Rule              | Value                                              |
+| ----------------- | -------------------------------------------------- |
+| Minimum length    | 12 characters                                      |
+| Maximum length    | 128 characters                                     |
+| Character classes | none                                               |
+| Hash              | scrypt, the Better Auth default                    |
+| Breach check      | on, unless `AUTH_PASSWORD_BREACH_CHECK` is `false` |
+
+The web app reads both bounds from the API server, never from a build-time constant.
+
+With the breach check on, Freenary sends the first 5 hex characters of the password SHA-1 to `https://api.pwnedpasswords.com`. The password never leaves the API server, and the full hash never leaves it either. A match answers `400` with `PASSWORD_COMPROMISED`.
+
+<Callout type="warn">
+
+The breach check fails closed. A network error against that host becomes a `500`, and the user reads a generic failure. Set `AUTH_PASSWORD_BREACH_CHECK=false` on an instance with no route to the internet.
+
+</Callout>
+
+### Email verification
+
+`EMAIL_PROVIDER` turns address confirmation on. With no provider, Freenary needs no confirmation, and sign-up returns a session at once.
+
+| Fact | Value |
+| --- | --- |
+| Form | a code, never a link |
+| Length | 6 digits |
+| Lifetime | 600 seconds, that is 10 minutes |
+| Wrong tries before Freenary burns the code | 3 |
+| Storage | hashed, so a database dump holds no usable code |
+
+A sign-in against an unconfirmed address answers `403` with `EMAIL_NOT_VERIFIED`, and Freenary mails a fresh code with that refusal. A correct confirmation signs the user in.
+
+The code goes wherever your adapter puts it. [Email delivery](#email-delivery) holds the three adapters and the command that reads a code from the log.
+
+#### Why an emailed code cannot open an account
+
+| Refusal | Answer |
+| --- | --- |
+| `/sign-in/email-otp` on every instance | `404` and `NOT_FOUND` |
+| A code request of type `sign-in` on `/email-otp/send-verification-otp` | `400` and `INVALID_OTP_TYPE` |
+| A confirmation of an address somebody already confirmed | `400` and `INVALID_OTP` |
+
+The middle refusal matters most. Without it, any caller could mail a code to any address it names, and nothing would accept that code. The third refusal matters because a confirmation creates a session.
+
+### Two-factor
+
+The plugin runs on every instance, and no variable turns it off. A user enrols in Settings.
+
+| Fact                              | Value                                   |
+| --------------------------------- | --------------------------------------- |
+| Method                            | TOTP, with backup codes as the fallback |
+| Issuer an authenticator app shows | `Freenary`                              |
+| Code length                       | 6 digits                                |
+| Backup codes                      | shown once, at the end of enrolment     |
+| Trusted device window             | 2 592 000 seconds, that is 30 days      |
+| Challenge cookie lifetime         | 600 seconds                             |
+
+Enrolment asks for the account password first. **An account with no password cannot enable two-factor.**
+
+A user who signed up through a provider holds no password row. Settings then replaces the button with a note.
+
+A user confirms the second factor with an app code or with one backup code. Both paths can mark the browser as trusted for 30 days. Each later sign-in from that browser extends the window.
+
+A disable also asks for the password. So does a fresh set of backup codes.
+
+#### The account lockout
+
+10 consecutive failed second-factor verifications lock the account for 900 seconds. The answer is `429` with `ACCOUNT_TEMPORARILY_LOCKED`, and the sign-in screen shows its rate-limit message.
+
+This is a Better Auth default, not a Freenary setting. No variable changes the count or the window. The counters sit in the `two_factor` table, in the columns `failedVerificationCount` and `lockedUntil`. A restart does not clear a lock.
+
+### Passkeys
+
+Passkeys are a primary sign-in method, never a second factor. The plugin runs on every instance.
+
+Freenary derives the whole relying party from `CORS_ORIGIN`, the public origin of the web app.
+
+| Relying party field | Value                         |
+| ------------------- | ----------------------------- |
+| `origin`            | `CORS_ORIGIN` itself          |
+| `rpID`              | the hostname of `CORS_ORIGIN` |
+| `rpName`            | `Freenary`                    |
+
+**A change of `CORS_ORIGIN` invalidates every registered passkey, and the port counts.** The library compares the expected origin to the signed browser response as an exact string. So `https://app.example.com` and `https://app.example.com:8443` are two relying parties.
+
+The rows stay in the `passkey` table after such a change. Each user must register a new passkey on the new origin.
+
+WebAuthn also needs a secure browsing context. A browser treats an `https` origin and `localhost` as secure, and nothing else. The web app draws the button only when the browser reports WebAuthn support.
+
+### Single sign-on
+
+Freenary registers every OpenID Connect identity provider under one hard-coded id, `oidc`. So the redirect URI is always `<BETTER_AUTH_URL>/api/auth/callback/oidc`.
+
+```dotenv
+OIDC_DISCOVERY_URL=https://idp.example.com/.well-known/openid-configuration
+OIDC_CLIENT_ID=freenary
+OIDC_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+OIDC_PROVIDER_NAME=Acme SSO
+OIDC_SCOPES=groups,offline_access
+```
+
+| Variable | Effect |
+| --- | --- |
+| `OIDC_DISCOVERY_URL` | Needed. The discovery document of the identity provider |
+| `OIDC_CLIENT_ID` | Needed |
+| `OIDC_CLIENT_SECRET` | Leave it unset for a public client |
+| `OIDC_PROVIDER_NAME` | The name inside the button label |
+| `OIDC_SCOPES` | Comma-separated extra scopes |
+
+**Scopes.** Freenary always asks for `openid`, `email` and `profile`. It adds every entry of `OIDC_SCOPES` to that set, trims each one and drops duplicates. Never repeat the three base scopes.
+
+**The button label.** With `OIDC_PROVIDER_NAME` set to `Acme SSO`, the button reads `Continue with Acme SSO`. Leave the variable unset and the button reads `Continue with single sign-on`. The raw id `oidc` never reaches the screen.
+
+<Callout type="warn">
+
+Freenary always checks the ID token, and that check is hard-coded. The discovery document must carry a usable `jwks_uri`. Keep the discovery URL reachable from the API server.
+
+</Callout>
+
+### Sessions
+
+The session cookie is the only credential Freenary accepts. No bearer token and no API key exist. Read [API access](/docs/developers/api) before you script against an instance.
+
+| Fact             | Value                                     |
+| ---------------- | ----------------------------------------- |
+| Store            | the `session` table in PostgreSQL         |
+| Lifetime         | 604 800 seconds, that is 7 days           |
+| Refresh age      | 86 400 seconds, the Better Auth default   |
+| Cookie cache     | none. Every request reads the session row |
+| Cookie signature | `BETTER_AUTH_SECRET`                      |
+
+A session lives 7 days from its last write, so 7 days is a floor and not a ceiling.
+
+One day after the last write, the next request writes a new session and a new cookie.
+
+A rotation of `BETTER_AUTH_SECRET` signs everybody out.
+
+#### The cookies
+
+| Cookie                      | Purpose                              |
+| --------------------------- | ------------------------------------ |
+| `better-auth.session_token` | the session                          |
+| `better-auth.two_factor`    | a two-factor challenge in progress   |
+| `better-auth.trust_device`  | a browser the user marked as trusted |
+
+All three gain the prefix `__Secure-` when `BETTER_AUTH_URL` starts with `https://`.
+
+<Callout type="info">
+
+Those three names are Better Auth defaults. Freenary sets no cookie prefix and no cookie name, so a library upgrade can move them. Read the name from the browser rather than from this page.
+
+</Callout>
+
+Every cookie carries the same three attributes:
+
+| Attribute | Value |
+| --- | --- |
+| `HttpOnly` | always on |
+| `Secure` | on when the protocol of `BETTER_AUTH_URL` is `https:` |
+| `SameSite` | `Lax` when the two hostnames match, or when you declare a cookie domain. `None` otherwise |
+
+The session cookie also carries `Path=/` and `Max-Age=604800`.
+
+#### `AUTH_COOKIE_DOMAIN`
+
+Set this variable when the API server and the web app sit on different hostnames. It holds the parent domain they share, for example `.example.com`. Freenary then declares that domain on every cookie and keeps `SameSite=Lax`.
+
+| API server against web app | `AUTH_COOKIE_DOMAIN` | Session cookie |
+| --- | --- | --- |
+| the same hostname, whatever the ports | either | `SameSite=Lax` |
+| different hostnames | declared, and a parent of both | `SameSite=Lax` plus `Domain` |
+| different hostnames | unset | `SameSite=None`, which browsers honour over HTTPS only |
+
+A shared cookie also decides where a visitor lands. The web app renders each page on its own server and forwards the request cookie to the API server. A signed-in visitor therefore gets Home in the first response. Otherwise the browser takes one extra hop.
+
+Four shapes stop the process at startup:
+
+1. A value that ends in a dot, which browsers do not strip.
+2. A single label, for example `.com` or `.local`, which browsers treat as a public suffix.
+3. A value that is not a parent of both hostnames.
+4. Split hostnames, no declared domain, and an API server on plain HTTP.
+
+The fourth shape yields `SameSite=None` with no `Secure`, and a browser drops such a cookie. Freenary throws in production and warns elsewhere.
+
+<Callout type="info">
+
+Freenary does not detect a multi-label public suffix such as `.co.uk`. That check needs a public-suffix list, and this project ships none. A value of `.co.uk` passes, and the browser then drops the cookie.
+
+</Callout>
+
+[Behind a reverse proxy](#behind-a-reverse-proxy) holds the public URLs, the TLS setup and the trusted-proxy list.
+
+#### The re-authentication window
+
+A change to which credentials open an account needs a session less than 900 seconds old. Outside that window, five routes answer `403` with `SESSION_NOT_FRESH`:
+
+- `/link-social`
+- `/unlink-account`
+- `/passkey/delete-passkey`
+- `/passkey/generate-register-options`
+- `/passkey/verify-registration`
+
+A passkey rename is not on the list, because it changes nothing about how the account opens. The session list is not on it either: the screen a worried user opens must still answer.
+
+### Rate limits
+
+Counters live in the `rate_limit` table, never in process memory. A restart does not clear a lock, and every replica shares one counter.
+
+| Route or procedure | Limit | Window | Scope | Rule source |
+| --- | --- | --- | --- | --- |
+| `/sign-in/email` | 10 | 60 s | caller address | Freenary policy |
+| `/sign-in/social` | 10 | 60 s | caller address | Freenary policy |
+| `/sign-up/email` | 5 | 300 s | caller address | Freenary policy |
+| `/two-factor/verify-totp` | 10 | 300 s | caller address | Freenary policy |
+| `/two-factor/verify-backup-code` | 5 | 300 s | caller address | Freenary policy |
+| `/passkey/generate-authenticate-options` | 20 | 60 s | caller address | Freenary policy |
+| `/passkey/verify-authentication` | 20 | 60 s | caller address | Freenary policy |
+| every other `/two-factor/` route | 3 | 10 s | caller address | `twoFactor` plugin |
+| every `/email-otp/` route the plugin matches | 3 | 60 s | caller address | `emailOTP` plugin |
+| `/request-password-reset`, `/send-verification-email`, `/forget-password*` | 3 | 60 s | caller address | Better Auth built-in rule |
+| any other route under `/sign-in`, `/sign-up`, `/change-password`, `/change-email` | 3 | 10 s | caller address | Better Auth built-in rule |
+| everything else under `/api/auth` | 100 | 60 s | caller address | the default bucket |
+| `auth.accountExists` | 20 | 60 s | caller address | Freenary policy, on the procedure |
+| `POST /ai/chat` and `assistant.saveTurn` | 30 | 300 s | the account | Freenary policy, on the procedure |
+
+`/forget-password*` comes from a Better Auth built-in rule, not from the one-time-code plugin. The plugin matches the nine `/email-otp/` routes and nothing else.
+
+**Read the rule-source column, because the default bucket is narrower than it looks.** Better Auth resolves a limit in three passes: built-in rules, then plugin rules, then the Freenary rules. Each pass that matches overwrites the last one outright. So an unmatched route under one of those four prefixes caps at 3, not 100.
+
+`/link-social` matches no rule at any pass, so it sits on the 100 per 60 seconds default. Its real guard is the 15-minute re-authentication window above.
+
+<Callout type="warn">
+
+`NODE_ENV=test` turns the Better Auth limiter off. It does not touch the last two rows. `auth.accountExists` and the assistant route count on every instance, whatever `NODE_ENV` holds.
+
+</Callout>
+
+#### Who the caller is
+
+`TRUSTED_PROXIES` names the proxies in front of the API server, as addresses or CIDR ranges, comma-separated. With an empty list, Freenary refuses a forwarded chain that carries more than one address.
+
+Then every caller shares one bucket per route, and the whole instance spends the 10 sign-in tries together. [Behind a reverse proxy](#behind-a-reverse-proxy) shows how to write the list.
+
+### Account linking
+
+Freenary lets a provider identity join an account that already exists. Three rules govern it, and no variable changes them.
+
+| Rule                                      | Value |
+| ----------------------------------------- | ----- |
+| Join a provider identity to an account    | on    |
+| Join across two different email addresses | off   |
+| Unlink the last sign-in method            | off   |
+
+A provider identity joins an account only when both sides carry the same confirmed email address. So a Google sign-in after a password sign-up lands in the account the user already has.
+
+When the two addresses differ, the provider sends the user back to `/login` with an `error` query parameter. Freenary maps six codes to a message:
+
+- `account_already_linked_to_different_user`
+- `account_not_linked`
+- `email_does_not_match`
+- `email_not_found`
+- `email_not_verified`
+- `unable_to_link_account`
+
+A user who cancels at the provider reads nothing at all. Freenary clears `access_denied` and `user_cancelled_authorize` without a message. Any other code falls back to one generic message.
+
+Freenary refuses to detach the last sign-in method, and answers `FAILED_TO_UNLINK_LAST_ACCOUNT`.
+
+## Assistant
+
+The assistant calls one OpenAI-compatible endpoint. Freenary ships with no model. Name an endpoint and a model id, and the API server answers through them.
+
+Name neither, and the API server answers nothing. A reader whose browser has WebGPU can still pick a model that runs on their own device.
+
+### The variables
+
+| Variable | Default | Needed | What it does | Absent or wrong |
+| --- | --- | --- | --- | --- |
+| `AI_BASE_URL` | unset | yes | The base URL of an OpenAI-compatible chat-completions endpoint, with its version path. | A value that is not a URL stops the start. Unset means the instance reports no server model. |
+| `AI_MODEL` | unset | yes | The model id, exactly as the endpoint names it. | It needs `AI_BASE_URL` too. With either one unset, the assistant route answers `503 unconfigured`. |
+| `AI_API_KEY` | unset | no | The key for that endpoint. A local runtime needs none. | Unset is valid, because a local endpoint needs no key. |
+
+`AI_BASE_URL` and `AI_MODEL` work as a pair.
+
+With either one empty, the API server reports no model. The assistant route then refuses every request.
+
+`AI_API_KEY` takes no part in that test.
+
+`AI_BASE_URL` must parse as a URL. A bad value stops the API server at startup.
+
+A hosted gateway takes all three variables:
+
+```dotenv
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=sk-...
+AI_MODEL=anthropic/claude-3.5-sonnet
+```
+
+A runtime on your own hardware takes two:
+
+```dotenv
+AI_BASE_URL=http://ollama:11434/v1
+AI_MODEL=qwen2.5:14b
+```
+
+Give that runtime a service on the same Docker network, then name the service in the URL. The value `http://localhost:11434/v1` names the API server container itself, and it reaches nothing.
+
+<Callout type="warn">
+
+**The model must support tool calling.** The assistant reads the money data of a user through read-only lookups, and each lookup is a tool call.
+
+A model without tool calling still answers. It answers about the money of the reader, it reads none of it, and it invents every figure. No error reports that.
+
+Pick a model whose provider documents tool calling. Then ask one question that needs a figure, and check the answer before other people use the instance.
+
+</Callout>
+
+### What a reader sees with no model
+
+The model button reads `Choose a model`. The text box, the send button and the three suggestion chips are all off.
+
+One line sits above the text box. On a browser with WebGPU:
+
+```text
+Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.
+```
+
+On a browser without WebGPU:
+
+```text
+This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask an administrator to set AI_BASE_URL and AI_MODEL.
+```
+
+A request that still reaches an unconfigured server surfaces one message:
+
+```text
+This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.
+```
+
+With both variables set, the model palette gains a group named `On your instance` that holds the id in `AI_MODEL`. That model answers by default.
+
+[The assistant](/docs/guides/assistant) shows the whole screen from the side of the reader.
+
+### The transport
+
+The assistant does not use a procedure. It uses one route, `POST /ai/chat`, and that route streams its answer as server-sent events.
+
+It refuses in a fixed order:
+
+| Order | Status | Body | Cause |
+| --- | --- | --- | --- |
+| 1 | `401` | `unauthorized` | No session cookie |
+| 2 | `503` | `unconfigured` | `AI_BASE_URL` or `AI_MODEL` is empty |
+| 3 | `429` | `rate_limited` | The account is over its question limit |
+| 4 | `400` | `bad_request` | The body is not JSON, fails the schema, or holds no user question |
+
+The order matters. An unconfigured instance answers `unconfigured` even to a caller over the limit.
+
+A question of more than 8000 characters is a `bad_request`. One question can drive up to 6 model steps, because each lookup and each retry is a step.
+
+### What leaves the instance
+
+A configured endpoint receives account data. Freenary posts to `<AI_BASE_URL>/chat/completions`, and each step of a question carries all of this:
+
+| Part of the payload | What it holds |
+| --- | --- |
+| The system prompt | A statement that Freenary holds the bank accounts of the user, the locale, today's date, and the date of the first and the last transaction |
+| The chart section of the prompt | The chart grammar and two worked examples |
+| The transcript | Every stored question and answer of the active conversation |
+| The tool signatures | The seven read-only lookups and their input schemas |
+| Every tool result | The rows the lookups returned |
+
+A tool result carries real account data:
+
+- Account ids, account names and institution names.
+- Per-group planned and actual amounts, cash-flow buckets, and fixed and variable totals.
+- Recurring-payment merchant names, merchant keys and cadences.
+- Individual transactions: the description, the counterparty name, the date, the id and the amount.
+
+A transaction description and a counterparty name are the raw text the bank sent. They name the shops, the people and the companies the user paid.
+
+**Freenary strips one field: the IBAN.** The accounts lookup drops it before the result leaves. No lookup takes an IBAN as an input either.
+
+Amounts leave as decimal strings. Every lookup labels them `EUR`.
+
+<Callout type="info">
+
+A hosted gateway holds everything above, under its own terms. A runtime on your own hardware keeps all of it on your own host. That choice is the whole difference between the two `AI_BASE_URL` examples above.
+
+</Callout>
+
+<Callout type="info">
+
+With `AI_BASE_URL` unset, the API server makes no outbound call for the assistant at all. The browser of the reader still makes two. The model weights come from `https://huggingface.co`. The compiled model library comes from `https://raw.githubusercontent.com`.
+
+An egress allow-list must hold both hosts for a device model to load.
+
+</Callout>
+
+### The browser model
+
+A reader whose browser has WebGPU can run the assistant on their own device. The model comes from [WebLLM](https://github.com/mlc-ai/web-llm).
+
+You set no variable for it, and you cannot switch it off.
+
+| Concern | What a device model means for you |
+| --- | --- |
+| Your work | None. You set no variable, and you install no runtime |
+| What the reader needs | WebGPU, and enough graphics memory for the model |
+| Outbound traffic | The one-time model download, from the browser of the reader |
+| Load on the instance | The lookups alone. No model call reaches the API server |
+| The rate limit | The same 30 stored turns per 300 seconds |
+| The transcript | The browser stores each finished turn in the same tables |
+| Answer quality | Lower. A model that fits in a browser is small |
+
+With `AI_BASE_URL` and `AI_MODEL` set, the palette holds both kinds. The instance model answers by default. A device model the reader picked wins over it.
+
+### The rate limit
+
+One account gets **30 server calls per 300 seconds**. One allowance covers both kinds of answer: a question the instance model answers, and a turn a device model produced. The code fixes that limit, and no variable changes it.
+
+The key is the account id, not the caller address. Each question is a call to your model endpoint, so the cost follows the account that asks. One busy office behind one address keeps a full allowance per person.
+
+Over the limit, the route answers `429` and the screen asks the user to wait.
+
+A device model runs in the browser, so it needs no allowance to answer. The procedure that stores the finished turn does, and it shares the key. Over the limit, the answer stays on the screen and Freenary stores no turn.
+
+### Where the conversation lives
+
+Every question and answer goes into PostgreSQL, never into process memory. So a restart keeps a conversation, and a second replica reads the same rows.
+
+An account holds one active conversation. The `New conversation` control archives the current thread and opens an empty one, and no picker returns to the old one.
+
+Freenary drops those rows with the account they belong to. The tables grow with use, so they belong in your backup plan.
+
+### Cost
+
+Each question is one call to your model endpoint, and a question with lookups is several. Nothing on the instance caches an answer.
+
+So the cost of the assistant follows how many questions your readers ask, and how large each transcript grows. The 30-per-300-seconds limit is a ceiling per account, not a budget.
+
+A device model costs the instance no model call. It still runs the lookups against the API server and the database.
+
+[Scaling](/docs/self-hosting/scaling) holds the resource sizing and what limits growth.
+
+## Behind a reverse proxy
+
+Put a TLS terminator in front of the two published ports. Send the web app hostname to the web port, `3001` by default. Send the API server hostname to the API port, `3000` by default.
+
+TLS stops at your proxy. The stack declares no proxy service, no certificate volume and no port 443.
+
+### The origins the proxy forces
+
+A public hostname changes three values. You set two of them:
+
+| Variable | What it must hold | Where you set it |
+| --- | --- | --- |
+| `BETTER_AUTH_URL` | The public URL of the API server | `.env` |
+| `CORS_ORIGIN` | The public URL of the web app | `.env` |
+| `PUBLIC_SERVER_URL` | The public URL of the API server, for the browser | Nowhere. Compose takes it from `BETTER_AUTH_URL` |
+
+A `PUBLIC_SERVER_URL` line in `.env` is inert. The `server` service reads the whole file, and the `web` service reads no file at all.
+
+Use `https://` in both values you set. The session cookie takes its `Secure` flag from the scheme of `BETTER_AUTH_URL`. `CORS_ORIGIN` must match the browser origin of the web app exactly. The API server allows that one origin for a cross-origin request. A value that does not match makes every sign-in fail.
+
+The tables above define each variable and quote each refusal.
+
+### What the browser receives, and what a change costs
+
+The web app resolves the API origin at three points:
+
+| Caller | Value it uses |
+| --- | --- |
+| The browser | `PUBLIC_SERVER_URL`, from an inline script in the root document |
+| The web app itself, while it renders a page | `SERVER_URL`, which Compose sets to `http://server:3000` |
+| Both, while the two above are unset | `VITE_SERVER_URL`, which Vite inlined at build time |
+
+`PUBLIC_SERVER_URL` is a runtime value, so one image serves any deployment. A new public API origin therefore needs no new image. Change `BETTER_AUTH_URL`, then recreate the `web` service:
+
+```bash
+docker compose up -d web
+```
+
+The value must be an absolute URL. With anything else, every page answers `500`, and the web app throws `PUBLIC_SERVER_URL must be an absolute URL such as https://api.example.com, got "…"`. The web app cuts a slash at the end of the value.
+
+<Callout type="info">
+
+The web app calls `http://server:3000` on the Docker network while it renders a page. That call never leaves the host, so the proxy carries no server-side traffic.
+
+</Callout>
+
+### Two subdomains
+
+A split like `app.example.com` and `api.example.com` needs one more value. Set `AUTH_COOKIE_DOMAIN` to the parent domain both hostnames sit under:
+
+```dotenv
+AUTH_COOKIE_DOMAIN=.example.com
+```
+
+With it, the session cookie stays `SameSite=Lax` and carries `Domain=.example.com`. Without it, the cookie drops to `SameSite=None`, and a browser that blocks third-party cookies drops the session.
+
+The API server refuses three shapes at startup, and each message names the value:
+
+- A trailing dot, which browsers do not strip.
+- A single label, which browsers treat as a public suffix.
+- A domain that is not a parent of both hostnames.
+
+A multi-label public suffix such as `.co.uk` is not detected. Declare the domain your two hostnames actually share.
+
+<Callout type="warn">
+
+Two different hostnames, no `AUTH_COOKIE_DOMAIN` and an API server on plain HTTP stop the start. The `server` container never becomes healthy. Compose always sets the production mode, so this check is always live. Serve the API over HTTPS, put both apps behind one hostname, or declare the shared parent domain.
+
+</Callout>
+
+One hostname for both apps needs no cookie domain at all. The API server and the web app then share a hostname, so the cookie already stays `SameSite=Lax`.
+
+### Trusted proxies
+
+Set `TRUSTED_PROXIES` to the addresses or CIDR ranges of every proxy in front of the API server:
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/24,192.0.2.10
+```
+
+Each entry is one address or one CIDR range, in IPv4 or IPv6, and a comma separates the entries. An IPv4-mapped IPv6 address stops the start with `write an IPv4-mapped address in its IPv4 form, e.g. 10.0.0.0/24`. Write `10.0.0.1`, not `::ffff:10.0.0.1`.
+
+The rate limiter keys each counter on the caller address. With an empty list and more than one address in the forwarded chain, the API server resolves no caller. One shared bucket then serves the whole instance, so one visitor can spend the sign-in allowance of every user. Read [Security](/docs/self-hosting/security).
+
+### A worked example
+
+This Caddyfile serves both hostnames, gets the certificates and forwards to the two published ports:
+
+```text
+api.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+app.example.com {
+	reverse_proxy 127.0.0.1:3001
+}
+```
+
+The matching `.env` lines are these:
+
+```dotenv
+FREENARY_VERSION=main
+POSTGRES_PASSWORD=<database password>
+BETTER_AUTH_SECRET=<64 hex characters>
+BETTER_AUTH_URL=https://api.example.com
+CORS_ORIGIN=https://app.example.com
+AUTH_COOKIE_DOMAIN=.example.com
+```
+
+Then check both hostnames from outside the host:
+
+```bash
+curl https://api.example.com/
+curl -L -o /dev/null -w '%{http_code} %{url_effective}\n' https://app.example.com/
+```
+
+The API server answers `OK`. The web app sends a caller with no session to `/login`, so the second command prints `200 https://app.example.com/login`.
+
 <Cards>
 
 <Card
-  title="The served install"
-  href="/docs/self-hosting"
-  description="The four services, the secrets, and the checked start."
+  title="Docker installation"
+  href="/docs/self-hosting/docker#installation"
+  description="Get the two files, write the secrets, and name the two public origins."
 />
 
 <Card
-  title="Behind a reverse proxy"
-  href="/docs/self-hosting/reverse-proxy"
-  description="TLS, the public origins, the cookie domain and the trusted proxies."
+  title="Backup and restore"
+  href="/docs/self-hosting/backup-and-restore"
+  description="Dump the one volume that holds state, and put it back."
+/>
+
+<Card
+  title="Security"
+  href="/docs/self-hosting/security"
+  description="Secrets, cookies, rate limits and what the instance exposes."
 />
 
 <Card
@@ -302,9 +1112,15 @@ SMTP_PASSWORD=<mail password>
 />
 
 <Card
+  title="Signing in"
+  href="/docs/guides/signing-in"
+  description="What a user sees on the sign-in screen and in Settings."
+/>
+
+<Card
   title="Troubleshooting"
-  href="/docs/self-hosting/troubleshooting"
-  description="A symptom, its cause, and the command that fixes it."
+  href="/docs/help/troubleshooting"
+  description="Symptom, cause and fix for the failures an operator meets."
 />
 
 </Cards>

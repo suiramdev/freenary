@@ -1,0 +1,1143 @@
+---
+title: Architecture
+description: The workspaces and their boundaries, the request path, the route tree, every Prisma model and the categorisation pipeline.
+---
+
+One instance runs three parts. The web app renders each screen, the API server holds the rules, and PostgreSQL keeps every row. This page maps the code that does it. [Local development stack](/docs/developers/setup#local-development-stack) starts it on your machine.
+
+## Workspaces
+
+The root `package.json` declares two workspace globs, `apps/*` and `packages/*`. Ten workspaces sit under them: three applications and seven packages. A Bun catalog pins each shared version once. `zod`, `typescript`, `elysia`, `better-auth` and `react` resolve to one version each. So do `@orpc/*`, `evlog`, `lucide-react`, `next-themes`, `sonner` and `tailwindcss`.
+
+| Workspace | Path | Owns | Workspace dependencies | Depended on by |
+| --- | --- | --- | --- | --- |
+| `web` | `apps/web` | The web app: routes, screens, message catalogs, the oRPC client | `@freenary/api`, `@freenary/env`, `@freenary/ui` | nothing |
+| `server` | `apps/server` | The HTTP surface only, described in its own manifest as thin glue | `@freenary/api`, `@freenary/auth`, `@freenary/db`, `@freenary/env` | nothing |
+| `fumadocs` | `apps/fumadocs` | This documentation site | **none** | nothing |
+| `@freenary/api` | `packages/api` | oRPC routers, the assistant, the bank adapters, the categorisation pipeline, the taxonomy | `@freenary/auth`, `@freenary/db`, `@freenary/env` | `web`, `server` |
+| `@freenary/auth` | `packages/auth` | The Better Auth setup, the cookie policy, the rate-limit policy | `@freenary/db`, `@freenary/email`, `@freenary/env` | `@freenary/api`, `server` |
+| `@freenary/db` | `packages/db` | The Prisma schema, the migrations, the client singleton | `@freenary/env` | `@freenary/api`, `@freenary/auth`, `server` |
+| `@freenary/email` | `packages/email` | The email provider registry | `@freenary/env` | `@freenary/auth` |
+| `@freenary/env` | `packages/env` | Two environment schemas, exported as `./server` and `./web` | none | `api`, `auth`, `db`, `email`, `server`, `web`, and the repository root |
+| `@freenary/ui` | `packages/ui` | React primitives, one export per file | none | `web` |
+| `@freenary/config` | `packages/config` | One file, `tsconfig.base.json` | none | every workspace but `apps/fumadocs`, and the repository root |
+
+Two entries in that table surprise a reader:
+
+- **`apps/fumadocs` depends on no workspace package**, not even `@freenary/config`. It carries its own `.oxlintrc.json` and its own `oxlint` dependency. It is a standalone application inside the repository.
+- **`@freenary/env` and `@freenary/config` are also root dependencies.** The root `package.json` declares both, beside the seven workspaces that declare them.
+
+`packages/config` holds exactly two files, its manifest and `tsconfig.base.json`. It carries no lint, format, Tailwind or Vite preset.
+
+## The three parts
+
+Each part owns one job, and each one has its own section below.
+
+| Part | Code | Section |
+| --- | --- | --- |
+| The web app | `apps/web` | [Frontend](#frontend) |
+| The API server | `apps/server` and `packages/api` | [Backend](#backend) |
+| PostgreSQL | `packages/db` | [Data model](#data-model) |
+
+## Boundaries
+
+Three boundaries hold the code apart. Each package states its own rule beside its code.
+
+**`packages/api` imports the data and identity packages only.** Its dependencies are `@freenary/auth`, `@freenary/db` and `@freenary/env`. It must not import `@freenary/ui`, `apps/web` or a compiled message module. The `elysia` package is a development dependency for one type in `packages/api/src/context.ts`. A framework change therefore stops at that file.
+
+**`apps/web` imports the router type, never the implementation.** `apps/web/src/utils/orpc.ts` imports `AppRouter` as a type and calls each procedure over HTTP.
+
+**A response carries slugs and enum members, never display strings.** The web app holds the translations and the API server holds none. So the API sends a stable key, and the web app maps that key to a message. Text from the user, the bank or the bank provider is data, and it passes through as it arrives. Interface strings live in `apps/web/messages/en.json` and `apps/web/messages/fr.json`, and both catalogs change in one commit.
+
+`packages/env` is the one seam for configuration. It holds two schemas: the server schema and the `VITE_` prefixed web schema. Add the Zod field there, then read `env`. [Configuration](/docs/self-hosting/configuration) is the operator reference for every variable.
+
+## The build graph
+
+`turbo.json` declares the task graph and sets `"ui": "tui"`.
+
+| Task | Depends on | Cached | Notes |
+| --- | --- | --- | --- |
+| `build` | `^build` | yes | `inputs`: `$TURBO_DEFAULT$` and `.env*`; `outputs`: `dist/**` |
+| `build:data` | nothing | **no** | The merchant data artifacts. `@freenary/api` declares it |
+| `lint` | `^lint` | yes | Only `apps/fumadocs` declares the script |
+| `check-types` | `^check-types` | yes | Only `apps/server` and `@freenary/ui` declare the script |
+| `docs:check` | nothing | yes | Only `apps/fumadocs` declares it. `inputs`: `content/**`, `scripts/**`, `src/components/mdx.tsx` |
+| `dev` | nothing | no | `persistent: true`. `web`, `server` and `fumadocs` declare it |
+| `db:push`, `db:generate`, `db:migrate` | nothing | no | `interactive: true`. `@freenary/db` declares them |
+| `db:studio` | nothing | no | `persistent: true` |
+| `db:start`, `db:stop`, `db:watch`, `db:down` | nothing | no | No workspace declares them. The root scripts call `docker compose` straight |
+
+Each application builds to its own output:
+
+| Application | Command | Output |
+| --- | --- | --- |
+| `apps/server` | `tsdown` | `dist/index.mjs`, ESM, with `clean: true` and `deps.alwaysBundle: [/@freenary\/.*/u]`, so the workspace packages sit inside the bundle. The image runs `bun dist/index.mjs` |
+| `apps/web` | `vite build` | Nitro with the preset `bun`. The image runs `bun .output/server/index.mjs` |
+| `apps/fumadocs` | `vite build` | Nitro with the preset `vercel` and prerender turned on. No Dockerfile builds it, and no compose service runs it |
+
+`apps/server/package.json` also declares a single-file `bun build --compile` command. No workflow calls it.
+
+### What the caches hold
+
+- **`ci.yml` caches nothing.** It declares no `actions/cache` step and no Turbo remote cache.
+- **`images.yml` caches each image layer set per application and per platform**, with `cache-from: type=gha,scope=<app>-<platform>` and `cache-to: type=gha,mode=max`.
+- **`generate-data.yml` caches the SIRENE lookups.** The restore and the save are two separate steps, so a cancelled run still publishes what it fetched.
+- **`build` declares no dependency on `build:data`.** The server image orders the two by hand. It passes the build argument `GITHUB_REPOSITORY` and the BuildKit secret `GITHUB_TOKEN`, which never lands in the image.
+
+`build:data` is `bun scripts/download-data.ts || bun run build:data:generate`. The download takes the newest release whose tag starts with `data-`. The fallback rebuilds every artifact from the upstream sources, which costs many minutes and much network. [Transaction categorisation](#transaction-categorisation) covers both paths.
+
+### Generated files
+
+| Artifact | Path | Written by |
+| --- | --- | --- |
+| Prisma client | `packages/db/prisma/generated` | `prisma generate`, and `postinstall` on every install |
+| Route tree | `apps/web/src/routeTree.gen.ts` | The TanStack Start Vite plugin |
+| Compiled messages | `apps/web/src/paraglide/` | `paraglide-js compile`, and the Paraglide Vite plugin |
+| Merchant data | `packages/api/data/*` | The `build:data` scripts. The one tracked file there is `README.md` |
+| Server bundle | `apps/server/dist` | `tsdown` |
+| Web bundle | `apps/web/.output` | `vite build` |
+
+<Callout type="warn">
+
+**No gitignore rule covers `apps/web/src/paraglide/`.** The directory appears in the Oxlint ignore list and in the compose sync ignore list, which are different things. The `dev` script of `apps/web` writes the whole compiled catalog there, so it turns up as untracked files. Never commit them.
+
+A stale Prisma client is the other common trap. A schema edit with no `bun run db:generate` leaves the old field types in place. The query then fails the type check, and the new column never reaches PostgreSQL.
+
+</Callout>
+
+## Backend
+
+The backend is two workspaces. `apps/server` holds the HTTP surface, and its own manifest calls it thin glue. `packages/api` holds the oRPC routers, the assistant, the bank adapters and the categorisation pipeline. The table under [Workspaces](#workspaces) names every workspace.
+
+### The path of one request
+
+The worked example is one click: a reader picks a category on a transaction row. Eleven hops carry it to a PostgreSQL row.
+
+| # | Hop | File | Detail |
+| --- | --- | --- | --- |
+| 1 | The click runs a mutation | `apps/web/src/hooks/budget/use-transaction-category.ts` | `mutationFn` calls `client.budget.updateTransactionCategory({ category, transactionId })`. The cache is patched first and rolled back on error |
+| 2 | The oRPC client serialises the call | `apps/web/src/utils/orpc.ts` | One `RPCLink` at `${getServerUrl()}/rpc`, with `fetch` forced to `credentials: "include"`. Queries default to `staleTime: 60 * 1000`, and a failed query raises a retry toast |
+| 3 | The API origin resolves | `apps/web/src/lib/server-url.ts` | On the server `SERVER_URL` wins, then the public URL, then `VITE_SERVER_URL`, then the three Vercel values, then `http://localhost:3000`. In the browser the inline script value wins |
+| 4 | An inline script wrote that value | `apps/web/src/routes/__root.tsx` | The `head()` of the root route emits the script before any module script, so the browser learns the origin from the container it talks to |
+| 5 | Elysia receives the request | `apps/server/src/index.ts` | `.all("/rpc*", …, { parse: "none" })`, so Elysia never reads the body. CORS admits one origin with credentials, and `evlog()` plus a `.derive` already attached the wide event and the identified user |
+| 6 | The request context is built | `packages/api/src/context.ts` | `auth.api.getSession({ headers })`, then the three fields `{ auth: null, headers, session }` |
+| 7 | `RPCHandler` matches and runs the middleware | `packages/api/src/index.ts` | `protectedProcedure` throws `ORPCError("UNAUTHORIZED")` when `context.session?.user` is absent |
+| 8 | The procedure resolves | `packages/api/src/routers/index.ts` | Eight keys: `assistant`, `auth`, `bankConnection`, `budget`, `healthCheck`, `onboarding`, `privateData`, `settings` |
+| 9 | The handler validates and reads | `packages/api/src/routers/budget.ts` | Zod input, then `where: { account: { connection: { userId } }, id }`. A missing row throws `ORPCError("NOT_FOUND")` |
+| 10 | One Prisma transaction writes | `packages/api/src/routers/budget.ts` | The row update, then the merchant override upsert or delete, then an `updateMany` over the siblings that share `merchantKey` |
+| 11 | Prisma reaches PostgreSQL | `packages/db/src/index.ts` | `new PrismaPg({ connectionString: env.DATABASE_URL })` feeds `new PrismaClient({ adapter })`. The default export is that one singleton |
+
+The response goes back through `recordStatus` in `apps/server/src/index.ts`. It copies the real status onto `set.status`, so the wide event stays honest. A request that matched no procedure under `/rpc` answers `new Response("Not Found", { status: 404 })`.
+
+### The mounted routes
+
+`apps/server/src/index.ts` mounts four handlers and one root route. Only the second one carries the procedures.
+
+| Route | What it does |
+| --- | --- |
+| `/api/auth/*` | Better Auth. Any method but `POST` and `GET` answers 405 |
+| `/rpc*` | The `RPCHandler` with the prefix `/rpc`, the path of the eleven hops above |
+| `POST /ai/chat` | The assistant token stream, also `parse: "none"`, handled by `handleAssistantChat`. A comment states the reason: a token stream does not fit a unary oRPC procedure |
+| `/api-reference*` | The OpenAPI handler, with `OpenAPIReferencePlugin` and `ZodToJsonSchemaConverter` |
+| `GET /` | The literal string `OK`, which both compose files use as the health probe |
+
+The listener takes `env.PORT`, default `3000`.
+
+### The routers
+
+`packages/api/src/routers/index.ts` joins one router per area, plus one root procedure.
+
+| Key | File | Area |
+| --- | --- | --- |
+| `assistant` | `routers/assistant.ts` | The conversations and the stored turns |
+| `auth` | `routers/auth.ts` | The viewer, the capabilities and the account lookup |
+| `bankConnection` | `routers/bank-connection.ts` | The institutions, the connect flow and the disconnect |
+| `budget` | `routers/budget.ts` | The transactions, the budget lines, the sync and the categorisation |
+| `onboarding` | `routers/onboarding.ts` | The onboarding status and the country |
+| `settings` | `routers/settings.ts` | The custom categories and the account settings |
+| `healthCheck`, `privateData` | `routers/index.ts` | Two probes, one public and one protected |
+
+Two files beside the routers carry logic the routers call. `routers/bank-connection-state.ts` builds and checks the signed state of the connect flow. `routers/transaction-amount-bounds.ts` derives the amount filter bounds.
+
+## Frontend
+
+`apps/web` is the web app. It runs TanStack Start on Vite, and it renders every screen a reader opens. It calls the API server over HTTP and holds no database access. The table under [Workspaces](#workspaces) names every workspace.
+
+### The route tree
+
+Each file under `apps/web/src/routes` is one route. The TanStack Start Vite plugin writes `apps/web/src/routeTree.gen.ts` from that directory, so never edit the generated file.
+
+| Route file | Path | What it renders |
+| --- | --- | --- |
+| `__root.tsx` | — | The document, the providers and the inline script that carries the API origin |
+| `login.tsx` | `/login` | The sign-in and sign-up screens |
+| `onboarding.tsx` | `/onboarding` | The onboarding steps |
+| `callback/$provider.tsx` | `/callback/<provider>` | The bank provider return, with `ssr: false` |
+| `_auth/route.tsx` | — | The signed-in layout: the sidebar, the breadcrumb and the guard |
+| `_auth/index.tsx` | `/` | The home screen |
+| `_auth/budget/route.tsx` | `/budget` | The budget layout |
+| `_auth/budget/index.tsx` | `/budget` | The budget screen |
+| `_auth/budget/transactions.tsx` | `/budget/transactions` | The transaction list |
+| `_auth/budget/recurring.tsx` | `/budget/recurring` | The recurring charges |
+| `_auth/analysis.tsx` | `/analysis` | The analysis screen |
+| `_auth/portfolio.tsx` | `/portfolio` | The portfolio screen |
+| `_auth/goals.tsx` | `/goals` | The goals screen |
+| `_auth/settings.tsx` | `/settings` | The settings screen |
+| `dev-avatar.tsx` | `/dev-avatar` | A development state board for the brand avatar. No screen links to it |
+
+The `_auth` prefix is a pathless layout, so its children keep their own paths.
+
+### The two guards
+
+`_auth/route.tsx` declares one `beforeLoad`. It reads the viewer of the route context and redirects on two conditions.
+
+| Viewer | Redirect |
+| --- | --- |
+| `guest` | `/login` |
+| `member` with `onboarded` false | `/onboarding` |
+| `unknown` | none. `AuthGate` inside the layout holds the live session |
+
+### The server render
+
+Three files run before a component does.
+
+| File | What it does |
+| --- | --- |
+| `src/server.ts` | Wraps the TanStack Start handler with `paraglideMiddleware`, then appends `Vary: Accept-Language, Cookie` to the response |
+| `src/router.tsx` | Builds one router and one query client per request |
+| `src/functions/get-viewer.ts` | A server function. The `beforeLoad` of the root route calls it, and it forwards the cookie header into `client.auth.viewer` |
+
+The `Vary` header is load-bearing. One URL answers in two languages. `/login` is cacheable, so a proxy that misses the header serves one language to the next reader.
+
+### The component map
+
+`src/components` splits by area, and each directory owns the screens of that area.
+
+| Directory | Files | Area |
+| --- | --- | --- |
+| `budget` | 37 | The transaction list, the budget lines, the charts |
+| `settings` | 23 | The settings sections |
+| `shared` | 16 | The sidebar, the layout and the common controls |
+| `assistant` | 13 | The conversation surface |
+| `auth` | 12 | The sign-in, the sign-up and the second factor |
+| `ai-elements` | 12 | Vendored stream primitives. Oxlint ignores this directory |
+| `onboarding` | 7 | The onboarding steps |
+| `bank` | 5 | The bank picker and the connection rows |
+
+`src/hooks` mirrors the same areas, and each hook wraps one oRPC call. `src/lib` holds the pure helpers, and `src/utils/orpc.ts` holds the one client. `@freenary/ui` gives the primitives, one export per file.
+
+### Interface text
+
+Every string a reader sees is a key in `apps/web/messages/en.json` and `apps/web/messages/fr.json`. Paraglide compiles both catalogs into `src/paraglide`, and each component imports the message functions as `m`. A key in one catalog and not in the other compiles with no error, so edit both in one commit. [Architecture](#boundaries) states that boundary.
+
+## Data model
+
+This section owns the vocabulary of the schema. Every model name, column name and enum value below comes from `packages/db/prisma/schema/`. Other pages link to this section instead of repeating a Prisma name.
+
+### Where the schema lives
+
+Prisma reads a directory, not one file. Five files split the model by area.
+
+<Files>
+  <Folder name="packages/db" defaultOpen>
+    <Folder name="prisma" defaultOpen>
+      <Folder name="schema" defaultOpen>
+        <File name="schema.prisma" />
+        <File name="auth.prisma" />
+        <File name="budget.prisma" />
+        <File name="budget-profile.prisma" />
+        <File name="assistant.prisma" />
+      </Folder>
+      <Folder name="migrations">
+        <File name="7 migration directories, migration_lock.toml, .gitkeep" />
+      </Folder>
+    </Folder>
+    <File name="prisma.config.ts" />
+  </Folder>
+</Files>
+
+`schema.prisma` carries the generator and the datasource and no model.
+
+| Setting             | Value                                             |
+| ------------------- | ------------------------------------------------- |
+| generator provider  | `prisma-client`                                   |
+| client output       | `../generated`, so `packages/db/prisma/generated` |
+| `moduleFormat`      | `esm`                                             |
+| `runtime`           | `bun`                                             |
+| `previewFeatures`   | `["postgresqlExtensions"]`                        |
+| datasource provider | `postgresql`                                      |
+| `extensions`        | `[citext]`                                        |
+| datasource `url`    | **absent from the schema**                        |
+
+Two places supply the URL. `packages/db/prisma.config.ts` hands `process.env.DATABASE_URL || undefined` to the CLI, and it loads `apps/server/.env` with dotenv. `packages/db/src/index.ts` builds `PrismaPg` from `env.DATABASE_URL` at runtime. That file exports the `Prisma` namespace, the `createPrismaClient` factory and the default singleton. `prisma.config.ts` also sets `schema` to `prisma/schema` and `migrations.path` to `prisma/migrations`.
+
+### Identity and sign-in
+
+`auth.prisma` holds seven models. Better Auth writes them, and `packages/auth` configures the plugins that do it.
+
+| Model and table | Key fields | Constraints and notes |
+| --- | --- | --- |
+| `User`, table `user` | `id`, `name`, `email`, `emailVerified` (`false`), `twoFactorEnabled` (`false`), `image?`, `country?`, `onboardingCompletedAt?`, `createdAt`, `updatedAt` | `@@unique([email])`. Ten child relations, each with a cascade delete |
+| `Session`, table `session` | `expiresAt`, `token`, `ipAddress?`, `userAgent?`, `userId` | `@@unique([token])`, `@@index([userId])`, cascade |
+| `Account`, table `account` | `issuer`, `accountId`, `providerId`, `userId`, `accessToken?`, `refreshToken?`, `idToken?`, `accessTokenExpiresAt?`, `refreshTokenExpiresAt?`, `scope?`, `password?` | `@@unique([issuer, accountId], map: "account_issuer_accountId_uidx")`, `@@index([userId])`. The credential and OAuth link table, never a bank account. The password hash sits in `password` |
+| `Verification`, table `verification` | `identifier`, `value`, `expiresAt` | `@@index([identifier])`. No user column and no foreign key |
+| `TwoFactor`, table `two_factor` | `secret`, `backupCodes`, `userId`, `verified` (`true`), `failedVerificationCount` (`0`), `lockedUntil?` | `@@index([secret])`, `@@index([userId])`, cascade. `secret` and `backupCodes` are ciphertext under `BETTER_AUTH_SECRET` |
+| `RateLimit`, table `rate_limit` | `key`, `count`, `lastRequest BigInt` | `@@unique([key])`. No user column. The table persists the counters, so a restart cannot clear a lockout |
+| `Passkey`, table `passkey` | `name?`, `publicKey`, `userId`, `credentialID`, `counter`, `deviceType`, `backedUp`, `transports?`, `aaguid?` | `@@index([credentialID])`, `@@index([userId])`, cascade |
+
+### Bank connections, accounts and transactions
+
+`budget.prisma` holds six models. The chain is one line: user, then bank connection, then bank account, then transaction or holding.
+
+| Model and table | Key fields | Constraints and notes |
+| --- | --- | --- |
+| `BankConnection`, table `bank_connection` | `provider`, `providerSessionId`, `institutionId?`, `institutionName`, `institutionCountry?`, `institutionBic?`, `institutionGroup?`, `status BankConnectionStatus @default(ACTIVE)`, `lastSyncedAt?` | `@@index([userId])` only, cascade. `lastSyncedAt` is also the next sync cursor |
+| `BankProviderUser`, table `bank_provider_user` | `provider`, `providerUserId`, `accessToken` | `@@unique([userId, provider])`, cascade. The schema comment states the token is stored as it arrives |
+| `BankAccount`, table `bank_account` | `connectionId`, `providerAccountId`, `iban?`, `identificationHash?`, `name?`, `type BankAccountType @default(UNKNOWN)`, `currency?`, `balanceMinor Int?`, `balanceAt?` | `@@unique([connectionId, providerAccountId])`, `@@index([connectionId])`, cascade |
+| `Holding`, table `holding` | `providerHoldingId`, `label`, `code?`, `codeType?`, `quantity Decimal @db.Decimal(24, 8)`, `unitCost?` and `unitValue? @db.Decimal(24, 6)`, `valuationMinor Int`, `unrealisedGainMinor Int?`, `currency`, `valuedAt?` | `@@unique([accountId, providerHoldingId])`, `@@index([accountId])`, cascade. A snapshot of the last sync, not a history |
+| `Transaction`, table `transaction` | The field groups below | `@@unique([accountId, providerTransactionId])`, `@@index([accountId, date])`, `@@index([accountId, amount])`, `@@index([merchantKey])`, cascade |
+| `MerchantOverride`, table `merchant_override` | `merchantKey`, `category`, `merchantName?` | `@@unique([userId, merchantKey])`, `@@index([userId])`, cascade. One user choice for one merchant key |
+
+#### The `Transaction` columns
+
+The largest model carries three kinds of column.
+
+| Group | Columns |
+| --- | --- |
+| Identity and money | `providerTransactionId?`, `date`, `amount Int`, `currency`, `status @default("BOOK")`, `valueDate?`, `transactionDate?`, `balanceAfterTransaction Int?`, `exchangeRate?`, `createdAt` |
+| What the bank sent | `description @default("")`, `counterpartyName?`, `merchantCategoryCode?`, `bankTransactionCode?`, `bankTransactionSubCode?`, `bankTransactionFamilyCode?`, `remittanceLines String[]`, `creditorAccountIban?`, `debtorAccountIban?`, `creditorAgentBic?`, `creditorTown?`, `creditorCountry?`, `creditorIdentifications Json?`, `referenceNumber?`, `referenceNumberScheme?`, `psuNote?` |
+| What Freenary derived | `normalisedDescriptor?`, `merchantKey?`, `channel?`, `transactionPath?`, `intermediaryName?`, `category?`, `categoryOverride @default(false)`, `resolvedCategory?`, `resolutionStage?`, `resolutionConfidence Float?`, `isInternalTransfer @default(false)` |
+
+The `amount` column is signed minor units, and a negative value is outgoing. The `category` column holds the choice of the reader, and `resolvedCategory` holds the answer of the pipeline.
+
+<Callout type="warn">
+
+Three gaps in this area cost a contributor time.
+
+**`Transaction` has no `updatedAt` column**, so a re-categorised row records no modification time.
+
+**PostgreSQL treats `NULL` as distinct inside a unique index.** A row with a null `providerTransactionId` therefore inserts again on the next sync.
+
+**No unique constraint covers `(userId, provider, providerSessionId)`** on `BankConnection`. Its one index is `@@index([userId])`, and `exchangeCode` always inserts a new row. Run the connect flow twice for one bank and the user holds two connections.
+
+</Callout>
+
+<Callout type="info">
+
+The sync path writes `balanceMinor`, `balanceAt` and every `Holding` row, and no procedure selects them. An instance therefore holds correct balances and holdings with no read path.
+
+</Callout>
+
+### Budget and categories
+
+`budget-profile.prisma` holds two models.
+
+| Model and table | Key fields | Constraints and notes |
+| --- | --- | --- |
+| `CustomCategory`, table `custom_category` | `label String @db.Citext`, `color`, `icon`, `parentSlug?`, `sortOrder @default(0)` | `@@unique([userId, label])`, `@@index([userId, parentSlug, sortOrder])`, cascade. `color` comes from `CATEGORY_COLOR_VALUES` and `icon` from `CATEGORY_ICON_NAMES` |
+| `BudgetLine`, table `budget_line` | `label?`, `amount Int` positive minor units, `categorySlug?`, `categoryId?`, `sortOrder @default(0)` | `@@index([userId, sortOrder])`, `@@index([categoryId])`. The `user` relation cascades and the `category` relation uses `onDelete: Restrict` |
+
+The budget lines of a user **are** the budget profile. No separate profile row exists. A line names a category and an amount. Its place in the flow comes from the group of that category, through `budgetLineKindOf`. The schema stores no kind column.
+
+<Callout type="warn">
+
+No database constraint makes `categorySlug` and `categoryId` exclusive. The comments state that one is null when the other is set. PostgreSQL still accepts a row with both, and a row with neither.
+
+</Callout>
+
+### Assistant conversations
+
+`assistant.prisma` holds two models. The transcript lives in PostgreSQL, so a reload replays a conversation from the database.
+
+| Model and table | Key fields | Constraints and notes |
+| --- | --- | --- |
+| `Conversation`, table `conversation` | `archivedAt?`, `createdAt`, `updatedAt` | `@@index([userId, archivedAt])`, cascade. A null `archivedAt` marks the active conversation, and a new thread stamps the column on the old one rather than delete a row |
+| `ConversationMessage`, table `conversation_message` | `role ConversationRole`, `ordinal Int`, `parts Json`, `createdAt` | `@@unique([conversationId, ordinal])`, cascade. No separate index on `conversationId`, because the unique index leads with it |
+
+The `ordinal` column orders a conversation and `createdAt` cannot, because both rows of one turn can share a millisecond. The `parts` column holds the AI SDK message parts as the stream wrote them. So a stored answer replays with its lookup rows intact.
+
+### Enums
+
+PostgreSQL holds exactly three enum types. Every value below is verbatim, in declaration order.
+
+#### `BankConnectionStatus`
+
+`BankConnection.status` uses it, with the column default `ACTIVE`.
+
+| Value | Meaning |
+| --- | --- |
+| `ACTIVE` | The connection imports data. Row creation is the one writer of the value |
+| `EXPIRED` | The consent ran out |
+| `ERROR` | The connection failed |
+
+<Callout type="warn">
+
+**Only `ACTIVE` is reachable.** The one `bankConnection.create` sets no status, so the default applies, and the one `bankConnection.update` in `packages/api` writes `lastSyncedAt` alone. Nothing under `packages/` or `scripts/` writes `EXPIRED` or `ERROR`, and a sync failure changes no status. A hand-written database update is the only path into either value.
+
+The consequence: a connection whose consent ran out keeps an `ACTIVE` row. It shows an old sync date and imports nothing more. The web app holds a line that renders for a status other than `ACTIVE`, and no code path reaches it. The user disconnects the bank and connects it again, which writes a new row.
+
+</Callout>
+
+#### `BankAccountType`
+
+`BankAccount.type` uses it, with the default `UNKNOWN`. `ProviderAccountType` in `packages/api/src/providers/types.ts` mirrors these member names, so sync writes the value with no mapping.
+
+| Value | Meaning | Holds holdings |
+| --- | --- | --- |
+| `CHECKING` | A current account | no |
+| `SAVINGS` | A savings account | no |
+| `CARD` | A card account | no |
+| `LOAN` | A loan or credit account | no |
+| `BROKERAGE` | A securities account | yes |
+| `LIFE_INSURANCE` | A life-insurance contract | yes |
+| `RETIREMENT` | A retirement plan | yes |
+| `EMPLOYEE_SAVINGS` | An employee savings plan | yes |
+| `REAL_ESTATE` | A real-estate investment | yes |
+| `CROWDLENDING` | A crowdlending position | yes |
+| `UNKNOWN` | The bank provider reported no kind, or a kind with no mapping | no |
+
+The last column is `isInvestmentAccountType`, a TypeScript lookup in `packages/api/src/providers/types.ts` and not a database construct. Sync calls `fetchHoldings` for a `yes` row alone.
+
+#### `ConversationRole`
+
+`ConversationMessage.role` uses it. It has no default, so every row states its author.
+
+| Value       | Meaning                    |
+| ----------- | -------------------------- |
+| `USER`      | The question of the reader |
+| `ASSISTANT` | The answer                 |
+
+#### The dropped enum
+
+`BudgetLineKind` was a fourth type with the values `REVENUE`, `INVESTMENT` and `OUTGOING`. The migration `20260904120000_derive_budget_line_kind` dropped the type together with the column `budget_line.kind`. The three names survive as a TypeScript union, and `budgetLineKindOf` derives the value from the group of a category.
+
+#### Free-text vocabularies
+
+Three `String` columns on `Transaction` carry a fixed vocabulary that the schema comments define. PostgreSQL enforces none of the three.
+
+| Column | Values |
+| --- | --- |
+| `status` | `BOOK` (the default), `PDNG`, `HOLD`, `SCHD`, `RJCT`, `OTHR` |
+| `channel` | `card`, `transfer`, `direct-debit`, `atm`, `fee`, `cheque`, `loan`, `unknown` |
+| `transactionPath` | `iban` for a transfer or a direct debit, `card` for a card movement |
+
+The category slugs in `Transaction.category`, `Transaction.resolvedCategory`, `MerchantOverride.category`, `BudgetLine.categorySlug` and `CustomCategory.parentSlug` come from `packages/api/src/lib/taxonomy.ts`.
+
+### What the categorisation pipeline writes
+
+Four writers touch the derived columns of a transaction.
+
+| Writer | Columns it writes |
+| --- | --- |
+| Sync, through `upsertTransaction` | Every raw provider column, plus `channel`, `intermediaryName`, `merchantKey`, `normalisedDescriptor`, `transactionPath`. On create it also sets `category: null` and `categoryOverride: false` |
+| `matchInternalTransfers` | `isInternalTransfer`, `resolvedCategory`, `resolutionStage`, `resolutionConfidence` |
+| `categoriseUncategorised` | `intermediaryName`, `resolvedCategory`, `resolutionStage`, `resolutionConfidence` |
+| `updateTransactionCategory` | `category` and `categoryOverride` on the row, the `MerchantOverride` row, and `category` on the siblings that share the merchant key |
+
+`clearResolutions` nulls `resolvedCategory`, `resolutionStage` and `resolutionConfidence`, and it skips a row with `categoryOverride` or `isInternalTransfer`. [Transaction categorisation](#transaction-categorisation) holds each stage and the value it writes.
+
+### Money and precision
+
+| Concern | Representation |
+| --- | --- |
+| Transaction amount | `Int`, signed minor units of `currency`. Negative is outgoing |
+| Account balance | `balanceMinor Int?` with `balanceAt DateTime?`, minor units of `BankAccount.currency` |
+| Balance after a transaction | `balanceAfterTransaction Int?`, minor units |
+| Holding valuation | `valuationMinor Int` and `unrealisedGainMinor Int?`, minor units |
+| Holding quantity | `Decimal @db.Decimal(24, 8)`, so eight decimal places |
+| Holding unit prices | `unitCost` and `unitValue`, `Decimal? @db.Decimal(24, 6)`, so six decimal places |
+| Budget line amount | `Int`, minor units, always positive |
+| Maximum amount | `2_147_483_647`, the PostgreSQL `INTEGER` ceiling |
+| Currency | One ISO 4217 string per row: `Transaction.currency` and `Holding.currency` required, `BankAccount.currency` nullable |
+
+<Callout type="warn">
+
+**Freenary converts no currency.** No currency table exists, and no column holds a per-user base currency. Two limits follow. The stored `Transaction.exchangeRate` is dead storage, because the adapter maps it and no code reads it. An aggregation adds `Transaction.amount` with no currency filter, so a euro account and a pound account produce one mixed number.
+
+</Callout>
+
+### Ownership and deletion
+
+Ten models carry a `userId` column, with a foreign key to `user` and `ON DELETE CASCADE`. They are `Session`, `Account`, `TwoFactor`, `Passkey` and `BankConnection`. The rest are `BankProviderUser`, `MerchantOverride`, `CustomCategory`, `BudgetLine` and `Conversation`.
+
+Four models inherit ownership through a relation:
+
+| Model                 | Path to the user                            |
+| --------------------- | ------------------------------------------- |
+| `BankAccount`         | `BankConnection.userId`                     |
+| `Transaction`         | `BankAccount`, then `BankConnection.userId` |
+| `Holding`             | `BankAccount`, then `BankConnection.userId` |
+| `ConversationMessage` | `Conversation.userId`                       |
+
+`Verification` and `RateLimit` have no owner at all.
+
+Prisma emits no row-level security, so every query states the ownership predicate itself. Two shapes cover the whole codebase:
+
+```ts
+// one hop — a bank account, or anything joined to a connection
+where: {
+  connection: {
+    userId;
+  }
+}
+
+// two hops — a transaction or a holding
+where: {
+  account: {
+    connection: {
+      userId;
+    }
+  }
+}
+```
+
+Deletion leans on the foreign-key chain. The `disconnect` procedure deletes the `bank_connection` row, and the accounts, transactions and holdings go with it. The `BudgetLine.category` relation is the one exception. It uses `onDelete: Restrict`, and `deleteCustomCategory` moves each affected line to the group fallback slug first.
+
+Onboarding needs no model. Two nullable columns on `User` hold the whole state: `country` and `onboardingCompletedAt`. `onboarding.getStatus` reports `completed` as `onboardingCompletedAt !== null`.
+
+### Migrations
+
+Seven directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
+
+| Directory | What it does |
+| --- | --- |
+| `20260828132959_init` | The baseline: the `citext` extension, the types `BudgetLineKind` and `BankConnectionStatus`, and the tables `user`, `session`, `account`, `verification`, `custom_category`, `budget_line`, `bank_connection`, `bank_account`, `transaction`, `merchant_override` |
+| `20260830101500_bank_connection_institution_id` | Adds `bank_connection.institutionId` and backfills it from `institutionName` for Enable Banking rows |
+| `20260831120000_category_hierarchy` | Moves the flat category set to the two-level hierarchy, maps the legacy slugs across four columns, and renumbers `sortOrder` per parent |
+| `20260904090000_auth_second_factors_and_rate_limit` | Adds `user.twoFactorEnabled`, then creates `two_factor`, `rate_limit` and `passkey` |
+| `20260904120000_derive_budget_line_kind` | Drops the column `budget_line.kind` and the type `BudgetLineKind`, swaps the index, and makes `budget_line.label` nullable |
+| `20260904154129_bank_provider_abstraction` | Creates `BankAccountType`, adds `bank_account.type`, `currency`, `balanceMinor` and `balanceAt`, then creates `bank_provider_user` and `holding` |
+| `20260904193133_assistant_conversations` | Creates `ConversationRole`, then `conversation` and `conversation_message` with their index, unique index and cascades |
+
+#### The loop for a schema change
+
+<Steps>
+
+<Step>
+
+#### Edit the schema
+
+Change the file under `packages/db/prisma/schema/` that owns the area.
+
+</Step>
+
+<Step>
+
+#### Generate the migration
+
+```bash
+cd packages/db
+bun run db:migrate --name <descriptive_snake_case>
+```
+
+Always pass `--name`. The baseline name `init` is taken.
+
+</Step>
+
+<Step>
+
+#### Read the generated SQL
+
+Open `prisma/migrations/<timestamp>_<name>/migration.sql`. Prisma emits destructive statements, so read the diff before you trust it. Never hand-write, hand-edit or hand-rename a migration.
+
+</Step>
+
+<Step>
+
+#### Commit both together
+
+The schema edit and its migration land in one commit. Never edit a migration that already shipped, and fix forward with a new one.
+
+</Step>
+
+<Step>
+
+#### Update this page
+
+A new model, column or enum value belongs in the tables above. Other pages quote these names verbatim, so a rename with no documentation edit makes them silently wrong.
+
+</Step>
+
+</Steps>
+
+`bun run db:push` is opt-in development tooling for a scratch database, and its CLI is gated behind `FREENARY_DB_PUSH=1`. It writes no history and it would drift a migrated database.
+
+The operator side of a migration is [Update an instance](/docs/self-hosting/docker#updates).
+
+## Transaction categorisation
+
+Categorisation turns a bank descriptor into a category slug. The code lives in `packages/api/src/categorisation`, and the offline scripts live in `packages/api/scripts`.
+
+The pipeline is a batch pass over stored rows. It never runs when the web app reads a transaction. Two procedures in `packages/api/src/routers/budget.ts` drive it:
+
+| Caller | When | What it does first |
+| --- | --- | --- |
+| `budget.syncAccounts` | After a sync imported transactions | Runs `matchInternalTransfers`, then categorises |
+| `budget.recategorise` | The reader asks for a fresh pass | Runs `clearResolutions`, then categorises |
+
+`categoriseUncategorised` selects the rows where `resolvedCategory` is null, `categoryOverride` is false and `isInternalTransfer` is false. Every stage writes the same four columns on a hit: `resolvedCategory`, `resolutionStage`, `resolutionConfidence` and `intermediaryName`. A failed row update does not stop the pass. The subsection [What the categorisation pipeline writes](#what-the-categorisation-pipeline-writes) owns those column names.
+
+<Callout type="info">
+
+A second cascade answers at read time and stores nothing. The procedure `budget.getTransactions` calls `effectiveCategory`, which prefers `Transaction.category`. It then falls back to `deriveCategory` in `packages/api/src/lib/mcc-categories.ts`. That function re-runs the merchant category code, then income by sign, then the flat keyword tables. It ends at `uncategorised` rather than an abstention, and it has no country to dispatch on. So it can disagree with the pipeline.
+
+</Callout>
+
+### The stages
+
+The function `categoriseBatch(transactions, countries)` loads the dictionary and the model once with `Promise.all`. It walks the batch in order, then unloads both in a `finally` block. Nothing escapes `categoriseTransaction`: any error becomes the unknown result.
+
+`ResolutionStage` holds exactly `channel`, `user-override`, `dictionary`, `mcc`, `rules`, `model`, `cloud` and `none`. `ResolutionBand` holds `auto`, `suggest` and `unknown`.
+
+| # | Stage | Condition | Confidence | Stage value |
+| --- | --- | --- | --- | --- |
+| 0 | Merchant key derivation | Always, at sync rather than in the pipeline | — | — |
+| 1 | Channel short-circuit | `channel` is `atm`, `cheque` or `fee` | `0.9`, band `auto` | `channel` |
+| 2 | User override | A `MerchantOverride` row exists for the pair of user and merchant key | `1`, band `auto` | `user-override` |
+| 3 | Shared dictionary | An exact hit on the merchant key, or on the key minus a trailing qualifier word | `0.85`, band `auto` | `dictionary` |
+| 4a | Merchant category code | `merchantCategoryCode` resolves | `0.8` | `mcc` |
+| 4b | Keyword rules | The first hit across four ordered lookups | `0.75` | `rules` |
+| 5 | Local classifier | `predict()` answers at or above `MODEL_ACCEPT_THRESHOLD`, which is `0.7` | The score itself. Band `auto` at `0.85` and above, else `suggest` | `model` |
+| 6 | Cloud tail | Never. The stage holds a comment and no code | — | `cloud`, which nothing writes |
+| 7 | Unknown | The fallthrough | `0`, band `unknown` | `none` |
+
+Stages 2 and 3 are skipped when the merchant key is empty. Stages 4 and 5 still run.
+
+<Steps>
+
+<Step>
+
+#### Stage 0 — the merchant key
+
+`deriveMerchantKey` runs inside the sync, and `upsertTransaction` persists `merchantKey`, `normalisedDescriptor`, `channel`, `transactionPath` and `intermediaryName`. Two paths exist.
+
+The **IBAN path** takes a creditor IBAN when the family code is `ICDT`, `PMNT`, `RCDT` or `RDDT`. It also takes one when no family code exists and the raw descriptor does not look like a card movement. The key is the trimmed upper-case IBAN.
+
+The **card path** normalises the parsed payee text. With a payment service provider in the middle, it takes the sub-merchant text instead. It then strips trailing place tokens. Any throw returns an empty key with `channel: "unknown"` and the card path.
+
+Normalisation folds the `oe` and `ae` ligatures, strips combining marks and apostrophes, then lowercases. It splits on non-alphanumerics, then drops digit-bearing tokens and 91 noise tokens. The same function normalises a bank descriptor and a dictionary name, which is what makes the two comparable.
+
+</Step>
+
+<Step>
+
+#### Stage 1 — channel short-circuit
+
+One constant table of three entries.
+
+| Channel  | Category          |
+| -------- | ----------------- |
+| `atm`    | `cash-withdrawal` |
+| `cheque` | `uncategorised`   |
+| `fee`    | `bank-fees`       |
+
+The channel value seeds from the ISO 20022 family code. A verb prefix overwrites it only when it is still `unknown`.
+
+</Step>
+
+<Step>
+
+#### Stage 2 — user override
+
+`lookupUserOverride` runs a `findUnique` on the unique index of `MerchantOverride`. A database error returns `null` rather than an exception. A hit carries the stored merchant name.
+
+</Step>
+
+<Step>
+
+#### Stage 3 — shared dictionary
+
+An exact-match table. The relaxation sits in the key, not in the lookup. The helper `merchantKeyCandidates` yields the key, then the key minus one trailing qualifier token at a time. It stops at the first non-qualifier tail, or when the candidate falls below the minimum length.
+
+The default qualifier layer is `internet`, `mobile` and `telecom`. The French layer adds `abonnement`, `electricite`, `energie`, `energies`, `fibre`, `forfait`, `france` and `gaz`.
+
+</Step>
+
+<Step>
+
+#### Stage 4 — the deterministic layer
+
+**4a, the merchant category code.** Three ranges answer first: `3000-3299` gives `flights`, `3300-3499` gives `other-travel`, and `3500-3999` gives `accommodation`. A flat table of 221 keys answers after them. The stage runs no direction check. A code on a credit therefore lands in the category of the merchant, as a refund.
+
+**4b, the keyword rules**, in this order:
+
+1. The bank code against the `bankCode` table.
+2. The counterparty name against the `counterparty` table.
+3. The normalised descriptor against the `counterparty` table.
+4. The normalised descriptor against the `bankCode` table.
+
+Every candidate passes `accept()`, which rejects a non-income category on a positive amount. The tables concatenate the country layer before the default layer once, at module load. Only `FR` is registered: `default.ts` holds 17 rows and `fr.ts` holds 7. Each pattern is wrapped in lookarounds by `tokens()`, so it matches whole tokens only.
+
+</Step>
+
+<Step>
+
+#### Stage 5 — the local classifier
+
+`predict(normalisedDescriptor, country)` returns `null` with no weights file and with an empty descriptor. The classifier abstains below `CONFIDENCE_THRESHOLD = 0.5`, and the pipeline then discards anything below `MODEL_ACCEPT_THRESHOLD = 0.7`.
+
+</Step>
+
+<Step>
+
+#### Stage 6 — the cloud tail
+
+**Stage 6 runs no code.** Three comment lines mark its place in `resolve.ts`, and execution falls through. `ResolutionStage` declares `cloud` and `CategoriseInput` declares `allowCloudInference`. The one producer sets that flag to `false`, and no code reads it.
+
+</Step>
+
+<Step>
+
+#### Stage 7 — unknown
+
+`UNKNOWN_RESULT` is `{ band: "unknown", category: null, confidence: 0, intermediaryName: null, merchantName: null, stage: "none" }`.
+
+</Step>
+
+</Steps>
+
+#### Two passes beside the pipeline
+
+| Pass | File | What it writes |
+| --- | --- | --- |
+| Internal transfers | `internal-transfer.ts` | Pairs an outgoing and an incoming transaction of equal absolute amount and the same currency, on two accounts of one user, inside 24 hours. It then sets `isInternalTransfer: true`, `resolvedCategory: "internal-transfer"`, `resolutionStage: "channel"` and `resolutionConfidence: 0.95` |
+| Recurrence | `recurrence.ts` | Nothing. It groups outgoing transactions by merchant key. It then reads a cadence, a recurrence type, a confidence level and a month-by-month split. The file holds no write, and each request recomputes the answer. [Recurrence detection](#recurrence-detection) holds the rules |
+
+The internal-transfer pass includes rows that already carry a category, and it returns `0` on any throw.
+
+<Callout type="info">
+
+**Dead code, stated as a fact about the current tree.** `internal-transfer.ts` selects `BankAccount.identificationHash` and never uses it. The pairing reads amount, currency and date alone. The schema comment calls that column a cross-account matching key, and no code matches on it.
+
+</Callout>
+
+### Deterministic versus trained
+
+| Part | Deterministic |
+| --- | --- |
+| Merchant key derivation, normalisation, channel detection, intermediary detection | yes, pure functions over the transaction and static tables |
+| Stage 1, the channel short-circuit | yes, a three-entry constant |
+| Stage 2, the user override | yes, one `findUnique` on a unique index |
+| Stage 3, the dictionary | yes, an exact `Map.get` on a pre-built artifact |
+| Stage 4, the code and the keyword tables | yes, range checks and regular expressions |
+| The internal-transfer pass | yes, amount, currency and date arithmetic |
+| Stage 5, the classifier | no. A trained model answers |
+
+<Callout type="warn">
+
+**No large language model touches categorisation.** The one model in the pipeline is a multinomial linear classifier over hashed character n-grams. It loads a JSON weights file from disk and scores in process. It opens no socket, calls no endpoint and sends no descriptor anywhere.
+
+The header comment of `resolve.ts` calls stage 5 a stub. That comment is wrong. `predict()` is a complete implementation and stage 5 calls it. Stage 6 is the stub. The assistant is a separate surface: nothing under `categorisation/` imports from `assistant/`, and nothing under `assistant/` imports from `categorisation/`.
+
+</Callout>
+
+The header of `resolve.ts` states the contract that does hold. Stages 1 to 4 are deterministic: the same transaction data always gives the same category. No model is involved, and the classifier sees what those stages leave undecided.
+
+### Recurrence detection
+
+`recurrence.ts` reads a cadence out of the stored transactions. It is a pure read: it holds no write, and it never throws. `detectRecurring` returns empty aggregates on a database error. [Budget](/docs/guides/budget) is the reader view of the result. The procedure that serves that view is [`budget.getRecurring`](/docs/developers/api#budgetgetrecurring).
+
+#### What a group is
+
+`recurringInWindow(transactions, window)` groups the transactions by `merchantKey`. The read behind it takes outgoing rows alone, and it drops an internal transfer. The window is enforced in the grouping, not in the query. A row with no merchant key joins no group, and a group of fewer than two transactions is dropped.
+
+The detector sorts each group by date. It then measures the interval in days between consecutive transactions. The median of those intervals is the cadence, and `nextExpected` is the last date plus that median.
+
+#### The frequency bands
+
+The median interval lands in one band. Each band sets its own minimum of occurrences.
+
+| Frequency   | Median interval                          | Minimum occurrences |
+| ----------- | ---------------------------------------- | ------------------- |
+| `weekly`    | 5 to 9 days                              | 4                   |
+| `monthly`   | 25 to 35 days                            | 3                   |
+| `quarterly` | 80 to 100 days                           | 2                   |
+| `annual`    | 340 to 395 days                          | 2                   |
+| `irregular` | 10 to 400 days, outside every band above | 4                   |
+
+A median interval outside every named band falls back to `irregular`. A group that misses the minimum of its band gives no result at all.
+
+#### Dispersion
+
+Both spreads are a relative median absolute deviation: `median(|v − median(v)|) / median(v)`. The value is `0` when the median is `0`. A ratio, rather than cents or days, makes an amount and an interval comparable against one threshold.
+
+| Signal           | Measured over                                  |
+| ---------------- | ---------------------------------------------- |
+| `amountSpread`   | The absolute amounts of the group              |
+| `intervalSpread` | The intervals between consecutive transactions |
+
+The file exports three thresholds.
+
+| Name | Value | Meaning |
+| --- | --- | --- |
+| `STABLE_AMOUNT_SPREAD` | `0.05` | At or below it, the charge repeats at the same price |
+| `VARIABLE_AMOUNT_SPREAD` | `0.25` | Above it, the reader sets the price rather than a contract |
+| `REGULAR_INTERVAL_SPREAD` | `0.2` | At or below it, the cadence holds a schedule |
+
+#### The classification
+
+`classifyRecurrence({ amountSpread, frequency, intervalSpread, occurrences })` is pure and exported. It reads those four signals and no transaction list. It returns one `kind` and one `confidence`.
+
+`kind` is `fixed` when all three conditions hold:
+
+1. The frequency is not `irregular`.
+2. `intervalSpread` is at most `REGULAR_INTERVAL_SPREAD`.
+3. `amountSpread` is at most `VARIABLE_AMOUNT_SPREAD`.
+
+Every other group is `behavioral`. The confidence follows from the kind:
+
+| `kind` | Condition | `confidence` |
+| --- | --- | --- |
+| `fixed` | `amountSpread` at most `STABLE_AMOUNT_SPREAD`, and 3 occurrences or more | `confirmed` |
+| `fixed` | Any other fixed group | `likely` |
+| `behavioral` | Always | `pattern` |
+
+<Callout type="info">
+
+**Neither an exact date nor an exact amount is needed.** A bank moves its processing date, and a utility bill moves its amount. A group still reads as `fixed` while both spreads stay inside their thresholds. `REGULAR_INTERVAL_SPREAD` sets how far the date can move, and `VARIABLE_AMOUNT_SPREAD` sets how far the amount can move.
+
+</Callout>
+
+#### One read, two aggregates
+
+`detectRecurring(userId, window)` does one transaction read and returns both aggregates. The field `expenses` holds the detected patterns, biggest typical amount first. The field `months` holds the month-by-month split.
+
+`recurringMonthsInWindow(transactions, window, expenses)` attributes each in-window outgoing transaction to one of three totals. The key is `YYYY-MM`, with a 1-based calendar month.
+
+| Total | What it collects |
+| --- | --- |
+| `fixedMinor` | A merchant key the detector classified as `fixed` |
+| `behavioralMinor` | A merchant key the detector classified as `behavioral` |
+| `discretionaryMinor` | Everything else |
+
+The third total is the fallback. A transaction with no `merchantKey`, or one that no detected pattern claims, is discretionary. The split takes the detected expenses rather than a second detection pass, so the two aggregates always agree. It returns the months it saw, and a caller that wants a fixed span fills the gaps itself.
+
+#### The two windows
+
+| Helper | Window | What it means |
+| --- | --- | --- |
+| `cadenceWindow(from, to)` | The period widened by one year on each side | A cadence belongs to the merchant, not to where the reader stands, so the same rent never reads fixed in one month and variable in the month before it |
+| `trailingYear(to)` | The year that ends at `to` | The window a forward-looking commitment list means |
+
+`detectRecurringExpenses(userId, window)` keeps its old signature and its old behaviour. It is a projection of `detectRecurring` on the `expenses` field.
+
+### The taxonomy
+
+`packages/api/src/lib/taxonomy.ts` declares the taxonomy once, in code. The database declares no part of the predefined set.
+
+| Thing | Symbol | Count |
+| --- | --- | --- |
+| Category groups, in flow order | `CATEGORY_GROUPS` | 16 |
+| Category slugs, income included | `SPENDING_CATEGORIES` | 75 |
+| Category to group | `CATEGORY_GROUP_OF` | exhaustive |
+| Group colours | `CATEGORY_COLOR_VALUES` | 7 |
+| Group icons | `CATEGORY_ICON_NAMES` | 18 |
+| Group fallbacks | `CATEGORY_GROUP_FALLBACKS` | one `other-*` slug per group |
+| Legacy slugs | `LEGACY_CATEGORY_SLUGS` | 17 pre-hierarchy spellings |
+
+The 16 groups are `income`, `investments`, `housing`, `utilities`, `daily-living`, `transport`, `travel` and `leisure`. The rest are `shopping`, `subscriptions`, `health`, `education`, `financial`, `taxes`, `transfers` and `other`.
+
+**The hierarchy holds exactly two levels.** A group holds leaves and a leaf holds nothing. A colour and an icon belong to the group, so `categoryColor` and `categoryIcon` resolve through it.
+
+**A signal maps to the most precise category it supports, and no further.** A merchant category code for a supermarket gives `groceries`. A bank code that proves housing alone gives `other-housing`, the group fallback. The pipeline invents no precision the signal does not carry.
+
+`LEGACY_CATEGORY_SLUGS` decodes a pre-hierarchy spelling, so a stored row and an old artifact still resolve. A reader cannot add or rename a predefined category. The array `SPENDING_CATEGORIES` is `as const`, and both the update procedure and the transaction filter accept its enum alone. Custom categories exist for budget lines, under the key space `custom:<id>`. [Categories](/docs/guides/transactions#categories-and-budget-lines) is the reader view.
+
+### User corrections
+
+A correction of the reader is permanent, and it asks for no reconciliation.
+
+`budget.updateTransactionCategory` runs one database transaction:
+
+1. It validates the input against `z.enum(SPENDING_CATEGORIES).nullable()`. A `null` clears the choice.
+2. It sets `Transaction.category`, and `categoryOverride` to the truth of a non-null category.
+3. With a merchant key on the row, it upserts a `MerchantOverride` row, or deletes it for a `null` category.
+4. It propagates the value to the sibling transactions with the same merchant key and no override of their own.
+
+`upsertUserOverride` and `deleteUserOverride` swallow every error, so a failure there cannot break a sync. The override becomes stage 2 and outranks stages 3 to 7.
+
+<Callout type="warn">
+
+Stage 1 runs **before** the override. A transaction whose channel is `atm`, `cheque` or `fee` short-circuits at stage 1. The pipeline never reads the override for it. The read-time value still honours `Transaction.category`.
+
+One more asymmetry: stage 3 relaxes the merchant key with the qualifier list and the stage 2 lookup does not. An override recorded on `free mobile` does not fire for `free mobile internet`, and the dictionary does.
+
+</Callout>
+
+### The merchant dictionary
+
+The artifact is `packages/api/data/merchants.jsonl.gz`, gzipped JSONL, one merchant per line.
+
+| Field | What it holds |
+| --- | --- |
+| `id` | The merchant id. The build sorts the rows by it |
+| `name` | The display name |
+| `normalisedName` | The match key |
+| `category` | A category slug, or `null`. The loader drops a null row |
+| `domains` | The domains the build collected for the merchant |
+| `source` | The provenance of the row, such as the Name Suggestion Index |
+| `aliases` | Each alias with its normalised form |
+| `countries` | The country scope. It is optional, because an artifact built before the scope existed carries none |
+
+`dictionary.ts` streams the file into a module map with a reference count. The keys are `normalisedName` plus every `normalisedAlias` that no other row took. It drops a row with a null category. It also drops a row outside the country scope of the batch, where an empty `countries` list means worldwide. A missing file warns once and leaves an empty map, so stage 3 becomes a permanent miss.
+
+#### The build
+
+`build-merchant-dictionary.ts` fetches a pinned Name Suggestion Index tarball, version `8.0.20260729`, and runs these passes:
+
+| Pass | What it does |
+| --- | --- |
+| 1 | Collects the raw candidates, and maps an index path to an OpenStreetMap tag and then to a category |
+| 2 | Drops place-only names. **A permanent no-op**: `isEntirelyPlaceName` returns `false` for every input, so the pass drops nothing and still logs a count of zero |
+| 3 | Resolves `normalisedName` collisions by category priority, elects one primary name, and unions the aliases, the domains and the country scopes |
+| 3b | Merges the Wikidata aliases and domains, with no category. A missing input file warns and skips |
+| 3c | Enriches a still-uncategorised French-linked merchant through the SIRENE register, inside a 15-minute budget. A failure warns and continues |
+| 4 | Merges the curated supplement of 54 hand-written entries, which wins every collision |
+
+Place-token stripping still happens at runtime, on the tail of the merchant key. Pass 2 is the build-time filter, and it is inert.
+
+Rows sort by `id` for byte-stable diffs, then compress at gzip level 9. **One artifact covers every country**, and each consumer filters `countries` in memory. A transient failure with an artifact already on disk warns and exits `0`. So a stale dictionary can survive a green build.
+
+| Source | Endpoint or version |
+| --- | --- |
+| Name Suggestion Index | `name-suggestion-index@8.0.20260729` from the npm registry |
+| Wikidata | `data/wikidata-brands.json`, built by `fetch-wikidata-brands.ts` |
+| SIRENE company register | `https://recherche-entreprises.api.gouv.fr/search` |
+| Curated supplement | `packages/api/scripts/lib/curated-merchants.ts` |
+
+#### The scripts
+
+Run each one from `packages/api`.
+
+| Script | Literal command | Writes |
+| --- | --- | --- |
+| `build:data` | `bun scripts/download-data.ts \|\| bun run build:data:generate` | The released artifacts, or the rebuilt ones |
+| `build:data:generate` | `generate-place-tokens.ts && fetch-wikidata-brands.ts && build-merchant-dictionary.ts` | The same artifacts, from the upstream sources |
+| `build:places` | `generate-place-tokens.ts` | `data/place-tokens.json` |
+| `generate:key` | `generate-signing-key.ts` | `data/dictionary.key`, mode `0600`, and the public key on standard output |
+| `train:model` | `train-model.ts` | `data/model-weights.json`, when the gate passes |
+
+The root passthrough is `bun run build:data`, which Turborepo marks uncached. The script `download-data.ts` deletes any local `model-weights.json` before it downloads. A failed download plus a local rebuild can therefore never pair weights with a dictionary they do not match. It resolves the repository from `GITHUB_REPOSITORY`, then from the `origin` remote, then from the literal `suiramdev/freenary`.
+
+### The dictionary signature
+
+The artifact can carry an Ed25519 signature. `build-merchant-dictionary.ts` signs it when `data/dictionary.key` exists and writes `merchants.jsonl.gz.sig`. With no key it logs that the dictionary is unsigned, and a signing failure only warns.
+
+At runtime `verify.ts` reads `DICTIONARY_PUBLIC_KEY` straight from `process.env`, so the variable skips the validated schema in `packages/env`. A blank or absent value means unconfigured, and the loader skips the check. With a key set, a failure never throws:
+
+| Condition | Log line | Effect |
+| --- | --- | --- |
+| The `.sig` file is absent | `Dictionary signature missing: … - refusing to load` | The map stays empty |
+| The signature does not check out | `Dictionary signature invalid: … - refusing to load` | The map stays empty |
+
+A failure disables stage 3 and nothing else. Stages 1, 2, 4, 5 and 7 still run.
+
+<Callout type="warn">
+
+**The published artifact carries no signature, so a configured public key turns the dictionary off.** The weekly release tarball packs the dictionary and the place tokens. It sometimes packs the Wikidata brands and the weights, and never a `.sig` file. An instance that fetches its dictionary through `build:data` and sets a public key hits the missing-signature path. It loses stage 3 in silence.
+
+`generate-signing-key.ts` prints a banner that names `verify.ts` as the place for the key. That file embeds no key and reads the environment variable alone. [Bank providers](/docs/integrations/powens#setup) holds the operator instructions for this trap.
+
+</Callout>
+
+### The classifier
+
+`train-model.ts` trains a multinomial logistic regression over the 75 category slugs. One dense weight vector per category, plain stochastic gradient descent, L2 regularisation. Every hyperparameter is a literal:
+
+| Name                       | Value           |
+| -------------------------- | --------------- |
+| `NUM_EPOCHS`               | `10`            |
+| `LEARNING_RATE`            | `0.1`           |
+| `L2_LAMBDA`                | `0.001`         |
+| dimension                  | `65_536`        |
+| `MIN_SAMPLES`              | `10`            |
+| `HOLDOUT_FRACTION`         | `0.2`           |
+| `SHUFFLE_SEED`             | `1_588_635_695` |
+| `MIN_PRECISION`            | `0.75`          |
+| `DICTIONARY_SAMPLE_WEIGHT` | `1`             |
+| `CORRECTION_SAMPLE_WEIGHT` | `20`            |
+
+Two sources feed it. The dictionary is a bootstrap prior at sample weight 1. Each entry with a resolvable category contributes its normalised name and every normalised alias. The database is the ground truth at sample weight 20. It contributes every `MerchantOverride` row, and every transaction with an override, a category and a normalised descriptor. The flag `--dictionary-only` turns the second source off.
+
+Features come from `features.ts`. The helper `modelInput` folds the country into the input string. Then `extractFeatures` hashes character n-grams of length 3 to 5 with FNV-1a into 65 536 buckets. The output is `data/model-weights.json`, with the keys `categories`, `dimension`, `inputVersion` and `weights`. It holds one sparse bucket map per category. The runtime refuses any `INPUT_VERSION` other than `2`, and it refuses a schema mismatch.
+
+#### The shipping gate
+
+The holdout splits **by merchant id**, so no alias of a training merchant reaches the evaluation. The trainer scores each held-out string once per inference country. **Each country slice is gated on its own, and the worst slice decides.** The rule is one comparison: that slice must reach `MIN_PRECISION`, measured at the accept threshold `0.7`.
+
+| Exit code | Meaning | What the workflow asserts |
+| --- | --- | --- |
+| `0` | Trained and accepted | The weights file exists, and the run reports attached weights |
+| `1` | The trainer failed, found no dictionary artifact, or found too few samples | The run fails |
+| `2` | Evaluated and refused | The weights file must not exist, and the run reports a refusal |
+
+Weights land on disk only after the gate passes. So the presence of stage 5 on an instance is conditional, and the code states the condition:
+
+- The release tarball carries `model-weights.json` only when the trainer exited `0`.
+- With no weights file, `loadModel` finds nothing and `predict` returns `null`. The pipeline then runs stages 1 to 4, and then stage 7.
+
+That refusal is a designed outcome and not a break. A refused run leaves a deterministic pipeline.
+
+### The weekly workflow
+
+`.github/workflows/generate-data.yml` rebuilds the data and publishes a release.
+
+| Field | Value |
+| --- | --- |
+| Schedule | `cron: "0 3 * * 1"`, so Monday at 03:00 UTC |
+| Other triggers | `workflow_dispatch`, and a push to `dev` or `main` that touches `packages/api/scripts/**`, `features.ts`, `normalise/**` or `sirene/**` |
+| Job timeout | 60 minutes |
+| Permissions | `contents: write` |
+
+The steps run in this order:
+
+1. Install with `--ignore-scripts`.
+2. Restore the SIRENE disk cache.
+3. Run `generate-place-tokens.ts` and `fetch-wikidata-brands.ts` in parallel.
+4. Build the dictionary.
+5. Save the cache, in a separate step, so a cancelled run still publishes what it fetched.
+6. Generate the Prisma client, which the install step skipped.
+7. Train the classifier with `--dictionary-only`.
+8. Pack the artifacts, then publish the release `data-<YYYY-MM-DD>` with the asset `merchant-data.tar.gz`.
+
+The publish step deletes any same-day release and tag first, and it passes `--latest=false`. The train step reads `${PIPESTATUS[0]}` rather than `$?`. The default shell has no `pipefail`, and the command pipes through `tee`. The whole training log lands in the job summary.
+
+### Change a rule or a category
+
+#### Add a keyword rule
+
+<Steps>
+
+<Step>
+
+#### Pick the layer
+
+A country-specific pattern goes in `keywords/fr.ts`. A worldwide one goes in `keywords/default.ts`.
+
+</Step>
+
+<Step>
+
+#### Pick the table
+
+Add the pattern to the `bankCode` table or the `counterparty` table, whichever signal carries it.
+
+</Step>
+
+<Step>
+
+#### Map to the right precision
+
+Map to the most precise category the signal supports. Use the group fallback when the signal proves the group alone.
+
+</Step>
+
+<Step>
+
+#### Test and re-categorise
+
+Run the test file next to the one you changed with `bun test <path>`, then call `budget.recategorise` to see the effect.
+
+</Step>
+
+</Steps>
+
+#### Add a category slug
+
+<Steps>
+
+<Step>
+
+#### Extend the taxonomy
+
+Add the slug to `SPENDING_CATEGORIES` inside its group block, then to `CATEGORY_GROUP_OF` and `CATEGORY_LABELS`.
+
+</Step>
+
+<Step>
+
+#### Add both messages
+
+Add the key `category_<slug_with_underscores>` to `apps/web/messages/en.json` and to `apps/web/messages/fr.json`, in the same commit.
+
+</Step>
+
+<Step>
+
+#### Add the renderer entry
+
+Add the entry to `CATEGORY_MESSAGES` in `apps/web/src/lib/taxonomy-labels.ts`.
+
+</Step>
+
+<Step>
+
+#### Migrate only for a retirement
+
+A new slug needs no migration. A retired slug needs an entry in `LEGACY_CATEGORY_SLUGS` and a data migration over `transaction.category`, `transaction.resolvedCategory`, `merchant_override.category` and `budget_line.categorySlug`. The migration `20260831120000_category_hierarchy` is the worked example.
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+
+**Two failure modes when the taxonomy and the catalogs disagree.**
+
+`CATEGORY_MESSAGES` ends with `satisfies Record<SpendingCategory, () => string>`, so a slug with no entry is a TypeScript error. `apps/web` declares no `check-types` script, so `bun run check-types` misses that file.
+
+A key in `en.json` with no twin in `fr.json` is worse. It compiles with no error and no warning. The French branch falls back to the English string, and no build step catches it.
+
+</Callout>
+
+<Cards>
+
+<Card
+  title="API"
+  href="/docs/developers/api"
+  description="The same routes, written for a caller outside the repository."
+/>
+
+<Card
+  title="Procedure reference"
+  href="/docs/developers/api#procedure-reference"
+  description="Every procedure, its input, its output and the errors it throws."
+/>
+
+<Card
+  title="Add a bank provider"
+  href="/docs/developers/integrations"
+  description="The adapter interface that fills the bank tables."
+/>
+
+<Card
+  title="Local development stack"
+  href="/docs/developers/setup#local-development-stack"
+  description="Start the services, reach the database, read the logs, reset."
+/>
+
+<Card
+  title="Run the app"
+  href="/docs/developers/setup#run-the-app"
+  description="Start the web app, the API server and the documentation site."
+/>
+
+<Card
+  title="Release a version"
+  href="/docs/developers/contributing#release-a-version"
+  description="What a push to each branch publishes, and what a release run does."
+/>
+
+<Card
+  title="The interface"
+  href="/docs/guides/interface"
+  description="What a reader sees on each screen, in the reader language."
+/>
+
+<Card
+  title="Categories"
+  href="/docs/guides/transactions#categories-and-budget-lines"
+  description="How a reader sees and corrects a category."
+/>
+
+</Cards>

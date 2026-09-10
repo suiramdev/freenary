@@ -1,0 +1,128 @@
+---
+title: Other integrations
+description: The Enable Banking adapter, what it leaves out, and the merchant dictionary an instance loads at build time.
+---
+
+Freenary carries one more bank adapter and one data artifact. Neither one replaces Powens. [Why use Powens](/docs/integrations/powens) compares the two adapters field by field.
+
+## Enable Banking
+
+Enable Banking carries **transactions and nothing else**. That split has three consequences on such an instance:
+
+- Every account keeps the kind `UNKNOWN`, because the link step writes no kind and no later call corrects it.
+- Every balance column stays empty.
+- Freenary asks for holdings on an investment account kind alone, so the instance stores no holding.
+
+An Enable Banking instance also never picks up an account that the user activated at the bank after the link.
+
+Create the application in the [Enable Banking control panel](https://enablebanking.com/sign-in/).
+
+<Steps>
+
+<Step>
+
+### Register the application
+
+Register an **application**, then note its application id.
+
+</Step>
+
+<Step>
+
+### Download the private key
+
+Download the **private key** of the application. Enable Banking hands it over once.
+
+</Step>
+
+<Step>
+
+### Register the redirect URL
+
+Register the redirect URL of the application, exactly `<CORS_ORIGIN>/callback/enable-banking`.
+
+</Step>
+
+<Step>
+
+### Write the two variables
+
+```dotenv
+BANKING_PROVIDER=enable-banking
+ENABLE_BANKING_APP_ID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+ENABLE_BANKING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----"
+```
+
+Both variables must hold a value. One empty variable turns Enable Banking off.
+
+</Step>
+
+</Steps>
+
+**How to write the private key.** Freenary turns every literal `\n` into a real newline before it signs. So the whole PEM fits on one line, as the fence above shows. A real multi-line PEM also works. Freenary supports no passphrase and checks no key format.
+
+**The signature scheme.** Freenary mints a fresh JSON Web Token for every call and sends it as a bearer token.
+
+| Part      | Value                    |
+| --------- | ------------------------ |
+| Algorithm | `RS256`                  |
+| `kid`     | `ENABLE_BANKING_APP_ID`  |
+| `aud`     | `api.enablebanking.com`  |
+| `iss`     | `enablebanking.com`      |
+| `sub`     | `ENABLE_BANKING_APP_ID`  |
+| `exp`     | 3600 seconds after `iat` |
+
+**The consent window.** Freenary asks for access until 90 days ahead. A bank can grant less. Freenary handles no shortened consent, so such a connection stops earlier than 90 days.
+
+A connection then follows the same life as a Powens one. One link, a first import, a resumed import on each later sync, then a disconnect that deletes the data. [Transaction synchronization](/docs/integrations/powens#transaction-synchronization) holds each step.
+
+<Callout type="warn">
+
+**Freenary stores the provider token in the database in plain text.** The provider session id of a connection sits in `bank_connection`. Anybody with read access to the database can pull bank data through the provider.
+
+</Callout>
+
+## The merchant dictionary
+
+Freenary names a merchant from a prebuilt dictionary before it falls back to card codes and keyword rules. That dictionary is a build artifact, and not a live service, so no transaction leaves the instance for it.
+
+**What the weekly workflow publishes.** A GitHub Actions workflow runs each Monday at 03:00 UTC, and on demand. It builds the dictionary and attaches one asset, `merchant-data.tar.gz`, to a release tagged `data-<date>`.
+
+| Member of the tarball       | When it is there              |
+| --------------------------- | ----------------------------- |
+| `data/merchants.jsonl.gz`   | always                        |
+| `data/place-tokens.json`    | always                        |
+| `data/wikidata-brands.json` | when the build produced it    |
+| `data/model-weights.json`   | when the training gate passed |
+
+**How an instance uses it.** The server image downloads the newest `data-` release at build time and unpacks it into the image. At run time the API server streams `data/merchants.jsonl.gz` line by line and matches a merchant key against it.
+
+A missing file is not fatal. Freenary warns once with `Dictionary file not found` and leaves the dictionary stage empty. Every later stage still runs.
+
+<Callout type="error">
+
+**`DICTIONARY_PUBLIC_KEY` disables the dictionary.** The variable turns signature checks on, and the loader then demands `merchants.jsonl.gz.sig` beside the artifact. The published tarball packs no signature file at all.
+
+So an operator who sets that variable on a stock image gets `Dictionary signature missing: <path> - refusing to load`, an empty dictionary and no error. Merchant names then come from the later stages alone.
+
+Set the variable only against a dictionary you build and sign yourself. It is read straight from the environment and sits outside the validated schema, so nothing catches the mistake at startup.
+
+</Callout>
+
+<Cards>
+  <Card
+    title="Background jobs"
+    href="/docs/developers/architecture#transaction-categorisation"
+    description="The categorisation stages the dictionary feeds."
+  />
+  <Card
+    title="Bank provider integrations"
+    href="/docs/developers/integrations"
+    description="The adapter interface a third provider must implement."
+  />
+  <Card
+    title="Configuration"
+    href="/docs/self-hosting/configuration"
+    description="Every variable an instance reads, with its default."
+  />
+</Cards>

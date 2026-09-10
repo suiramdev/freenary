@@ -50,10 +50,12 @@ const CONTENT_DIR = "content/docs";
 const BASE_ROUTE = "/docs";
 /** The version a page belongs to: `content/docs/<version>/…`. */
 const versionOf = (rel: string) => rel.split("/")[0];
+/** `<version>`: the folder whose `meta.json` sections the sidebar. */
+const VERSION_DEPTH = 1;
+/** `<version>/<section>`: the deepest folder the content tree accepts. */
+const SECTION_DEPTH = 2;
 /** A file this site owns: a page, or a `meta.json`. */
 const CONTENT_FILE = /\.(?:mdx|json)$/;
-/** Entries a `meta.json` `pages` array accepts besides a page or folder name. */
-const META_DIRECTIVE = /^(?:---.*---|\.\.\..*|!.+|(?:external:)?\[.*\]\(.*\))$/;
 // A sentence can end inside markup (`… one line.**`) and the next one can open
 // with a link or a bold run, so both sides tolerate the punctuation around them.
 const SENTENCE_SPLIT = /(?<=[.!?][*_`")\]]{0,2})\s+(?=[*_`"'[(A-Z])/;
@@ -63,9 +65,12 @@ const LIST_ITEM = /^[ \t]*(?:[-*+]|\d+\.)\s/;
 const WORD = /[\w'’-]+/g;
 const ANCHOR_LINK = /^([^#]*)(?:#(.+))?$/;
 // A page that writes `{/* docs-check disable: ste-word, no-roadmap */}` switches
-// those rules off for itself. One page has to name the words the rules ban: the
-// authoring page.
-const IGNORE_DIRECTIVE = /docs-check disable:\s*([\w\s,-]+)/g;
+// those rules off from that line to the matching `{/* docs-check enable */}`,
+// or to the end of the page. One section has to name the words the rules ban:
+// the authoring standard inside `developers/contributing.mdx`.
+const IGNORE_DIRECTIVE = /docs-check (?:disable:\s*([\w\s,-]+)|enable\b)/g;
+/** A fenced code block, from its opening fence to its closing one. */
+const FENCE_BLOCK = /^```[\s\S]*?^```/gm;
 
 type Severity = "error" | "warning";
 
@@ -78,8 +83,41 @@ type Finding = {
 };
 
 const findings: Finding[] = [];
-/** Rules the page under test switched off. Reset for every page. */
-let ignoredRules: Record<string, true> = {};
+/** The lines of the page under test where a rule is off. Reset for every page. */
+type IgnoreRange = { rules: Record<string, true>; from: number; to: number };
+let ignored: IgnoreRange[] = [];
+
+const ignoreRanges = (raw: string): IgnoreRange[] => {
+  const ranges: IgnoreRange[] = [];
+  // A page that documents the directive quotes it in a fence. Scanning the raw
+  // text would open a range there that no `enable` closes.
+  const scanned = raw.replace(FENCE_BLOCK, (block) =>
+    block.replace(/[^\n]/g, " ")
+  );
+  let open: IgnoreRange | undefined;
+
+  for (const match of scanned.matchAll(IGNORE_DIRECTIVE)) {
+    const line = lineAt(scanned, match.index);
+    if (match[1]) {
+      const rules: Record<string, true> = {};
+      for (const rule of match[1].split(",")) {
+        rules[rule.trim()] = true;
+      }
+      // A second `disable` closes the one before it, so a missing `enable`
+      // never silences a rule past the next directive.
+      if (open) {
+        open.to = line;
+      }
+      open = { from: line, rules, to: Number.POSITIVE_INFINITY };
+      ranges.push(open);
+    } else if (open) {
+      open.to = line;
+      open = undefined;
+    }
+  }
+
+  return ranges;
+};
 
 const report = (
   severity: Severity,
@@ -88,7 +126,10 @@ const report = (
   rule: string,
   message: string
 ) => {
-  if (ignoredRules[rule]) {
+  const off = ignored.some(
+    (range) => range.rules[rule] && line >= range.from && line <= range.to
+  );
+  if (off) {
     return;
   }
   findings.push({ file, line, message, rule, severity });
@@ -99,14 +140,14 @@ const report = (
 const checkFrontmatter = (page: DocPage) => {
   const { frontmatter, frontmatterLines, rel } = page;
 
-  for (const field of ["title", "description", "icon"]) {
+  for (const field of ["title", "description"]) {
     if (!frontmatter[field]) {
       report(
         "error",
         rel,
         1,
         "frontmatter",
-        `no \`${field}\` in the frontmatter. Every page carries a title, a description and an icon.`
+        `no \`${field}\` in the frontmatter. Every page carries a title and a description.`
       );
     }
   }
@@ -118,20 +159,9 @@ const checkFrontmatter = (page: DocPage) => {
         rel,
         frontmatterLines[key] ?? 1,
         "frontmatter",
-        `\`${key}\` is not a frontmatter field. Use title, description, icon or full.`
+        `\`${key}\` is not a frontmatter field. Use title, description or full.`
       );
     }
-  }
-
-  const icon = frontmatter.icon;
-  if (icon && !(icon in icons)) {
-    report(
-      "error",
-      rel,
-      frontmatterLines.icon ?? 1,
-      "icon",
-      `\`${icon}\` is not in lucide's \`icons\` record, so it renders nothing. Use the canonical PascalCase name.`
-    );
   }
 
   if (frontmatter.title?.toLowerCase() === "overview") {
@@ -185,7 +215,7 @@ const checkFences = (page: DocPage) => {
         page.rel,
         line,
         "guides-audience",
-        `a \`${fence.language}\` block belongs in self-hosting/ or contributing/. A guide names no command, file or variable.`
+        `a \`${fence.language}\` block belongs in self-hosting/, integrations/ or developers/. A guide names no command, file or variable.`
       );
     }
   }
@@ -306,30 +336,85 @@ const checkRepoLinks = (page: DocPage) => {
 
 // --- navigation ------------------------------------------------------------
 
+/**
+ * A `meta.json` `pages` entry that is not the name of a page or a folder.
+ * `---Label---` and `...folder` carry the section shape, so each one is parsed;
+ * the rest of the grammar — rest, exclusion, link — names no file this site
+ * owns.
+ */
+const META_SEPARATOR = /^---(?:\[([^\]]+)])?(.+)---$/;
+const META_EXTRACT = /^\.\.\.(.+)$/;
+const META_OTHER = /^(?:\.\.\.|z\.\.\.a|!.+|(?:external:)?\[.*\]\(.*\))$/;
+
+/** A section labels itself with a lucide icon in its separator, or with none. */
+const checkSeparatorIcon = (rel: string, entry: string, icon?: string) => {
+  if (!icon) {
+    report(
+      "error",
+      rel,
+      1,
+      "icon",
+      `\`${entry}\` carries no icon. Every section labels itself with one: write \`---[Icon]${entry.slice(3, -3)}---\`.`
+    );
+    return;
+  }
+  if (!(icon in icons)) {
+    report(
+      "error",
+      rel,
+      1,
+      "icon",
+      `\`${icon}\` is not in lucide's \`icons\` record, so it renders nothing. Use the canonical PascalCase name.`
+    );
+  }
+};
+
 const checkMeta = (meta: MetaFile, pages: readonly DocPage[], root: string) => {
   const rel = relative(root, meta.file);
   const prefix = meta.folder === "" ? "" : `${meta.folder}/`;
+  const depth = meta.folder === "" ? 0 : meta.folder.split("/").length;
 
-  const owned: Record<string, true> = {};
+  const owned: Record<string, "folder" | "page"> = {};
   for (const page of pages) {
     if (!page.rel.startsWith(prefix)) {
       continue;
     }
     const tail = page.rel.slice(prefix.length).replace(/\.mdx$/, "");
     const [head, ...rest] = tail.split("/");
-    if (rest.length === 0) {
-      owned[head] = true;
-    } else if (rest.length === 1 && rest[0] === "index") {
-      owned[head] = true;
-    }
+    owned[head] = rest.length === 0 ? "page" : "folder";
   }
 
   const listed: Record<string, true> = {};
+  let afterSeparator = false;
+
   for (const entry of meta.pages) {
-    if (META_DIRECTIVE.test(entry)) {
+    const separator = META_SEPARATOR.exec(entry);
+    if (separator) {
+      // A separator opens a section, and a section belongs to a version: one
+      // inside a section would split its pages into groups it does not have.
+      if (depth === VERSION_DEPTH) {
+        checkSeparatorIcon(rel, entry, separator[1]);
+      } else {
+        report(
+          "error",
+          rel,
+          1,
+          "meta",
+          `\`${entry}\` opens a section, and a section belongs to a version. Remove it.`
+        );
+      }
+      afterSeparator = true;
       continue;
     }
-    const name = entry.replace(/^\.\//, "");
+
+    if (META_OTHER.test(entry)) {
+      afterSeparator = false;
+      continue;
+    }
+
+    const extracted = META_EXTRACT.exec(entry)?.[1];
+    const name = (extracted ?? entry).replace(/^\.\//, "");
+
     if (listed[name]) {
       report(
         "error",
@@ -340,7 +425,8 @@ const checkMeta = (meta: MetaFile, pages: readonly DocPage[], root: string) => {
       );
     }
     listed[name] = true;
-    if (!owned[name]) {
+
+    if (owned[name] === undefined) {
       report(
         "error",
         rel,
@@ -348,7 +434,50 @@ const checkMeta = (meta: MetaFile, pages: readonly DocPage[], root: string) => {
         "meta",
         `\`${name}\` names no page or folder here.`
       );
+    } else if (owned[name] === "folder" && depth === VERSION_DEPTH) {
+      // The sidebar draws a section as a separator with its pages flat under
+      // it: `...section` lifts them out of the folder, and a folder named on
+      // its own would be a collapsible row instead.
+      if (!extracted) {
+        report(
+          "error",
+          rel,
+          1,
+          "meta",
+          `\`${name}\` is a section: write \`...${name}\`, so its pages sit under the separator rather than in a collapsible row.`
+        );
+      } else if (!afterSeparator) {
+        report(
+          "error",
+          rel,
+          1,
+          "meta",
+          `\`${entry}\` follows no separator, so its pages join the section above. Open the section with \`---[Icon]Label---\`.`
+        );
+      }
+    } else if (owned[name] === "folder") {
+      // Outside a version, the only folder is a version itself: it is the root
+      // of its own sidebar, so extracting it would spill it into the list.
+      if (extracted) {
+        report(
+          "error",
+          rel,
+          1,
+          "meta",
+          `\`${entry}\` flattens \`${name}\` into the list around it. Name the folder alone.`
+        );
+      }
+    } else if (extracted) {
+      report(
+        "error",
+        rel,
+        1,
+        "meta",
+        `\`${entry}\` names a page, and a page is listed as \`${name}\`.`
+      );
     }
+
+    afterSeparator = false;
   }
 
   for (const name of Object.keys(owned)) {
@@ -361,6 +490,30 @@ const checkMeta = (meta: MetaFile, pages: readonly DocPage[], root: string) => {
         `\`${name}\` is missing from \`pages\`, so it lands last and unordered.`
       );
     }
+  }
+
+  // A section names itself in the separator that opens it, so nothing renders
+  // the `icon` of a `meta.json`.
+  if (meta.icon) {
+    report(
+      "error",
+      rel,
+      1,
+      "icon",
+      "an icon belongs to the separator that opens a section, in the version's `meta.json`. Remove it: nothing renders it here."
+    );
+  }
+
+  // A section holds pages, never folders: the sidebar draws a section as one
+  // separator with its pages flat under it, so a subject is one page with headings.
+  if (depth > SECTION_DEPTH) {
+    report(
+      "error",
+      rel,
+      1,
+      "depth",
+      "no folder sits below a section. Merge these pages into one page of the section, with a `##` heading each."
+    );
   }
 };
 
@@ -409,7 +562,7 @@ const checkPhrases = (page: DocPage) => {
       SCREAMING_SNAKE,
       "guides-audience",
       (hit) =>
-        `\`${hit}\` is an environment variable or an enum value. It belongs in self-hosting/ or contributing/.`
+        `\`${hit}\` is an environment variable or an enum value. It belongs in self-hosting/, integrations/ or developers/.`
     );
   }
 };
@@ -610,14 +763,17 @@ if (pages.length === 0) {
 }
 
 for (const page of pages) {
-  ignoredRules = {};
-  IGNORE_DIRECTIVE.lastIndex = 0;
-  let directive = IGNORE_DIRECTIVE.exec(page.raw);
-  while (directive) {
-    for (const rule of directive[1].split(",")) {
-      ignoredRules[rule.trim()] = true;
-    }
-    directive = IGNORE_DIRECTIVE.exec(page.raw);
+  ignored = ignoreRanges(page.raw);
+
+  // `<version>/<section>/<page>.mdx` is as deep as a page goes.
+  if (page.rel.split("/").length > SECTION_DEPTH + 1) {
+    report(
+      "error",
+      page.rel,
+      1,
+      "depth",
+      "this page sits below a section. A subject is one page of the section, with a `##` heading for each part."
+    );
   }
 
   checkFrontmatter(page);
@@ -637,7 +793,7 @@ for (const page of pages) {
   }
 }
 
-ignoredRules = {};
+ignored = [];
 for (const meta of metas) {
   checkMeta(meta, pages, CONTENT_DIR);
 }

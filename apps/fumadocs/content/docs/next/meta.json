@@ -1,18 +1,19 @@
 {
   "title": "next",
   "root": true,
-  "defaultOpen": true,
   "pages": [
     "index",
-    "quickstart",
-    "concepts",
-    "---Run Freenary---",
-    "self-hosting",
-    "---Use Freenary---",
-    "guides",
-    "---Build on Freenary---",
-    "integrations",
-    "---Contribute---",
-    "contributing"
+    "---[Rocket]Getting Started---",
+    "...getting-started",
+    "---[Compass]Using Freenary---",
+    "...guides",
+    "---[Plug]Integrations---",
+    "...integrations",
+    "---[Server]Self-hosting---",
+    "...self-hosting",
+    "---[Code]Developers---",
+    "...developers",
+    "---[CircleQuestionMark]Help---",
+    "...help"
   ]
 }

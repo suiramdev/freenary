@@ -15,11 +15,12 @@ export const docs = defineDocs({
       includeProcessedMarkdown: true,
     },
     // The default schema needs `title` only. A page with no description renders
-    // an empty subtitle and no search summary, and a page with no icon renders
-    // a blank sidebar row, so the build refuses both.
+    // an empty subtitle and no search summary, so the build refuses that too.
+    // An icon belongs to a section separator in the version's `meta.json`,
+    // never to a page: `ALLOWED_FRONTMATTER_KEYS` in `scripts/docs-rules.ts`
+    // rejects one here.
     schema: pageSchema.extend({
       description: z.string().min(1),
-      icon: z.string().min(1),
     }),
   },
 });

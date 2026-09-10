@@ -1,0 +1,754 @@
+---
+title: Troubleshooting
+description: Match a symptom to its cause and its fix, from a failed installation to a stale development stack.
+---
+
+Two commands answer most questions before you read further:
+
+```bash
+docker compose ps -a
+docker compose logs --tail 100 server
+```
+
+The first names every container and the exit code of each one. The second prints the last 100 lines the API server wrote. Run both before you change a variable.
+
+## What the two commands tell you
+
+| What you see | Where to go next |
+| --- | --- |
+| No container at all | [Installation](#installation) |
+| A container that exited, with a log that names a variable | [Installation](#installation) |
+| Every container healthy, and a screen that fails | The section for that screen, below |
+| A container that restarts again and again | [Installation](#installation) |
+
+## Find your symptom
+
+<Cards>
+
+<Card
+  title="Installation"
+  href="#installation"
+  description="Image pulls, missing secrets, startup refusals, failed migrations and port clashes."
+/>
+
+<Card
+  title="Accounts"
+  href="#accounts"
+  description="Sign-in that does not stick, missing codes, password resets and second-factor lockouts."
+/>
+
+<Card
+  title="Transactions"
+  href="#transactions"
+  description="Missing transactions, a sync that brings nothing, and rows that stay uncategorised."
+/>
+
+<Card
+  title="Integrations"
+  href="#integrations"
+  description="Bank linking reported unavailable, an empty bank list, and a link that ends on an error."
+/>
+
+<Card
+  title="Powens"
+  href="#powens"
+  description="Redirect URIs, inactive connectors, spent consent and the test connector."
+/>
+
+<Card
+  title="Development"
+  href="#development"
+  description="A development stack with no address, a stale generated client, and port clashes on the host."
+/>
+
+</Cards>
+
+## When the page does not name your symptom
+
+Read the variable you changed last, then read the log again. Two references carry every value the stack takes:
+
+<Cards>
+
+<Card
+  title="Configuration"
+  href="/docs/self-hosting/configuration"
+  description="Every variable, its schema, its default and its effect."
+/>
+
+<Card
+  title="Logs"
+  href="/docs/self-hosting/logs"
+  description="Follow the output, and find the lines these sections ask for."
+/>
+
+<Card
+  title="Frequently asked questions"
+  href="/docs/help/faq"
+  description="What Freenary stores, which banks it reads, and where your data goes."
+/>
+
+<Card
+  title="Get support"
+  href="/docs/help/support"
+  description="Open an issue, pick the right form, and give the facts it asks for."
+/>
+
+</Cards>
+
+## Installation
+
+Every symptom in this section happens before anybody signs in. Read the container list and the log of the container that failed:
+
+```bash
+docker compose ps -a
+docker compose logs migrate
+docker compose logs --tail 100 server
+```
+
+### The image pull fails with `not found`
+
+**What you see.** `docker compose pull` fails on both images, and the message names the tag.
+
+**Why.** `FREENARY_VERSION` is unset or empty, so Compose falls back to the tag `latest`. GHCR holds no `latest` tag until a maintainer cuts a release.
+
+**The fix.** Name a tag that exists in the root `.env` file:
+
+```dotenv
+FREENARY_VERSION=main
+```
+
+The tags are `main`, `dev` and `sha-<7 characters>`. [Updates](/docs/self-hosting/docker#updates) lists all of them and what publishes each one.
+
+### Compose creates no container at all
+
+**What you see.** `docker compose up -d` starts nothing and prints one line. The line ends with the text from the compose file:
+
+```text
+Set POSTGRES_PASSWORD in .env
+```
+
+The same happens for `BETTER_AUTH_SECRET`. An absent file gives a message about a missing env file instead.
+
+**Why.** `docker-compose.yml` marks both values as required. Compose stops before it creates anything when either one is unset or empty.
+
+**The fix.** Write both in the root `.env` file, next to `docker-compose.yml`:
+
+```dotenv
+POSTGRES_PASSWORD=<from: openssl rand -hex 16>
+BETTER_AUTH_SECRET=<from: openssl rand -hex 32>
+```
+
+**The check.** `docker compose config` prints the resolved stack. It fails with the same line while a required value is absent.
+
+### A published port is already taken
+
+**What you see.** `docker compose up -d` fails on one service, and the message names a port that is already allocated.
+
+**Why.** Three services publish a host port. Another process on the host holds one of them.
+
+| Service    | Default host port | Variable that moves it |
+| ---------- | ----------------- | ---------------------- |
+| `postgres` | `127.0.0.1:5432`  | `POSTGRES_PORT`        |
+| `server`   | `3000`            | `SERVER_PORT`          |
+| `web`      | `3001`            | `WEB_PORT`             |
+
+**The fix.** Stop the process that holds the port, or name a free one in the root `.env` file:
+
+```dotenv
+SERVER_PORT=3100
+WEB_PORT=3101
+```
+
+A moved port changes the address your reverse proxy sends to. It does not change the origins the browser uses, so `BETTER_AUTH_URL` and `CORS_ORIGIN` stay as they are.
+
+### The API server exits at startup
+
+**What you see.** The `server` container never reaches `healthy`, and its log ends with a report:
+
+```text
+❌ Invalid environment variables: [
+  {
+    origin: "string",
+    code: "invalid_format",
+    format: "regex",
+    pattern: "/^\\d+$/u",
+    path: [ "PORT" ],
+    message: "PORT must be a decimal number between 1 and 65535",
+  }
+]
+error: Invalid environment variables
+```
+
+**Why.** One variable failed the schema. The `path` array names it, and `message` states what the schema wanted.
+
+**The fix.** Correct that one variable, then recreate the service:
+
+```bash
+docker compose up -d server
+docker compose logs -f server
+```
+
+An empty value counts as unset, so `PORT=` takes the default `3000`. A `BETTER_AUTH_SECRET` under 32 characters fails the same way. [Configuration](/docs/self-hosting/configuration) holds every schema and default.
+
+<Callout type="error">
+
+Do not set `SKIP_ENV_VALIDATION` to get past this report. The flag hides the mistake, and the server then runs on a broken configuration.
+
+</Callout>
+
+### The server refuses a proxy address
+
+**What you see.** The report above names `TRUSTED_PROXIES`, with this message:
+
+```text
+write an IPv4-mapped address in its IPv4 form, e.g. 10.0.0.0/24
+```
+
+**Why.** One entry holds an IPv4-mapped IPv6 address, such as `::ffff:10.0.0.1`. Better Auth drops such an entry and then treats the whole chain as unresolvable. The schema refuses it at startup instead.
+
+**The fix.** Write the plain IPv4 form. The index in the `path` array names the entry to change:
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.1,10.0.0.0/24
+```
+
+[Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) shows how to write the whole list.
+
+### The server refuses the email configuration
+
+**What you see.** One of these three lines, and the process exits:
+
+```text
+EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
+EMAIL_PROVIDER=resend requires RESEND_API_KEY to be set.
+EMAIL_PROVIDER=smtp requires SMTP_HOST to be set.
+```
+
+**Why.** The first line is the production rule: the `log` adapter prints codes instead of sending them. The other two mean a named adapter is half configured.
+
+**The fix.** Pick `resend` or `smtp`, and set every value that adapter needs. A stack missing both names `EMAIL_FROM` first, because the adapter checks it before its own values. [Email delivery](/docs/self-hosting/configuration#email-delivery) holds both adapters.
+
+### The server refuses the cookie domain
+
+**What you see.** One of these three lines, with your own value in the brackets:
+
+```text
+AUTH_COOKIE_DOMAIN (.example.com.) ends in a dot, which browsers do not strip, so no host would match it. Drop the trailing dot.
+AUTH_COOKIE_DOMAIN (.com) is a single label, which browsers treat as a public suffix and refuse to scope a cookie to. Declare the domain both origins sit under, e.g. ".example.com".
+AUTH_COOKIE_DOMAIN (.other.com) is not a parent of both api.example.com and app.example.com, so browsers would drop the session cookie. Declare the domain both origins sit under, or leave it unset.
+```
+
+A fourth refusal names no variable, and it fires with `AUTH_COOKIE_DOMAIN` unset:
+
+```text
+The API (http://api.example.com) and the web app (https://app.example.com) are on different hosts, so the session cookie needs SameSite=None — which browsers reject over plain HTTP. Serve BETTER_AUTH_URL over HTTPS, put both behind one hostname, or set AUTH_COOKIE_DOMAIN to the parent domain they share.
+```
+
+**Why.** Each one describes a cookie no browser keeps. The server refuses at startup rather than answer `200` while nobody stays signed in. Outside production the fourth case is a warning that starts with `[auth]`.
+
+**The fix.** Name the parent domain the two origins share, and serve the API over TLS:
+
+```dotenv
+BETTER_AUTH_URL=https://api.example.com
+AUTH_COOKIE_DOMAIN=.example.com
+```
+
+A multi-label public suffix such as `.co.uk` passes all four checks, and no browser accepts it. Name the domain you own. [Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) holds the split-host setup.
+
+### The browser calls `http://localhost:3000`
+
+**What you see.** The page loads on your real domain. The network panel of the browser shows calls to `http://localhost:3000/rpc`, and every one fails.
+
+**Why.** The browser learns the API origin from `PUBLIC_SERVER_URL`. The `web` service takes that value from `BETTER_AUTH_URL`, which defaults to `http://localhost:3000`.
+
+**The fix.** Set the real origin, then recreate both services. The web image needs no rebuild:
+
+```dotenv
+BETTER_AUTH_URL=https://api.example.com
+```
+
+```bash
+docker compose up -d server web
+```
+
+Use `up -d`, and not `restart`. A restart keeps the environment the container got at creation.
+
+**The check.** The root document must carry the origin before the module scripts:
+
+```bash
+curl -fsS https://app.example.com/ | grep __FREENARY_SERVER_URL__
+```
+
+A page that answers `500` holds a value that is not an absolute URL:
+
+```text
+PUBLIC_SERVER_URL must be an absolute URL such as https://api.example.com, got "api.example.com"
+```
+
+Write the scheme in front of the host.
+
+### Every request fails with a CORS error
+
+**What you see.** The web app renders, and every query fails. The browser console reports no `Access-Control-Allow-Origin` header on the answer.
+
+**Why.** `CORS_ORIGIN` does not match the origin the browser loaded the web app from. That one variable is the whole allow list.
+
+**The fix.** Set it, then recreate the API server:
+
+```dotenv
+CORS_ORIGIN=https://app.example.com
+```
+
+```bash
+docker compose up -d server
+```
+
+Match the origin exactly: the same scheme, the same host and the same port, with no trailing slash.
+
+### The stack stops because `migrate` failed
+
+**What you see.** `docker compose up -d` ends with `dependency failed to start`, and it names the `migrate` container. The `server` and `web` containers never start.
+
+**Why.** The `server` service waits for `migrate` to complete successfully, so a non-zero exit stops the whole start.
+
+**The fix.** Read the exit code and the log of that one container:
+
+```bash
+docker compose ps -a
+docker compose logs migrate
+```
+
+| What the log shows | Cause | Fix |
+| --- | --- | --- |
+| A failed connection to `postgres:5432` | The volume keeps the password of its first start, and `POSTGRES_PASSWORD` now holds another one | Put the first password back. A new one needs a dump, an empty volume and a restore |
+| A failed SQL statement of one migration | The data in the database does not accept that migration | Restore your dump, then report the statement the log names |
+
+Prisma records a failed migration in the `_prisma_migrations` table, and every later run stops at the same one. Read that state from the same image:
+
+```bash
+docker compose run --rm migrate bun x prisma migrate status
+```
+
+[Backup and restore](/docs/self-hosting/backup-and-restore) holds the dump and the restore.
+
+### The API answers `OK` and every data query fails
+
+**What you see.** `GET /` answers `OK`, and every screen with data fails. The server log names a table that does not exist.
+
+**Why.** The schema is behind the code. The one-shot `migrate` service never ran, or somebody started `server` on its own.
+
+**The fix.** Bring the whole stack up, then read what `migrate` did:
+
+```bash
+docker compose up -d
+docker compose logs migrate
+```
+
+The step is idempotent, so it is safe to repeat. The manual form works inside the API server container:
+
+```bash
+docker compose exec -w /app/packages/db server bun x prisma migrate deploy
+```
+
+## Accounts
+
+Every path into an account is on [Signing in](/docs/guides/signing-in). This section covers the failures that need an operator, a variable or a database statement.
+
+### Sign-in works and the next request is anonymous
+
+**What you see.** The sign-in call answers `200`. The next page load shows the sign-in screen again.
+
+**Why.** The browser drops the session cookie. Three configurations cause it.
+
+| Configuration | What the cookie gets |
+| --- | --- |
+| Two different host names, with `AUTH_COOKIE_DOMAIN` unset | `SameSite=None`, which a browser that blocks third-party cookies drops |
+| `BETTER_AUTH_URL` on plain HTTP | No `Secure` flag, so the browser refuses the cookie |
+| A browser that blocks all cookies for the site | Nothing. The screen reports that the browser kept no session |
+
+**The fix.** Name the shared parent domain, and serve both origins over TLS. [Installation](#installation) holds the four refusals the server prints for a cookie domain it cannot use.
+
+**The check.** Read the `Set-Cookie` header the server sends:
+
+```bash
+curl -isS -X POST https://api.example.com/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}' | grep -i set-cookie
+```
+
+A correct answer names `__Secure-better-auth.session_token`, with `SameSite=Lax`, `Secure` and your `Domain`.
+
+The screen states the same failure in its own words: `You are signed in, but this browser did not keep the session. Allow cookies for this site, then try again.`
+
+### No one-time code arrives
+
+**What you see.** Sign-up or password reset asks for a 6-digit code, and no message arrives. Or the `Forgot password?` link is absent from the sign-in screen.
+
+**Why.** The instance has no email adapter, so nothing sends a code.
+
+| Cause | What you see |
+| --- | --- |
+| `EMAIL_PROVIDER` unset | No code, no address confirmation, and no `Forgot password?` link |
+| `EMAIL_PROVIDER=log` in production | The server exits at startup with a refusal |
+| A half-configured adapter | The server exits at startup and names the missing variable |
+
+**The fix.** Set `EMAIL_PROVIDER` to `resend` or `smtp`, with the values that adapter needs. [Email delivery](/docs/self-hosting/configuration#email-delivery) holds both.
+
+**The check.** The `log` adapter prints each code, outside production alone:
+
+```bash
+docker compose logs server | grep 'email:log'
+```
+
+### The password reset link is absent
+
+**What you see.** The sign-in screen shows a password field and no `Forgot password?` link under it.
+
+**Why.** The link appears only on an instance that sends email. A reset needs a 6-digit code in a mailbox.
+
+**The fix.** Configure an email adapter, as above. The reset path is the only way to change a password, and Settings holds no password field.
+
+A finished reset does not sign you in. Freenary returns to the first step with `Password updated. Sign in with it.`
+
+### The address stays unconfirmed
+
+**What you see.** A correct password answers `Confirm your email address to continue. Enter the code we sent you, or ask for a new one.`
+
+**Why.** The account was created on an instance that sends email, and nobody typed the code. Freenary refuses the sign-in and mails a fresh code with the refusal.
+
+**The fix.** Read the mailbox and type the new code. A code holds 6 digits, stays good for 10 minutes, and three wrong tries burn it. Press `Send a new code` for another one.
+
+### A second factor locks the account out
+
+**What you see.** The step `Two-factor authentication` refuses every code. Too many wrong codes answer `Too many attempts. Wait a moment and try again.`
+
+**Why.** Two causes look the same. The authenticator clock drifted, or the codes belong to another account.
+
+**The fix.** Work the recovery codes you saved at enrolment. Press `Use a recovery code`, then type one. Each recovery code works once.
+
+<Callout type="warn">
+
+Freenary has no screen that turns a second factor off for somebody else. An account with no authenticator and no recovery code left needs a database statement. Delete the row of that user in the `two_factor` table, and the account falls back to its password alone.
+
+</Callout>
+
+Too many wrong second-factor codes hold the account for about 15 minutes. A stale challenge answers `That sign-in challenge expired. Sign in again to get a new one.` Type the password again.
+
+### Every caller shares one rate-limit bucket
+
+**What you see.** Users reach the rate-limit error after one try each. The problem follows the instance, and not one person.
+
+**Why.** The caller address comes from the forwarded header. With `TRUSTED_PROXIES` unset, a header with more than one address resolves to nothing. Better Auth then keys every path on one shared literal, and the account-check limiter keys on `account-exists:untrusted`.
+
+**The fix.** List every proxy in front of the API server, as an address or a range:
+
+```dotenv
+TRUSTED_PROXIES=10.0.0.0/24,192.0.2.10
+```
+
+```bash
+docker compose up -d server
+```
+
+The counters live in the `rate_limit` table, so a restart clears no lockout. One statement clears them:
+
+```bash
+docker compose exec -T postgres psql -U postgres -d freenary -c 'DELETE FROM rate_limit;'
+```
+
+### A sign-in method shows no button
+
+**What you see.** The screen offers a password field and nothing else. No `Continue with Google`, no passkey button, no single sign-on.
+
+**Why.** The instance offers one button per method it holds credentials for. A method with no credentials shows no button. A browser that cannot use passkeys hides that button too.
+
+**The fix.** [Sign-in methods](/docs/self-hosting/configuration#sign-in-methods) holds the credentials each method needs. With no button left and no passkey support, the whole block goes away, and the `or` divider goes with it.
+
+A provider that refuses the sign-in states why. [Signing in](/docs/guides/signing-in) lists the five refusals word for word.
+
+## Transactions
+
+Freenary imports every transaction from a bank. No screen accepts one by hand, so a missing transaction is always an import question, and never a data-entry one.
+
+### A transaction is missing
+
+**What you see.** Budget holds fewer transactions than your bank statement.
+
+**Why.** Three limits cut the import, and each one leaves a different gap.
+
+| The gap | The limit |
+| --- | --- |
+| Everything older than three months | A sync reads a window of 90 days at most, and no control widens it |
+| Everything on one account | The account was not shared at the bank page |
+| Everything after one date | The consent of that connection ended, so no sync has run since |
+
+**The fix.** For the window, nothing: a transaction older than 90 days never arrives. For a missing account, disconnect the bank and link it again, then share that account. For a dead consent, read [Powens](#powens).
+
+[Transaction synchronization](/docs/integrations/powens#transaction-synchronization) holds what each trigger reads.
+
+### A sync works and brings nothing new
+
+**What you see.** Budget reports `Transactions are up to date`, and you expect new rows.
+
+**Why.** A later sync starts at the date of the last sync that worked. So it reads less than 90 days. Your bank also posts a transaction some days after the card was used.
+
+**The fix.** Press `Sync transactions` on Budget for a full re-read of every connection. It covers the whole 90-day window again, and it files every transaction in that window under a category again.
+
+### Every transaction stays uncategorised
+
+**What you see.** Almost every row carries the category `Uncategorised`. Every sync brings more of them.
+
+**Why.** The merchant dictionary did not load. Two causes stop it.
+
+| Cause | What the log shows |
+| --- | --- |
+| `DICTIONARY_PUBLIC_KEY` is set on a stock image | `Dictionary signature missing:` and the path of the artifact |
+| The dictionary artifact is absent from the image | Nothing. The stage abstains in silence |
+
+**The fix.** Leave `DICTIONARY_PUBLIC_KEY` unset. The published merchant data carries no signature file. A key set on a stock image therefore makes the loader refuse the dictionary, and it warns once:
+
+```bash
+docker compose logs server | grep 'Dictionary signature'
+```
+
+```bash
+docker compose up -d server
+```
+
+Set that variable only when you sign a dictionary of your own. [Configuration](/docs/self-hosting/configuration) holds the variable and its effect. [Transaction categorisation](/docs/developers/architecture#transaction-categorisation) holds the stage it turns off.
+
+<Callout type="info">
+
+A category is written once, at import. Fixing the dictionary does not re-file the rows that came in without it. Press `Sync transactions` on Budget for a full re-read, which files every transaction of the window again.
+
+</Callout>
+
+### One merchant lands in the wrong category
+
+**What you see.** A merchant you recognise carries a category that does not fit. Other merchants are right.
+
+**Why.** The pipeline matched a merchant name to the wrong entry, or it fell back to a keyword table.
+
+**The fix.** Correct the category on the transaction. A correction is yours from then on. The pipeline skips a row you corrected by hand, so a later sync keeps it.
+
+The 16 groups and the 75 categories inside them are fixed. You cannot add or rename a built-in category, and a custom category holds a colour and an icon you pick. [Categories and budget lines](/docs/guides/transactions#categories-and-budget-lines) covers both.
+
+### A category changes when you open a screen
+
+**What you see.** The same transaction reads one category on one screen and another on the next.
+
+**Why.** Two cascades answer. The import pipeline writes a category on the row. Budget prefers the category stored on the transaction. It falls back to a read-time function, which has no country to dispatch on. The two can disagree.
+
+**The fix.** Correct the category by hand. A correction pins the row for both cascades. [Transaction categorisation](/docs/developers/architecture#transaction-categorisation) holds both cascades and the seven stages of the pipeline.
+
+## Integrations
+
+An instance links banks through one provider. The provider decides which banks the list holds, which redirect URI a link accepts, and how long a consent lasts. So a bank symptom starts here and ends on the page of your provider.
+
+### Which provider does this instance run?
+
+One variable picks it, and Freenary reads the credentials of that provider as a set. An incomplete set turns bank linking off.
+
+| Provider       | Where its setup lives                           |
+| -------------- | ----------------------------------------------- |
+| Powens         | [Powens setup](/docs/integrations/powens#setup) |
+| Enable Banking | [Other providers](/docs/integrations/other)     |
+
+### Symptom to page
+
+| What you see | The cause | Where the fix lives |
+| --- | --- | --- |
+| `Bank linking is unavailable` | The credential set of the provider is incomplete | [Powens setup](/docs/integrations/powens#setup) |
+| `Could not check bank linking` | The check itself failed | Reload the page |
+| The bank section renders and the list is empty | The provider returned no institution | [Powens troubleshooting](/docs/integrations/powens#troubleshooting) |
+| `Could not load banks` | The list call failed | Reload the page |
+| `No banks match your search` | The search text matched no name | Search for a shorter part of the name |
+| A link ends on an error page | The registered redirect URI does not match | [Powens troubleshooting](/docs/integrations/powens#troubleshooting) |
+| `Bank connection cancelled. Nothing was linked.` | You left the bank page | Press `Connect` again |
+| `Failed to sync transactions` | The consent ran out, or the bank asked for fresh authentication | [Powens troubleshooting](/docs/integrations/powens#troubleshooting) |
+| A sync works and no transaction appears | The window holds nothing new | [Transactions](#transactions) |
+
+### The assistant refuses every question
+
+The assistant is the one integration that touches no bank. It needs a model endpoint of its own.
+
+**What you see.** The assistant answers nothing. The screen reports `This instance has no model configured. An administrator sets AI_BASE_URL and AI_MODEL to switch the assistant on.`
+
+**Why.** The chat route needs both values together. With either one absent it answers `503` with the body `unconfigured`.
+
+**The fix.** Set both, then recreate the API server:
+
+```dotenv
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=sk-...
+AI_MODEL=anthropic/claude-3.5-sonnet
+```
+
+```bash
+docker compose up -d server
+```
+
+**The check.** Read the two values inside the container:
+
+```bash
+docker compose exec server printenv AI_BASE_URL AI_MODEL
+```
+
+The chat route answers with a bare machine code on every failure.
+
+| Status | Body | What it means |
+| --- | --- | --- |
+| `401` | `unauthorized` | The request carried no session |
+| `503` | `unconfigured` | `AI_BASE_URL` or `AI_MODEL` did not reach the process |
+| `429` | `rate_limited` | That account passed 30 questions in 300 seconds |
+| `400` | `bad_request` | The body was not JSON |
+
+[Assistant](/docs/self-hosting/configuration#assistant) covers the endpoints and what each question sends out.
+
+## Powens
+
+Powens failures look alike from inside Freenary: an empty list, or a link that does not finish. The console tells them apart. Work down this section, then go to [Powens troubleshooting](/docs/integrations/powens#troubleshooting) for the fix.
+
+### What Freenary shows you
+
+| What you see | What it proves | Read next |
+| --- | --- | --- |
+| `Bank linking is unavailable` | Freenary never reached Powens. One of the three credentials is absent | [Powens setup](/docs/integrations/powens#setup) |
+| The bank section renders, and the list holds no bank | Freenary reached Powens, and Powens returned no connector | The next section |
+| A bank you expect is absent, and others are there | Powens returned that connector, and Freenary dropped it | [What Freenary drops](#what-freenary-drops) |
+| The bank page accepts your credentials, and the return fails | The redirect URI does not match the registered one | [Powens troubleshooting](/docs/integrations/powens#troubleshooting) |
+| `Failed to sync transactions` on one bank alone | The consent of that connection ended | [Powens troubleshooting](/docs/integrations/powens#troubleshooting) |
+
+### Tell an empty list apart
+
+Freenary holds no institution cache, and it asks Powens on every call. So an empty list is the answer Powens gave a moment ago. Three causes give the same empty list.
+
+| Cause | How to tell |
+| --- | --- |
+| The domain activated no connector | The console lists the connectors of the domain as inactive |
+| The country of the profile has no coverage | Another country fills the list |
+| The domain, the client id or the secret is wrong | The console shows other values for the client |
+
+Sign in at the [Powens console](https://console.powens.com) and read the connector list of your domain. A domain with every connector inactive is the common case on a fresh account.
+
+### What Freenary drops
+
+Powens returns more connectors than the list shows. Freenary drops two kinds:
+
+- A connector Powens marks `hidden` or `restricted`.
+- A connector whose products name neither `bank` nor `wealth`.
+
+So a bank that answers in the console and never reaches the list is a filtered connector. No variable changes that.
+
+### Why a `localhost` instance cannot finish a link
+
+Powens accepts an HTTPS redirect URI or an app scheme, and nothing else. A Freenary instance served on `http://localhost` therefore gets through the bank page and fails on the return.
+
+Give the web app a public HTTPS origin first. Read [Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) for that. Then read [Powens setup](/docs/integrations/powens#setup) for the URI to register.
+
+### The test connector
+
+The console offers a test connector, and it needs no real bank. Use it to prove the credentials, the redirect URI and the return page before you link a real account. [Connect a bank account](/docs/integrations/powens#connect-a-bank-account) walks the same steps a real bank takes.
+
+## Development
+
+The repository holds two development paths, and each one fails in its own way. [Local development stack](/docs/developers/setup#local-development-stack) holds both paths and the services each one starts.
+
+### The stack starts and no URL answers
+
+**What you see.** `bun run dev:up` finishes, the banner prints three `*.orb.local` URLs, and none of them resolves.
+
+**Why.** No development service publishes a host port. `postgres` uses `expose`, and `server`, `web` and `docs` declare no `ports` key. The stack reaches you through the OrbStack proxy alone.
+
+**The fix.** Install OrbStack, or take the local path instead:
+
+```bash
+bun run db:start
+bun run db:generate
+bun run dev
+```
+
+The local path answers on `3000` for the API server and `3001` for the web app. The documentation site answers on `4000`.
+
+### The hostname resolves to a stale container
+
+**What you see.** The browser answers `502`, or it serves code from before your last edit.
+
+**Why.** The proxy holds the address a container had before a recreate.
+
+**The fix.** Bring the stack down and up again for this worktree:
+
+```bash
+bun run dev:down
+bun run dev:up
+```
+
+The wrapper carries the Compose project name of the worktree, so this touches no other stack. Each worktree gets its own containers, its own `pgdata` volume and its own hostnames.
+
+### The database refuses the connection
+
+**What you see.** `bun run db:push`, `db:migrate` or `db:studio` fails to connect. `bun run db:generate` works.
+
+**Why.** The Prisma CLI reads `apps/server/.env` and hands `DATABASE_URL` to the datasource. It sets no default on purpose. So the commands that connect need the value, and the one that generates does not.
+
+**The fix.** Write the URL in `apps/server/.env`, with the password from the root `.env` file:
+
+```dotenv
+DATABASE_URL=postgresql://postgres:password@localhost:5432/freenary
+```
+
+The production compose file needs two variables, and not a file. It writes `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET` as required values, so an unset or empty one fails the parse from any source.
+
+### The common failures of the two paths
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| A permanent 500 that names `@/paraglide/server.js` | Vite cached a failed resolution after the paraglide directory vanished | `bun scripts/dev.ts restart web` |
+| Prisma methods or types that do not match the schema | A stale generated client | `bun run db:generate` |
+| `bind: address already in use` on `3000` | Another `bun run dev`, or a bare `vite dev` inside `apps/fumadocs` | Stop that process, or start the site through its `dev` script |
+| `bind: address already in use` on `3001` or `4000` | Another host process holds the port | Stop it, or take the containerised path, which publishes no host port |
+| The production compose file refuses to parse | An unset or empty `POSTGRES_PASSWORD` or `BETTER_AUTH_SECRET` | Set both in the root `.env` file |
+| A route the router does not know, or type errors in `routeTree.gen.ts` | A stale generated route tree | Restart the web development server |
+| Every transaction stays uncategorised | The merchant dictionary artifact is absent | `bun run build:data` on the host |
+
+<Callout type="error">
+
+`apps/fumadocs/vite.config.ts` declares `port: 3000`, and the `dev` script overrides it with `--port=4000`. Run `vite dev` inside that app by hand and it takes `3000`, which collides with the API server. Always start the site through its `dev` script.
+
+</Callout>
+
+### Never edit the generated directories
+
+`apps/web/src/paraglide/` is generated, and the next compile overwrites it. The file sync of the containerised path ignores that directory for one reason. Both sides compile it. A sync of the host copy then deletes the container copy mid-session. Vite caches the failed resolution, and the web app answers 500 until a restart.
+
+The generated route tree behaves the same way. Restart the development server rather than edit `routeTree.gen.ts`.
+
+### No account exists yet
+
+The repository holds no seed script. Create an account through the sign-in screen.
+
+The `dev:up` stack sets the `log` email adapter. Sign-up then lands on `Confirm your email`, and the API server log prints the 6-digit code:
+
+```bash
+bun run dev:logs
+```
+
+Read the `[email:log]` line and the six digits under it. The `bun run dev` path sets no email adapter, so verification stays off there and sign-up returns a session at once.
+
+`bun run dev:reset` destroys the `pgdata` volume of this worktree, so every row goes. The next start applies the migrations again and gives you an empty database.
+
+<Cards>
+
+<Card
+  title="Architecture"
+  href="/docs/developers/architecture"
+  description="What each workspace owns, and the path of one request."
+/>
+
+<Card
+  title="Data model"
+  href="/docs/developers/architecture#data-model"
+  description="The schema, the enums and the migration loop."
+/>
+
+</Cards>

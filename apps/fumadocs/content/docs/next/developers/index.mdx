@@ -1,0 +1,52 @@
+---
+title: Developer guide
+description: Set up the repository, read the internals, call the API, and open a pull request.
+---
+
+Freenary is one repository with ten workspaces. This section holds the code truth: what each part owns, what the API answers, and how a change reaches `dev`.
+
+<Cards>
+
+<Card
+  title="Development setup"
+  href="/docs/developers/setup"
+  description="The tools, the install, the two stack paths and the tests."
+/>
+
+<Card
+  title="Architecture"
+  href="/docs/developers/architecture"
+  description="The workspaces, the boundaries, the backend, the frontend and the schema."
+/>
+
+<Card
+  title="API"
+  href="/docs/developers/api"
+  description="The mounted paths, the session cookie and all 36 procedures."
+/>
+
+<Card
+  title="Integrations"
+  href="/docs/developers/integrations"
+  description="The bank provider interface, and the adapter that implements it fully."
+/>
+
+<Card
+  title="Contribution guide"
+  href="/docs/developers/contributing"
+  description="The branches, the checks, the pull request body and the release."
+/>
+
+</Cards>
+
+## Start here
+
+| You want to | Read |
+| --- | --- |
+| Run the code on your machine | [Development prerequisites](/docs/developers/setup) |
+| Understand how one request works | [Backend](/docs/developers/architecture#backend) |
+| Write a client against an instance | [API](/docs/developers/api) |
+| Add a bank aggregation provider | [Add a bank provider](/docs/developers/integrations) |
+| Open your first pull request | [Pull requests](/docs/developers/contributing#pull-requests) |
+
+An operator who runs an instance for other people reads [Self-hosting](/docs/self-hosting) instead.

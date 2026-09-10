@@ -1,0 +1,493 @@
+---
+title: Transactions
+description: The transaction list of Budget, the category vocabulary, the monthly plan, transfers, recurring payments and imports.
+---
+
+A transaction is one entry your bank booked on one of your accounts. It carries a date, an amount and the text the bank sent. Freenary imports every one of them and files each under a category.
+
+The list sits at the foot of the `Transactions` page of Budget, under the period row and the two charts. The period you pick decides which rows it holds. See [Budget](/docs/guides/budget).
+
+**Before you start:** you need one bank connection. See [Connect a bank](/docs/integrations/powens#connect-a-bank-account).
+
+## Search, sort and filter
+
+A toolbar sits above the list.
+
+| Control | What it does |
+| --- | --- |
+| Search box | Reads `Search transactions…`. It searches the text of a transaction |
+| Sort | A screen reader reads it as `Sort`. The options are `Newest` and `Largest` |
+| `Amount` | A floor, a ceiling, or both |
+| `Company` | A searchable menu over the companies of the period |
+| `Category` | A searchable menu over the 16 groups and their categories |
+
+Each trigger carries a count badge while it filters.
+
+### Amount
+
+The popover holds `Minimum` and `Maximum`. Each field carries the placeholder `Any`, and `Clear` empties both. The same bounds hold on `Outgoing` and on `Incoming`, because the sign plays no part. Under the fields sits the hint `Matches how much money moved, whichever way it went.`
+
+A floor above the ceiling reads `The minimum is above the maximum.` Freenary applies it anyway, so the list goes empty.
+
+### Company
+
+The menu searches with `Search companies…`. Each row names a company of the period, with the total for it. The most frequent company comes first. Where your bank named no company, Freenary lists the description it cleaned up instead.
+
+| State                      | What you read                    |
+| -------------------------- | -------------------------------- |
+| The search matched nothing | `No companies match your search` |
+| The list failed to load    | `Could not load the companies`   |
+
+### Category
+
+The menu searches with `Search categories…`, and an empty result reads `No categories match your search`. Each group carries its own checkbox above its categories. Tick a group and Freenary ticks every category inside it, then greys them out: the group already covers them.
+
+See [Categories and budget lines](#categories-and-budget-lines) for the 16 groups and the 75 categories.
+
+### Chips and Clear all
+
+Every active filter becomes a badge above the list. A screen reader reads its remove button as `Remove {label} filter`.
+
+`Clear all` appears at two active filters or more, and it clears the categories, the companies and the amount. An amount range counts as **one** filter, whether you set one bound or both.
+
+<Callout type="info">
+
+The whole view sits in the address of the page. The sort and every filter are in it. Copy the address and you share exactly what you see. A filter you change does not fill your Back button.
+
+</Callout>
+
+## The list
+
+Two tabs head the list, `Outgoing · {amount}` and `Incoming · {amount}`, each with its own total for the period. The tab you pick decides which side the list shows.
+
+The list groups rows by the range you picked. It groups by day on `1M`, by week on `3M` and by month on `1Y`. On `1M` alone, the first two group headers read `Today` and `Yesterday`.
+
+Rows arrive **50** at a time as you reach the foot of the list. A screen reader reads a row as `{title}, paid {amount}` or `{title}, received {amount}`.
+
+An empty period reads `No transactions`, over `No outgoing transactions found for this period.` or `No incoming transactions found for this period.`
+
+## The transaction drawer
+
+Press a row to open a drawer titled `Transaction details`. It holds `Date`, then `Description` when your bank gave both a company and a description, then `Category`.
+
+## Fix a category
+
+<Steps>
+
+<Step>
+
+### Open the category picker
+
+The picker searches the **75** built-in categories, grouped under their category group.
+
+</Step>
+
+<Step>
+
+### Pick the right category
+
+Freenary saves at once. A failure reads `Failed to update category`.
+
+</Step>
+
+<Step>
+
+### Undo it if you must
+
+A button appears once your choice differs from the one Freenary derived. A screen reader reads it as `Reset to auto-detected category`.
+
+</Step>
+
+</Steps>
+
+<Callout type="info">
+
+A correction is not local to one transaction. Freenary records the company of that transaction and files every other transaction of the same company under your category. A transaction you already corrected by hand keeps the category you gave it. A later import of that company gets your category too.
+
+</Callout>
+
+<Callout type="warn">
+
+The category is the only field you change here, and the picker offers no custom category. See [Custom categories](#custom-categories) and [No screen writes a transaction](#no-screen-writes-a-transaction).
+
+</Callout>
+
+## Categories and budget lines
+
+Every transaction sits in one category, and every category sits in one group. On top of that vocabulary you declare a monthly amount per category. This section covers both, and the limits on each.
+
+### The fixed vocabulary
+
+Freenary ships **16 category groups** and **75 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.`
+
+The groups follow the flow of money, from income to outgoings. Each one holds a catch-all category for a movement Freenary places in the group but in no exact category.
+
+| #   | Group           | Catch-all category   |
+| --- | --------------- | -------------------- |
+| 1   | `Income`        | `Other income`       |
+| 2   | `Investments`   | `Other investment`   |
+| 3   | `Housing`       | `Other housing`      |
+| 4   | `Utilities`     | `Other utilities`    |
+| 5   | `Daily living`  | `Other daily living` |
+| 6   | `Transport`     | `Other transport`    |
+| 7   | `Travel`        | `Other travel`       |
+| 8   | `Leisure`       | `Other leisure`      |
+| 9   | `Shopping`      | `Other shopping`     |
+| 10  | `Subscriptions` | `Other subscription` |
+| 11  | `Health`        | `Other health`       |
+| 12  | `Education`     | `Other education`    |
+| 13  | `Financial`     | `Other financial`    |
+| 14  | `Taxes`         | `Other taxes`        |
+| 15  | `Transfers`     | `Other transfer`     |
+| 16  | `Other`         | `Uncategorised`      |
+
+A built-in category takes the colour and the icon of its group. It carries none of its own.
+
+#### Where to read the list
+
+Open Settings, group `Budgeting`, section `Categories`. Every group starts closed, with a badge that counts what is inside it. Open one to read its categories.
+
+A built-in category carries the badge `Built-in` and offers no action. The [transaction list](#the-list) filter and the category picker of the transaction drawer list the same 75.
+
+### Custom categories
+
+A custom category is one you add. Unlike a built-in one, it holds a colour and an icon you pick yourself.
+
+Press `New category` in the header of the section. The drawer holds four fields.
+
+| Field | Rule |
+| --- | --- |
+| `Name` | 1 to 40 characters. Unique among your own categories, and letter case plays no part in that check |
+| `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red` |
+| `Icon` | One of 18 icons, in a grid |
+| `Nested under` | One of the 16 groups, or `No parent` |
+
+The 18 icons are `Airplane`, `Arrows`, `Bank`, `Car`, `Coins`, `Dots`, `Film slate`, `First aid kit` and `Fork and knife`. The rest are `Graduation cap`, `House`, `Lightning bolt`, `Safe`, `Receipt`, `Repeat`, `Shield with check`, `Shopping bag` and `Storefront`.
+
+A new category starts blue, with the `Dots` icon, and with no parent. Press `Create category` to save it, or `Cancel` to drop it. You read `Category created`.
+
+<Callout type="warn">
+
+A custom category serves budget lines alone. The transaction picker offers the built-in 75 and none of your own. You cannot file a transaction under a custom category. See [Fix a category](#fix-a-category).
+
+</Callout>
+
+#### Shape a custom category
+
+Each custom row offers four actions. A screen reader reads them as `Edit {label}`, `Delete {label}`, `Move {label} up` and `Move {label} down`. A row in use also carries the badge `{count} line(s)`.
+
+| Action | What it does |
+| --- | --- |
+| Edit | Re-opens the drawer. `Save changes` writes it, and you read `Category updated` |
+| Re-parent | The `Nested under` field moves the category to another group, or out of every group |
+| Reorder | Up and down move it inside its group |
+| Delete | Removes it, and moves its budget lines |
+
+A custom category with `No parent` stands on its own row in the list, not as a group you can open.
+
+#### Delete a custom category
+
+The dialog reads `Delete {label}?`. Under it sits one of two lines:
+
+- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Uncategorised` when the category has no parent.
+- `No budget line uses {label}.`
+
+Press `Delete category` to confirm, or `Cancel` to leave. You read `Category deleted`, or `Category deleted — {count} budget line(s) moved to {fallback}`.
+
+A delete touches no transaction, because no transaction ever carried a custom category. Only your budget lines move.
+
+### The budgeting profile
+
+Your budgeting profile is the monthly plan you declare by hand. It is a list of budget lines and nothing else, so there is no profile to create first.
+
+Open Settings, group `Budgeting`, section `Budgeting profile`. Its own line reads `Declare where your money comes from and where it goes each month. A line's category places it in the flow; its name is optional.`
+
+Press `Add a line` for an empty row. A row holds three parts.
+
+| Part | Rule |
+| --- | --- |
+| Name | Optional, and 60 characters at most. Empty, the row shows the label of its category |
+| Amount | The planned amount for one month, in euros. A comma or a dot both work |
+| Category | One built-in category, or one of your own. A new row holds none |
+
+Your profile holds **200** lines at most.
+
+| Row error | When it appears |
+| --- | --- |
+| `Enter a positive amount` | The amount is blank, or it is not a number. A zero is a valid amount |
+| `Amount is too large` | The amount is past the ceiling of the field |
+| `Name must be at most {max} characters` | The name is longer than 60 characters |
+| `Pick a category` | The row holds no category, or it names a category you deleted |
+
+<Callout type="info">
+
+The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Investments` counts as an investment. Every other group, and every custom category with `No parent`, counts as an outgoing.
+
+</Callout>
+
+#### Work the editor
+
+- Press the category picker to search with `Search categories…`. An empty result reads `No categories match your search`.
+- The picker also offers the row `New category…`. It opens the drawer, and the category you create lands on that line.
+- Drag a line by its handle to reorder it. The handle answers the up and down arrow keys too.
+- Press the button at the end of a row to remove it.
+
+Above the editor, Freenary draws your plan as a live flow diagram. It runs from your revenues through the category groups to each planned line. It follows what you type. With nothing declared it reads `No budget yet`, over `Add a line below and the flow appears here as you type.`
+
+A summary sits with it: `Revenues:`, then `Allocated:`, then a third figure. That third label flips with its sign. It reads `Money left:` at zero and above, and `Over-allocated:` below it.
+
+#### Save the plan
+
+A bar appears at the foot of the page as soon as you change something. It reads `{count} unsaved change(s)`, with `Cancel` and `Save`.
+
+- `Save` is off while any row holds an error. Fix the row first.
+- A reorder of the whole list counts as **one** change.
+- `Save` writes the whole list at once, and the order on screen becomes the stored order.
+- You read `Budgeting profile saved`, or `Failed to save budgeting profile`.
+
+<Callout type="warn">
+
+Your browser warns you before you leave the page with unsaved changes. Save the plan, or press `Cancel`, before you switch language or close the tab.
+
+</Callout>
+
+### What the plan turns on
+
+One budget line or more ticks `Set up your budget` in the sidebar checklist. It also turns on the `Budget vs. actual` chart on Budget. That chart measures each category group against the amount you planned.
+
+## Transfers
+
+Move money from one of your own accounts to another, and your bank books it twice. One transaction leaves the first account, and one enters the second. Neither leg is income, and neither is spending. Freenary matches the two legs and files both under `Internal transfer`.
+
+### Why the match matters
+
+Without the match, each leg lands under an unrelated category. The outgoing leg reads as a payment to somebody, and the incoming leg reads as income. Your grocery total, or your salary total, then grows by the amount you moved.
+
+`Internal transfer` sits in the `Transfers` category group. So the `Categories` ring and the `Flow` diagram of Budget draw the outgoing leg under `Transfers`. A reader there sees a move for what it is. See [Budget](/docs/guides/budget).
+
+<Callout type="warn">
+
+A matched pair still counts in the three figures of the period. The outgoing leg counts in `Expenses`, and the incoming leg counts in `Income`. Freenary reports every movement your bank booked.
+
+</Callout>
+
+### What Freenary pairs
+
+Freenary pairs two transactions when all four of these hold.
+
+| Condition | Detail |
+| --- | --- |
+| Two accounts, both yours | Both accounts sit under your own bank connections. One account alone pairs nothing |
+| One out, one in | One leg is outgoing and the other is incoming |
+| The same amount | The two amounts match, sign apart |
+| Inside one day | The two dates are 24 hours apart at most |
+
+The pass runs right after each sync, before Freenary files the rest of your transactions under a category. So a transfer you make today lands as a pair on the next sync that reads it.
+
+<Callout type="info">
+
+The pass reads a transaction that already carries a category. A transfer your bank described as a payment gets corrected on the next sync. The pair then stops distorting your categories.
+
+</Callout>
+
+### What the pass leaves alone
+
+- A transaction you filed under a category by hand. Your choice wins, and the pass skips the row. See [Fix a category](#fix-a-category).
+- A pair it already matched. A later pass keeps the `Internal transfer` category, and a fresh categorisation pass keeps it too.
+
+### Where a transfer is left out
+
+The Recurring page reads none of your internal transfers. A monthly move to your savings account is not a commitment. So it holds no row there, and it costs you nothing on that screen. The income that page measures leaves the incoming legs out too. `Share of income` and `Left after recurring` therefore read your real income. See [Recurring transactions](#recurring-transactions).
+
+<Callout type="warn">
+
+A move between two banks pairs only when you connected both banks. Send money to an account Freenary does not hold, and the leg you hold stays a payment. File it by hand under the category you want.
+
+</Callout>
+
+The rules the matcher reads, and the columns it writes, live in [Transaction categorisation](/docs/developers/architecture#transaction-categorisation).
+
+## Recurring transactions
+
+`Recurring` is the second page of Budget. It answers two questions: what keeps costing you money, and what it costs you next. Its first line names the scope: `Detected from your last 12 months of transactions.`
+
+The page reads a fixed trailing 12 months. The period controls belong to the `Transactions` page alone. No range, no arrow and no aggregation menu sit here. See [Budget](/docs/guides/budget).
+
+**Before you start:** you need a few months of transactions from the same company.
+
+### Insights
+
+A strip of at most four short lines opens the page. Freenary writes a line only for what it measured, and with nothing measurable the strip does not render at all.
+
+- `{count} recurring payments are due in the next 7 days.`
+- `Recurring costs rose {percent} over the last 3 months.`, or `fell`, or `Recurring costs held steady over the last 3 months.`
+- `Recurring costs use {percent} of your monthly plan.`, or `… of your monthly income.`
+- `{company} costs {amount} per year.`, for the dearest commitment.
+
+The trend line compares the last three whole months against the three before them. It leaves the month in progress out. A move under 2 percent reads as steady.
+
+### The six figures
+
+Six cells sit under the insights, in two rows of three.
+
+| Cell | What it holds |
+| --- | --- |
+| `Per month` | What every commitment costs in a month |
+| `Per year` | The same figure over a year |
+| `Share of plan`, or `Share of income` | The monthly cost against your declared plan, or against the income Freenary measured when you declared no plan |
+| `Left after recurring` | That same figure minus the monthly cost. It turns green above zero and red below it |
+| `Commitments` | How many there are. A second line counts the spending patterns beside them |
+| `Due in 30 days` | Payments expected in the next 30 days, of both kinds. A second line adds what they come to |
+
+A cell Freenary did not measure prints a dash, not a zero. `Share of income` and `Left after recurring` print that dash when you have neither a plan nor measured income.
+
+### The charts
+
+The page holds exactly two chart positions, and no control adds a third. Each position holds three views and a fixed height, so a switch moves nothing below it.
+
+The wide position carries a three-button toggle. A screen reader reads it as `Recurring chart`.
+
+| View | Card title | What it draws |
+| --- | --- | --- |
+| `Over time` | `Recurring Over Time` | One stacked bar a month over 12 months: `Commitments`, `Repeated` and `Other` |
+| `Forecast` | `Cash-Flow Forecast` | Your balance walked forward 30 days as each expected payment lands |
+| `Cost vs. frequency` | `Cost vs. Frequency` | One point per company: payments a year against yearly cost |
+
+On `Forecast`, the first point reads `Today`. A dashed red line marks zero when the balance runs out. With no balance reported by your bank, the card reads `No balance reported, so no forecast.` See [Balances](/docs/guides/accounts#balances).
+
+On `Cost vs. frequency`, blue marks a commitment and orange marks a repeated purchase. The other charts of the page use those same two colours.
+
+The narrow position carries a menu. A screen reader reads it as `Companion chart`.
+
+| View | What it draws |
+| --- | --- |
+| `By category` | The eight dearest categories a month, on one shared scale |
+| `Most frequent` | Companies by how often Freenary saw them, with the count a year and the yearly cost |
+| `Recurring vs. other` | One bar split three ways, with an amount and a share for each |
+
+`By category` is read-only. It answers no press, and it filters nothing.
+
+### Filter and sort
+
+A toolbar sits above the list, with the same controls the transaction list carries.
+
+| Control | What it does |
+| --- | --- |
+| Search box | Reads `Search companies…`. It searches the company of a recurrence |
+| Sort | A screen reader reads it as `Sort`. The options are `Dearest` and `Soonest` |
+| `Cost` | A floor, a ceiling, or both, on what a payment costs a month |
+| `Recurrence` | A menu over the five frequencies and the three confidence levels |
+| `Category` | A searchable menu over the 16 groups and their categories |
+
+Each trigger carries a count badge while it filters. Every active filter becomes a badge above the list, and `Clear all` appears at two active filters or more. A cost range counts as **one** filter, whether you set one bound or both.
+
+Under the fields of `Cost` sits a hint: `Matches what a payment costs a month, whatever its cadence.` A yearly premium of 240 answers a floor of 20. It does not answer a floor of 240.
+
+No filter asks your server for anything. Freenary reads the year once, so a filter narrows the rows and both totals at once.
+
+### The recurring list
+
+Two tabs head the list: `Commitments · {amount}` and `Patterns · {amount}`. Each amount is what that side costs a month, under the filters you set. The tab you pick decides which side shows. A line under the tabs says what that side holds.
+
+| Tab | Its line |
+| --- | --- |
+| `Commitments` | `Payments on a regular cadence for a steady amount.` |
+| `Patterns` | `Read from repeated purchases, not from a confirmed commitment.` |
+
+The columns come in this order: `Company`, `Confidence`, `Amount`, `Frequency`, `Next`, `Per month` and `Per year`. The `Company` column carries the category under the name. An amount that moves from one payment to the next reads `≈ {amount}`. The `Next` column carries the calendar date. Under that date sits the relative day for a date inside 30 days: `Today`, `Tomorrow` or `In {n} days`.
+
+A narrow panel drops `Per year` first, then `Per month`, then `Frequency`. `Company`, `Confidence`, `Amount` and `Next` always show.
+
+A side with nothing in it keeps its name over a line of its own. `Commitments` reads `No commitment detected.`, and `Spending patterns` reads `No spending pattern detected.` A filter that matches nothing reads `No match` over `No recurring payment matches these filters.`
+
+### Commitments and patterns
+
+The two tabs of the list hold the two kinds of recurrence.
+
+| Tab | What it holds |
+| --- | --- |
+| `Commitments` | The company repeats on a regular cadence for an amount that holds: a subscription, rent, an insurance premium, a phone bill |
+| `Patterns` | The company repeats, and the amount does not: groceries, coffee, transport, online shopping |
+
+`Confidence` holds one of three values.
+
+| Confidence | What it means |
+| --- | --- |
+| `Confirmed` | Same company, same cadence, same amount, and seen three times or more |
+| `Likely` | Same company on a regular cadence, with an amount that moves, or seen only twice so far |
+| `Pattern` | A repeated purchase, and not a confirmed commitment |
+
+<Callout type="info">
+
+Freenary asks for neither an exact date nor an exact amount. A bank moves its processing date, and a utility bill moves its amount. [Transaction categorisation](/docs/developers/architecture#transaction-categorisation) holds how Freenary reads a cadence out of your transactions.
+
+</Callout>
+
+The page reads your outgoing transactions alone, and it leaves an internal transfer out. A monthly move to your own savings account holds no row here. See [Transfers](#transfers).
+
+### With nothing detected
+
+The page keeps its first line and shows one card: `No recurring payment detected yet`, over `Freenary needs a few months of transactions from the same company before it can read a cadence.`
+
+No figures, no charts and no tables sit behind that card.
+
+## Import transactions
+
+Freenary holds one source of transactions: your bank. A sync reads your connections and writes what the bank booked. You type nothing, and you upload nothing.
+
+### The one path in
+
+| What you do | What arrives |
+| --- | --- |
+| Connect a bank | Its accounts, and their transactions inside the sync window |
+| Open Budget with bank accounts | One quiet sync, once per visit |
+| Press `Sync transactions` on Budget | A full re-read of every connection |
+| Press the re-sync button on a bank row | A full re-read of that one connection |
+
+**Every sync reads a window of 90 days at most.** A transaction older than that window never arrives, and no control widens it. See [Sync](/docs/integrations/powens#transaction-synchronization).
+
+### No screen writes a transaction
+
+- No screen adds a transaction, and none edits or deletes one.
+- No screen takes a file: there is no comma-separated import, no spreadsheet upload and no bank statement reader.
+- The one field you change on a row is its category. See [Fix a category](#fix-a-category).
+
+<Callout type="info">
+
+A bank Freenary cannot link holds transactions Freenary cannot read. The bank list names the banks your instance reaches, and your operator decides which linking service it uses. See [Powens setup](/docs/integrations/powens#setup).
+
+</Callout>
+
+### What Freenary does to a row it imported
+
+Each imported transaction keeps the date, the amount and the text the bank sent. On top of that text Freenary reads the company and files the row under a category.
+
+| Step | What it writes |
+| --- | --- |
+| A transfer match | Both legs of a move between two of your own accounts read `Internal transfer`. See [Transfers](#transfers) |
+| A category | One of the 75 built-in categories. See [Categories and budget lines](#categories-and-budget-lines) |
+
+A category you set by hand survives every later sync. [Fix a category](#fix-a-category) holds what a correction does to the other rows of the same company.
+
+<Cards>
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="Where the plan meets your real transactions."
+  />
+  <Card
+    title="Settings"
+    href="/docs/guides/settings"
+    description="The screen that holds the category list and the plan editor."
+  />
+  <Card
+    title="Account types"
+    href="/docs/guides/accounts"
+    description="The accounts a transaction lands on, and the connection that brings it in."
+  />
+  <Card
+    title="Sync"
+    href="/docs/integrations/powens#transaction-synchronization"
+    description="What a sync reads, when it runs, and how far back it reaches."
+  />
+</Cards>

@@ -1,0 +1,41 @@
+---
+title: Introduction
+description: What Freenary is, what one instance holds, and the three pages that take you from no install to a first bank connection.
+---
+
+Freenary is an open-source personal finance app. You run it yourself, on your own machine or your own server. One install is one **instance**, and an instance keeps every figure in its own PostgreSQL database. No Freenary service holds your data.
+
+An instance connects to your banks through a bank provider. It reads the accounts each bank shares, imports the transactions those accounts carry, and files each transaction under a category. The Budget screen then reports the period you pick, and the assistant answers questions from the same data.
+
+A bank connection is the only way transactions enter Freenary. No screen accepts a transaction by hand.
+
+## Read these three pages in order
+
+[Quickstart](/docs/getting-started/quickstart) installs the stack with Docker Compose and signs you in. It takes two files, three values and a bank-provider account.
+
+[How Freenary works](/docs/getting-started/how-it-works) names every word the interface uses. Each line points at the page that owns the behaviour. Read it once, and the rest of this site reads faster.
+
+[Next steps](/docs/getting-started/next-steps) picks your route after the install. Connect a bank, learn the screens, or serve the instance to other people.
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/getting-started/quickstart"
+    description="Run Freenary on one machine with Docker Compose, then sign in."
+  />
+  <Card
+    title="How Freenary works"
+    href="/docs/getting-started/how-it-works"
+    description="Instances, accounts, banks, categories and the assistant, in one line each."
+  />
+  <Card
+    title="Next steps"
+    href="/docs/getting-started/next-steps"
+    description="What to do once you are signed in to your own instance."
+  />
+  <Card
+    title="Self-hosting"
+    href="/docs/self-hosting"
+    description="The install that serves other people, with public origins and real secrets."
+  />
+</Cards>

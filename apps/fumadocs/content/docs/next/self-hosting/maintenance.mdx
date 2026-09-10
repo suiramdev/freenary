@@ -1,7 +1,6 @@
 ---
 title: Maintenance
 description: Watch the disk and the database volume, prune old images, restart a service, and check that the stack came back.
-icon: Wrench
 ---
 
 Run every command from the directory that holds `docker-compose.yml` and the `.env` file. Compose reads both from there. That directory needs no clone of the repository.
@@ -119,7 +118,7 @@ Freenary needs no fixed schedule. This one is enough.
 | Read the service state | `docker compose ps -a` | Daily |
 | Read the API server log | `docker compose logs --tail 100 server` | Weekly |
 | Measure the volume | `docker compose exec postgres du -sh /var/lib/postgresql` | Monthly |
-| Move to a newer tag | [Updates](/docs/self-hosting/updates) | Monthly |
+| Move to a newer tag | [Updates](/docs/self-hosting/docker#updates) | Monthly |
 | Prune old images | `docker image prune -f` | After each update |
 | Prove a dump restores | [Backup and restore](/docs/self-hosting/backup-and-restore) | Twice a year |
 | Rotate `BETTER_AUTH_SECRET` | [Security](/docs/self-hosting/security) | After a leak alone |
@@ -151,7 +150,7 @@ Freenary runs two web processes and one database. It holds no worker, no queue a
 
 <Card
   title="Troubleshooting"
-  href="/docs/self-hosting/troubleshooting"
+  href="/docs/help/troubleshooting"
   description="A service that stays unhealthy, a refusal at startup, a screen with no data."
 />
 

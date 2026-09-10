@@ -1,7 +1,6 @@
 ---
 title: Security
 description: Close the ports, hold the two secrets, turn on the auth levers, and work through the checklist before real users arrive.
-icon: ShieldCheck
 ---
 
 Freenary holds the bank data of every user. Two jobs are yours: the network edge and the secrets.
@@ -34,7 +33,7 @@ So a TLS reverse proxy in front of both apps is not optional for a served instan
 - Forward the real caller address, so the rate limits key on one user and not on the whole instance.
 - Send the browser to origins that both start with `https://`. The session cookie takes its `Secure` flag from `BETTER_AUTH_URL`.
 
-[Reverse proxy](/docs/self-hosting/reverse-proxy) holds the whole setup, the TLS rules and the trusted-proxy list.
+[Reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) holds the whole setup, the TLS rules and the trusted-proxy list.
 
 ## The container user
 
@@ -77,7 +76,7 @@ Plan a rotation of the auth secret, and tell your users before you do it. Read [
 
 ## The auth levers you control
 
-Each lever below is on, off or absent because of your configuration. [Authentication](/docs/self-hosting/authentication) holds the variable and the exact rule for each one.
+Each lever below is on, off or absent because of your configuration. [Authentication](/docs/self-hosting/configuration#sign-in-methods) holds the variable and the exact rule for each one.
 
 | Lever | State on a fresh instance | What turns it on |
 | --- | --- | --- |
@@ -104,7 +103,7 @@ The breach check fails closed. An instance with no route to `api.pwnedpasswords.
 
 ## The assistant sends financial data out
 
-With a model endpoint configured, each question sends financial data of that user to the endpoint you named. That endpoint is a second party, under its own terms and its own jurisdiction. [Assistant](/docs/self-hosting/assistant) states what each question carries and what it never carries. Make the choice of endpoint before you open the assistant to real users.
+With a model endpoint configured, each question sends financial data of that user to the endpoint you named. That endpoint is a second party, under its own terms and its own jurisdiction. [Assistant](/docs/self-hosting/configuration#assistant) states what each question carries and what it never carries. Make the choice of endpoint before you open the assistant to real users.
 
 ## What the database holds
 
@@ -141,13 +140,13 @@ Work through each line before real users arrive.
 
 <Card
   title="Reverse proxy"
-  href="/docs/self-hosting/reverse-proxy"
+  href="/docs/self-hosting/configuration#behind-a-reverse-proxy"
   description="TLS, the forwarded headers, and the trusted-proxy list."
 />
 
 <Card
   title="Authentication"
-  href="/docs/self-hosting/authentication"
+  href="/docs/self-hosting/configuration#sign-in-methods"
   description="Each sign-in method, its variables and its exact rules."
 />
 
@@ -159,7 +158,7 @@ Work through each line before real users arrive.
 
 <Card
   title="Troubleshooting"
-  href="/docs/self-hosting/troubleshooting"
+  href="/docs/help/troubleshooting"
   description="The cookie, origin and rate-limit symptoms in practice."
 />
 

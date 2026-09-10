@@ -1,0 +1,83 @@
+---
+title: Frequently asked questions
+description: What Freenary stores, whether it works without a bank, which banks it reads, where your data goes, and how to update and back it up.
+---
+
+## What data does Freenary store?
+
+All of it lives in the PostgreSQL database of your own instance. Your accounts, your transactions, your budgeting profile, your goals, your categories and your sessions are rows in that database. Nothing sits on a server somebody else runs.
+
+The database is one Docker volume. [Backup and restore](/docs/self-hosting/backup-and-restore) covers the dump and the restore of that volume.
+
+## Can I use Freenary without a bank connection?
+
+Freenary imports all financial data from banks. No screen accepts a transaction, an account or a balance by hand.
+
+You can still sign in, read the interface and write a budgeting profile with no bank linked. The screens that need transactions stay empty until a connection brings some.
+
+## Which banks does Freenary support?
+
+The bank list comes from the provider your instance runs, and not from Freenary. So the coverage is the coverage of that provider in your country.
+
+| Provider       | Where to read its coverage                              |
+| -------------- | ------------------------------------------------------- |
+| Powens         | The connector list of your domain in the Powens console |
+| Enable Banking | The institution list of your Enable Banking application |
+
+[Powens setup](/docs/integrations/powens#setup) covers the account and the credentials. An empty list has three causes, and [Powens troubleshooting](/docs/help/troubleshooting#powens) tells them apart.
+
+## Is my data sent anywhere?
+
+Your instance talks to your bank provider, and to your email adapter when it sends a one-time code. Neither one receives your budgeting profile.
+
+One exception matters. A question to the assistant sends financial data to the model endpoint the operator configured. An instance with no model endpoint runs no assistant at all, and the screen says so. [Assistant](/docs/self-hosting/configuration#assistant) states what each question sends out.
+
+## Who can read the data of other users?
+
+Nobody. Every query is scoped to the session that made it. The API answers with the rows of that account alone. An operator with access to the database host reads the database, as with any self-hosted application. [Security](/docs/self-hosting/security) covers the ports, the secrets and the auth levers.
+
+## How do I update Freenary?
+
+Pull the image tag you run, then bring the stack up again. The one-shot migration service applies the schema before the API server starts. [Updating](/docs/self-hosting/docker#updates) holds the tags, the order and the checks after an update.
+
+## How do I back up my data?
+
+Dump the database with `pg_dump` from the `postgres` container, and keep the dump off the host. A restore needs an empty volume. [Backup and restore](/docs/self-hosting/backup-and-restore) holds both commands.
+
+## Does Freenary refresh my transactions at night?
+
+No. Nothing runs on a schedule. A sync happens when you open Budget, when you press `Sync transactions`, or when you re-sync one bank. [Syncing](/docs/integrations/powens#transaction-synchronization) holds the three triggers and the 90-day window.
+
+## Can I add my own categories?
+
+Yes, and you cannot change the built-in ones. Freenary ships 16 category groups and 75 categories inside them, and that vocabulary is fixed. A custom category carries a colour and an icon you pick, and it nests under a group. [Categories](/docs/guides/transactions#categories-and-budget-lines) covers both kinds.
+
+## Does Freenary send email?
+
+Only when the operator configures an adapter. With none, sign-up returns a session at once and no address confirmation goes out. The sign-in screen then shows no `Forgot password?` link. [Email](/docs/self-hosting/configuration#email-delivery) holds the two adapters.
+
+## How do I report a bug?
+
+Open an issue and pick the form that fits. [Get support](/docs/help/support) lists the three forms and the facts each one asks for.
+
+<Cards>
+
+<Card
+  title="How Freenary works"
+  href="/docs/getting-started/how-it-works"
+  description="The parts of the product, and what each one owns."
+/>
+
+<Card
+  title="Troubleshooting"
+  href="/docs/help/troubleshooting"
+  description="Match a symptom to its cause and its fix."
+/>
+
+<Card
+  title="Get support"
+  href="/docs/help/support"
+  description="Open an issue with the facts the form asks for."
+/>
+
+</Cards>

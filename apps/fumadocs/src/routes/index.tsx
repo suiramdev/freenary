@@ -10,29 +10,29 @@ const ENTRY_POINTS = [
     title: "Introduction",
   },
   {
-    description: "Install your own instance with Docker Compose.",
-    slug: "self-hosting",
-    title: "Self-hosting",
+    description: "Install an instance, and take the first steps.",
+    slug: "getting-started",
+    title: "Getting started",
   },
   {
-    description: "Connect a bank, read your budget, correct a category.",
+    description: "Read your budget, correct a category, set a goal.",
     slug: "guides",
     title: "Using Freenary",
   },
   {
-    description: "The words this website uses, and what each one means.",
-    slug: "concepts",
-    title: "Concepts",
-  },
-  {
-    description: "How the project works, and how to change it.",
-    slug: "contributing",
-    title: "Contributing",
-  },
-  {
-    description: "Call the API, and read the procedure reference.",
+    description: "Connect a bank, and see what each provider syncs.",
     slug: "integrations",
     title: "Integrations",
+  },
+  {
+    description: "Run and operate your own instance with Docker Compose.",
+    slug: "self-hosting",
+    title: "Self-hosting",
+  },
+  {
+    description: "Read the internals, call the API, open a pull request.",
+    slug: "developers",
+    title: "Developers",
   },
 ];
 

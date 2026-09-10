@@ -1,0 +1,50 @@
+---
+title: Investments
+description: What the Portfolio row of the sidebar opens, and what Freenary keeps about an investment account.
+---
+
+`Portfolio` is the second row of the `Application` group in the sidebar. It carries the badge `Planned`, and its row is dimmer than the rows beside it. A screen reader reads the row as `Portfolio (planned)`.
+
+The row is a working link. Press it and Freenary opens a page with three things on it, centred and nothing else:
+
+- A wallet icon.
+- The heading `Portfolio is planned`.
+- One line under it: `Track your holdings, accounts and net worth across all your connections — coming soon.`
+
+The page holds no control, no figure and no table. Nothing on it reads your data.
+
+## What Freenary keeps about an investment account
+
+An investment account arrives with a bank connection, like every other account. Freenary records the securities inside it when the linking service returns them. Each one carries a label, a code, a quantity, a unit value and a valuation.
+
+Each sync replaces that record with what the service reports at that moment. A position you sold goes away with it, so Freenary holds one snapshot and no history.
+
+<Callout type="info">
+
+Only one of the two linking services returns your securities. Ask your operator which one your instance uses. See [Bank providers](/docs/integrations/powens#setup).
+
+</Callout>
+
+## Where your investment money renders today
+
+The `Investments` category group carries the movements your investment accounts booked. A transfer to a brokerage account and a dividend both land on Budget. A budget line in that group counts as an investment, and not as an outgoing.
+
+See [Budget](/docs/guides/budget) and [Categories and budget lines](/docs/guides/transactions#categories-and-budget-lines).
+
+<Cards>
+  <Card
+    title="Account types"
+    href="/docs/guides/accounts"
+    description="The kinds of account a bank shares, investment accounts among them."
+  />
+  <Card
+    title="Budget"
+    href="/docs/guides/budget"
+    description="Where the movements of an investment account render."
+  />
+  <Card
+    title="Using Freenary"
+    href="/docs/guides"
+    description="The map of every screen."
+  />
+</Cards>

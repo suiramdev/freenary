@@ -109,7 +109,9 @@ function Content({
   const MDX = page.body;
 
   return (
-    <DocsPage toc={toc}>
+    // A section is a separator in the tree, and the breadcrumb drops one by
+    // default, so the page would lose the name of the section it belongs to.
+    <DocsPage breadcrumb={{ includeSeparator: true }} toc={toc}>
       <DocsTitle>{page.title}</DocsTitle>
       <DocsDescription>{page.description}</DocsDescription>
       <div className="-mt-4 flex flex-row items-center gap-2 border-b pb-6">

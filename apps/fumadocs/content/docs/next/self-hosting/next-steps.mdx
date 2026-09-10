@@ -1,0 +1,53 @@
+---
+title: Next steps
+description: What to set up once the stack answers, starting with the bank provider that gives it data.
+---
+
+The stack answers and the first account exists. Four things remain, and the first one is not optional in practice.
+
+## Connect a bank provider
+
+<Callout type="warn">
+
+**Set up Powens to automatically pull and sync bank transactions. Without it, Freenary has no data to show.** No screen takes a transaction by hand, so every list, budget and chart stays empty until a provider supplies accounts.
+
+</Callout>
+
+A Powens sandbox domain needs no contract, and it takes one sitting. [Set up Powens](/docs/integrations/powens#setup) walks the console, the redirect URI and the connectors you activate. Once the credentials are in place, a user links a bank from Settings: [Connect a bank](/docs/integrations/powens#connect-a-bank-account).
+
+## Tune the instance
+
+Email, sign-in methods and the assistant each stay off until you configure them.
+
+| What you get | Where |
+| --- | --- |
+| One-time codes, address confirmation and password reset | [Email](/docs/self-hosting/configuration#email-delivery) |
+| Google, Apple, single sign-on, passkeys and two-factor | [Sign-in methods](/docs/self-hosting/configuration#sign-in-methods) |
+| The in-app assistant | [Assistant](/docs/self-hosting/configuration#assistant) |
+| Every other variable | [Configuration reference](/docs/self-hosting/configuration) |
+
+## Harden the instance
+
+[Security](/docs/self-hosting/security) covers the secrets, the cookies, the rate limits and what the instance exposes. [Behind a reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) covers TLS, the cookie domain and the trusted proxies.
+
+Take a dump before you need one. [Backup and restore](/docs/self-hosting/backup-and-restore) holds the commands and a restore drill.
+
+## Keep it running
+
+[Updates](/docs/self-hosting/docker#updates) moves the instance to a newer tag. [Maintenance](/docs/self-hosting/maintenance) covers disk, image pruning and restarts. [Logs](/docs/self-hosting/logs) explains what each line holds.
+
+<Cards>
+
+<Card
+  title="Set up Powens"
+  href="/docs/integrations/powens#setup"
+  description="The console steps, the redirect URI and the credentials the instance needs."
+/>
+
+<Card
+  title="Using Freenary"
+  href="/docs/guides"
+  description="What a user does with the instance you just installed."
+/>
+
+</Cards>

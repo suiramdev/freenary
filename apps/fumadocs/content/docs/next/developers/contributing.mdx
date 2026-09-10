@@ -1,0 +1,730 @@
+---
+title: Contributing
+description: The branch model, the style rules, the test rules, the pull request checks, the documentation standard and the release workflow.
+---
+
+A change goes one way. Branch off `dev`, write the change, run the checks, then open a pull request against `dev`.
+
+| Step | Where |
+| --- | --- |
+| 1. Get the tools and the dependencies | [Development prerequisites](/docs/developers/setup) |
+| 2. Start the stack | [Run the app](/docs/developers/setup#run-the-app) |
+| 3. Run the tests your change touches | [Run tests](/docs/developers/setup#run-tests) |
+| 4. Run the five checks, then open the pull request | [Pull requests](#pull-requests) |
+
+## The two branches
+
+Two branches live for ever. Every pull request targets `dev`, and `main` holds released code.
+
+| Branch | Role                   | What lands on it                  |
+| ------ | ---------------------- | --------------------------------- |
+| `dev`  | The integration branch | Every pull request                |
+| `main` | The release branch     | `dev`, at the moment of a release |
+
+[Release a version](#release-a-version) covers how a version becomes a tag.
+
+Branch names describe the change. `.github/CONTRIBUTING.md` names three good examples and three to avoid:
+
+| Good                             | Avoid     |
+| -------------------------------- | --------- |
+| `fix/login-redirect-loop`        | `test`    |
+| `feat/portfolio-holdings-view`   | `misc`    |
+| `chore/update-contributor-guide` | `changes` |
+
+The repository documents no commit-message convention. It holds no commitlint config and no `commit-msg` hook. Write a subject line that names what changed.
+
+A tag and a version bump are maintainer work, so leave both out.
+
+## The documentation duty
+
+A change to documented behaviour owes a documentation update in the same pull request. A screen, an API route, an environment variable, a `packages/db` enum, a script and a bank provider all count. [Writing documentation](#writing-documentation) holds the rules for that update.
+
+A pure refactor, an internal helper and a dependency bump need no documentation change. Say so in the pull request rather than leave it unclear.
+
+## Where the rules live
+
+| Source | Scope |
+| --- | --- |
+| [`.github/CONTRIBUTING.md`](https://github.com/suiramdev/freenary/blob/main/.github/CONTRIBUTING.md) | Setup, branch names, the pre-pull-request checks, the pull request rules |
+| [`CONTEXT.md`](https://github.com/suiramdev/freenary/blob/main/CONTEXT.md) | The product vision and the glossary of each domain term |
+| [`AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/AGENTS.md) | The repository-wide working rules, and the documentation duty |
+
+Each workspace states its own rules next to its code:
+
+- [`apps/web/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/web/AGENTS.md)
+- [`apps/server/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/server/AGENTS.md)
+- [`apps/fumadocs/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/apps/fumadocs/AGENTS.md)
+- [`packages/api/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/api/AGENTS.md)
+- [`packages/auth/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/auth/AGENTS.md)
+- [`packages/db/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/db/AGENTS.md)
+- [`packages/email/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/email/AGENTS.md)
+- [`packages/env/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/env/AGENTS.md)
+- [`packages/ui/AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/packages/ui/AGENTS.md)
+
+## Code style
+
+Ultracite holds the whole style rule set. It wraps two tools: Oxlint for the rules and Oxfmt for the format.
+
+```bash
+bun run fix     # ultracite fix, writes the fixes
+bun run check   # ultracite check, reports only
+```
+
+Both skip Turborepo and cover the whole repository. `bun run check` is the second step of the CI gate.
+
+### The two configuration files
+
+| File | What it sets |
+| --- | --- |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Registers the local `anti-slop` plugin with 15 rules at `error`. Ignores `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
+| `oxfmt.config.ts` | Spreads the Ultracite format config. It does not ignore `packages/ui/**`, so Oxfmt formats that package and Oxlint does not lint it. |
+
+### The commit hook
+
+`lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:
+
+| Job      | Command                            |
+| -------- | ---------------------------------- |
+| `oxlint` | `bun oxlint --fix {staged_files}`  |
+| `oxfmt`  | `bun oxfmt --write {staged_files}` |
+
+Both set `stage_fixed: true`, so each job re-stages the files it changed. The repository declares no `pre-push` hook and no `commit-msg` hook.
+
+## Testing practices
+
+A test earns its place when a plausible bug fails it. [Run tests](/docs/developers/setup#run-tests) holds the command and the file counts.
+
+### The shape of a suite
+
+Every suite imports the runner from `bun:test`, and each file sits beside the file it covers.
+
+```ts
+import { describe, expect, test } from "bun:test";
+
+import { mapPowensAccount } from "./map-account";
+
+describe("mapPowensAccount", () => {
+  test("reads the type whether the provider sends a string or an object", () => {
+    expect(mapPowensAccount({ id: 1, type: "checking" }).type).toBe("CHECKING");
+  });
+});
+```
+
+Five rules hold across the repository:
+
+- Every assertion sits inside a `test()` or an `it()` block.
+- One `describe` per unit. Suites stay flat.
+- No test takes a done callback. An async test uses `async` and `await`.
+- No `.only` and no `.skip` reaches a commit.
+- The test name states the behaviour, not the function call.
+
+### What to assert
+
+Assert what a caller observes: the returned object, the stored row, the thrown message. Never assert an internal call order or a private field.
+
+| Kind of code | What the test covers |
+| --- | --- |
+| A pure mapper or helper | Each input shape the provider sends, and each fallback |
+| A boundary or a bound | The value at the edge, and the value one step past it |
+| A router procedure | The refusal, the error code, and the row it writes |
+| A pipeline stage | The stage it writes, and the confidence it carries |
+
+`packages/api/src/routers/transaction-amount-bounds.test.ts` is the model for a bound. It rebuilds what PostgreSQL would answer from the generated filter, then asserts the row set.
+
+### Code that talks to a network
+
+Two patterns cover it, and neither one needs live credentials.
+
+| Pattern | Use it for |
+| --- | --- |
+| A captured payload through a pure mapper | Every field mapping and every fallback |
+| A `globalThis.fetch` stub plus the real code path | The request construction, the persisted rows and the idempotence |
+
+[Build an integration](/docs/developers/integrations#test-an-adapter-with-no-live-credentials) holds the worked method, and the six mapper test files it names.
+
+### Code that reads the database
+
+A test that reaches PostgreSQL needs a running database and a current schema. Start one, apply the migrations, then run the file. The same test file passes on either stack path.
+
+## Pull requests
+
+A pull request targets `dev`. Run the checks first, then write the body, then open it.
+
+### The checks before a pull request
+
+`.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
+
+The `ci` job runs five commands. Run the same five before you open a pull request:
+
+```bash
+bun install --frozen-lockfile
+bun run check
+bun run check-types
+bun run docs:check
+bun run build
+```
+
+| Order | CI step name | Command | What it covers |
+| --- | --- | --- | --- |
+| 1 | _(unnamed)_ | `bun install --frozen-lockfile` | The lockfile matches the manifests |
+| 2 | Lint & format | `bun run check` | `ultracite check` over the whole repository |
+| 3 | Type check | `bun run check-types` | `turbo run check-types` |
+| 4 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
+| 5 | Build | `bun run build` | `turbo run build`, which builds the three applications |
+
+The `compose` job needs no Bun and no install. It checks three things:
+
+- `docker compose -f docker-compose.dev.yml config --quiet` parses the development stack.
+- The same command against `docker-compose.yml` parses the production stack, with a temporary `.env` that sets `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`.
+- The same command with an empty `.env` must fail. A pass means the production file accepted two empty secrets, so the job fails.
+
+That job is the one CI check no root script covers. Reproduce it by hand before you change either compose file.
+
+<Callout type="warn">
+
+`bun run check-types` reaches two workspaces only. `apps/server` and `@freenary/ui` declare the script. `apps/web` declares none. `apps/fumadocs` names its own script `types:check`, so `turbo run check-types` skips it. Type-check those two workspaces by hand before you push.
+
+</Callout>
+
+CI runs no tests, so run the files your change touches. [Run tests](/docs/developers/setup#run-tests) holds the command.
+
+### The body
+
+`.github/pull_request_template.md` declares five headings. Fill each one, and keep each one short. The whole body stays near 400 words. The summary stays near four sentences, and the middle three sections near four bullets each.
+
+| Section | What it carries |
+| --- | --- |
+| Summary | What changed, and what a reviewer reads first. |
+| Motivation | Why the change is worth it. |
+| Drawbacks | The honest costs. |
+| Prior art | The alternatives you rejected. |
+| Notes | One line per fact: linked issue, visual change, tests, documentation pages, migration, breaking change. |
+
+Never restate the issue in the body, and never paste command output into it. A section that needs a table or a code block is a signal. That detail belongs in the issue, the code, or a comment.
+
+### What a reviewer expects
+
+- The pull request opens against `dev`.
+- It explains the user-visible change.
+- It stays on a single topic.
+- It carries screenshots or a screen capture for new interface work. With no visual change, it says so.
+- It names the `apps/fumadocs` pages it updated, or states that none needed a change.
+
+Check an interface change in the browser, in light mode and in dark mode.
+
+### Issues
+
+`.github/ISSUE_TEMPLATE/config.yml` sets `blank_issues_enabled: false`, so every issue starts from one of three forms.
+
+| Form            | Title prefix  |
+| --------------- | ------------- |
+| Bug report      | `[Bug]: `     |
+| Feature request | `[Feature]: ` |
+| Other           | `[Other]: `   |
+
+## Writing documentation
+
+{/* docs-check disable: ste-word, ste-modal, no-roadmap, ste-contraction */}
+
+This site is the documentation. This section holds every rule a page must follow. Read it before you write.
+
+Two commands decide whether a page is acceptable:
+
+```bash
+bun run docs:check   # from the repository root, or from apps/fumadocs
+cd apps/fumadocs && bun run build
+```
+
+Neither one alone is enough. [What each gate catches](#what-each-gate-catches) gives the split.
+
+### Where it lives and how to run it
+
+`apps/fumadocs` holds the site. It runs Fumadocs on TanStack Start. `fumadocs-mdx` compiles the MDX files under `apps/fumadocs/content/docs/`, and `apps/fumadocs/src/lib/source.ts` loads them. The base route is `/docs`, from `apps/fumadocs/src/lib/shared.ts`.
+
+```bash
+cd apps/fumadocs
+bun run dev
+```
+
+The `dev` script is `vite dev --port=4000`, so the site answers on `http://localhost:4000`. The flag overrides `server.port: 3000` in `apps/fumadocs/vite.config.ts`. The development stack serves the same app at `https://docs.<slug>.freenary.orb.local`. See [Local development stack](/docs/developers/setup#local-development-stack).
+
+### Versions
+
+The site publishes one copy of the documentation for each version of Freenary. `content/docs` holds one folder per version, and the folder name is the version:
+
+<Files>
+  <Folder name="content/docs" defaultOpen>
+    <File name="meta.json" />
+    <Folder name="next" defaultOpen>
+      <File name="meta.json" />
+      <File name="index.mdx" />
+    </Folder>
+    <Folder name="1.2" />
+  </Folder>
+</Files>
+
+| Folder | What it documents | Who edits it |
+| --- | --- | --- |
+| `next` | The unreleased code, which the `dev` and `main` images run | Every pull request |
+| `X.Y` | The release `X.Y`, frozen at the moment of the release | A correction to that release alone |
+
+**Write in `next`.** A pull request edits `next`, and nothing else. The `Release` workflow copies `next` to `content/docs/X.Y` before it tags, so a release needs no manual copy. See [Release a version](#release-a-version).
+
+**A link never names a version.** Write `/docs/guides/budget`. The site adds the version of the page the reader is on, so one page body serves every version. `docs:check` fails a link that names a version. In a browser, a path with no version lands on the newest release.
+
+**The language rules apply to `next` alone.** A frozen version passed them on the day it was written, and the word lists keep moving. Its structure rules stay on: a dead link or a missing `meta.json` entry breaks a page a reader opens today.
+
+**A fix for a released version edits that folder.** Copy the correction into `next` too, when it still applies there.
+
+To freeze a version by hand:
+
+```bash
+cd apps/fumadocs && bun run docs:snapshot 1.2.0
+```
+
+The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag.
+
+### The five steps
+
+1. **Read the rules.** This section, and the page you replace. A rewrite keeps every true fact the old page holds.
+2. **Get the code truth first.** Read the code that owns the behaviour. Quote the real names. A page that describes a screen, a flag or an endpoint that no code defines is wrong.
+3. **Write one page at a time.** One person owns a folder. Its `meta.json` and its index page belong to that owner.
+4. **Run the two gates until both are silent.** Add `--strict` to `docs:check` to fail on warnings too.
+5. **Load the page.** Open every page you changed in the browser. A green gate proves that the page compiles and follows the rules. It does not prove that the page is right.
+
+### Structure
+
+`content/docs/<version>/` splits by audience, and the split is what keeps the site navigable. The reader who runs Freenary comes first. The contributor comes second. Every path below is inside one version folder.
+
+| Path | Audience | What it holds | What it never holds |
+| --- | --- | --- | --- |
+| `index.mdx` | Everyone | What Freenary is, and the routes into the site | Instructions |
+| `getting-started/` | A reader with Docker and no instance | The shortest install, the shared vocabulary, and the first steps | The served install, TLS, hardening |
+| `guides/` | Users of a running instance | What a reader can do on each screen, and how | Commands, variables, file paths, package or database names |
+| `integrations/` | Readers who connect a bank or a service | The setup of each provider, and what it syncs | Adapter internals |
+| `self-hosting/` | Operators | The served install, configuration, scaling, updates, backups, logs | Product walkthroughs |
+| `developers/` | Contributors and API callers | The local stack, the architecture, the data model, the HTTP surface, these rules | Anything an end user needs |
+| `help/` | Everyone | The fixes for a broken instance, the answers and the support routes | New material a section above owns |
+
+Six rules hold that split together.
+
+**One fact lives in exactly one page.** Every other page links to it. Duplicated prose is the failure this split exists to prevent.
+
+**A subject is one page, never a folder.** A section holds pages only. A subject with several parts gets one page, and one `##` heading for each part. `guides/accounts.mdx` holds the account types, the add flow, the edit flow and the balances. The sidebar draws each section as one always-open separator, with its pages flat under it. The gate fails a page or a `meta.json` below `<version>/<section>/`.
+
+**The quickstart and the self-hosting index split on one line.** [Quickstart](/docs/getting-started/quickstart) runs an instance on `localhost`, for the reader alone. [Self-hosting](/docs/self-hosting) serves an instance to other people. The public origins, the secrets and the reverse proxy belong to the second page.
+
+**No page carries the title `Overview`, and no section carries that heading.** The index page of a folder carries the name of its subject. It starts with the first thing the reader needs.
+
+**Write what a reader can do.** Never write a plan, a date, or a list of what the product does today. A page states what the code does now, and nothing else.
+
+**Keep the shell out of `guides/`.** A guide names no terminal command, no environment variable and no file path. It names no Docker service, no package and no database table. The gate fails a guide that holds a shell code fence or an upper-case underscored token.
+
+### Frontmatter
+
+The schema in `src/lib/source.ts` needs two fields. A page without one of them fails the build, and the message names the file and the field.
+
+| Field | Type | Required |
+| --- | --- | --- |
+| `title` | string | Yes |
+| `description` | string | Yes. One sentence. It feeds the page header, the metadata and the search summary. |
+| `full` | boolean | No. It renders the page at full width. |
+
+```md
+---
+title: Writing documentation
+description: One sentence that says what the page covers.
+---
+```
+
+Write nothing else in the frontmatter. The gate fails any other field. It fails `icon` also, because an icon belongs to the separator of a section. A page row in the sidebar shows no icon.
+
+#### The label and the icon of a section
+
+The `meta.json` of a version holds one separator for each section. The separator carries the label and the icon. The entry under it names the folder with three dots in front.
+
+```json
+{
+  "pages": ["index", "---[Compass]Using Freenary---", "...guides"]
+}
+```
+
+Fumadocs puts the pages of the folder under that separator. The sidebar keeps every section open, and it draws no collapsible row. No folder sits below a section, so each section holds its pages directly.
+
+`source.ts` registers `lucideIconsPlugin()`. The plugin looks the name up in the `icons` record that `lucide-react` exports. That record holds canonical PascalCase names only.
+
+A deprecated alias behaves badly here. `AlertCircle` is a top-level export of `lucide-react`, but `icons` omits it. It resolves to nothing. Write the canonical name, `CircleAlert`.
+
+The build accepts an unknown name and renders no icon. `docs:check` fails on it. It reads the same `icons` record the site renders with. To check one name by hand:
+
+```bash
+grep -c "as CircleAlert }" apps/fumadocs/node_modules/lucide-react/dist/esm/icons/index.mjs
+```
+
+A count of `1` means the name resolves. A count of `0` means the icon renders nothing.
+
+### Components
+
+`apps/fumadocs/src/components/mdx.tsx` is the whole registry. It spreads the Fumadocs defaults and adds ten more components. A tag outside the list below renders nothing, and the build stays green. `docs:check` reads the registry, so it fails on the tag.
+
+| Component | Notes |
+| --- | --- |
+| `Callout` | `type` takes `info`, `warn`, `error`, `success` or `idea`. Optional `title`. |
+| `Card`, `Cards` | `Card` takes `title`, `href` and `description`. |
+| `Steps`, `Step` | A numbered procedure. |
+| `Tabs`, `Tab` | One choice per tab. |
+| `Files`, `Folder`, `File` | `Folder` takes `name` and `defaultOpen`. `File` takes `name`. |
+| `Accordions`, `Accordion` | Hidden detail a reader opens. |
+| `TypeTable` | One row per field, with a type and a default. |
+| `CodeBlockTabs`, `CodeBlockTabsList`, `CodeBlockTabsTrigger`, `CodeBlockTab` | One command per tab. |
+
+Two shapes are worth a copy. Tabs:
+
+```md
+<Tabs items={["Bun", "Docker"]}> <Tab value="Bun">
+
+Text goes here.
+
+  </Tab>
+  <Tab value="Docker">
+
+Text goes here.
+
+  </Tab>
+</Tabs>
+```
+
+And `TypeTable`:
+
+```md
+<TypeTable type={{
+    PORT: {
+      description: "The port the API server listens on.",
+      type: "number",
+      default: "3000",
+      required: false,
+    },
+  }} />
+```
+
+Leave one blank line between an MDX tag and the Markdown content inside it.
+
+### Code fences
+
+Name a Shiki language on every fence. An unknown language fails the build, so never leave a fence untagged.
+
+These ids cover everything this site needs, and `scripts/docs-rules.ts` holds the list. The list is `bash`, `dotenv`, `json`, `jsonc`, `yaml`, `md`, `mdx` and `text`. It also holds `ts`, `tsx`, `sql`, `prisma`, `http`, `dockerfile` and `diff`.
+
+<Callout type="warn">
+  `env` is not a Shiki language. Write `dotenv` for an environment file.
+</Callout>
+
+### Links
+
+An internal link is an absolute site path with no extension. The base route is `/docs`.
+
+| Target | Write |
+| --- | --- |
+| A page in a section | `/docs/self-hosting/configuration` |
+| A heading on that page | `/docs/developers/architecture#boundaries` |
+| The index page of a section | `/docs/self-hosting`, for the file `self-hosting/index.mdx` |
+
+`docs:check` resolves every link and every `#anchor` against the real page tree, so a dead link fails the gate.
+
+`createRelativeLink` exists in the Fumadocs package, but `mdx.tsx` does not wire it in. A relative `.mdx` link therefore stays broken. Link a repository file with its full GitHub URL under `https://github.com/suiramdev/freenary/blob/main/`. The snapshot replaces `main` with the release tag, so a frozen page keeps its code reference.
+
+### Navigation
+
+A `meta.json` file orders the pages of its section. `defineDocs` registers a meta collection over the same directory. The root `meta.json` names the versions, and each version folder names its six sections.
+
+<Callout type="warn">
+  A section takes its label and its icon from the version `meta.json`, not from
+  its own. The `title`, `description` and `icon` of a section folder render
+  nowhere, and the gate fails an `icon` in any `meta.json`.
+</Callout>
+
+| Field | Effect |
+| --- | --- |
+| `title` | The name of the folder in the sidebar. |
+| `pages` | A string array. The pages render in that order. |
+| `description` | A subtitle for the group. |
+| `defaultOpen` | Opens the group when the reader arrives. |
+| `root` | Makes the folder the root of its own sidebar. Each version folder sets it. |
+
+The schema also accepts `collapsible` and `pagesIndex`. Every field is optional.
+
+A page that the `pages` array does not name lands after every page it does name. So add each new page to the array. `docs:check` fails on an omitted page, and on a missing file.
+
+The array also accepts four special entries: `"---Separator---"`, `"..."`, `"!slug"` and `"[Label](/url)"`. A separator takes an icon as `"---[Icon]Label---"`. The `meta.json` of a version uses two entries for each section. The separator comes first, then `"...folder"` for the pages.
+
+```json
+{
+  "title": "next",
+  "root": true,
+  "pages": ["index", "---[Compass]Using Freenary---", "...guides"]
+}
+```
+
+The `meta.json` of a section holds `pages` alone.
+
+```json
+{
+  "pages": ["index", "accounts", "transactions"]
+}
+```
+
+### What each gate catches
+
+| Mistake | `bun run build` | `bun run docs:check` |
+| --- | --- | --- |
+| No `title` or `description` | Fails | Fails |
+| A frontmatter field outside the three | Passes | Fails |
+| An unknown code-fence language | Fails | Fails |
+| A section separator with no icon, or an icon that lucide does not export | Passes, renders nothing | Fails |
+| A section folder that the version `meta.json` names instead of `...` | Passes, renders a collapsible row | Fails |
+| A component the registry omits | Passes, renders nothing | Fails |
+| A dead internal link or `#anchor` | Passes | Fails |
+| A page missing from its folder's `meta.json` | Passes | Fails |
+| A page or a `meta.json` below `<version>/<section>/` | Passes | Fails |
+| A link that names a version | Passes | Fails |
+| A version folder with no `"root": true`, or a stale title | Passes, drops out of the dropdown | Fails |
+| A `blob/main` repository link inside a frozen version | Passes | Fails |
+| A command or a variable inside `guides/` | Passes | Fails |
+| A contraction, a banned word, a plan | Passes | Fails |
+| A sentence over 25 words | Passes | Fails |
+| A sentence over 20 words, or a paragraph over 6 sentences | Passes | Warns |
+
+`scripts/check-docs.ts` holds the checks and `scripts/docs-rules.ts` holds the word lists. A green gate is not proof that the page is right. Load the page in the browser and look at it.
+
+#### The escape hatch
+
+One section has to name the words the rules ban: this one. A section in that position writes two MDX comments. The first comment holds `docs-check`, then the word `disable`, a colon, and the rule ids. The second holds `docs-check`, then the word `enable`. The named rules stop firing between the two comments.
+
+This page carries that pair. The comment under the heading of this section switches `ste-word`, `ste-modal`, `no-roadmap` and `ste-contraction` off. The comment before **Release a version** switches all four on again. A comment with no partner switches the rules off to the end of the page, so always write the pair.
+
+Use the pair for a section that quotes the rules. Never use it to pass the gate on ordinary prose.
+
+### Language
+
+The documentation uses ASD-STE100 Simplified Technical English. These are the rules that matter most.
+
+| Rule | Constraint |
+| --- | --- |
+| Sentence length | 20 words or fewer in an instruction. 25 or fewer in a description. |
+| Paragraph length | 6 sentences or fewer. |
+| Voice | Active only. No passive. |
+| Verb forms | No `-ing` forms. No compound tenses. |
+| Contractions | None. Write `do not`, never `don't`. |
+| Topics | One instruction, or one idea, per sentence. |
+| Noun clusters | 3 words or fewer. |
+| Modals | `must`, `can` and `do` only. |
+| Nominalizations | Use the verb, not the noun built from it. |
+
+Prefer a table or a vertical list over a long paragraph. Cut a compound sentence into two.
+
+#### Substitutions
+
+| Instead of                          | Write               |
+| ----------------------------------- | ------------------- |
+| however, although, while (contrast) | but                 |
+| since (cause)                       | because             |
+| via                                 | with, by            |
+| prior to                            | before              |
+| in order to                         | to                  |
+| utilize                             | use                 |
+| perform                             | do                  |
+| provide                             | give                |
+| require                             | need                |
+| ensure                              | make sure           |
+| verify                              | check               |
+| obtain                              | get                 |
+| additional                          | more                |
+| multiple                            | many                |
+| approximately                       | about               |
+| identical                           | the same            |
+| sufficient                          | enough              |
+| occur                               | happen              |
+| indicate                            | show                |
+| currently                           | now                 |
+| terminate                           | stop                |
+| leverage                            | use                 |
+| facilitate                          | help                |
+| as well as                          | and                 |
+| e.g., i.e., etc.                    | write the words out |
+
+Before:
+
+```md
+The migrations are applied by the bootstrap service, which is currently the only place where this occurs, prior to the server starting.
+```
+
+After:
+
+```md
+The `bootstrap` service applies the migrations. It is the only place that applies them, and it runs before the API server starts.
+```
+
+Technical Names and Technical Verbs stay as they are: Prisma, oRPC, Docker Compose, render, mount, return, sync. Use them freely. The rules cover prose only, never a code block.
+
+#### One term per concept
+
+Keep one term for each concept, on every page. [How Freenary Works](/docs/getting-started/how-it-works) holds the term list. Write the full term first, then repeat that same term. Never swap in a synonym for variety.
+
+### The Markdown and llms endpoints
+
+The site serves each page as plain Markdown too.
+
+| Route | What it returns |
+| --- | --- |
+| `GET /llms.txt` | An index of every page. |
+| `GET /llms-full.txt` | Every page as Markdown, joined by a blank line. |
+| `GET /docs/<slug>.md` | One page as Markdown, with `Content-Type: text/markdown`. A 404 for an unknown slug. |
+
+`getLLMText` emits `# <title> (<url>)` and then the processed Markdown. The index page is `/docs/index.md`. `/docs.md` does not resolve.
+
+Development mode and production differ on the page routes:
+
+| Request | `vite dev` | After `bun run build` |
+| --- | --- | --- |
+| `/docs/<slug>.md` | 404. The route does not register in the dev router. | 200 `text/markdown` |
+| `/docs/<slug>` with `Accept: text/markdown` | 307 to the `.md` URL, which then 404s | 200 `text/html`. Nitro serves the prerendered HTML before the middleware runs. |
+| `/llms.txt` and `/llms-full.txt` | Works | Works |
+
+So test a Markdown endpoint against a build, never against `bun run dev`.
+
+{/* docs-check enable */}
+
+## Release a version
+
+Freenary ships as two container images. A release is maintainer work. A contributor opens a pull request against `dev` and stops there. [The two branches](#the-two-branches) holds the branch model.
+
+A normal release takes two moves. A maintainer merges `dev` into `main`, then runs the `Release` workflow from `main`.
+
+A hotfix goes the other way. The pull request opens against `main`, so the fix carries none of the unreleased work on `dev`. The release runs from `main` as usual. Then `main` merges back into `dev`, or the fix disappears at the next release.
+
+The root `package.json` carries no `version` field, and the repository holds no changelog file. The git tag is the version, and no file repeats it.
+
+### What a push publishes
+
+`.github/workflows/images.yml`, named **Images**, publishes both images to the GitHub Container Registry. The image name comes from the repository slug in lower case, so a fork publishes under its own owner.
+
+| Image                               | Platforms                       |
+| ----------------------------------- | ------------------------------- |
+| `ghcr.io/suiramdev/freenary-server` | `linux/amd64` and `linux/arm64` |
+| `ghcr.io/suiramdev/freenary-web`    | `linux/amd64` and `linux/arm64` |
+
+It runs on two triggers:
+
+- A push to `dev` or `main`. Two path filters skip the run: `apps/fumadocs/**` and `**/*.md`. A documentation-only push therefore builds nothing.
+- A `workflow_call` from the `Release` workflow, with the git ref to build as the input.
+
+#### The tags
+
+| Ref | Tags on both images |
+| --- | --- |
+| A push to `dev` | `dev`, and `sha-<first 7 characters of the commit>` |
+| A push to `main` | `main`, and `sha-<first 7 characters of the commit>` |
+| The tag `vX.Y.Z` | `X.Y.Z`, `X.Y`, `X`, `latest` |
+| The tag `vX.Y.Z-<pre>` | `X.Y.Z-<pre>` alone |
+
+A pre-release moves no other tag. It never becomes `latest`, and it never moves `X.Y` or `X`. Any other ref stops the `tags` job with `Unsupported ref: <ref>`.
+
+The version tags come into existence with the first release run. Until a maintainer runs one, the two branch tags and the per-commit `sha-` tags are the whole set. The production compose file defaults `FREENARY_VERSION` to `latest`, and only a `vX.Y.Z` git tag writes that tag. [Update an instance](/docs/self-hosting/docker#updates) is the operator view.
+
+#### The three jobs
+
+| Job | Runner | What it does |
+| --- | --- | --- |
+| `tags` | `ubuntu-latest` | Reads the ref, then derives the version and the tag list |
+| `build` | One native runner per platform | Builds one image for one platform and pushes it by digest, with no tag |
+| `merge` | `ubuntu-latest` | Joins the digests of one image into one multi-platform manifest, then inspects it |
+
+`build` is a matrix over the two applications and the two platforms. Each platform builds on its own native runner: `ubuntu-latest` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`. The workflow states the reason: Bun under QEMU emulation is slow and unreliable. The matrix sets `fail-fast: false`, so one broken platform still reports the other three results.
+
+The tags land in `merge`, on the manifest that carries both platforms. That job runs `docker buildx imagetools create` with one tag flag per tag and one reference per digest, then inspects the version tag. The build passes the build argument `GITHUB_REPOSITORY` and the secret `GITHUB_TOKEN`, which the server image needs for the merchant data. [Architecture](/docs/developers/architecture#what-the-caches-hold) covers that step.
+
+### The `Release` workflow
+
+`.github/workflows/release.yml`, named **Release**, cuts one version. It has one trigger, `workflow_dispatch`, and one input.
+
+| Input | Required | What it holds |
+| --- | --- | --- |
+| `version` | yes | The version without the `v`, such as `1.2.0` or `1.3.0-rc.1` |
+
+A maintainer runs it by hand:
+
+<Steps>
+
+<Step>
+
+#### Merge and wait
+
+Merge `dev` into `main`, then wait for CI to pass on `main`.
+
+</Step>
+
+<Step>
+
+#### Start the workflow
+
+Open the **Actions** tab, pick **Release**, then press **Run workflow**. Select the branch `main`.
+
+</Step>
+
+<Step>
+
+#### Name the version
+
+Type the version in the `version` field, with no `v`. Press **Run workflow** again.
+
+</Step>
+
+</Steps>
+
+#### The three refusals
+
+The first job, `tag`, stops before it writes anything when one of these holds:
+
+| Refusal | Message |
+| --- | --- |
+| The run started from a branch other than `main` | `Releases are cut from main, not from <branch>` |
+| The version does not match `X.Y.Z` or `X.Y.Z-pre` | `Not a version: <version> (expected X.Y.Z or X.Y.Z-pre)` |
+| The tag `v<version>` exists already | `v<version> already exists` |
+
+The pre-release suffix accepts digits, letters and dots. A version with a `-` in it is a pre-release.
+
+#### What the run produces
+
+| Job | What it does |
+| --- | --- |
+| `tag` | Snapshots `apps/fumadocs/content/docs/next` as `content/docs/X.Y`, commits it on `main`, then pushes the annotated tag `v<version>` on the commit of the run, with the message `Freenary <version>`, as `github-actions[bot]`. It also records the newest earlier `v*` tag for the notes |
+| `images` | Calls the `Images` workflow with the ref `refs/tags/v<version>`, which publishes the four version tags |
+| `publish` | Creates the GitHub release `v<version>`, titled `Freenary <version>`. The notes open with an **Images** section that names both references and their platforms, then GitHub appends generated notes from the previous tag. A version with a `-` marks the release as a pre-release |
+
+### The merchant data releases
+
+`.github/workflows/generate-data.yml`, named **Generate merchant data**, publishes a second kind of release: the tag `data-<YYYY-MM-DD>` with the asset `merchant-data.tar.gz`. It passes `--latest=false`, because a data release is a build input and not a version of Freenary. The `Release` workflow passes no such flag, so a version release takes that place. [Transaction categorisation](/docs/developers/architecture#the-weekly-workflow) covers its triggers and its steps.
+
+### The documentation snapshot
+
+The documentation site publishes one copy of the pages for each version. `content/docs/next` holds the pages a pull request edits, and a release freezes them:
+
+| Version | What it holds |
+| --- | --- |
+| `X.Y` | The pages as they were at the release of `X.Y` |
+| `next` | The pages for the unreleased code, which the `dev` and `main` images run |
+
+The `tag` job runs the copy before it writes the tag. The tag therefore names a tree that holds the new folder. The copy carries one edit: a repository link names `main`, and the frozen page names the release tag. Three rules follow:
+
+- A patch release finds `content/docs/X.Y` in place, and copies nothing. A documentation fix for a released version therefore edits that folder directly.
+- A pre-release copies nothing. Its readers stay on `next`.
+- The step is safe to repeat. A maintainer who runs `cd apps/fumadocs && bun run docs:snapshot X.Y.Z` in the release pull request leaves the workflow nothing to do. A repeat run also finishes an interrupted one.
+
+The application links to the documentation for the version it runs. `images.yml` passes the version to the web image as the build argument `FREENARY_VERSION`. The account menu opens `/docs/X.Y` for a release, and `/docs/next` for a branch build. [Versions](#versions) holds the authoring rules.
+
+### What a contributor never does
+
+- Never push a git tag. The `tag` job of the `Release` workflow is the one writer of a `v*` tag.
+- Never bump a version. The root manifest holds no version field to bump.
+- Never open a pull request against `main`, unless it is a hotfix a maintainer asked for.
+- Never run the `Release` workflow.

@@ -1,7 +1,6 @@
 ---
 title: Logs
 description: Follow the container output of the API server, find a failed request in it, and cap how much Docker keeps.
-icon: ScrollText
 ---
 
 The API server writes one event per HTTP request to its container output.
@@ -69,8 +68,8 @@ A fault prints a stack trace next to the event. A refused call below status 500 
 | --- | --- |
 | `Server is running on http://localhost:3000` | The API server reached its listener. The port is the value of `PORT` |
 | `❌ Invalid environment variables:` | One variable failed the schema, and the block names it. The process then exits |
-| `EMAIL_PROVIDER=` | A startup refusal about email delivery. Read [Email](/docs/self-hosting/email) |
-| `AUTH_COOKIE_DOMAIN (` | A startup refusal about the cookie domain. Read [Reverse proxy](/docs/self-hosting/reverse-proxy) |
+| `EMAIL_PROVIDER=` | A startup refusal about email delivery. Read [Email](/docs/self-hosting/configuration#email-delivery) |
+| `AUTH_COOKIE_DOMAIN (` | A startup refusal about the cookie domain. Read [Reverse proxy](/docs/self-hosting/configuration#behind-a-reverse-proxy) |
 | `[auth] ` | A warning about the cookie policy outside production |
 | `[email:log] to=` | A one-time code printed instead of sent. The next line holds the code |
 | `Dictionary signature missing:` | The categorisation dictionary was refused. `DICTIONARY_PUBLIC_KEY` is set |
@@ -99,7 +98,7 @@ logging:
 
 <Card
   title="Troubleshooting"
-  href="/docs/self-hosting/troubleshooting"
+  href="/docs/help/troubleshooting"
   description="Match a line you found to its cause and its fix."
 />
 
