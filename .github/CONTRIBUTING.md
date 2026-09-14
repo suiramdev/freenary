@@ -75,6 +75,20 @@ Follow the [pull request template](pull_request_template.md). Each pull request 
 
 If there is no visual change, say that explicitly in the PR description.
 
+## Licensing Your Contribution
+
+Freenary is licensed under the [GNU Affero General Public License v3.0 or later](../LICENSE). When you open a pull request, you license your contribution under the same terms, and you confirm that you have the right to do so.
+
+Sign off every commit to state that:
+
+```bash
+git commit -s -m "fix: stop the login redirect loop"
+```
+
+`-s` appends a `Signed-off-by` line, which certifies the [Developer Certificate of Origin](https://developercertificate.org). Set `git config user.name` and `user.email` to a real name and address first.
+
+Do not paste code from a source whose license forbids it, and do not add a dependency under a license that the AGPL cannot distribute — a proprietary license, or a stronger copyleft such as the SSPL. MIT, ISC, BSD, Apache-2.0 and MPL-2.0 are all fine. A new vendored file that carries its own copyright notice keeps that notice, and the notice goes in [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md).
+
 ## Release Process
 
 Releases are maintainer-managed: a maintainer merges `dev` into `main` and runs the `Release` workflow, which creates the tag, the images and the GitHub release. Do not tag, and do not include a version bump in a normal contribution unless a maintainer asks for one. See [Release a version](../apps/fumadocs/content/docs/next/contributing/releasing.mdx).

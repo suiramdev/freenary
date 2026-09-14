@@ -113,4 +113,6 @@ Report a problem or request a feature: [GitHub Issues](https://github.com/suiram
 
 ## License
 
-This repository does not include a license file yet. Open an issue if you need the reuse terms.
+Freenary is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). You may run, study, change and share it. If you change Freenary and let other people use it over a network, AGPL section 13 requires you to offer them the source of your version. Third-party notices: [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+Copyright (C) 2026 Marius ([@suiramdev](https://github.com/suiramdev)) and the Freenary contributors.
