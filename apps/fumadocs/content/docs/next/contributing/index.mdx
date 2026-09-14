@@ -161,7 +161,26 @@ Branch names describe the change. `.github/CONTRIBUTING.md` names three good exa
 | `feat/portfolio-holdings-view`   | `misc`    |
 | `chore/update-contributor-guide` | `changes` |
 
-The repository documents no commit-message convention. It holds no commitlint config and no `commit-msg` hook. Write a subject line that names what changed.
+The repository holds no commitlint config and no `commit-msg` hook, so nothing checks the subject line. Write a subject that names what changed.
+
+Sign off every commit:
+
+```bash
+git commit -s -m "fix: stop the login redirect loop"
+```
+
+The `-s` flag appends a `Signed-off-by` trailer. The trailer certifies the [Developer Certificate of Origin](https://developercertificate.org). It states that you wrote the change, or that you hold the right to contribute it.
+
+### The license of your contribution
+
+Freenary is free software under the GNU Affero General Public License, version 3 or later. A pull request licenses its contribution under the same terms.
+
+Two rules follow from that license:
+
+- A new dependency must carry a license that the AGPL can distribute. MIT, ISC, BSD, Apache-2.0 and MPL-2.0 all qualify. A proprietary license does not, and a stronger copyleft such as the SSPL does not.
+- A file that you copy into the repository keeps the copyright notice of its source. Put that notice in `THIRD-PARTY-NOTICES.md`.
+
+The license text is `LICENSE`, and the notices of the bundled third-party software are in `THIRD-PARTY-NOTICES.md`.
 
 ### The pull request body
 
@@ -203,9 +222,11 @@ Check an interface change in the browser, in light mode and in dark mode. A tag 
 
 | Source | Scope |
 | --- | --- |
-| [`.github/CONTRIBUTING.md`](https://github.com/suiramdev/freenary/blob/main/.github/CONTRIBUTING.md) | Setup, branch names, the pre-pull-request checks, the pull request rules |
+| [`.github/CONTRIBUTING.md`](https://github.com/suiramdev/freenary/blob/main/.github/CONTRIBUTING.md) | Setup, branch names, the pre-pull-request checks, the pull request rules, the sign-off and the license of a contribution |
 | [`CONTEXT.md`](https://github.com/suiramdev/freenary/blob/main/CONTEXT.md) | The product vision and the glossary of each domain term |
 | [`AGENTS.md`](https://github.com/suiramdev/freenary/blob/main/AGENTS.md) | The repository-wide working rules, and the documentation duty |
+| [`LICENSE`](https://github.com/suiramdev/freenary/blob/main/LICENSE) | The GNU Affero General Public License, version 3, under which Freenary is distributed |
+| [`THIRD-PARTY-NOTICES.md`](https://github.com/suiramdev/freenary/blob/main/THIRD-PARTY-NOTICES.md) | The license notices of the vendored and the bundled third-party software |
 
 Each workspace states its own rules next to its code:
 
