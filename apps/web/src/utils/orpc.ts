@@ -14,6 +14,11 @@ export const createQueryClient = () =>
     defaultOptions: { queries: { staleTime: 60 * 1000 } },
     queryCache: new QueryCache({
       onError: (error, query) => {
+        // A prefetch has no observer: nothing on screen is waiting for it, and
+        // its Retry would only invalidate a query no component reads.
+        if (query.getObserversCount() === 0) {
+          return;
+        }
         // `error.message` stays as the server sent it; only the framing is ours
         // to translate.
         toast.error(m.query_error({ reason: error.message }), {

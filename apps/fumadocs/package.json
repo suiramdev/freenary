@@ -1,6 +1,7 @@
 {
   "name": "fumadocs",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "sideEffects": false,
   "scripts": {
@@ -9,6 +10,8 @@
     "start": "vite preview",
     "preview": "vite preview",
     "types:check": "tsc --noEmit",
+    "docs:check": "bun scripts/check-docs.ts",
+    "docs:snapshot": "bun scripts/snapshot-version.ts",
     "lint": "oxlint"
   },
   "dependencies": {

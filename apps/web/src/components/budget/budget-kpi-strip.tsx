@@ -1,6 +1,7 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import { cn } from "@freenary/ui/lib/utils";
 
+import { StaleRegion } from "@/components/budget/stale-region";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { AggregationMode } from "@/lib/budget/period";
 import { m } from "@/paraglide/messages.js";
@@ -65,6 +66,7 @@ interface BudgetKpiStripProps {
   aggregation: AggregationMode;
   isError: boolean;
   isPending: boolean;
+  isStale: boolean;
   totalExpenses: number;
   totalIncome: number;
 }
@@ -74,6 +76,7 @@ export const BudgetKpiStrip = ({
   aggregation,
   isError,
   isPending,
+  isStale,
   totalExpenses,
   totalIncome,
 }: BudgetKpiStripProps) => {
@@ -93,7 +96,7 @@ export const BudgetKpiStrip = ({
   const net = totalIncome - totalExpenses;
 
   return (
-    <div className={STRIP_LAYOUT}>
+    <StaleRegion className={STRIP_LAYOUT} isStale={isStale}>
       <KpiCell label={labels.income()} value={isError ? null : totalIncome} />
       <KpiCell
         label={labels.expenses()}
@@ -104,6 +107,6 @@ export const BudgetKpiStrip = ({
         tone={net >= 0 ? "text-success" : "text-destructive"}
         value={isError ? null : net}
       />
-    </div>
+    </StaleRegion>
   );
 };

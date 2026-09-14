@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@freenary/ui/components/popover";
 import { RiCoinsLine } from "@remixicon/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { currencySymbol } from "@/lib/budget/format-currency";
@@ -35,15 +35,22 @@ const draftOf = (range: AmountRange) => ({
 });
 
 interface AmountFilterMenuProps {
+  /** What the bounds read against, when it is not "how much money moved". */
+  hint?: string;
+  /** The trigger's word, when the figure filtered is not a plain amount. */
+  label?: string;
   onRangeChange: (range: AmountRange) => void;
   range: AmountRange;
 }
 
-/** The transaction list's amount filter: how much moved, in either direction. */
+/** A budget list's amount filter: two bounds on the figure the list shows. */
 export const AmountFilterMenu = ({
+  hint = m.budget_filter_amount_hint(),
+  label = m.budget_filter_amount(),
   onRangeChange,
   range,
 }: AmountFilterMenuProps) => {
+  const fieldId = useId();
   const locale = getLocale();
   const [draft, setDraft] = useState(() => draftOf(range));
   const settled = useDebouncedValue(draft, AMOUNT_SETTLE_MS);
@@ -80,20 +87,20 @@ export const AmountFilterMenu = ({
     >
       <PopoverTrigger render={<Button variant="outline" />}>
         <RiCoinsLine data-icon="inline-start" />
-        {m.budget_filter_amount()}
+        {label}
         {isActive && <Badge variant="secondary">1</Badge>}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 gap-2.5">
         <div className="flex items-end gap-2">
           <Field>
-            <FieldLabel htmlFor="budget-amount-min">
+            <FieldLabel htmlFor={`${fieldId}-min`}>
               {m.budget_filter_amount_min()}
             </FieldLabel>
             <InputGroup>
               <InputGroupAddon>{symbol}</InputGroupAddon>
               <InputGroupInput
                 aria-invalid={isImpossible}
-                id="budget-amount-min"
+                id={`${fieldId}-min`}
                 inputMode="decimal"
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -107,14 +114,14 @@ export const AmountFilterMenu = ({
             </InputGroup>
           </Field>
           <Field>
-            <FieldLabel htmlFor="budget-amount-max">
+            <FieldLabel htmlFor={`${fieldId}-max`}>
               {m.budget_filter_amount_max()}
             </FieldLabel>
             <InputGroup>
               <InputGroupAddon>{symbol}</InputGroupAddon>
               <InputGroupInput
                 aria-invalid={isImpossible}
-                id="budget-amount-max"
+                id={`${fieldId}-max`}
                 inputMode="decimal"
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -129,9 +136,7 @@ export const AmountFilterMenu = ({
           </Field>
         </div>
         <PopoverDescription className={isImpossible ? "text-destructive" : ""}>
-          {isImpossible
-            ? m.budget_filter_amount_impossible()
-            : m.budget_filter_amount_hint()}
+          {isImpossible ? m.budget_filter_amount_impossible() : hint}
         </PopoverDescription>
         {isActive && (
           <Button

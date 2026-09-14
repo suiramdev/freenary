@@ -7,7 +7,15 @@ export interface Country {
   name: string;
 }
 
-export const SUPPORTED_COUNTRY_CODES = new Set(["FR"]);
+/**
+ * Countries with a local layer behind them: bank coverage, institution cleanup
+ * and categorisation rules. Every other country is selectable, and the screen
+ * says its support is partial.
+ */
+const FULLY_SUPPORTED_COUNTRY_CODES = { FR: true } as const;
+
+export const isFullySupportedCountry = (code: string): boolean =>
+  Object.hasOwn(FULLY_SUPPORTED_COUNTRY_CODES, code);
 
 /**
  * ISO 3166-1 alpha-2. Names and flags are derived from the code, so a country
@@ -241,11 +249,11 @@ const countriesIn = (locale: Locale): readonly Country[] => {
     flag: flagOf(code),
     name: names.of(code) ?? code,
   })).toSorted((a, b) => {
-    // Countries you can actually connect a bank in come first; the rest are
-    // alphabetical in the reader's own language, not in English.
+    // Fully supported countries come first; the rest are alphabetical in the
+    // reader's own language, not in English.
     const bySupport =
-      Number(SUPPORTED_COUNTRY_CODES.has(b.code)) -
-      Number(SUPPORTED_COUNTRY_CODES.has(a.code));
+      Number(isFullySupportedCountry(b.code)) -
+      Number(isFullySupportedCountry(a.code));
     return bySupport || collator.compare(a.name, b.name);
   });
 

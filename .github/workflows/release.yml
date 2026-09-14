@@ -58,12 +58,40 @@ jobs:
         id: previous
         run: echo "tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_OUTPUT"
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # The documentation site serves one folder per release. The snapshot has
+      # to be in the tree the tag names, so it happens before the tag.
+      - name: Snapshot the documentation
+        id: docs
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Pre-release: the documentation stays on next"
+            exit 0
+          fi
+          echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+          cd apps/fumadocs && bun scripts/snapshot-version.ts "$VERSION"
+
+      - name: Commit the snapshot
+        env:
+          MINOR: ${{ steps.docs.outputs.minor }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain apps/fumadocs/content/docs)" ]]; then
+            git add apps/fumadocs/content/docs
+            git commit -m "docs: snapshot $MINOR"
+            git push origin HEAD:main
+          fi
+
       - name: Tag
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Freenary $VERSION"
           git push origin "refs/tags/v$VERSION"
 

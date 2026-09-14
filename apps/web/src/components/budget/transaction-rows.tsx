@@ -9,6 +9,7 @@ import { RiReceiptLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { StaleRegion } from "@/components/budget/stale-region";
 import { TransactionGroupHeader } from "@/components/budget/transaction-group-header";
 import { TransactionRow } from "@/components/budget/transaction-row";
 import { TransactionRowsSkeleton } from "@/components/budget/transaction-rows-skeleton";
@@ -28,6 +29,7 @@ export const TransactionRows = ({
   onLoadMore,
   isLoading,
   isIncoming,
+  isStale,
   onTransactionClick,
   range,
 }: {
@@ -36,6 +38,7 @@ export const TransactionRows = ({
   onLoadMore: () => void;
   isLoading: boolean;
   isIncoming: boolean;
+  isStale: boolean;
   onTransactionClick: (tx: Transaction) => void;
   range: TimeRange;
 }) => {
@@ -60,34 +63,47 @@ export const TransactionRows = ({
   const visibleItems = virtualizer.getVirtualItems();
 
   const loadMoreCheck = useCallback(() => {
-    if (!hasMore || isLoading) {
+    // A placeholder's `hasNextPage` belongs to the previous view: fetching its
+    // second page would page a list whose first page has not landed.
+    if (!hasMore || isLoading || isStale) {
       return;
     }
     const lastItem = visibleItems.at(-1);
     if (lastItem && lastItem.index >= virtualItems.length - 5) {
       onLoadMore();
     }
-  }, [hasMore, isLoading, visibleItems, virtualItems.length, onLoadMore]);
+  }, [
+    hasMore,
+    isLoading,
+    isStale,
+    visibleItems,
+    virtualItems.length,
+    onLoadMore,
+  ]);
 
   useEffect(() => {
     loadMoreCheck();
   }, [loadMoreCheck]);
 
   if (transactions.length === 0 && !isLoading) {
+    // The emptiness itself may belong to the previous view, and an unmarked
+    // "no transactions" reads as the answer to the control just pressed.
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <RiReceiptLine />
-          </EmptyMedia>
-          <EmptyTitle>{m.budget_transactions_empty_title()}</EmptyTitle>
-          <EmptyDescription>
-            {isIncoming
-              ? m.budget_transactions_empty_incoming()
-              : m.budget_transactions_empty_outgoing()}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <StaleRegion className="flex flex-1 flex-col" isStale={isStale}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <RiReceiptLine />
+            </EmptyMedia>
+            <EmptyTitle>{m.budget_transactions_empty_title()}</EmptyTitle>
+            <EmptyDescription>
+              {isIncoming
+                ? m.budget_transactions_empty_incoming()
+                : m.budget_transactions_empty_outgoing()}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </StaleRegion>
     );
   }
 
@@ -97,51 +113,55 @@ export const TransactionRows = ({
       aria-busy={isLoading || undefined}
       className="flex-1 overflow-auto"
     >
-      <div
-        className="relative w-full"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
-      >
-        {visibleItems.map((virtualRow) => {
-          const item = virtualItems[virtualRow.index];
-          if (!item) {
-            return null;
-          }
+      <StaleRegion isStale={isStale}>
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {visibleItems.map((virtualRow) => {
+            const item = virtualItems[virtualRow.index];
+            if (!item) {
+              return null;
+            }
 
-          if (item.type === "header") {
+            if (item.type === "header") {
+              return (
+                <TransactionGroupHeader
+                  key={item.key}
+                  label={item.label}
+                  total={item.total}
+                  currency={item.currency}
+                  index={virtualRow.index}
+                  offset={virtualRow.start}
+                  measureRef={virtualizer.measureElement}
+                />
+              );
+            }
+
             return (
-              <TransactionGroupHeader
+              <TransactionRow
                 key={item.key}
-                label={item.label}
-                total={item.total}
-                currency={item.currency}
+                transaction={item.tx}
+                isIncoming={isIncoming}
                 index={virtualRow.index}
                 offset={virtualRow.start}
                 measureRef={virtualizer.measureElement}
+                onClick={() => onTransactionClick(item.tx)}
               />
             );
-          }
-
-          return (
-            <TransactionRow
-              key={item.key}
-              transaction={item.tx}
-              isIncoming={isIncoming}
-              index={virtualRow.index}
-              offset={virtualRow.start}
-              measureRef={virtualizer.measureElement}
-              onClick={() => onTransactionClick(item.tx)}
-            />
-          );
-        })}
-      </div>
-      {isLoading ? (
-        <>
-          <output className="sr-only">{m.budget_transactions_loading()}</output>
-          <div aria-hidden="true">
-            <TransactionRowsSkeleton rows={3} />
-          </div>
-        </>
-      ) : null}
+          })}
+        </div>
+        {isLoading ? (
+          <>
+            <output className="sr-only">
+              {m.budget_transactions_loading()}
+            </output>
+            <div aria-hidden="true">
+              <TransactionRowsSkeleton rows={3} />
+            </div>
+          </>
+        ) : null}
+      </StaleRegion>
     </div>
   );
 };

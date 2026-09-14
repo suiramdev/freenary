@@ -17,6 +17,7 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import {
+  RiBookOpenLine,
   RiContrastLine,
   RiExpandUpDownLine,
   RiLogoutBoxLine,
@@ -29,6 +30,7 @@ import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
 import { ThemeMenuItems } from "@/components/shared/theme-menu-items";
 import { UserIdentity } from "@/components/shared/user-identity";
 import { authClient } from "@/lib/auth-client";
+import { docsUrl } from "@/lib/docs";
 import { m } from "@/paraglide/messages.js";
 
 export const SidebarUserMenu = () => {
@@ -112,6 +114,16 @@ export const SidebarUserMenu = () => {
                   <ThemeMenuItems />
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              {/* The documentation for the version this image was built from. */}
+              <DropdownMenuItem
+                render={
+                  <a href={docsUrl()} rel="noopener noreferrer" target="_blank">
+                    <RiBookOpenLine data-icon="inline-start" />
+                    {m.account_documentation()}
+                  </a>
+                }
+              />
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <RiLogoutBoxLine data-icon="inline-start" />

@@ -1,5 +1,6 @@
 {
   "name": "@freenary/api",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
     ".": {

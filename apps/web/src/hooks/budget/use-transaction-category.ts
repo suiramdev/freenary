@@ -2,6 +2,7 @@ import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { TRANSACTIONS_QUERY_KEY } from "@/lib/budget/budget-queries";
 import type { Transaction } from "@/lib/budget/transaction";
 import { m } from "@/paraglide/messages.js";
 import { client } from "@/utils/orpc";
@@ -17,26 +18,20 @@ export const useTransactionCategory = (transaction: Transaction) => {
     queryClient.setQueriesData<{
       pageParams: unknown[];
       pages: { transactions: Transaction[] }[];
-    }>(
-      {
-        predicate: ({ queryKey }) =>
-          queryKey[0] === "budget" && queryKey[1] === "getTransactions",
-      },
-      (old) => {
-        if (!old?.pages) {
-          return old;
-        }
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            transactions: page.transactions.map((tx) =>
-              tx.id === txId ? { ...tx, category } : tx
-            ),
-          })),
-        };
+    }>({ queryKey: TRANSACTIONS_QUERY_KEY }, (old) => {
+      if (!old?.pages) {
+        return old;
       }
-    );
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          transactions: page.transactions.map((tx) =>
+            tx.id === txId ? { ...tx, category } : tx
+          ),
+        })),
+      };
+    });
   };
 
   return useMutation<

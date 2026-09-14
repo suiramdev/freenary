@@ -139,6 +139,7 @@ export const SpendingBreakdownChart = ({
           />
           <Pie
             data={data}
+            isAnimationActive={false}
             dataKey="amount"
             nameKey="group"
             innerRadius="55%"

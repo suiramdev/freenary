@@ -5,6 +5,9 @@ pre-commit:
   parallel: true
   jobs:
     - name: oxlint
+      # oxlint exits 1 when the staged set holds no file it can lint, which a
+      # documentation-only commit always does. The glob makes lefthook skip it.
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
       run: bun oxlint --fix {staged_files}
       stage_fixed: true
     - name: oxfmt

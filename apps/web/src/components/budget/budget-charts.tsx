@@ -25,6 +25,7 @@ import { BudgetVsActualChart } from "@/components/budget/budget-vs-actual-chart"
 import { CashFlowChart } from "@/components/budget/cash-flow-chart";
 import { FixedVsVariableChart } from "@/components/budget/fixed-vs-variable-chart";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
+import { StaleRegion } from "@/components/budget/stale-region";
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { aggregationLabel } from "@/lib/budget/period";
@@ -52,6 +53,7 @@ interface ChartQuery<T> {
   data: T | undefined;
   isError: boolean;
   isPending: boolean;
+  isStale: boolean;
 }
 
 const ChartSkeleton = ({ label }: { label: string }) => (
@@ -89,7 +91,11 @@ const PrimaryChartBody = ({
     if (cashFlow.isError || !cashFlow.data) {
       return <ChartUnavailable />;
     }
-    return <CashFlowChart {...cashFlow.data} onSelect={onSelect} />;
+    return (
+      <StaleRegion className="h-full" isStale={cashFlow.isStale}>
+        <CashFlowChart {...cashFlow.data} onSelect={onSelect} />
+      </StaleRegion>
+    );
   }
   if (breakdown.isPending) {
     return <ChartSkeleton label={m.budget_breakdown_loading()} />;
@@ -97,7 +103,11 @@ const PrimaryChartBody = ({
   if (breakdown.isError || !breakdown.data) {
     return <ChartUnavailable />;
   }
-  return <SpendingBreakdownChart data={breakdown.data} onSelect={onSelect} />;
+  return (
+    <StaleRegion className="h-full" isStale={breakdown.isStale}>
+      <SpendingBreakdownChart data={breakdown.data} onSelect={onSelect} />
+    </StaleRegion>
+  );
 };
 
 const CompanionChartBody = ({
@@ -120,7 +130,11 @@ const CompanionChartBody = ({
     if (fixedVsVariable.isError || !fixedVsVariable.data) {
       return <ChartUnavailable />;
     }
-    return <FixedVsVariableChart {...fixedVsVariable.data} />;
+    return (
+      <StaleRegion className="h-full" isStale={fixedVsVariable.isStale}>
+        <FixedVsVariableChart {...fixedVsVariable.data} />
+      </StaleRegion>
+    );
   }
   if (planned.isPending) {
     return <ChartSkeleton label={m.budget_planned_loading()} />;
@@ -129,11 +143,13 @@ const CompanionChartBody = ({
     return <ChartUnavailable />;
   }
   return (
-    <BudgetVsActualChart
-      activeGroups={activeGroups}
-      {...planned.data}
-      onSelect={onSelect}
-    />
+    <StaleRegion className="h-full" isStale={planned.isStale}>
+      <BudgetVsActualChart
+        activeGroups={activeGroups}
+        {...planned.data}
+        onSelect={onSelect}
+      />
+    </StaleRegion>
   );
 };
 

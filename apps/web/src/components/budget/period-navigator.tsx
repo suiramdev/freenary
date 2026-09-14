@@ -18,9 +18,9 @@ import {
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
 import {
   aggregationLabel,
   AGGREGATION_MODES,
@@ -96,7 +96,6 @@ const PeriodYearPicker = ({
 };
 
 export const PeriodNavigator = ({
-  actions,
   aggregation,
   from,
   to,
@@ -105,10 +104,10 @@ export const PeriodNavigator = ({
   lastMonth,
   onAggregationChange,
   onRangeChange,
+  onRangeIntent,
   onMonthChange,
+  onMonthIntent,
 }: {
-  /** Controls that belong to the header row but not to the period itself. */
-  actions?: ReactNode;
   aggregation: AggregationMode;
   from: Date;
   to: Date;
@@ -117,7 +116,9 @@ export const PeriodNavigator = ({
   lastMonth?: Date;
   onAggregationChange: (mode: AggregationMode) => void;
   onRangeChange: (range: TimeRange) => void;
+  onRangeIntent: (range: TimeRange) => void;
   onMonthChange: (year: number, month: number) => void;
+  onMonthIntent: (year: number, month: number) => void;
 }) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -129,6 +130,14 @@ export const PeriodNavigator = ({
     const d = new Date(anchorYear, anchorMonth + direction * step, 1);
     onMonthChange(d.getFullYear(), d.getMonth());
   };
+
+  // A disabled arrow takes no pointer events, so the bounds below guard the
+  // prefetch as well as the click.
+  const stepIntent = useHoverIntent<number>((direction) => {
+    const d = new Date(anchorYear, anchorMonth + direction * step, 1);
+    onMonthIntent(d.getFullYear(), d.getMonth());
+  });
+  const rangeIntent = useHoverIntent(onRangeIntent);
 
   // Disable arrows when navigating would exceed the data bounds.
   const canGoBack =
@@ -144,6 +153,7 @@ export const PeriodNavigator = ({
           disabled={!canGoBack}
           onClick={() => navigate(-1)}
           aria-label={m.budget_period_previous()}
+          {...stepIntent(-1)}
         >
           <RiArrowLeftSLine />
         </Button>
@@ -186,6 +196,7 @@ export const PeriodNavigator = ({
           disabled={!canGoForward}
           onClick={() => navigate(1)}
           aria-label={m.budget_period_next()}
+          {...stepIntent(1)}
         >
           <RiArrowRightSLine />
         </Button>
@@ -227,12 +238,15 @@ export const PeriodNavigator = ({
           }}
         >
           {TIME_RANGES.map((r) => (
-            <ToggleGroupItem key={r} value={r}>
+            <ToggleGroupItem
+              key={r}
+              value={r}
+              {...(r === range ? undefined : rangeIntent(r))}
+            >
               {r}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        {actions}
       </div>
     </div>
   );

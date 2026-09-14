@@ -350,12 +350,20 @@ function Message({
   );
 }
 
-export function AISearch({ children }: { children: ReactNode }) {
+export function AISearch({
+  children,
+  version,
+}: {
+  children: ReactNode;
+  version: string;
+}) {
   const [open, setOpen] = useState(false);
   const chat = useChat<ChatUIMessage>({
     id: "search",
     transport: new DefaultChatTransport({
       api: "/api/chat",
+      // The answer is grounded in the version the reader is on.
+      body: { version },
     }),
   });
 
