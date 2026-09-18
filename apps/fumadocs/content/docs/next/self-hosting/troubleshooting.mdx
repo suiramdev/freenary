@@ -307,7 +307,7 @@ docker compose up -d server
 | The Powens domain activated no connector | The console lists the connectors of the domain as inactive |
 | No jurisdiction of the profile has coverage | Another country fills the list |
 
-A wrong domain, a wrong client id or a wrong secret makes the call fail instead. The list then reads `Freenary could not load banks for` and names those countries.
+A wrong domain makes the call fail instead. The list then reads `Freenary could not load banks for` and names those countries. A wrong client id or a wrong secret does not fail that call. The call for the bank list sends no token, and it reads only the domain. The list fills as usual, and the credentials stop the link later, when you select a bank.
 
 **The fix.** Activate the connectors of the domain in the [Powens console](https://console.powens.com), then reload Settings. The server holds no institution cache, and it asks the provider on every call.
 

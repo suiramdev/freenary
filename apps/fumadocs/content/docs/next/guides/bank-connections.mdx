@@ -23,7 +23,7 @@ A check that fails reads `Could not check bank linking`, over the line `Reload t
 
 ## The institution list
 
-The panel holds one row per bank, under the search box `Search banks…`. The list has its own scroll bar. It covers every jurisdiction you gave at setup, so a bank of each one is here.
+The panel holds one row per bank, under the search box `Search banks…`. The list has its own scroll bar. It covers the jurisdictions you gave at setup. A jurisdiction adds no row when it has no bank. A notice reads `Freenary could not load banks for` above the list when Freenary cannot reach the provider for a jurisdiction. The other jurisdictions still show their banks.
 
 Your connected banks sit at the top. Each of those rows carries a sub-line:
 
@@ -32,7 +32,7 @@ Your connected banks sit at the top. Each of those rows carries a sub-line:
 | `{accounts} · Synced {date}`  | The date of the last sync that worked     |
 | `{accounts} · Not synced yet` | The connection exists and no sync has run |
 
-A bank you already connected drops out of the list of banks to connect. You cannot link the same bank twice from here. Every other row carries a `Connect` button and a sub-line with the bank identifier code. With more than one jurisdiction, that sub-line starts with the country the row links. The same bank can serve two of them.
+A bank you already connected drops out of the list of banks to connect. You cannot link the same bank twice from here. Every other row carries a `Connect` button. A row shows a sub-line when Freenary knows the country or the bank identifier code of that bank. With more than one jurisdiction, that sub-line starts with the country the row links. The same bank can serve two of them.
 
 ## Link a bank
 
