@@ -6,9 +6,11 @@ import { m } from "@/paraglide/messages.js";
 
 interface OnboardingStepperProps {
   current: number;
-  /** Message functions, so the labels follow a locale change with the tree. */
   steps: readonly (() => string)[];
 }
+
+const CONNECTOR_DIRECTIONAL_FILL_CLASS =
+  "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none";
 
 export const OnboardingStepper = ({
   current,
@@ -56,11 +58,9 @@ export const OnboardingStepper = ({
               aria-hidden="true"
               className="bg-border mx-3 h-px w-8 overflow-hidden sm:w-12"
             >
-              {/* Fills toward the step it leads to, rather than recolouring
-                  the whole connector at once. */}
               <span
                 className={cn(
-                  "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+                  CONNECTOR_DIRECTIONAL_FILL_CLASS,
                   isComplete ? "scale-x-100" : "scale-x-0"
                 )}
               />

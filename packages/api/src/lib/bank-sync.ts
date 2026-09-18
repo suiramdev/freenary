@@ -1,4 +1,5 @@
 import prisma, { Prisma } from "@freenary/db";
+import { Data, Effect, Match } from "effect";
 
 import { deriveMerchantKey } from "../categorisation/merchant-key";
 import { getProvider } from "../providers/registry";
@@ -29,7 +30,71 @@ export interface ConnectionWithAccounts {
   accounts: SyncAccount[];
 }
 
-// Provider → persistence field mapping (sync writes raw data, no categorisation)
+interface SyncWindow {
+  dateFrom: string;
+  dateTo: string;
+}
+
+interface ConnectionSyncContext {
+  connection: ConnectionWithAccounts;
+  provider: BankingProvider;
+  user: ProviderUserSession | null;
+  window: SyncWindow;
+}
+
+interface AccountSyncContext extends ConnectionSyncContext {
+  account: SyncAccount;
+}
+
+type SyncScope =
+  | { readonly kind: "account"; readonly providerAccountId: string }
+  | { readonly kind: "connection"; readonly institutionName: string };
+
+class BankSyncFailed extends Data.TaggedError("BankSyncFailed")<{
+  readonly detail: string;
+  readonly scope: SyncScope;
+}> {}
+
+const PROVIDER_SERVED_HISTORY_DAYS = 90;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const failureLine = (failure: BankSyncFailed): string =>
+  Match.value(failure.scope).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      account: (scope) =>
+        `Account ${scope.providerAccountId}: ${failure.detail}`,
+      connection: (scope) =>
+        `Connection ${scope.institutionName}: ${failure.detail}`,
+    })
+  );
+
+const recordFailure =
+  (errors: string[]) =>
+  (failure: BankSyncFailed): Effect.Effect<void> =>
+    Effect.sync(() => {
+      errors.push(failureLine(failure));
+    });
+
+const accountFailure =
+  (account: SyncAccount) =>
+  (cause: unknown): BankSyncFailed =>
+    new BankSyncFailed({
+      detail: cause instanceof Error ? cause.message : "Unknown account error",
+      scope: { kind: "account", providerAccountId: account.providerAccountId },
+    });
+
+const connectionFailure =
+  (connection: ConnectionWithAccounts) =>
+  (cause: unknown): BankSyncFailed =>
+    new BankSyncFailed({
+      detail:
+        cause instanceof Error ? cause.message : "Unknown connection error",
+      scope: {
+        institutionName: connection.institutionName,
+        kind: "connection",
+      },
+    });
 
 const mapProviderFields = (tx: ProviderTransaction) => ({
   amount: tx.amountMinor,
@@ -64,48 +129,32 @@ const mapProviderFields = (tx: ProviderTransaction) => ({
   valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
 });
 
-// Merchant key derivation for a provider transaction
-
 const deriveKey = (
   tx: ProviderTransaction,
-  institutionName: string,
-  institutionCountry: string | null,
-  institutionBic: string | null,
-  institutionGroup: string | null
+  connection: ConnectionWithAccounts
 ) =>
   deriveMerchantKey({
     amountMinor: tx.amountMinor,
     bankTransactionFamilyCode: tx.bankTransactionFamilyCode,
     bankTransactionSubCode: tx.bankTransactionSubCode,
-    country: institutionCountry,
+    country: connection.institutionCountry,
     creditorIban: tx.creditorIban,
     creditorIdentifications: tx.creditorIdentifications,
     creditorName: tx.creditorName,
     debtorName: tx.debtorName,
-    institutionBic,
-    institutionGroup,
-    institutionName,
+    institutionBic: connection.institutionBic,
+    institutionGroup: connection.institutionGroup,
+    institutionName: connection.institutionName,
     remittanceLines: tx.remittanceLines,
   });
-
-// Transaction upsert (sync only — raw data + merchant key, no categorisation)
 
 const upsertTransaction = async (
   accountId: string,
   tx: ProviderTransaction,
-  institutionName: string,
-  institutionCountry: string | null,
-  institutionBic: string | null,
-  institutionGroup: string | null
+  connection: ConnectionWithAccounts
 ) => {
   const shared = mapProviderFields(tx);
-  const keyResult = deriveKey(
-    tx,
-    institutionName,
-    institutionCountry,
-    institutionBic,
-    institutionGroup
-  );
+  const keyResult = deriveKey(tx, connection);
 
   await prisma.transaction.upsert({
     create: {
@@ -137,17 +186,24 @@ const upsertTransaction = async (
   });
 };
 
-/**
- * Refreshes the accounts a connection holds, so an account the user activated
- * at the provider after linking appears, and balances stay current. Providers
- * with no account data keep the rows the connection was created with.
- */
-const syncProviderAccounts = async (
+const upsertTransactionsInSeries = async (
+  accountId: string,
+  transactions: readonly ProviderTransaction[],
+  connection: ConnectionWithAccounts
+): Promise<void> => {
+  for (const tx of transactions) {
+    // eslint-disable-next-line no-await-in-loop -- sequential to avoid unique constraint races
+    await upsertTransaction(accountId, tx, connection);
+  }
+};
+
+const refreshProviderAccounts = async (
   provider: BankingProvider,
   connection: ConnectionWithAccounts,
   user: ProviderUserSession | null
 ): Promise<SyncAccount[]> => {
   const { fetchAccounts } = provider;
+
   if (!fetchAccounts) {
     return connection.accounts;
   }
@@ -158,6 +214,7 @@ const syncProviderAccounts = async (
   });
 
   const rows: SyncAccount[] = [];
+
   for (const account of accounts) {
     const fields = {
       balanceAt: account.balanceAt ? new Date(account.balanceAt) : null,
@@ -183,16 +240,14 @@ const syncProviderAccounts = async (
         },
       },
     });
+
     rows.push(row);
   }
+
   return rows;
 };
 
-/**
- * Replaces an account's holdings with what the provider reports now: the table
- * is the last sync's snapshot, so a position that was sold disappears here too.
- */
-const syncHoldings = async (
+const replaceHoldings = async (
   accountId: string,
   holdings: ProviderHolding[]
 ): Promise<void> => {
@@ -238,92 +293,110 @@ const syncHoldings = async (
   });
 };
 
-/**
- * How far back a sync with nothing to resume from reaches. Also the window a
- * forced sync re-reads: providers serve roughly this much history, so it is
- * the whole of what re-importing can recover.
- */
-const SYNC_HISTORY_DAYS = 90;
+const syncWindow = (
+  connection: ConnectionWithAccounts,
+  now: Date,
+  reReadFullWindow: boolean
+): SyncWindow => {
+  const fullWindowStart = new Date(
+    now.getTime() - PROVIDER_SERVED_HISTORY_DAYS * MS_PER_DAY
+  );
+  const start = reReadFullWindow
+    ? fullWindowStart
+    : (connection.lastSyncedAt ?? fullWindowStart);
+
+  return {
+    dateFrom: start.toISOString().split("T")[0] ?? "",
+    dateTo: now.toISOString().split("T")[0] ?? "",
+  };
+};
+
+const importAccount = async (context: AccountSyncContext): Promise<void> => {
+  const { account, connection, provider, user, window } = context;
+
+  const transactions = await provider.fetchTransactions({
+    dateFrom: window.dateFrom,
+    dateTo: window.dateTo,
+    providerAccountId: account.providerAccountId,
+    providerSessionId: connection.providerSessionId,
+    user,
+  });
+
+  await upsertTransactionsInSeries(account.id, transactions, connection);
+
+  const { fetchHoldings } = provider;
+
+  if (fetchHoldings && isInvestmentAccountType(account.type)) {
+    const holdings = await fetchHoldings({
+      providerAccountId: account.providerAccountId,
+      providerSessionId: connection.providerSessionId,
+      user,
+    });
+
+    await replaceHoldings(account.id, holdings);
+  }
+};
+
+const importAccountsInSeries = (
+  context: ConnectionSyncContext,
+  accounts: readonly SyncAccount[],
+  errors: string[]
+): Effect.Effect<void> =>
+  Effect.forEach(
+    accounts,
+    (account) =>
+      Effect.tryPromise({
+        catch: accountFailure(account),
+        try: () => importAccount({ ...context, account }),
+      }).pipe(Effect.catchTag("BankSyncFailed", recordFailure(errors))),
+    { discard: true }
+  );
+
+const connectionSteps = Effect.fnUntraced(function* connectionSteps(
+  connection: ConnectionWithAccounts,
+  errors: string[],
+  user: ProviderUserSession | null,
+  reReadFullWindow: boolean
+) {
+  const failed = connectionFailure(connection);
+  const now = new Date();
+  const window = syncWindow(connection, now, reReadFullWindow);
+
+  const provider = yield* Effect.try({
+    catch: failed,
+    try: () => getProvider(connection.provider),
+  });
+
+  const accounts = yield* Effect.tryPromise({
+    catch: failed,
+    try: () => refreshProviderAccounts(provider, connection, user),
+  });
+
+  yield* importAccountsInSeries(
+    { connection, provider, user, window },
+    accounts,
+    errors
+  );
+
+  yield* Effect.tryPromise({
+    catch: failed,
+    try: () =>
+      prisma.bankConnection.update({
+        data: { lastSyncedAt: now },
+        where: { id: connection.id },
+      }),
+  });
+});
 
 export const syncConnection = async (
   connection: ConnectionWithAccounts,
   errors: string[],
   user: ProviderUserSession | null,
-  /**
-   * Re-read the whole window instead of resuming at `lastSyncedAt`. The upsert
-   * re-derives the merchant key of every row it touches, so this is what
-   * repairs keys already stored under an older normalisation.
-   */
   force = false
-) => {
-  const {
-    institutionBic,
-    institutionCountry,
-    institutionGroup,
-    institutionName,
-  } = connection;
-
-  try {
-    const now = new Date();
-    const windowStart = new Date(
-      now.getTime() - SYNC_HISTORY_DAYS * 24 * 60 * 60 * 1000
-    );
-    const syncFrom = force
-      ? windowStart
-      : (connection.lastSyncedAt ?? windowStart);
-    const dateFrom = syncFrom.toISOString().split("T")[0] ?? "";
-    const dateTo = now.toISOString().split("T")[0] ?? "";
-    const provider = getProvider(connection.provider);
-    const accounts = await syncProviderAccounts(provider, connection, user);
-
-    for (const account of accounts) {
-      try {
-        // eslint-disable-next-line no-await-in-loop -- sequential to avoid rate-limiting
-        const transactions = await provider.fetchTransactions({
-          dateFrom,
-          dateTo,
-          providerAccountId: account.providerAccountId,
-          providerSessionId: connection.providerSessionId,
-          user,
-        });
-
-        for (const tx of transactions) {
-          // eslint-disable-next-line no-await-in-loop -- sequential to avoid unique constraint races
-          await upsertTransaction(
-            account.id,
-            tx,
-            institutionName,
-            institutionCountry,
-            institutionBic,
-            institutionGroup
-          );
-        }
-
-        const { fetchHoldings } = provider;
-        if (fetchHoldings && isInvestmentAccountType(account.type)) {
-          // eslint-disable-next-line no-await-in-loop -- sequential to avoid rate-limiting
-          const holdings = await fetchHoldings({
-            providerAccountId: account.providerAccountId,
-            providerSessionId: connection.providerSessionId,
-            user,
-          });
-          // eslint-disable-next-line no-await-in-loop -- sequential to avoid overwhelming the external API
-          await syncHoldings(account.id, holdings);
-        }
-      } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : "Unknown account error";
-        errors.push(`Account ${account.providerAccountId}: ${msg}`);
-      }
-    }
-
-    await prisma.bankConnection.update({
-      data: { lastSyncedAt: now },
-      where: { id: connection.id },
-    });
-  } catch (error) {
-    const msg =
-      error instanceof Error ? error.message : "Unknown connection error";
-    errors.push(`Connection ${connection.institutionName}: ${msg}`);
-  }
+): Promise<void> => {
+  await Effect.runPromise(
+    connectionSteps(connection, errors, user, force).pipe(
+      Effect.catchTag("BankSyncFailed", recordFailure(errors))
+    )
+  );
 };

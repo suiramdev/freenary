@@ -112,17 +112,18 @@ Once an integration is implemented and smoke-tested, the owning agent runs the `
 
 ---
 
-# Ultracite Code Standards
+# Code Standards: Ultracite and begone-slop
 
-This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
+This project runs **Ultracite** (Oxlint + Oxfmt) for the general standard, and the **`@jliocsar/begone-slop`** preset on top of it. `oxlint.config.ts` extends the Ultracite `core`, `react` and `tanstack` presets and the begone-slop `preset.json`, and loads the plugin through `jsPlugins`. All 37 begone-slop rules are `error`. `apps/fumadocs` is a standalone app with its own `.oxlintrc.json`, which extends the same preset.
 
 ## Quick Reference
 
 - **Format code**: `bun x ultracite fix`
 - **Check for issues**: `bun x ultracite check`
+- **Lint under Bun** (a TypeScript config needs Bun or Node 22.18+): `bunx --bun oxlint`
 - **Diagnose setup**: `bun x ultracite doctor`
 
-Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
+Most formatting issues fix themselves. The begone-slop rules mostly do not: `no-comments`, `statement-order`, `no-try-catch` and `no-switch` are hand work.
 
 ---
 
@@ -151,7 +152,7 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 - Always `await` promises in async functions - don't forget to use the return value
 - Use `async/await` syntax instead of promise chains for better readability
-- Handle errors appropriately in async code with try-catch blocks
+- Model an async failure with Effect, not with `try`/`catch`
 - Don't use async functions as Promise executors
 
 ### React & JSX
@@ -172,9 +173,9 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 ### Error Handling & Debugging
 
 - Remove `console.log`, `debugger`, and `alert` statements from production code
-- Throw `Error` objects with descriptive messages, not strings or other values
-- Use `try-catch` blocks meaningfully - don't catch errors just to rethrow them
+- `begone-slop/no-try-catch` bans `try`/`catch` and `try`/`finally`. Model the failure instead — see the Effect section below
 - Prefer early returns over nested conditionals for error cases
+- `begone-slop/no-silent-error-swallow` bans a handler that discards the error; carry it in the error channel or log it with its cause
 
 ### Code Organization
 
@@ -184,13 +185,13 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Prefer simple conditionals over nested ternary operators
 - Group related code together and separate concerns
 
-### Code Comments: Document the "Why", Briefly
+### Code Comments: There Are Almost None
 
-- **Prefer self-explanatory code first.** Clear naming, simple structure, and readable control flow should carry the meaning — reach for a comment only when the code genuinely can't.
-- When writing or modifying code driven by a design doc or non-obvious constraint, add a comment explaining **why** the code behaves the way it does (safety constraint, compatibility shim, design-doc rule).
-- Keep comments short — one or two lines. Capture only the non-obvious reason.
-- Don't restate what the code does, narrate the mechanism, cite design-doc sections verbatim, or explain adjacent API choices unless they're the point.
-- A comment longer than three lines is a smell: the code may need simplifying, or the explanation belongs in `docs/` rather than inline.
+`begone-slop/no-comments` rejects every comment except a `SAFETY:` justification, a tooling directive (`@ts-expect-error`, `oxlint-disable`, `eslint-disable`, `c8`, `istanbul`), a `/// <reference …>` and a shebang. JSDoc is not exempt.
+
+- **The code carries the meaning.** A name that needs a sentence beside it is the wrong name. Rename the symbol, name the intermediate value, extract a named function, tighten the type, or turn the literal into a named constant.
+- **Durable knowledge goes in a document.** A vendor's documented quirk, a protocol constraint, a measured number's provenance: [`docs/engineering/`](docs/engineering) holds one file per area (`web-ui`, `web-app`, `api`, `categorisation`, `data-pipeline`, `platform`), keyed by `path › symbol`; a package's `AGENTS.md` holds a rule contributors need; `apps/fumadocs` holds anything a reader needs. `docs/engineering/platform.md` also records the oxlint rule interactions that bite when writing Effect here.
+- **`SAFETY:` is only for an assertion.** It states the invariant that makes one `as` sound, immediately before the assertion or its statement. Never write one to smuggle prose past the rule, and never add an `oxlint-disable` for `no-comments`.
 
 ### Security
 
@@ -219,6 +220,26 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 - Use ref as a prop instead of `React.forwardRef`
 
+### Effect v4
+
+`effect@4.0.0-rc.115` is a root dependency, and the packages that import it declare it too. The authoritative reference ships with the library: read `node_modules/effect/AGENTS.md`, the examples under `node_modules/effect/ai-docs/src/**`, and the `.d.ts` files in `node_modules/effect/dist/`. Names changed from v2 and v3: `Result` (not `Either`), `Context.Service`, `Schema.TaggedError`, `Data.TaggedError`, `Effect.fn`, `Effect.catchTag`.
+
+Where it earns its keep:
+
+- **Typed errors.** `Data.TaggedError("ProviderRequestFailed")<{ … }>` beside the code that raises it, `Effect.catchTag` to recover. `Schema.TaggedError` when the payload crosses a wire.
+- **A sync call that throws.** One module-level `Option.liftThrowable(…)` or `Result.try({ try, catch })`, then `Option.match` at the call site. Never `Effect.runSync(Effect.try(…))`: it pays for a fiber to do nothing.
+- **Async work with more than one failure mode.** `Effect.tryPromise` inside `Effect.fn("name")`, one `Effect.runPromise` at the module's own edge, so the exported signature stays a promise.
+- **Cleanup.** `Effect.acquireRelease` with `Effect.scoped`, which is what replaced `try`/`finally`.
+- **Bounded concurrency.** `Effect.forEach(items, run, { concurrency: n })` instead of a hand-rolled batching loop.
+- **Dispatch.** `Match.value(…)` with `Match.exhaustive`, `Match.tag`, or a `satisfies Record<Key, …>` table when the arms are wide.
+
+Where it does not:
+
+- **zod stays** at the boundaries a library owns: oRPC route contracts, `@t3-oss/env-core`, better-auth options, AI SDK tool schemas.
+- **No Effect in a render path**, in a `useMemo`, or per row in `packages/api/src/categorisation`, which runs over every transaction. `Option`, `Result`, `Match` and `Predicate` are fine there; a fiber is not.
+- **No service or `Layer`** for a module with one implementation and no lifecycle.
+- `apps/fumadocs` depends on no workspace package and does not carry `effect`.
+
 ---
 
 ## Testing
@@ -238,7 +259,7 @@ Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attenti
 3. **Architecture decisions** - Component structure, data flow, and API design
 4. **Edge cases** - Handle boundary conditions and error states
 5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
+6. **Documentation** - Name things so the code reads itself, and put durable facts in `docs/` or `apps/fumadocs`
 
 ---
 

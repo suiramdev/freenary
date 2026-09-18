@@ -4,7 +4,15 @@ import { z } from "zod";
 
 import type { ProviderInstitution } from "../providers/types";
 
-/** Where the web app resumes the flow after the provider redirects back. */
+export interface BankConnectionStateInput {
+  readonly institution: ProviderInstitution;
+  readonly original?: string;
+  readonly providerId: string;
+  readonly returnTo: BankConnectionReturnTarget;
+  readonly secret: string;
+  readonly userId: string;
+}
+
 export const BANK_CONNECTION_RETURN_TARGETS = [
   "onboarding",
   "settings",
@@ -30,14 +38,14 @@ export type BankConnectionReturnTarget =
 const computeHmac = (payload: string, userId: string, secret: string): string =>
   createHmac("sha256", secret).update(`${userId}:${payload}`).digest("hex");
 
-export const encodeBankConnectionState = (
-  providerId: string,
-  institution: ProviderInstitution,
-  userId: string,
-  secret: string,
-  returnTo: BankConnectionReturnTarget,
-  original?: string
-): string => {
+export const encodeBankConnectionState = ({
+  institution,
+  original,
+  providerId,
+  returnTo,
+  secret,
+  userId,
+}: BankConnectionStateInput): string => {
   const payload = {
     institution: {
       country: institution.country,
@@ -49,6 +57,7 @@ export const encodeBankConnectionState = (
     returnTo,
   };
   const hmac = computeHmac(JSON.stringify(payload), userId, secret);
+
   return JSON.stringify({ ...payload, hmac });
 };
 
@@ -72,8 +81,10 @@ export const verifyBankConnectionState = (
 ): boolean => {
   const { hmac, ...payload } = state;
   const expected = computeHmac(JSON.stringify(payload), userId, secret);
+
   if (hmac.length !== expected.length) {
     return false;
   }
+
   return timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
 };

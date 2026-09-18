@@ -33,8 +33,6 @@ export const DisconnectBankDialog = ({
       : m.bank_disconnect_confirm_description_none();
 
   return (
-    // Left open on confirm: a successful disconnect unmounts the row, and a
-    // failed one keeps the dialog available to retry.
     <AlertDialog>
       <AlertDialogTrigger
         render={

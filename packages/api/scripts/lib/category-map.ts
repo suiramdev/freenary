@@ -1,9 +1,5 @@
 import type { SpendingCategory } from "../../src/lib/taxonomy";
 
-/**
- * Maps high-frequency OSM `key=value` tags to the closest SpendingCategory.
- * A tag names a single kind of place, so nearly every entry can be a leaf.
- */
 export const OSM_TAG_TO_CATEGORY = {
   "amenity=atm": "cash-withdrawal",
   "amenity=bank": "other-financial",
@@ -11,7 +7,6 @@ export const OSM_TAG_TO_CATEGORY = {
   "amenity=bicycle_rental": "public-transport",
   "amenity=bureau_de_change": "other-transfer",
   "amenity=cafe": "bars-cafes",
-  // Car rental sits with travel, matching MCC 7512 and the 3300-3499 block.
   "amenity=car_rental": "other-travel",
   "amenity=car_wash": "vehicle-maintenance",
   "amenity=charging_station": "fuel",
@@ -88,6 +83,7 @@ export const mapOsmTagToCategory = (
   if (tag === null) {
     return null;
   }
+
   // SAFETY: tag is an arbitrary string; the assertion narrows for the const lookup
   return OSM_TAG_TO_CATEGORY[tag as keyof typeof OSM_TAG_TO_CATEGORY] ?? null;
 };

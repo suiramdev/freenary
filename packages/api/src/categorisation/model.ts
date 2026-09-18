@@ -1,55 +1,65 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { Data, Match, Option, Result } from "effect";
 import { z } from "zod";
 
 import type { SpendingCategory } from "../lib/taxonomy";
 import { resolveCategorySlug } from "../lib/taxonomy";
-import type { FeatureVector } from "./features";
 import { extractFeatures, INPUT_VERSION, modelInput } from "./features";
+import type { Iso3166Alpha2Country } from "./types";
 
 export interface ModelPrediction {
   category: SpendingCategory;
   confidence: number;
 }
 
-// Trained weights format (sparse JSON produced by train-model.ts)
+interface LoadedModel {
+  categories: string[];
+  dimension: number;
+  weights: Float64Array[];
+}
+
+interface ModelState {
+  loaded: LoadedModel | null;
+  openBatches: number;
+}
+
+type WeightsRefusal =
+  | { readonly kind: "unreadable" }
+  | {
+      readonly kind: "input-version";
+      readonly trainedOn: number;
+      readonly expected: number;
+    };
+
+class WeightsRefused extends Data.TaggedError("WeightsRefused")<{
+  readonly path: string;
+  readonly reason: WeightsRefusal;
+}> {}
 
 const trainedWeightsSchema = z.object({
   categories: z.array(z.string()),
   dimension: z.number(),
-  /** Representation the weights were trained against; see INPUT_VERSION. */
   inputVersion: z.number(),
   weights: z.array(z.record(z.string(), z.number())),
 });
+
+type TrainedWeights = z.infer<typeof trainedWeightsSchema>;
 
 const WEIGHTS_PATH = path.resolve(
   import.meta.dirname,
   "../../data/model-weights.json"
 );
 
-/** Below this `predict()` abstains and returns null. */
 const CONFIDENCE_THRESHOLD = 0.5;
 
-/**
- * Confidence at which the pipeline actually writes a category: `resolve.ts`
- * discards anything below it, so this — not the abstention threshold above —
- * is the operating point the trainer's shipping gate has to measure.
- */
 export const MODEL_ACCEPT_THRESHOLD = 0.7;
 
-// Module-level state
+const SOFTMAX_EXPONENT_CLAMP = 500;
 
-let loadedCategories: string[] | null = null;
-let loadedWeights: Float64Array[] | null = null;
-let loadedDimension = 0;
-let modelRefCount = 0;
+const state: ModelState = { loaded: null, openBatches: 0 };
 
-// Math helpers
-
-/**
- * Sparse dot product between a dense weight vector and a sparse feature vector.
- */
 const dotSparse = (
   weights: Float64Array,
   indices: Uint32Array,
@@ -61,11 +71,11 @@ const dotSparse = (
   for (const index of indices) {
     const weight = weights[index];
     const value = values[i];
-    // Unreachable: extractFeatures hashes buckets mod the model's dimension and
-    // sizes indices/values in lockstep, so both reads are always in range.
+
     if (weight === undefined || value === undefined) {
       throw new Error(`Feature index ${index} is out of range for the model`);
     }
+
     sum += weight * value;
     i += 1;
   }
@@ -73,13 +83,11 @@ const dotSparse = (
   return sum;
 };
 
-/**
- * Compute softmax probabilities from logits. Returns a new array.
- */
 const softmax = (logits: Float64Array): Float64Array => {
   const probs = new Float64Array(logits.length);
 
   let maxLogit = -Infinity;
+
   for (const logit of logits) {
     if (logit > maxLogit) {
       maxLogit = logit;
@@ -87,8 +95,12 @@ const softmax = (logits: Float64Array): Float64Array => {
   }
 
   let sumExp = 0;
+
   for (const [i, logit] of logits.entries()) {
-    const clamped = Math.max(-500, Math.min(500, logit - maxLogit));
+    const clamped = Math.max(
+      -SOFTMAX_EXPONENT_CLAMP,
+      Math.min(SOFTMAX_EXPONENT_CLAMP, logit - maxLogit)
+    );
     const exp = Math.exp(clamped);
     probs[i] = exp;
     sumExp += exp;
@@ -101,9 +113,6 @@ const softmax = (logits: Float64Array): Float64Array => {
   return probs;
 };
 
-/**
- * Deserialise sparse weight records into dense Float64Arrays.
- */
 const deserialiseWeights = (
   sparseWeights: Record<string, number>[],
   dimension: number
@@ -112,131 +121,155 @@ const deserialiseWeights = (
 
   for (const sparse of sparseWeights) {
     const w = new Float64Array(dimension);
+
     for (const [idx, val] of Object.entries(sparse)) {
       const index = Number(idx);
+
       if (index >= 0 && index < dimension) {
         w[index] = val;
       }
     }
+
     dense.push(w);
   }
 
   return dense;
 };
 
-// Public API
+const featuresOrNone = Option.liftThrowable(extractFeatures);
 
-/**
- * Load the model into memory. Silently no-ops when no weights file exists.
- * Call at batch start.
- */
-export const loadModel = async (): Promise<void> => {
-  modelRefCount += 1;
-  if (modelRefCount > 1 && loadedWeights) {
-    return;
-  }
-  try {
-    const raw = await readFile(WEIGHTS_PATH, "utf-8");
+const decodedWeightsOrNone = Option.liftThrowable(
+  (raw: string): Result.Result<TrainedWeights, WeightsRefused> => {
     const parsed = trainedWeightsSchema.safeParse(JSON.parse(raw));
 
     if (!parsed.success) {
-      console.warn(
-        `[categorisation] Weights file unreadable: ${WEIGHTS_PATH} — refusing to load`
+      return Result.fail(
+        new WeightsRefused({
+          path: WEIGHTS_PATH,
+          reason: { kind: "unreadable" },
+        })
       );
-      return;
     }
 
     if (parsed.data.inputVersion !== INPUT_VERSION) {
-      console.warn(
-        `[categorisation] Weights file trained on input version ${parsed.data.inputVersion}, runtime expects ${INPUT_VERSION}: ${WEIGHTS_PATH} — refusing to load, retrain the model`
+      return Result.fail(
+        new WeightsRefused({
+          path: WEIGHTS_PATH,
+          reason: {
+            expected: INPUT_VERSION,
+            kind: "input-version",
+            trainedOn: parsed.data.inputVersion,
+          },
+        })
       );
-      return;
     }
 
-    loadedCategories = parsed.data.categories;
-    loadedDimension = parsed.data.dimension;
-    loadedWeights = deserialiseWeights(
-      parsed.data.weights,
-      parsed.data.dimension
-    );
-  } catch {
-    // No weights file or malformed — run without model predictions.
-    loadedCategories = null;
-    loadedWeights = null;
-    loadedDimension = 0;
+    return Result.succeed(parsed.data);
   }
+);
+
+const warnRefusal = (refused: WeightsRefused): void => {
+  console.warn(
+    `[categorisation] ${Match.value(refused.reason).pipe(
+      Match.discriminatorsExhaustive("kind")({
+        "input-version": ({ expected, trainedOn }) =>
+          `Weights file trained on input version ${trainedOn}, runtime expects ${expected}: ${refused.path} — refusing to load, retrain the model`,
+        unreadable: () =>
+          `Weights file unreadable: ${refused.path} — refusing to load`,
+      })
+    )}`
+  );
 };
 
-/**
- * Release model memory. Call after batch completes.
- */
+export const loadModel = async (): Promise<void> => {
+  state.openBatches += 1;
+
+  if (state.openBatches > 1 && state.loaded) {
+    return;
+  }
+
+  const raw = await readFile(WEIGHTS_PATH, "utf-8").then(
+    Option.some,
+    Option.none
+  );
+  const decoded = Option.isNone(raw)
+    ? Option.none<Result.Result<TrainedWeights, WeightsRefused>>()
+    : decodedWeightsOrNone(raw.value);
+
+  if (Option.isNone(decoded)) {
+    state.loaded = null;
+
+    return;
+  }
+
+  Result.match(decoded.value, {
+    onFailure: warnRefusal,
+    onSuccess: (weights) => {
+      state.loaded = {
+        categories: weights.categories,
+        dimension: weights.dimension,
+        weights: deserialiseWeights(weights.weights, weights.dimension),
+      };
+    },
+  });
+};
+
 export const unloadModel = (): void => {
-  modelRefCount = Math.max(0, modelRefCount - 1);
-  if (modelRefCount === 0) {
-    loadedCategories = null;
-    loadedWeights = null;
-    loadedDimension = 0;
+  state.openBatches = Math.max(0, state.openBatches - 1);
+
+  if (state.openBatches === 0) {
+    state.loaded = null;
   }
 };
 
-/**
- * Predict a category from a normalised descriptor and the transaction's
- * country. Returns null when no model is loaded or confidence is too low —
- * the caller reports "uncategorised" rather than forcing a category.
- */
 export const predict = (
   normalisedDescriptor: string,
-  country?: string | null
+  country: Iso3166Alpha2Country | null | undefined
 ): Promise<ModelPrediction | null> => {
-  if (
-    loadedWeights === null ||
-    loadedCategories === null ||
-    normalisedDescriptor.length === 0
-  ) {
+  const model = state.loaded;
+
+  if (model === null || normalisedDescriptor.length === 0) {
     return Promise.resolve(null);
   }
 
-  let features: FeatureVector;
-  try {
-    features = extractFeatures(
-      modelInput(normalisedDescriptor, country),
-      loadedDimension
-    );
-  } catch {
+  const features = featuresOrNone(
+    modelInput(normalisedDescriptor, country),
+    model.dimension
+  );
+
+  if (Option.isNone(features)) {
     return Promise.resolve(null);
   }
 
-  const { indices, values } = features;
-  // train-model.ts writes one weight vector per category, in category order.
-  const logits = new Float64Array(loadedWeights.length);
+  const { indices, values } = features.value;
+  const logits = new Float64Array(model.weights.length);
 
-  for (const [c, weightVector] of loadedWeights.entries()) {
+  for (const [c, weightVector] of model.weights.entries()) {
     logits[c] = dotSparse(weightVector, indices, values);
   }
 
   const probs = softmax(logits);
 
-  // Find highest-probability category
-  let bestIdx = 0;
-  let bestProb = 0;
+  let bestCategoryIndex = 0;
+  let bestProbability = 0;
+
   for (const [i, prob] of probs.entries()) {
-    if (prob > bestProb) {
-      bestProb = prob;
-      bestIdx = i;
+    if (prob > bestProbability) {
+      bestProbability = prob;
+      bestCategoryIndex = i;
     }
   }
 
-  if (bestProb < CONFIDENCE_THRESHOLD) {
+  if (bestProbability < CONFIDENCE_THRESHOLD) {
     return Promise.resolve(null);
   }
 
-  // The weights file stores category names, so a name written before the
-  // hierarchy is decoded; one that no longer resolves has no prediction to make.
-  const storedCategory = loadedCategories[bestIdx];
+  const storedCategory = model.categories[bestCategoryIndex];
   const category = storedCategory ? resolveCategorySlug(storedCategory) : null;
+
   if (category === null) {
     return Promise.resolve(null);
   }
 
-  return Promise.resolve({ category, confidence: bestProb });
+  return Promise.resolve({ category, confidence: bestProbability });
 };

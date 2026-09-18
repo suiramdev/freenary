@@ -9,13 +9,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
 import * as React from "react";
 
-import { stableVersion } from "@/lib/source";
+import { newestRelease } from "@/lib/source";
 import { versionOfPath } from "@/lib/versions";
 
 import appCss from "@/styles/app.css?url";
 
 const serverLoader = createServerFn({ method: "GET" }).handler(() =>
-  stableVersion()
+  newestRelease()
 );
 
 export const Route = createRootRoute({
@@ -39,7 +39,7 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const stable = Route.useLoaderData();
+  const newest = Route.useLoaderData();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -50,12 +50,9 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body className="flex min-h-screen flex-col">
-        {/* Search answers for the version being read, and follows a switch.
-            Off the docs tree — the landing page — it answers for the newest
-            release rather than for every version at once. */}
         <RootProvider
           search={{
-            options: { defaultTag: versionOfPath(pathname) ?? stable },
+            options: { defaultTag: versionOfPath(pathname) ?? newest },
           }}
         >
           <Outlet />

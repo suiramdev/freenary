@@ -35,7 +35,6 @@ import { getLocale } from "@/paraglide/runtime.js";
 
 const YEAR_PAGE_SIZE = 12;
 
-/** A 3×4 grid of years with page navigation. */
 const PeriodYearPicker = ({
   selectedYear,
   minYear,
@@ -78,6 +77,7 @@ const PeriodYearPicker = ({
           const disabled =
             (minYear !== undefined && year < minYear) ||
             (maxYear !== undefined && year > maxYear);
+
           return (
             <Button
               key={year}
@@ -127,19 +127,18 @@ export const PeriodNavigator = ({
   const step = rangeMonths(range);
 
   const navigate = (direction: number) => {
-    const d = new Date(anchorYear, anchorMonth + direction * step, 1);
-    onMonthChange(d.getFullYear(), d.getMonth());
+    const stepped = new Date(anchorYear, anchorMonth + direction * step, 1);
+
+    onMonthChange(stepped.getFullYear(), stepped.getMonth());
   };
 
-  // A disabled arrow takes no pointer events, so the bounds below guard the
-  // prefetch as well as the click.
   const stepIntent = useHoverIntent<number>((direction) => {
-    const d = new Date(anchorYear, anchorMonth + direction * step, 1);
-    onMonthIntent(d.getFullYear(), d.getMonth());
+    const stepped = new Date(anchorYear, anchorMonth + direction * step, 1);
+
+    onMonthIntent(stepped.getFullYear(), stepped.getMonth());
   });
   const rangeIntent = useHoverIntent(onRangeIntent);
 
-  // Disable arrows when navigating would exceed the data bounds.
   const canGoBack =
     !firstMonth || new Date(anchorYear, anchorMonth - step, 1) >= firstMonth;
   const canGoForward =
@@ -209,6 +208,7 @@ export const PeriodNavigator = ({
               const mode = AGGREGATION_MODES.find(
                 (candidate) => candidate === next
               );
+
               if (mode) {
                 onAggregationChange(mode);
               }
@@ -232,6 +232,7 @@ export const PeriodNavigator = ({
           value={[range]}
           onValueChange={([next]) => {
             const timeRange = TIME_RANGES.find((r) => r === next);
+
             if (timeRange) {
               onRangeChange(timeRange);
             }

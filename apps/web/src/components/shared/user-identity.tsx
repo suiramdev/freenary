@@ -9,7 +9,6 @@ interface UserIdentityProps {
   name: string | undefined;
 }
 
-/** Avatar plus name and email, sized for a sidebar row or a menu label. */
 export const UserIdentity = ({ email, isPending, name }: UserIdentityProps) => {
   if (isPending) {
     return (

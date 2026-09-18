@@ -8,11 +8,6 @@ interface FixedVsVariableChartProps {
   variable: number;
 }
 
-/**
- * How much of the period's spending was committed before it started. Read-only:
- * no category maps onto the recurring/one-off split, so nothing here filters
- * the transaction list and nothing here may look like it does.
- */
 export const FixedVsVariableChart = ({
   fixed,
   variable,

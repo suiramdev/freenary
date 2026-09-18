@@ -10,7 +10,6 @@ import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** One row: what a group was allowed and what it actually cost. */
 interface PlannedGroup {
   actual: number;
   group: CategoryGroup;
@@ -24,6 +23,27 @@ interface BudgetVsActualChartProps {
   onSelect: (selection: CategorySelection) => void;
 }
 
+const PlanTrack = ({
+  actualColor,
+  actualShare,
+  plannedShare,
+}: {
+  actualColor: string;
+  actualShare: number;
+  plannedShare: number;
+}) => (
+  <span className="bg-muted relative block h-2 w-full overflow-hidden rounded-full">
+    <span
+      className="bg-muted-foreground/25 absolute inset-y-0 start-0 rounded-full"
+      style={{ width: `${plannedShare * 100}%` }}
+    />
+    <span
+      className="absolute inset-y-0 start-0 rounded-full"
+      style={{ backgroundColor: actualColor, width: `${actualShare * 100}%` }}
+    />
+  </span>
+);
+
 const PlannedRow = ({
   entry,
   isSelected,
@@ -35,10 +55,8 @@ const PlannedRow = ({
   onSelect: (selection: CategorySelection) => void;
   scale: number;
 }) => {
-  // Spending in a group the user never planned is unplanned, not an overrun of
-  // a plan of zero: there is no plan to measure it against.
-  const isPlanned = entry.planned > 0;
-  const isOver = isPlanned && entry.actual > entry.planned;
+  const hasPlanForGroup = entry.planned > 0;
+  const isOverPlan = hasPlanForGroup && entry.actual > entry.planned;
 
   return (
     <button
@@ -55,26 +73,25 @@ const PlannedRow = ({
         <span
           className={cn(
             "shrink-0 text-[10px]",
-            isOver ? "text-destructive" : "text-muted-foreground"
+            isOverPlan ? "text-destructive" : "text-muted-foreground"
           )}
         >
-          {isOver &&
+          {isOverPlan &&
             m.budget_planned_over({
               amount: formatCurrency(entry.actual - entry.planned),
             })}
-          {isPlanned &&
-            !isOver &&
+          {hasPlanForGroup &&
+            !isOverPlan &&
             m.budget_planned_under({
               amount: formatCurrency(entry.planned - entry.actual),
             })}
-          {!isPlanned && m.budget_planned_unplanned()}
+          {!hasPlanForGroup && m.budget_planned_unplanned()}
         </span>
         <span className="ms-auto shrink-0 font-mono text-[11px] tabular-nums">
-          <span className={isOver ? "text-destructive" : "text-foreground"}>
+          <span className={isOverPlan ? "text-destructive" : "text-foreground"}>
             {formatCurrency(entry.actual)}
           </span>
-          {/* An unplanned group has nothing to compare against: no "/ €0.00". */}
-          {isPlanned && (
+          {hasPlanForGroup && (
             <span className="text-muted-foreground">
               {" / "}
               {formatCurrency(entry.planned)}
@@ -82,30 +99,19 @@ const PlannedRow = ({
           )}
         </span>
       </span>
-      <span className="bg-muted relative block h-2 w-full overflow-hidden rounded-full">
-        {/* Planned is the recessed track; actual is drawn over it. */}
-        <span
-          className="bg-muted-foreground/25 absolute inset-y-0 start-0 rounded-full"
-          style={{ width: `${(entry.planned / scale) * 100}%` }}
-        />
-        <span
-          className="absolute inset-y-0 start-0 rounded-full"
-          style={{
-            backgroundColor: isOver
-              ? "var(--destructive)"
-              : CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[entry.group]],
-            width: `${(entry.actual / scale) * 100}%`,
-          }}
-        />
-      </span>
+      <PlanTrack
+        actualColor={
+          isOverPlan
+            ? "var(--destructive)"
+            : CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[entry.group]]
+        }
+        actualShare={entry.actual / scale}
+        plannedShare={entry.planned / scale}
+      />
     </button>
   );
 };
 
-/**
- * Planned against actual, group by group. Rows share one scale so their bars
- * compare across groups rather than only against their own plan.
- */
 export const BudgetVsActualChart = ({
   activeGroups,
   groups,
@@ -137,13 +143,12 @@ export const BudgetVsActualChart = ({
     );
   }
 
-  const scale = Math.max(
+  const sharedScale = Math.max(
     ...groups.map((entry) => Math.max(entry.planned, entry.actual))
   );
 
   return (
     <div className="flex h-full flex-col gap-2">
-      {/* Names the trailing pair so "1 234 € / 1 000 €" is readable without the tooltip. */}
       <div className="text-muted-foreground flex justify-end gap-1 font-mono text-[10px]">
         <span>{m.budget_planned_column_actual()}</span>
         <span aria-hidden="true">/</span>
@@ -159,7 +164,7 @@ export const BudgetVsActualChart = ({
               entry={entry}
               isSelected={activeGroups.includes(entry.group)}
               onSelect={onSelect}
-              scale={scale}
+              scale={sharedScale}
             />
           </li>
         ))}

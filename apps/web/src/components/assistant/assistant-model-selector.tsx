@@ -23,6 +23,15 @@ import { SERVER_MODEL } from "@/lib/assistant/model-choice";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
+interface AssistantModelSelectorProps {
+  disabled: boolean;
+  loadingProgress?: number;
+  onSelect: (modelId: string) => void;
+  selected: string | null;
+  serverModel: string | null;
+  webGpu: boolean | null;
+}
+
 const MB_PER_GB = 1024;
 
 const gigabytes = (mb: number): string =>
@@ -37,23 +46,6 @@ const percent = (fraction: number): string =>
     maximumFractionDigits: 0,
     style: "percent",
   }).format(fraction);
-
-interface AssistantModelSelectorProps {
-  /** Neither the picker nor the engine may change mid-answer. */
-  disabled: boolean;
-  /**
-   * Download progress of the chosen device model, `undefined` unless one is
-   * loading. While it loads there is nothing to pick, so it takes the
-   * button's place.
-   */
-  loadingProgress?: number;
-  onSelect: (modelId: string) => void;
-  /** `SERVER_MODEL`, a WebLLM id, or null when nothing is chosen yet. */
-  selected: string | null;
-  serverModel: string | null;
-  /** Null until the client knows; false hides the device group's models. */
-  webGpu: boolean | null;
-}
 
 const DeviceModels = ({
   models,
@@ -79,11 +71,6 @@ const DeviceModels = ({
     </ModelSelectorItem>
   ));
 
-/**
- * The one place a reader picks what answers: the model the instance hosts,
- * or one WebLLM runs on their own graphics card. Picking a device model
- * starts its download, which the button itself then reports.
- */
 export const AssistantModelSelector = ({
   disabled,
   loadingProgress,
@@ -93,9 +80,9 @@ export const AssistantModelSelector = ({
   webGpu,
 }: AssistantModelSelectorProps) => {
   const [open, setOpen] = useState(false);
+  const webGpuAvailable = webGpu === true;
   const catalog = useQuery({
-    // The catalogue needs the GPU adapter; asking without one rejects.
-    enabled: open && webGpu === true,
+    enabled: open && webGpuAvailable,
     queryFn: browserModelCatalog,
     queryKey: ["assistant", "browser-models"],
     staleTime: Number.POSITIVE_INFINITY,
@@ -106,20 +93,19 @@ export const AssistantModelSelector = ({
     setOpen(false);
   };
 
-  // `resolveModelChoice` only yields the server when the instance has one.
+  const serverSelected = selected === SERVER_MODEL;
   let label: string = m.assistant_model_choose();
-  if (selected === SERVER_MODEL && serverModel !== null) {
+
+  if (serverSelected && serverModel !== null) {
     label = serverModel;
-  } else if (selected !== null && selected !== SERVER_MODEL) {
+  } else if (selected !== null && !serverSelected) {
     label = browserModelLabel(selected);
   }
-  const hasOptions = serverModel !== null || webGpu === true;
 
-  // A model that is still arriving cannot answer, so the button reports the
-  // download instead of opening the palette. No `aria-busy`: it would tell a
-  // screen reader to defer the spinner's own `role="status"`, and the flag
-  // never clears — the button unmounts when the load ends.
-  if (loadingProgress !== undefined) {
+  const hasOptions = serverModel !== null || webGpuAvailable;
+  const stillDownloading = loadingProgress !== undefined;
+
+  if (stillDownloading) {
     return (
       <PromptInputButton disabled>
         <Spinner className="size-4" />
@@ -134,7 +120,7 @@ export const AssistantModelSelector = ({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger render={<PromptInputButton disabled={disabled} />}>
-        {selected === SERVER_MODEL ? (
+        {serverSelected ? (
           <RiServerLine className="size-4" />
         ) : (
           <RiCpuLine className="size-4" />
@@ -142,10 +128,6 @@ export const AssistantModelSelector = ({
         <span className="max-w-40 truncate">{label}</span>
         <RiExpandUpDownLine className="size-3.5 opacity-60" />
       </ModelSelectorTrigger>
-      {/* The palette's width as the registry demo sets it; the Base UI dialog
-          of `packages/ui` is narrower and puts its close cross over the
-          search box, so the palette goes without one, as the package's own
-          `CommandDialog` does. */}
       <ModelSelectorContent
         className="sm:max-w-lg"
         showCloseButton={false}
@@ -159,7 +141,7 @@ export const AssistantModelSelector = ({
           {serverModel !== null && (
             <ModelSelectorGroup heading={m.assistant_model_server_group()}>
               <ModelSelectorItem
-                data-checked={selected === SERVER_MODEL}
+                data-checked={serverSelected}
                 onSelect={() => pick(SERVER_MODEL)}
                 value={`${SERVER_MODEL} ${serverModel}`}
               >
@@ -168,7 +150,7 @@ export const AssistantModelSelector = ({
               </ModelSelectorItem>
             </ModelSelectorGroup>
           )}
-          {webGpu === true && (
+          {webGpuAvailable && (
             <ModelSelectorGroup heading={m.assistant_model_device_group()}>
               {catalog.data && (
                 <DeviceModels

@@ -1,16 +1,10 @@
 import { m } from "@/paraglide/messages.js";
 
-/** The part of a refused better-auth call this screen reads. */
 export interface AuthRequestError {
   code?: string;
   status: number;
 }
 
-/**
- * The password floor and ceiling the server enforces and publishes through
- * `auth.capabilities`. Undefined until that answers, and a figure this screen
- * made up instead would be a bound the server never promised.
- */
 export interface PasswordBounds {
   maxPasswordLength: number;
   minPasswordLength: number;
@@ -18,9 +12,6 @@ export interface PasswordBounds {
 
 const TOO_MANY_REQUESTS = 429;
 
-// Holds the message functions rather than their results: a module is evaluated
-// once per server process, so a called message would pin the first request's
-// locale for everyone after it.
 const MESSAGE_BY_CODE = {
   EMAIL_NOT_VERIFIED: m.auth_error_email_not_verified,
   INVALID_BACKUP_CODE: m.auth_error_invalid_backup_code,
@@ -37,11 +28,6 @@ const MESSAGE_BY_CODE = {
 const isKnownCode = (code: string): code is keyof typeof MESSAGE_BY_CODE =>
   Object.hasOwn(MESSAGE_BY_CODE, code);
 
-/**
- * The server's own wording is untranslated and, on a sign-in screen, can say
- * more about an account than an unauthenticated caller may learn — so it is
- * never rendered.
- */
 export const authErrorMessage = (
   error: AuthRequestError,
   bounds: PasswordBounds | undefined
@@ -52,21 +38,20 @@ export const authErrorMessage = (
 
   const code = error.code ?? "";
 
-  // A length refusal quotes the server's own bound, or names none. The number
-  // is read out and checked, never assumed present: a deployment older than
-  // the field answers without it, and "128" spelled here or `undefined`
-  // rendered into the sentence are both worse than naming no figure.
   if (code === "PASSWORD_TOO_SHORT") {
-    const count = bounds?.minPasswordLength;
-    return count === undefined
+    const serverMinimum = bounds?.minPasswordLength;
+
+    return serverMinimum === undefined
       ? m.auth_error_password_too_short_no_bound()
-      : m.auth_error_password_too_short({ count });
+      : m.auth_error_password_too_short({ count: serverMinimum });
   }
+
   if (code === "PASSWORD_TOO_LONG") {
-    const count = bounds?.maxPasswordLength;
-    return count === undefined
+    const serverMaximum = bounds?.maxPasswordLength;
+
+    return serverMaximum === undefined
       ? m.auth_error_password_too_long_no_bound()
-      : m.auth_error_password_too_long({ count });
+      : m.auth_error_password_too_long({ count: serverMaximum });
   }
 
   return isKnownCode(code) ? MESSAGE_BY_CODE[code]() : m.auth_error_generic();

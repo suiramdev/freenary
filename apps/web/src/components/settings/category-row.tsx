@@ -26,6 +26,13 @@ interface CategoryRowProps {
   onMove: (input: { direction: "down" | "up"; id: string }) => void;
 }
 
+const CUSTOM_CATEGORY_KEY_PREFIX = "custom:";
+
+const bareCustomIdFromCategoryKey = (key: string): string =>
+  key.startsWith(CUSTOM_CATEGORY_KEY_PREFIX)
+    ? key.slice(CUSTOM_CATEGORY_KEY_PREFIX.length)
+    : "";
+
 export const CategoryRow = ({
   entry,
   fallbackLabel,
@@ -35,8 +42,7 @@ export const CategoryRow = ({
   onEdit,
   onMove,
 }: CategoryRowProps) => {
-  // Custom keys carry the `custom:` prefix; the mutations take the bare cuid.
-  const customId = entry.key.split(":")[1] ?? "";
+  const customId = bareCustomIdFromCategoryKey(entry.key);
   const label = categoryEntryLabel(entry);
 
   return (

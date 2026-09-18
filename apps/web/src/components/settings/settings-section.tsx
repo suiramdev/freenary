@@ -9,7 +9,6 @@ import {
 import type * as React from "react";
 
 interface SettingsSectionProps {
-  /** Action button rendered to the right of the section header. */
   action?: React.ReactNode;
   children: React.ReactNode;
   description: string;

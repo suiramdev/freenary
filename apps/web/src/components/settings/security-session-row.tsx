@@ -14,6 +14,14 @@ import type { DeviceSlug } from "@/lib/settings/user-agent-device";
 import { deviceSlugFromUserAgent } from "@/lib/settings/user-agent-device";
 import { m } from "@/paraglide/messages.js";
 
+interface SecuritySessionRowProps {
+  formatter: Intl.DateTimeFormat;
+  isCurrent: boolean;
+  isRevoking: boolean;
+  onRevoke: (token: string) => void;
+  session: UserSession;
+}
+
 const DEVICE_LABELS = {
   android: m.settings_sessions_device_android,
   chromebook: m.settings_sessions_device_chromebook,
@@ -24,15 +32,6 @@ const DEVICE_LABELS = {
   unknown: m.settings_sessions_device_unknown,
   windows: m.settings_sessions_device_windows,
 } satisfies Record<DeviceSlug, () => string>;
-
-interface SecuritySessionRowProps {
-  /** One formatter for the whole list rather than one per row. */
-  formatter: Intl.DateTimeFormat;
-  isCurrent: boolean;
-  isRevoking: boolean;
-  onRevoke: (token: string) => void;
-  session: UserSession;
-}
 
 export const SecuritySessionRow = ({
   formatter,
@@ -69,7 +68,6 @@ export const SecuritySessionRow = ({
         </ItemDescription>
       </ItemContent>
 
-      {/* Ending the session you are using is what Sign out is for. */}
       {isCurrent ? null : (
         <ItemActions>
           <Button

@@ -133,12 +133,17 @@ bun run fix     # ultracite fix, writes the fixes
 bun run check   # ultracite check, reports only
 ```
 
-Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format.
+Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format. On top of them, the repository enables the `@jliocsar/begone-slop` preset, which adds 37 rules at `error`. A TypeScript lint config needs Bun or Node 22.18 and newer, so run `bunx --bun oxlint` when you call Oxlint directly.
 
 | File | What it sets |
 | --- | --- |
-| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Registers the local `anti-slop` plugin with 15 rules at `error`. Ignores `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the `@jliocsar/begone-slop` preset. Loads the plugin through `jsPlugins`. Ignores `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
+| `apps/fumadocs/.oxlintrc.json` | Extends the same begone-slop preset through a relative path, because Oxlint resolves `extends` against the config file and refuses a package name. |
 | `oxfmt.config.ts` | Spreads the Ultracite format config. It does not ignore `packages/ui/**`, so Oxfmt formats that package and Oxlint does not lint it. |
+
+Four of the added rules change how the code is written. `no-comments` rejects every comment except a `SAFETY:` justification and a tooling directive. A name therefore carries what a comment used to say. `no-try-catch` and `no-switch` send failure handling and dispatch to Effect. `statement-order` fixes the order of the declarations in a module.
+
+A comment therefore never holds a fact. `docs/engineering/` in the repository holds one file per area. Each bullet names the file and the symbol it belongs to. Read the file for the area you change, and add to it when the code cannot state what you learned.
 
 `lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:
 

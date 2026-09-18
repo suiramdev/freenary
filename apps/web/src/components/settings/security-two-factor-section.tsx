@@ -11,12 +11,6 @@ import { authClient } from "@/lib/auth-client";
 import { m } from "@/paraglide/messages.js";
 
 interface SecurityTwoFactorSectionProps {
-  /**
-   * Every password-guarded two-factor endpoint needs the account's password, so
-   * an account created with a connected provider cannot enrol at all.
-   * Undefined while the account list is unread or failed — not the same answer
-   * as "no", and stating either would be a guess.
-   */
   hasPassword: boolean | undefined;
   isAccountsPending: boolean;
 }
@@ -31,15 +25,13 @@ export const SecurityTwoFactorSection = ({
 
   const isEnabled = session?.user.twoFactorEnabled === true;
 
-  // Both notes at the foot of this card are about enrolling, which is only on
-  // offer once the session says the second factor is off. Beside a working
-  // Disable button they would call a live feature unavailable.
-  const explainsEnrolment = !(isPending || isEnabled);
+  const isEnrolmentOnOffer = !(isPending || isEnabled);
+  const hasConfirmedPassword = hasPassword === true;
+  const explainsMissingPassword = isEnrolmentOnOffer && hasPassword === false;
+  const explainsAccountsOutage =
+    isEnrolmentOnOffer && hasPassword === undefined && !isAccountsPending;
 
-  // In the header, where every other Security section puts its primary action,
-  // rather than as a content child that would stretch to the card's width.
   const renderHeaderAction = () => {
-    // Claiming it is off before the session answers would offer the wrong door.
     if (isPending || isAccountsPending) {
       return <Skeleton aria-hidden="true" className="h-8 w-28 rounded-md" />;
     }
@@ -65,9 +57,7 @@ export const SecurityTwoFactorSection = ({
       );
     }
 
-    // A failed account list is not evidence of a missing password, so the
-    // control waits rather than disappearing on an outage.
-    if (hasPassword !== true) {
+    if (!hasConfirmedPassword) {
       return null;
     }
 
@@ -115,21 +105,16 @@ export const SecurityTwoFactorSection = ({
         {isPending && (
           <output className="sr-only">{m.settings_2fa_loading()}</output>
         )}
-        {/* The scope sentence is true either way, so it stands in whenever the
-            missing-password note does not apply: "no password" read from an
-            outage would be false for every password user. */}
         <p className="text-muted-foreground">
-          {explainsEnrolment && hasPassword === false
+          {explainsMissingPassword
             ? m.settings_2fa_no_password_note()
             : m.settings_2fa_scope_explained()}
         </p>
-        {explainsEnrolment &&
-          hasPassword === undefined &&
-          !isAccountsPending && (
-            <p className="text-muted-foreground">
-              {m.settings_2fa_accounts_error()}
-            </p>
-          )}
+        {explainsAccountsOutage && (
+          <p className="text-muted-foreground">
+            {m.settings_2fa_accounts_error()}
+          </p>
+        )}
       </div>
 
       <SecurityTwoFactorDrawer

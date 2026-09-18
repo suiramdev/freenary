@@ -1,29 +1,35 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+interface PlaceTokenCache {
+  tokens: Set<string> | null;
+}
+
 const DATA_PATH = path.resolve(
   import.meta.dirname,
   "../../data/place-tokens.json"
 );
 
-let placeTokenSet: Set<string> | null = null;
+const state: PlaceTokenCache = { tokens: null };
 
-const ensureLoaded = (): Set<string> => {
-  if (placeTokenSet === null) {
-    if (existsSync(DATA_PATH)) {
-      // SAFETY: the file is a JSON array of strings written by the build script
-      const tokens = JSON.parse(readFileSync(DATA_PATH, "utf-8")) as string[];
-      placeTokenSet = new Set(tokens);
-    } else {
-      placeTokenSet = new Set();
-    }
+const readPlaceTokens = (): Set<string> => {
+  if (!existsSync(DATA_PATH)) {
+    return new Set();
   }
-  return placeTokenSet;
+
+  // SAFETY: the file is a JSON array of strings written by the build script
+  const tokens = JSON.parse(readFileSync(DATA_PATH, "utf-8")) as string[];
+
+  return new Set(tokens);
 };
 
-/** Check if a normalised token is a known place name. */
+const ensureLoaded = (): Set<string> => {
+  state.tokens ??= readPlaceTokens();
+
+  return state.tokens;
+};
+
 export const isPlaceToken = (token: string): boolean =>
   ensureLoaded().has(token);
 
-/** Get the full set of place tokens (for the build pipeline). */
 export const getPlaceTokens = (): ReadonlySet<string> => ensureLoaded();

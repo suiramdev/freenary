@@ -2,7 +2,6 @@ import { Skeleton } from "@freenary/ui/components/skeleton";
 
 import { m } from "@/paraglide/messages.js";
 
-/** Stands in for the transcript only; the composer below it is real from the first byte. */
 export const AssistantChatSkeleton = () => (
   <div aria-busy="true" className="flex flex-1 flex-col gap-6 py-4">
     <output className="sr-only">{m.assistant_loading_transcript()}</output>

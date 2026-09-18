@@ -15,16 +15,16 @@ const BaseLink = defaultMdxComponents.a;
 
 const VersionedLink = ({ href, ...props }: ComponentProps<typeof BaseLink>) => {
   const pathname = usePathname();
+
   return <BaseLink href={resolveDocsHref(href, pathname)} {...props} />;
 };
 
-/** `Card` renders its own anchor, so the `a` override never reaches its href. */
 const VersionedCard = ({ href, ...props }: ComponentProps<typeof Card>) => {
   const pathname = usePathname();
+
   return <Card href={resolveDocsHref(href, pathname)} {...props} />;
 };
 
-/** Registered on top of the Fumadocs defaults; anything unlisted renders nothing. */
 const extraMdxComponents = {
   a: VersionedLink,
   Accordion,
@@ -40,18 +40,18 @@ const extraMdxComponents = {
   TypeTable,
 };
 
-export type DocsMdxComponents = typeof defaultMdxComponents &
-  typeof extraMdxComponents;
-
-export function getMDXComponents(components?: MDXComponents): MDXComponents {
-  return {
-    ...defaultMdxComponents,
-    ...extraMdxComponents,
-    ...components,
-  };
-}
+export const getMDXComponents = (
+  components: MDXComponents = {}
+): MDXComponents => ({
+  ...defaultMdxComponents,
+  ...extraMdxComponents,
+  ...components,
+});
 
 export const useMDXComponents = getMDXComponents;
+
+export type DocsMdxComponents = typeof defaultMdxComponents &
+  typeof extraMdxComponents;
 
 declare global {
   type MDXProvidedComponents = DocsMdxComponents;

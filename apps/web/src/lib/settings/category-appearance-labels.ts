@@ -5,14 +5,6 @@ import type {
 
 import { m } from "@/paraglide/messages.js";
 
-/**
- * Human names for the swatches and glyphs in the custom-category drawer: the
- * toggles carry no visible text, so the enum value used to be the whole
- * accessible name — "AirplaneIcon", in every language.
- *
- * Message getters rather than strings: calling them here would pin the locale
- * of whichever request loaded the module first.
- */
 export const CATEGORY_COLOR_LABELS = {
   blue: m.settings_color_blue,
   green: m.settings_color_green,

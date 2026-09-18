@@ -15,12 +15,9 @@ interface AuthConfirmStepProps {
   onBack: () => void;
   onResend: () => void;
   onSubmit: (otp: string) => Promise<void>;
-  /** The server's own length. While it is unknown the field neither caps the
-   * input nor names a number, so an outage cannot refuse a valid code. */
   otpLength: number | undefined;
 }
 
-/** Confirming a newly given address, which is also what creates the session. */
 export const AuthConfirmStep = ({
   isResending,
   isSubmitting,

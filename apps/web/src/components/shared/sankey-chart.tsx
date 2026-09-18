@@ -10,45 +10,38 @@ import {
 } from "@/lib/sankey/layout";
 import type { SankeyFlow, SankeyLayout } from "@/lib/sankey/layout";
 
-// Ribbons overlap each other and the nodes they join, so they stay translucent;
-// the accent strips are near-solid so a node's edges read at any height.
-const LINK_OPACITY = 0.28;
-const NODE_OPACITY = 0.5;
-const ACCENT_OPACITY = 0.85;
-/** What everything unrelated to the hovered node fades to. */
-const DIMMED = 0.25;
-
 interface SankeyChartProps extends SankeyFlow {
   className?: string;
-  /** Renders every node value; the chart itself is unit-agnostic. */
   formatValue: (value: number) => string;
-  /** Names the flow for assistive tech, e.g. "Cash flow". */
   label: string;
-  /** Fires when a node rectangle is clicked. */
   onNodeClick?: (nodeId: string) => void;
 }
 
-/** Hovering a node keeps that node, its ribbons, and their far ends lit. */
-const activeIds = (layout: SankeyLayout, hovered: string | null) => {
+const LINK_OPACITY = 0.28;
+const NODE_OPACITY = 0.5;
+const ACCENT_OPACITY = 0.85;
+const UNRELATED_DIM_FACTOR = 0.25;
+
+const hoverLitIds = (layout: SankeyLayout, hovered: string | null) => {
   const ids = new Set<string>();
+
   if (!hovered) {
     return ids;
   }
+
   ids.add(hovered);
-  for (const link of layout.links) {
-    if (link.sourceId === hovered || link.targetId === hovered) {
-      ids.add(link.sourceId);
-      ids.add(link.targetId);
-      ids.add(link.id);
+
+  for (const ribbon of layout.links) {
+    if (ribbon.sourceId === hovered || ribbon.targetId === hovered) {
+      ids.add(ribbon.sourceId);
+      ids.add(ribbon.targetId);
+      ids.add(ribbon.id);
     }
   }
+
   return ids;
 };
 
-/**
- * A sankey of a left-to-right column flow. Values and colors are given;
- * the chart holds no opinion about what they represent.
- */
 export const SankeyChart = ({
   className,
   columns,
@@ -63,7 +56,7 @@ export const SankeyChart = ({
   );
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const active = useMemo(() => activeIds(layout, hovered), [layout, hovered]);
+  const lit = useMemo(() => hoverLitIds(layout, hovered), [layout, hovered]);
 
   const lastColumn = layout.columnCount - 1;
 
@@ -76,25 +69,24 @@ export const SankeyChart = ({
       viewBox={`0 0 ${layout.width} ${layout.height}`}
     >
       <title>{label}</title>
-      {/* Hovering a ribbon lights the node it flows into — the specific
-          category behind a group, the group behind an income source. Lighting
-          the upstream end would only repeat what hovering that node shows. */}
-      {layout.links.map((band) => (
+      {layout.links.map((ribbon) => (
         <path
-          key={band.id}
-          d={svgLinkPath(band)}
-          fill={CHART_COLOR_VARS[band.color]}
+          key={ribbon.id}
+          d={svgLinkPath(ribbon)}
+          fill={CHART_COLOR_VARS[ribbon.color]}
           fillOpacity={
-            LINK_OPACITY * (hovered && !active.has(band.id) ? DIMMED : 1)
+            LINK_OPACITY *
+            (hovered && !lit.has(ribbon.id) ? UNRELATED_DIM_FACTOR : 1)
           }
-          onPointerEnter={() => setHovered(band.targetId)}
+          onPointerEnter={() => setHovered(ribbon.targetId)}
           onPointerLeave={() => setHovered(null)}
         />
       ))}
 
       {layout.nodes.map((node) => {
         const color = CHART_COLOR_VARS[node.color];
-        const dim = hovered && !active.has(node.id) ? DIMMED : 1;
+        const dim = hovered && !lit.has(node.id) ? UNRELATED_DIM_FACTOR : 1;
+
         return (
           <g key={node.id}>
             <rect
@@ -109,8 +101,6 @@ export const SankeyChart = ({
               onPointerEnter={() => setHovered(node.id)}
               onPointerLeave={() => setHovered(null)}
             />
-            {/* Accent bars mark where flow enters and leaves the node; they let
-                the pointer through to the rectangle that carries the hover. */}
             {node.column !== lastColumn && (
               <rect
                 className="pointer-events-none"

@@ -6,6 +6,7 @@ import { toChatMessages, ToolCallParser } from "./tool-protocol";
 const collect = (chunks: string[]): ParsedEvent[] => {
   const parser = new ToolCallParser();
   const events = chunks.flatMap((chunk) => parser.push(chunk));
+
   return [...events, ...parser.end()];
 };
 

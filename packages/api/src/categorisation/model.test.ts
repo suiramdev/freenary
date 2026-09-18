@@ -10,8 +10,9 @@ const WEIGHTS_PATH = path.resolve(
   "../../data/model-weights.json"
 );
 
-/** A one-category model that fires on anything, so a load is visible in predict(). */
-const writeWeights = async (inputVersion: number): Promise<void> => {
+const writeOneCategoryWeightsThatFireOnAnything = async (
+  inputVersion: number
+): Promise<void> => {
   await mkdir(path.dirname(WEIGHTS_PATH), { recursive: true });
   await writeFile(
     WEIGHTS_PATH,
@@ -37,6 +38,7 @@ describe("model", () => {
 
   it("predict returns null with no weights file", async () => {
     const result = await predict("carrefour market", "FR");
+
     expect(result).toBeNull();
   });
 
@@ -45,16 +47,16 @@ describe("model", () => {
   });
 
   it("loads weights trained on the current input representation", async () => {
-    await writeWeights(INPUT_VERSION);
+    await writeOneCategoryWeightsThatFireOnAnything(INPUT_VERSION);
     await loadModel();
+
     expect(await predict("carrefour market", "FR")).not.toBeNull();
   });
 
   it("refuses weights trained on an older input representation", async () => {
-    // The cc:<country> token shifted every hashed bucket, so old weights would
-    // score against features they were never trained on.
-    await writeWeights(INPUT_VERSION - 1);
+    await writeOneCategoryWeightsThatFireOnAnything(INPUT_VERSION - 1);
     await loadModel();
+
     expect(await predict("carrefour market", "FR")).toBeNull();
   });
 });

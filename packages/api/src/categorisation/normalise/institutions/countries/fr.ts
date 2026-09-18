@@ -1,253 +1,313 @@
-import type { TransactionChannel } from "../../types";
-import { capture } from "../capture-groups";
+import { nonBlankCapture } from "../capture-groups";
 import type { InstitutionDef } from "../definitions";
-import type { CountryProfile } from "./types";
+import type { ChannelVerbPattern, CountryProfile } from "./types";
 
-// ── Date parsers ─────────────────────────────────────────────────────────
+const CENTURY_PREFIX = "20";
+const DATE_SEPARATOR_RE = /[/-]/u;
+const DDMMYY_DIGITS = 6;
+const DDMMYYYY_DIGITS = 8;
+const TWO_DIGIT_YEAR_LENGTH = 2;
+const FOUR_DIGIT_YEAR_LENGTH = 4;
+const DAY_MONTH_YEAR_PART_COUNT = 3;
 
-/** DD/MM/YY or DDMMYY or DD/MM/YYYY or DDMMYYYY → yyyy-mm-dd */
-const parseBoursoDate = (raw: string): string | undefined => {
+const parseDdmmyyOrDdmmyyyyIgnoringSlashes = (
+  raw: string
+): string | undefined => {
   const digits = raw.replaceAll("/", "");
-  if (digits.length === 6) {
-    return `20${digits.slice(4, 6)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+
+  if (digits.length === DDMMYY_DIGITS) {
+    return `${CENTURY_PREFIX}${digits.slice(4, 6)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
   }
-  if (digits.length === 8) {
+
+  if (digits.length === DDMMYYYY_DIGITS) {
     return `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
   }
+
   return undefined;
 };
 
-/** DDMMYY → yyyy-mm-dd */
-const parseBnpDate = (raw: string): string | undefined => {
-  if (raw.length === 6) {
-    return `20${raw.slice(4, 6)}-${raw.slice(2, 4)}-${raw.slice(0, 2)}`;
+const parseDdmmyy = (raw: string): string | undefined => {
+  if (raw.length === DDMMYY_DIGITS) {
+    return `${CENTURY_PREFIX}${raw.slice(4, 6)}-${raw.slice(2, 4)}-${raw.slice(0, 2)}`;
   }
+
   return undefined;
 };
 
-/** DD/MM/YYYY → yyyy-mm-dd; day+month only → undefined */
-const parseCaDate = (raw: string): string | undefined => {
-  const parts = raw.split(/[/-]/u);
-  if (parts.length === 3 && parts[2]?.length === 4) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+const parseDdmmyyyySeparated = (raw: string): string | undefined => {
+  const [day, month, year] = raw.split(DATE_SEPARATOR_RE);
+
+  if (year?.length === FOUR_DIGIT_YEAR_LENGTH) {
+    return `${year}-${month}-${day}`;
   }
+
   return undefined;
 };
 
-/** DD.MM.YY → yyyy-mm-dd */
-const parseLbpDate = (raw: string): string | undefined => {
+const parseDdmmyyDotted = (raw: string): string | undefined => {
   const parts = raw.split(".");
-  if (parts.length === 3 && parts[2]?.length === 2) {
-    return `20${parts[2]}-${parts[1]}-${parts[0]}`;
+
+  if (
+    parts.length === DAY_MONTH_YEAR_PART_COUNT &&
+    parts[2]?.length === TWO_DIGIT_YEAR_LENGTH
+  ) {
+    return `${CENTURY_PREFIX}${parts[2]}-${parts[1]}-${parts[0]}`;
   }
+
   return undefined;
 };
 
-/** DD/MM/YY → yyyy-mm-dd */
-const parseLclDate = (raw: string): string | undefined => {
+const parseDdmmyySlashed = (raw: string): string | undefined => {
   const parts = raw.split("/");
-  if (parts.length === 3 && parts[2]?.length === 2) {
-    return `20${parts[2]}-${parts[1]}-${parts[0]}`;
+
+  if (
+    parts.length === DAY_MONTH_YEAR_PART_COUNT &&
+    parts[2]?.length === TWO_DIGIT_YEAR_LENGTH
+  ) {
+    return `${CENTURY_PREFIX}${parts[2]}-${parts[1]}-${parts[0]}`;
   }
+
   return undefined;
 };
 
-// ── Regex patterns ───────────────────────────────────────────────────────
-
-// Boursorama
-const BOURSO_CARTE_RE =
+const BOURSORAMA_CARD_PAYMENT_RE =
   /^CARTE\s+(?<date>\d{2}\/??\d{2}\/??\d{2,4})\s+(?<payee>.+?)(?:\s+\d+)?(?:\s+CB\*(?<card>\d{4}))?\s*$/iu;
-const BOURSO_RETRAIT_RE =
+const BOURSORAMA_ATM_WITHDRAWAL_RE =
   /^RETRAIT\s+DAB\s+(?<date>\d{2}\/??\d{2}\/??\d{2,4})\s+(?<payee>.+?)\s+CB\*(?<card>\d{4,})\s*$/iu;
-const BOURSO_AVOIR_RE =
+const BOURSORAMA_CARD_REFUND_RE =
   /^AVOIR\s+(?<date>\d{2}\/??\d{2}\/??\d{2,4})\s+(?<payee>.+?)\s+CB\*(?<card>\d{4,})\s*$/iu;
-const BOURSO_PRLV_RE = /^PRLV\s+SEPA\s+(?<payee>.+)/iu;
-const BOURSO_VIR_RE = /^VIR(?:\s+(?:SEPA|INST))?\s+(?<payee>.+)/iu;
-const BOURSO_ECH_PRET_RE = /^ECH\s+PRET\s*:\s*(?<payee>.+)/iu;
+const BOURSORAMA_SEPA_DIRECT_DEBIT_RE = /^PRLV\s+SEPA\s+(?<payee>.+)/iu;
+const BOURSORAMA_TRANSFER_RE = /^VIR(?:\s+(?:SEPA|INST))?\s+(?<payee>.+)/iu;
+const BOURSORAMA_LOAN_INSTALMENT_RE = /^ECH\s+PRET\s*:\s*(?<payee>.+)/iu;
+const BOURSORAMA_REFERENCE_LINE_RE = /^R[ée]f\s*:\s/iu;
+const BOURSORAMA_TRAILING_LOCATION_RE = /\\.+$/u;
 
-// BNP Paribas
-const BNP_FACTURE_RE =
+const BNP_PARIBAS_CARD_PAYMENT_RE =
   /^FACTURE\s+CARTE\s+DU\s+(?<date>\d{6})\s+(?<payee>.+?)(?:\s+CARTE\s+(?<card>\d{4}))?\s*$/iu;
-const BNP_PRLV_RE =
+const BNP_PARIBAS_SEPA_DIRECT_DEBIT_RE =
   /^PRLV(?:\s+EUROPEEN)?\s+SEPA\s+(?<payee>.+?)(?:\s+MDT\/\S+)?(?:\s+ECH\/\S+)?(?:\s+ID\s+\S+)?\s*$/iu;
-const BNP_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+|INST\s+)?(?<payee>.+)/iu;
-const BNP_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const BNP_CHQ_RE = /^CHQ?\s+(?<payee>.+)/iu;
-const BNP_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const BNP_PARIBAS_TRANSFER_RE =
+  /^VIR(?:EMENT)?\s+(?:SEPA\s+|INST\s+)?(?<payee>.+)/iu;
+const BNP_PARIBAS_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const BNP_PARIBAS_CHEQUE_RE = /^CHQ?\s+(?<payee>.+)/iu;
+const BNP_PARIBAS_FEE_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// Crédit Agricole
-const CA_CARTE_RE =
+const CREDIT_AGRICOLE_CARD_PAYMENT_RE =
   /^PAIEMENT\s+PAR\s+CARTE\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2})\s*$/iu;
-const CA_PRELEV_FULL_RE =
+const CREDIT_AGRICOLE_DIRECT_DEBIT_DATED_RE =
   /^PRELEVEMENT\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2}\/\d{4})\s*$/iu;
-const CA_PRELEV_SHORT_RE =
+const CREDIT_AGRICOLE_DIRECT_DEBIT_DAY_MONTH_RE =
   /^PRELEVEMENT\s+(?<payee>.+?)\s+(?<date>\d{2}-\d{2})\s*$/iu;
-const CA_PRELEV_BARE_RE = /^PRELEVEMENT\s+(?<payee>.+)/iu;
-const CA_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const CA_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const CA_CHQ_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
-const CA_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const CREDIT_AGRICOLE_DIRECT_DEBIT_RE = /^PRELEVEMENT\s+(?<payee>.+)/iu;
+const CREDIT_AGRICOLE_TRANSFER_RE =
+  /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const CREDIT_AGRICOLE_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const CREDIT_AGRICOLE_CHEQUE_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
+const CREDIT_AGRICOLE_FEE_RE =
+  /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// Société Générale
-const SG_CARTE_RE =
+const SOCIETE_GENERALE_CARD_PAYMENT_RE =
   /^CARTE\s+(?<card>\w+)\s+(?<date>\d{2}\/\d{2})\s+(?<payee>.+)\s*$/iu;
-const SG_DATE_SLASH_RE = /^(?<date>\d{4})\/(?<payee>.+)\s*$/u;
-const SG_VIR_POUR_RE =
+const SOCIETE_GENERALE_DATE_PREFIXED_LINE_RE =
+  /^(?<date>\d{4})\/(?<payee>.+)\s*$/u;
+const SOCIETE_GENERALE_TRANSFER_WITH_MOTIF_RE =
   /^VIR\s+POUR\s*:\s*(?<payee>.+?)\s+REF\s*:\s*\S+\s+MOTIF\s*:\s*(?<motif>.+)\s*$/iu;
-const SG_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const SG_PRLV_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const SG_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const SG_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const SOCIETE_GENERALE_TRANSFER_RE =
+  /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const SOCIETE_GENERALE_DIRECT_DEBIT_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const SOCIETE_GENERALE_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const SOCIETE_GENERALE_FEE_RE =
+  /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// Crédit Mutuel / CIC
-const CM_PAIEMENT_RE =
+const CREDIT_MUTUEL_CARD_PAYMENT_RE =
   /^PAIEMENT\s+(?:PSC|CB|MOB)\s+(?<date>\d{4})\s+(?<payee>.+?)\s+(?:CARTE\s*|PAYWEB)(?<card>\d+)\s*$/iu;
-const CM_PAIEMENT_NO_CARD_RE =
+const CREDIT_MUTUEL_CARD_PAYMENT_WITHOUT_CARD_RE =
   /^PAIEMENT\s+(?:PSC|CB|MOB)\s+(?<date>\d{4})\s+(?<payee>.+)\s*$/iu;
-const CM_PRLV_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const CM_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const CM_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const CM_CHQ_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
-const CM_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const CREDIT_MUTUEL_DIRECT_DEBIT_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const CREDIT_MUTUEL_TRANSFER_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const CREDIT_MUTUEL_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const CREDIT_MUTUEL_CHEQUE_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
+const CREDIT_MUTUEL_FEE_RE =
+  /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// LCL
-const LCL_CB_RE = /^CB\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2}\/\d{2})\s*$/iu;
-const LCL_PRLV_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const LCL_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const LCL_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const LCL_CHQ_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
-const LCL_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const LCL_CARD_PAYMENT_RE =
+  /^CB\s+(?<payee>.+?)\s+(?<date>\d{2}\/\d{2}\/\d{2})\s*$/iu;
+const LCL_DIRECT_DEBIT_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const LCL_TRANSFER_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const LCL_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const LCL_CHEQUE_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
+const LCL_FEE_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// La Banque Postale
-const LBP_ACHAT_CB_RE =
+const LA_BANQUE_POSTALE_CARD_PAYMENT_RE =
   /^ACHAT\s+CB\s+(?<payee>.+?)\s+(?<date>\d{2}\.\d{2}\.\d{2})\s*$/iu;
-const LBP_PRLV_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const LBP_VIR_RE = /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
-const LBP_RETRAIT_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
-const LBP_CHQ_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
-const LBP_FRAIS_RE = /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
+const LA_BANQUE_POSTALE_DIRECT_DEBIT_RE = /^PRLV\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const LA_BANQUE_POSTALE_TRANSFER_RE =
+  /^VIR(?:EMENT)?\s+(?:SEPA\s+)?(?<payee>.+)/iu;
+const LA_BANQUE_POSTALE_ATM_WITHDRAWAL_RE = /^RETRAIT\s+DAB\s+(?<payee>.+)/iu;
+const LA_BANQUE_POSTALE_CHEQUE_RE = /^(?:CHEQUE|CHQ)\s+(?<payee>.+)/iu;
+const LA_BANQUE_POSTALE_FEE_RE =
+  /^(?:FRAIS|COTISATION|COMMISSION)\s+(?<payee>.+)/iu;
 
-// ── Line filters ─────────────────────────────────────────────────────────
+const TRAILING_MANDATE_REFERENCE_RE =
+  /\s+(?:REF\s*:\s*\S+|MDT\/\S+|ECH\/\S+|ID\s+\S+)$/iu;
+const TRAILING_DATE_OR_CARD_RE =
+  /\s+(?:CARTE\s+\d{4,}|CB\*?\d{4,}|\d{2}[./]\d{2}(?:[./]\d{2,4})?)$/iu;
 
-const BOURSO_REF_LINE_RE = /^R[ée]f\s*:\s/iu;
-const BOURSO_BACKSLASH_LOC_RE = /\\.+$/u;
-const stripBoursoLocation = (text: string): string =>
-  text.replace(BOURSO_BACKSLASH_LOC_RE, "").trim();
-
-// ── Institution definitions ──────────────────────────────────────────────
+const stripBoursoramaLocation = (text: string): string =>
+  text.replace(BOURSORAMA_TRAILING_LOCATION_RE, "").trim();
 
 const institutions: readonly InstitutionDef[] = [
   {
-    bics: ["BOUSFRPP"],
-    cleanPayee: stripBoursoLocation,
+    bicPrefixes: ["BOUSFRPP"],
+    cleanPayee: stripBoursoramaLocation,
     id: "boursorama",
-    names: ["boursorama", "boursobank"],
-    noiseLines: [BOURSO_REF_LINE_RE],
-    patterns: [
-      { channel: "atm", dateParser: parseBoursoDate, re: BOURSO_RETRAIT_RE },
-      { channel: "card", dateParser: parseBoursoDate, re: BOURSO_AVOIR_RE },
-      { channel: "card", dateParser: parseBoursoDate, re: BOURSO_CARTE_RE },
-      { channel: "direct-debit", re: BOURSO_PRLV_RE },
-      { channel: "transfer", re: BOURSO_VIR_RE },
-      { channel: "loan", re: BOURSO_ECH_PRET_RE },
+    nameSubstrings: ["boursorama", "boursobank"],
+    noiseLinePatterns: [BOURSORAMA_REFERENCE_LINE_RE],
+    patternsInMatchOrder: [
+      {
+        channel: "atm",
+        linePattern: BOURSORAMA_ATM_WITHDRAWAL_RE,
+        parseLabelDate: parseDdmmyyOrDdmmyyyyIgnoringSlashes,
+      },
+      {
+        channel: "card",
+        linePattern: BOURSORAMA_CARD_REFUND_RE,
+        parseLabelDate: parseDdmmyyOrDdmmyyyyIgnoringSlashes,
+      },
+      {
+        channel: "card",
+        linePattern: BOURSORAMA_CARD_PAYMENT_RE,
+        parseLabelDate: parseDdmmyyOrDdmmyyyyIgnoringSlashes,
+      },
+      { channel: "direct-debit", linePattern: BOURSORAMA_SEPA_DIRECT_DEBIT_RE },
+      { channel: "transfer", linePattern: BOURSORAMA_TRANSFER_RE },
+      { channel: "loan", linePattern: BOURSORAMA_LOAN_INSTALMENT_RE },
     ],
   },
   {
-    bics: ["BNPAFR", "BNPAFRPP"],
+    bicPrefixes: ["BNPAFR", "BNPAFRPP"],
     id: "bnp-paribas",
-    names: ["bnp", "bnp paribas"],
-    patterns: [
-      { channel: "card", dateParser: parseBnpDate, re: BNP_FACTURE_RE },
-      { channel: "direct-debit", re: BNP_PRLV_RE },
-      { channel: "atm", re: BNP_RETRAIT_RE },
-      { channel: "transfer", re: BNP_VIR_RE },
-      { channel: "cheque", re: BNP_CHQ_RE },
-      { channel: "fee", re: BNP_FRAIS_RE },
-    ],
-  },
-  {
-    bics: ["AGRIFR", "AGRIFRPP"],
-    id: "credit-agricole",
-    names: ["credit agricole", "crédit agricole"],
-    patterns: [
-      { channel: "card", re: CA_CARTE_RE },
+    nameSubstrings: ["bnp", "bnp paribas"],
+    patternsInMatchOrder: [
+      {
+        channel: "card",
+        linePattern: BNP_PARIBAS_CARD_PAYMENT_RE,
+        parseLabelDate: parseDdmmyy,
+      },
       {
         channel: "direct-debit",
-        dateParser: parseCaDate,
-        re: CA_PRELEV_FULL_RE,
+        linePattern: BNP_PARIBAS_SEPA_DIRECT_DEBIT_RE,
       },
-      { channel: "direct-debit", re: CA_PRELEV_SHORT_RE },
-      { channel: "direct-debit", re: CA_PRELEV_BARE_RE },
-      { channel: "atm", re: CA_RETRAIT_RE },
-      { channel: "transfer", re: CA_VIR_RE },
-      { channel: "cheque", re: CA_CHQ_RE },
-      { channel: "fee", re: CA_FRAIS_RE },
+      { channel: "atm", linePattern: BNP_PARIBAS_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: BNP_PARIBAS_TRANSFER_RE },
+      { channel: "cheque", linePattern: BNP_PARIBAS_CHEQUE_RE },
+      { channel: "fee", linePattern: BNP_PARIBAS_FEE_RE },
     ],
   },
   {
-    bics: ["SOGEFR", "SOGEFRPP"],
+    bicPrefixes: ["AGRIFR", "AGRIFRPP"],
+    id: "credit-agricole",
+    nameSubstrings: ["credit agricole", "crédit agricole"],
+    patternsInMatchOrder: [
+      { channel: "card", linePattern: CREDIT_AGRICOLE_CARD_PAYMENT_RE },
+      {
+        channel: "direct-debit",
+        linePattern: CREDIT_AGRICOLE_DIRECT_DEBIT_DATED_RE,
+        parseLabelDate: parseDdmmyyyySeparated,
+      },
+      {
+        channel: "direct-debit",
+        linePattern: CREDIT_AGRICOLE_DIRECT_DEBIT_DAY_MONTH_RE,
+      },
+      { channel: "direct-debit", linePattern: CREDIT_AGRICOLE_DIRECT_DEBIT_RE },
+      { channel: "atm", linePattern: CREDIT_AGRICOLE_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: CREDIT_AGRICOLE_TRANSFER_RE },
+      { channel: "cheque", linePattern: CREDIT_AGRICOLE_CHEQUE_RE },
+      { channel: "fee", linePattern: CREDIT_AGRICOLE_FEE_RE },
+    ],
+  },
+  {
+    bicPrefixes: ["SOGEFR", "SOGEFRPP"],
     id: "societe-generale",
-    names: ["sg ", "societe generale", "société générale"],
-    patterns: [
-      { channel: "card", re: SG_CARTE_RE },
+    nameSubstrings: ["sg ", "societe generale", "société générale"],
+    patternsInMatchOrder: [
+      { channel: "card", linePattern: SOCIETE_GENERALE_CARD_PAYMENT_RE },
       {
         channel: "transfer",
         extractPayee: (groups) =>
-          capture(groups, "motif") ?? capture(groups, "payee"),
-        re: SG_VIR_POUR_RE,
+          nonBlankCapture(groups, "motif") ?? nonBlankCapture(groups, "payee"),
+        linePattern: SOCIETE_GENERALE_TRANSFER_WITH_MOTIF_RE,
       },
-      { channel: "unknown", re: SG_DATE_SLASH_RE },
-      { channel: "direct-debit", re: SG_PRLV_RE },
-      { channel: "atm", re: SG_RETRAIT_RE },
-      { channel: "transfer", re: SG_VIR_RE },
-      { channel: "fee", re: SG_FRAIS_RE },
+      {
+        channel: "unknown",
+        linePattern: SOCIETE_GENERALE_DATE_PREFIXED_LINE_RE,
+      },
+      {
+        channel: "direct-debit",
+        linePattern: SOCIETE_GENERALE_DIRECT_DEBIT_RE,
+      },
+      { channel: "atm", linePattern: SOCIETE_GENERALE_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: SOCIETE_GENERALE_TRANSFER_RE },
+      { channel: "fee", linePattern: SOCIETE_GENERALE_FEE_RE },
     ],
   },
   {
-    bics: ["CMCIFR", "CMCIFRPP"],
+    bicPrefixes: ["CMCIFR", "CMCIFRPP"],
     id: "credit-mutuel",
-    names: ["cic", "credit mutuel", "crédit mutuel"],
-    patterns: [
-      { channel: "card", re: CM_PAIEMENT_RE },
-      { channel: "card", re: CM_PAIEMENT_NO_CARD_RE },
-      { channel: "direct-debit", re: CM_PRLV_RE },
-      { channel: "atm", re: CM_RETRAIT_RE },
-      { channel: "transfer", re: CM_VIR_RE },
-      { channel: "cheque", re: CM_CHQ_RE },
-      { channel: "fee", re: CM_FRAIS_RE },
+    nameSubstrings: ["cic", "credit mutuel", "crédit mutuel"],
+    patternsInMatchOrder: [
+      { channel: "card", linePattern: CREDIT_MUTUEL_CARD_PAYMENT_RE },
+      {
+        channel: "card",
+        linePattern: CREDIT_MUTUEL_CARD_PAYMENT_WITHOUT_CARD_RE,
+      },
+      { channel: "direct-debit", linePattern: CREDIT_MUTUEL_DIRECT_DEBIT_RE },
+      { channel: "atm", linePattern: CREDIT_MUTUEL_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: CREDIT_MUTUEL_TRANSFER_RE },
+      { channel: "cheque", linePattern: CREDIT_MUTUEL_CHEQUE_RE },
+      { channel: "fee", linePattern: CREDIT_MUTUEL_FEE_RE },
     ],
   },
   {
-    bics: ["CRLYFR", "CRLYFRPP"],
+    bicPrefixes: ["CRLYFR", "CRLYFRPP"],
     id: "lcl",
-    names: ["lcl", "le credit lyonnais"],
-    patterns: [
-      { channel: "card", dateParser: parseLclDate, re: LCL_CB_RE },
-      { channel: "direct-debit", re: LCL_PRLV_RE },
-      { channel: "atm", re: LCL_RETRAIT_RE },
-      { channel: "transfer", re: LCL_VIR_RE },
-      { channel: "cheque", re: LCL_CHQ_RE },
-      { channel: "fee", re: LCL_FRAIS_RE },
+    nameSubstrings: ["lcl", "le credit lyonnais"],
+    patternsInMatchOrder: [
+      {
+        channel: "card",
+        linePattern: LCL_CARD_PAYMENT_RE,
+        parseLabelDate: parseDdmmyySlashed,
+      },
+      { channel: "direct-debit", linePattern: LCL_DIRECT_DEBIT_RE },
+      { channel: "atm", linePattern: LCL_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: LCL_TRANSFER_RE },
+      { channel: "cheque", linePattern: LCL_CHEQUE_RE },
+      { channel: "fee", linePattern: LCL_FEE_RE },
     ],
   },
   {
-    bics: ["PSSTFR", "PSSTFRPP"],
+    bicPrefixes: ["PSSTFR", "PSSTFRPP"],
     id: "la-banque-postale",
-    names: ["banque postale", "la banque postale"],
-    patterns: [
-      { channel: "card", dateParser: parseLbpDate, re: LBP_ACHAT_CB_RE },
-      { channel: "direct-debit", re: LBP_PRLV_RE },
-      { channel: "atm", re: LBP_RETRAIT_RE },
-      { channel: "transfer", re: LBP_VIR_RE },
-      { channel: "cheque", re: LBP_CHQ_RE },
-      { channel: "fee", re: LBP_FRAIS_RE },
+    nameSubstrings: ["banque postale", "la banque postale"],
+    patternsInMatchOrder: [
+      {
+        channel: "card",
+        linePattern: LA_BANQUE_POSTALE_CARD_PAYMENT_RE,
+        parseLabelDate: parseDdmmyyDotted,
+      },
+      {
+        channel: "direct-debit",
+        linePattern: LA_BANQUE_POSTALE_DIRECT_DEBIT_RE,
+      },
+      { channel: "atm", linePattern: LA_BANQUE_POSTALE_ATM_WITHDRAWAL_RE },
+      { channel: "transfer", linePattern: LA_BANQUE_POSTALE_TRANSFER_RE },
+      { channel: "cheque", linePattern: LA_BANQUE_POSTALE_CHEQUE_RE },
+      { channel: "fee", linePattern: LA_BANQUE_POSTALE_FEE_RE },
     ],
   },
 ];
 
-// ── Channel-verb patterns (French generic fallback) ──────────────────────
-
-const verbPatterns: [RegExp, TransactionChannel][] = [
+const channelVerbsLongestFirst: readonly ChannelVerbPattern[] = [
   [/^PAIEMENT\s+PAR\s+CARTE(?:\s+|$)/iu, "card"],
   [/^FACTURE\s+CARTE(?:\s+|$)/iu, "card"],
   [/^PAIEMENT\s+(?:PSC|CB|MOB)(?:\s+|$)/iu, "card"],
@@ -264,20 +324,14 @@ const verbPatterns: [RegExp, TransactionChannel][] = [
   [/^(?:FRAIS|COTISATION|COMMISSION)(?:\s+|$)/iu, "fee"],
 ];
 
-// ── Trailing noise (French) ──────────────────────────────────────────────
-
-const trailingNoise: RegExp[] = [
-  // Reference suffixes: REF: ..., MDT/..., ECH/..., ID ...
-  /\s+(?:REF\s*:\s*\S+|MDT\/\S+|ECH\/\S+|ID\s+\S+)$/iu,
-  // Trailing date, card or reference chunks
-  /\s+(?:CARTE\s+\d{4,}|CB\*?\d{4,}|\d{2}[./]\d{2}(?:[./]\d{2,4})?)$/iu,
+const trailingNoiseInStripOrder: readonly RegExp[] = [
+  TRAILING_MANDATE_REFERENCE_RE,
+  TRAILING_DATE_OR_CARD_RE,
 ];
 
-// ── Profile ──────────────────────────────────────────────────────────────
-
 export const fr: CountryProfile = {
+  channelVerbsLongestFirst,
   code: "FR",
   institutions,
-  trailingNoise,
-  verbPatterns,
+  trailingNoiseInStripOrder,
 };

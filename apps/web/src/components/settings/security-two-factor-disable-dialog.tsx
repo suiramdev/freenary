@@ -19,14 +19,9 @@ import { useTwoFactorDisable } from "@/hooks/settings/use-two-factor-disable";
 import { m } from "@/paraglide/messages.js";
 
 interface SecurityTwoFactorDisableDialogProps {
-  /** Refetches the session, whose user carries the flag the section reads. */
   onDisabled: () => void;
 }
 
-/**
- * Turning the second factor off lowers account security, so it asks twice: the
- * confirmation, and the password that guards the endpoint.
- */
 export const SecurityTwoFactorDisableDialog = ({
   onDisabled,
 }: SecurityTwoFactorDisableDialogProps) => {
@@ -36,7 +31,6 @@ export const SecurityTwoFactorDisableDialog = ({
     onDone: () => setOpen(false),
   });
 
-  // Reopening must not offer the previous attempt's password back.
   useEffect(() => {
     if (open) {
       reset();

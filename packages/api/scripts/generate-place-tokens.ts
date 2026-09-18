@@ -1,25 +1,26 @@
-/**
- * Downloads the GeoNames cities15000 dataset and generates a JSON file of
- * normalised place-name tokens for European cities.
- *
- * The resulting `data/place-tokens.json` is a sorted JSON array of unique,
- * lowercase, accent-folded, purely alphabetic tokens (≥ 3 characters) drawn
- * from city names and their alternate names.
- *
- * Graceful degradation: when the download fails and an existing
- * place-tokens.json file is present, the script logs a warning and exits
- * successfully, leaving the existing artifact intact.
- *
- * Usage: bun packages/api/scripts/generate-place-tokens.ts
- */
-
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { Data, Effect, Match } from "effect";
 import { unzipSync } from "fflate";
 
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
+
+type PlaceTokenFailure =
+  | { readonly kind: "archiveUnreadable"; readonly cause: unknown }
+  | {
+      readonly kind: "downloadRejected";
+      readonly status: number;
+      readonly statusText: string;
+    }
+  | { readonly kind: "memberMissing"; readonly member: string }
+  | { readonly kind: "requestFailed"; readonly cause: unknown }
+  | { readonly kind: "writeFailed"; readonly cause: unknown };
+
+class PlaceTokenBuildFailed extends Data.TaggedError("PlaceTokenBuildFailed")<{
+  readonly reason: PlaceTokenFailure;
+}> {}
 
 const OUTPUT_PATH = path.resolve(
   import.meta.dirname,
@@ -28,6 +29,8 @@ const OUTPUT_PATH = path.resolve(
 
 const GEONAMES_URL =
   "https://download.geonames.org/export/dump/cities15000.zip";
+
+const GEONAMES_MEMBER = "cities15000.txt";
 
 const EUROPEAN_COUNTRIES = {
   AT: true,
@@ -62,35 +65,68 @@ const EUROPEAN_COUNTRIES = {
   SK: true,
 } as const satisfies Record<string, true>;
 
-const ALPHA_ONLY = /^[a-z]+$/u;
+const NAME_COLUMN = 1;
+const ALTERNATE_NAMES_COLUMN = 3;
+const COUNTRY_CODE_COLUMN = 8;
 
-/**
- * Downloads the zip and extracts cities15000.txt in memory.
- */
-const downloadAndExtract = async (url: string): Promise<string> => {
-  const response = await fetch(url);
+const ALPHA_ONLY = /^[a-z]+$/u;
+const MIN_TOKEN_LENGTH = 3;
+
+const KEEP_EXISTING_ARTIFACT_EXIT_CODE = 1;
+
+const describe = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
+
+const noticeFor = (reason: PlaceTokenFailure): string =>
+  Match.value(reason).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      archiveUnreadable: ({ cause }) => describe(cause),
+      downloadRejected: ({ status, statusText }) =>
+        `Download failed: ${status} ${statusText}`,
+      memberMissing: ({ member }) => `${member} not found in zip archive`,
+      requestFailed: ({ cause }) => describe(cause),
+      writeFailed: ({ cause }) => describe(cause),
+    })
+  );
+
+const downloadAndExtract = Effect.fnUntraced(function* downloadAndExtract(
+  url: string
+) {
+  const response = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PlaceTokenBuildFailed({ reason: { cause, kind: "requestFailed" } }),
+    try: () => fetch(url),
+  });
 
   if (!response.ok) {
-    throw new Error(
-      `Download failed: ${response.status} ${response.statusText}`
-    );
+    return yield* new PlaceTokenBuildFailed({
+      reason: {
+        kind: "downloadRejected",
+        status: response.status,
+        statusText: response.statusText,
+      },
+    });
   }
 
-  const buffer = new Uint8Array(await response.arrayBuffer());
-  const entries = unzipSync(buffer);
-  const entry = entries["cities15000.txt"];
+  const archive = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PlaceTokenBuildFailed({
+        reason: { cause, kind: "archiveUnreadable" },
+      }),
+    try: async () => unzipSync(new Uint8Array(await response.arrayBuffer())),
+  });
 
-  if (!entry) {
-    throw new Error("cities15000.txt not found in zip archive");
+  const member = archive[GEONAMES_MEMBER];
+
+  if (!member) {
+    return yield* new PlaceTokenBuildFailed({
+      reason: { kind: "memberMissing", member: GEONAMES_MEMBER },
+    });
   }
 
-  return new TextDecoder().decode(entry);
-};
+  return new TextDecoder().decode(member);
+});
 
-/**
- * Parses the GeoNames tab-separated data and collects normalised place tokens
- * for European cities.
- */
 const collectPlaceTokens = (tsvContent: string): string[] => {
   const tokens = new Set<string>();
 
@@ -100,25 +136,19 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
     }
 
     const columns = line.split("\t");
-    const countryCode = columns[8] ?? "";
 
-    // SAFETY: countryCode is an arbitrary column value; the assertion only
-    // narrows for the const lookup, and a miss is !== true
     if (
-      EUROPEAN_COUNTRIES[countryCode as keyof typeof EUROPEAN_COUNTRIES] !==
-      true
+      !Object.hasOwn(EUROPEAN_COUNTRIES, columns[COUNTRY_CODE_COLUMN] ?? "")
     ) {
       continue;
     }
 
-    const name = columns[1] ?? "";
-    const alternateNames = columns[3] ?? "";
+    const rawNames = [columns[NAME_COLUMN] ?? ""];
+    const alternateNames = columns[ALTERNATE_NAMES_COLUMN] ?? "";
 
-    /* Collect all raw names: the primary name plus every alternate. */
-    const rawNames = [name];
     if (alternateNames !== "") {
-      for (const alt of alternateNames.split(",")) {
-        rawNames.push(alt);
+      for (const alternateName of alternateNames.split(",")) {
+        rawNames.push(alternateName);
       }
     }
 
@@ -129,9 +159,8 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
         continue;
       }
 
-      /* Split multi-word normalised names into individual tokens. */
       for (const token of normalised.split(" ")) {
-        if (token.length >= 3 && ALPHA_ONLY.test(token)) {
+        if (token.length >= MIN_TOKEN_LENGTH && ALPHA_ONLY.test(token)) {
           tokens.add(token);
         }
       }
@@ -141,32 +170,43 @@ const collectPlaceTokens = (tsvContent: string): string[] => {
   return [...tokens].toSorted();
 };
 
-const main = async (): Promise<void> => {
+const generatePlaceTokens = Effect.fnUntraced(function* generatePlaceTokens() {
   console.log("Downloading GeoNames cities15000 dataset…");
 
-  try {
-    const tsvContent = await downloadAndExtract(GEONAMES_URL);
-    console.log(`Extracted ${tsvContent.split("\n").length} lines`);
+  const tsvContent = yield* downloadAndExtract(GEONAMES_URL);
+  console.log(`Extracted ${tsvContent.split("\n").length} lines`);
 
-    const tokens = collectPlaceTokens(tsvContent);
+  const tokens = collectPlaceTokens(tsvContent);
 
-    await writeFile(OUTPUT_PATH, JSON.stringify(tokens, null, 2));
-    console.log(`Generated ${tokens.length} place tokens → ${OUTPUT_PATH}`);
-  } catch (error: unknown) {
-    if (existsSync(OUTPUT_PATH)) {
-      console.warn(
-        "Download/extraction failed but existing place-tokens.json found — keeping it."
-      );
-      console.warn(error instanceof Error ? error.message : String(error));
-      return;
+  yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PlaceTokenBuildFailed({ reason: { cause, kind: "writeFailed" } }),
+    try: () => writeFile(OUTPUT_PATH, JSON.stringify(tokens, null, 2)),
+  });
+  console.log(`Generated ${tokens.length} place tokens → ${OUTPUT_PATH}`);
+});
+
+const keepExistingArtifact = (
+  cause: unknown,
+  notice: string
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    if (!existsSync(OUTPUT_PATH)) {
+      console.error(`Place-token generation failed: ${notice}`, cause);
+      process.exit(KEEP_EXISTING_ARTIFACT_EXIT_CODE);
     }
-    throw error;
-  }
-};
 
-try {
-  await main();
-} catch (error) {
-  console.error(error);
-  process.exit(1);
-}
+    console.warn(
+      "Download/extraction failed but existing place-tokens.json found — keeping it."
+    );
+    console.warn(notice);
+  });
+
+await Effect.runPromise(
+  generatePlaceTokens().pipe(
+    Effect.catchTag("PlaceTokenBuildFailed", (failure) =>
+      keepExistingArtifact(failure, noticeFor(failure.reason))
+    ),
+    Effect.catchDefect((cause) => keepExistingArtifact(cause, describe(cause)))
+  )
+);

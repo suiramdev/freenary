@@ -4,12 +4,10 @@ import type {
   SpendingCategory,
 } from "@freenary/api/lib/taxonomy";
 
-/** What the user clicked: a level-2 group or a level-3 category. */
 export type CategorySelection =
   | { category: SpendingCategory; kind: "category" }
   | { group: CategoryGroup; kind: "group" };
 
-/** The transaction list's category filter, as the API expects it. */
 export interface CategoryFilter {
   categories: SpendingCategory[];
   groups: CategoryGroup[];
@@ -20,7 +18,10 @@ export const EMPTY_CATEGORY_FILTER: CategoryFilter = {
   groups: [],
 };
 
-const isOnlyActive = (filter: CategoryFilter, selection: CategorySelection) => {
+const isTheOnlyActiveFilter = (
+  filter: CategoryFilter,
+  selection: CategorySelection
+) => {
   if (selection.kind === "group") {
     return (
       filter.groups.length === 1 &&
@@ -28,6 +29,7 @@ const isOnlyActive = (filter: CategoryFilter, selection: CategorySelection) => {
       filter.groups[0] === selection.group
     );
   }
+
   return (
     filter.categories.length === 1 &&
     filter.groups.length === 0 &&
@@ -35,14 +37,14 @@ const isOnlyActive = (filter: CategoryFilter, selection: CategorySelection) => {
   );
 };
 
-/** Clicking a chart node filters on it; clicking the active one clears it. */
 export const toggleCategoryFilter = (
   filter: CategoryFilter,
   selection: CategorySelection | null
 ): CategoryFilter => {
-  if (selection === null || isOnlyActive(filter, selection)) {
+  if (selection === null || isTheOnlyActiveFilter(filter, selection)) {
     return EMPTY_CATEGORY_FILTER;
   }
+
   return selection.kind === "group"
     ? { categories: [], groups: [selection.group] }
     : { categories: [selection.category], groups: [] };
@@ -61,12 +63,6 @@ export const toggleCategory = (
     : [...filter.categories, category],
 });
 
-/**
- * Picking a group filters on the whole group rather than expanding into nine
- * category chips the user then has to unpick one by one. Its categories are
- * dropped because the server unions them in anyway, so their chips would count
- * toward the badge while changing no result.
- */
 export const toggleGroup = (
   filter: CategoryFilter,
   group: CategoryGroup
@@ -74,9 +70,11 @@ export const toggleGroup = (
   if (filter.groups.includes(group)) {
     return { ...filter, groups: filter.groups.filter((g) => g !== group) };
   }
-  const covered = new Set<SpendingCategory>(categoriesInGroup(group));
+
+  const coveredByTheGroup = new Set<SpendingCategory>(categoriesInGroup(group));
+
   return {
-    categories: filter.categories.filter((c) => !covered.has(c)),
+    categories: filter.categories.filter((c) => !coveredByTheGroup.has(c)),
     groups: [...filter.groups, group],
   };
 };

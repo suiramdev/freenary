@@ -6,18 +6,14 @@ import type { SankeyFlow, SankeyLink, SankeyNode } from "@/lib/sankey/layout";
 import { m } from "@/paraglide/messages.js";
 
 export interface BudgetProfileLine {
-  /** Planned amount per month in minor units. */
   amount: number;
   groupColor: CategoryColor;
-  /** Group slug, or the custom category's key when it is a group of its own. */
   groupKey: string;
   groupLabel: string;
   id: string;
   kind: BudgetLineKind;
   label: string;
 }
-
-const MONEY_LEFT_ID = "money-left";
 
 interface LineGroup {
   color: CategoryColor;
@@ -26,14 +22,8 @@ interface LineGroup {
   value: number;
 }
 
-/**
- * Maps a budgeting profile onto the three levels of the hierarchy:
- * revenues → category group → line.
- *
- * Grouping by group rather than by category is what makes this chart read the
- * same as the cash-flow one. Investments are grouped ahead of outgoings so the
- * allocation side follows the order the profile is entered.
- */
+const MONEY_LEFT_ID = "money-left";
+
 export const toBudgetProfileSankey = (
   lines: BudgetProfileLine[]
 ): SankeyFlow => {
@@ -49,15 +39,16 @@ export const toBudgetProfileSankey = (
     0
   );
 
-  // Insertion order is the column order, so a group sits where its first line appeared.
-  const groups = new Map<string, LineGroup>();
+  const groupsInAppearanceOrder = new Map<string, LineGroup>();
+
   for (const line of allocations) {
-    const group = groups.get(line.groupKey);
+    const group = groupsInAppearanceOrder.get(line.groupKey);
+
     if (group) {
       group.lines.push(line);
       group.value += line.amount;
     } else {
-      groups.set(line.groupKey, {
+      groupsInAppearanceOrder.set(line.groupKey, {
         color: line.groupColor,
         label: line.groupLabel,
         lines: [line],
@@ -70,7 +61,7 @@ export const toBudgetProfileSankey = (
   const lineNodes: SankeyNode[] = [];
   const links: SankeyLink[] = [];
 
-  for (const [groupKey, group] of groups) {
+  for (const [groupKey, group] of groupsInAppearanceOrder) {
     const groupId = `group:${groupKey}`;
     groupNodes.push({
       color: group.color,
@@ -79,7 +70,6 @@ export const toBudgetProfileSankey = (
       value: group.value,
     });
 
-    // Emitting a group's lines right after the group keeps ribbons from crossing.
     for (const line of group.lines) {
       const lineId = `line:${line.id}`;
       lineNodes.push({
@@ -93,6 +83,7 @@ export const toBudgetProfileSankey = (
   }
 
   const moneyLeft = totalRevenue - totalAllocated;
+
   if (moneyLeft > 0) {
     groupNodes.push({
       color: "grey",

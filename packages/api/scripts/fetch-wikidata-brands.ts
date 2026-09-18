@@ -1,27 +1,49 @@
-/**
- * Fetches brand/chain entities from Wikidata SPARQL and writes an intermediate
- * JSON file for the merchant dictionary build.
- *
- * Wikidata (CC0 licence) carries 36k+ brand entities with multilingual aliases
- * and ~93% have an official website (P856). Selection uses direct P31 (instance
- * of) type matching against known commercial entity classes, with P856 as a
- * required filter. Per-type chunking stays well under the 60-second WDQS timeout.
- *
- * Phase 0: SIRENE enrichment for curated merchants (French company registry).
- * Phase 1: fetch entities + labels + websites grouped by type.
- * Phase 1b: Wikidata lookup for curated merchants by label.
- * Phase 2: batch alias lookup by entity ID (VALUES clauses of ~150).
- *
- * Usage: bun packages/api/scripts/fetch-wikidata-brands.ts
- */
-/* eslint-disable no-await-in-loop -- sequential SPARQL queries must respect WDQS rate limits */
-
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { Data, Duration, Effect, Match, Option, Schedule } from "effect";
 
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
 import { fetchSireneBatch } from "./lib/sirene-client";
 import type { SireneSearchResponse } from "./lib/sirene-client";
+
+interface SireneResult {
+  nafCode: string;
+  denomination: string;
+  tradeName: string | null;
+}
+
+interface WikidataBrand {
+  aliases: string[];
+  countries: string[];
+  domains: string[];
+  id: string;
+  label: string;
+  sirene?: SireneResult;
+}
+
+interface SparqlResults {
+  results: {
+    bindings: Record<string, { value: string }>[];
+  };
+}
+
+interface EntityEntry {
+  countries: Set<string>;
+  domains: Set<string>;
+  label: string;
+}
+
+type SparqlFailure =
+  | { readonly kind: "rejected"; readonly status: number }
+  | { readonly kind: "serviceBusy"; readonly status: number }
+  | { readonly kind: "transportFailed"; readonly cause: unknown };
+
+type RetryableSparqlFailure = Exclude<SparqlFailure, { kind: "rejected" }>;
+
+class SparqlQueryFailed extends Data.TaggedError("SparqlQueryFailed")<{
+  readonly reason: SparqlFailure;
+}> {}
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const OUTPUT_PATH = path.resolve(
@@ -32,15 +54,25 @@ const OUTPUT_PATH = path.resolve(
 const USER_AGENT = "freenary-merchant-build/1.0 (https://freenary.com)";
 const DELAY_MS = 1500;
 
+const TOO_MANY_REQUESTS = 429;
+const SERVER_ERROR = 500;
+const SPARQL_RETRIES = 2;
+const SPARQL_ATTEMPTS = SPARQL_RETRIES + 1;
+const RETRY_BASE_MS = 5000;
+const RETRY_DELAY_FACTOR = 2;
+
 const CURATED_WIKIDATA_BATCH_SIZE = 10;
-
-/** ~50 curated names at 7 req/s need seconds; this only caps a stalled endpoint. */
 const CURATED_SIRENE_BUDGET_MS = 120_000;
+const CURATED_SIRENE_PROGRESS_EVERY = 20;
 
-/**
- * Wikidata types that cover consumer-facing commercial entities.
- * Direct P31 match only (no transitive P279* closure) to avoid WDQS timeouts.
- */
+const ALIAS_BATCH_SIZE = 400;
+const ALIAS_BATCH_PROGRESS_EVERY = 10;
+const ALIAS_LANGUAGES = '("en", "fr")';
+const ROWS_PER_CURATED_NAME = 50;
+const ENTITY_ROW_LIMIT = 10_000;
+
+const WWW_PREFIX = /^www\./u;
+
 const ENTITY_TYPES = {
   Q1060829: "franchise",
   Q1589009: "startup company",
@@ -57,56 +89,78 @@ const ENTITY_TYPES = {
   Q891723: "public company",
 } as const satisfies Record<string, string>;
 
-// No `siren`: the SIRENE API returns it on the result, not the establishment
-// this is built from, so the field was never populated and nothing reads it.
-interface SireneResult {
-  nafCode: string;
-  denomination: string;
-  tradeName: string | null;
-}
+const describe = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
 
-interface WikidataBrand {
-  aliases: string[];
-  /**
-   * ISO 3166-1 alpha-2 codes from P17, sorted. Empty when Wikidata states no
-   * country. Gates the SIRENE pass, which only knows French entities.
-   */
-  countries: string[];
-  domains: string[];
-  id: string;
-  label: string;
-  sirene?: SireneResult;
-}
+const parseUrl = Option.liftThrowable(
+  (url: string) => new URL(url.startsWith("http") ? url : `https://${url}`)
+);
 
-const extractDomain = (url: string): string | null => {
-  try {
-    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
-    return parsed.hostname.toLowerCase().replace(/^www\./u, "");
-  } catch {
-    return null;
+const extractDomain = (url: string): Option.Option<string> =>
+  parseUrl(url).pipe(
+    Option.map((parsed) =>
+      parsed.hostname.toLowerCase().replace(WWW_PREFIX, "")
+    )
+  );
+
+const chunk = <A>(items: readonly A[], size: number): A[][] => {
+  const batches: A[][] = [];
+
+  for (let start = 0; start < items.length; start += size) {
+    batches.push(items.slice(start, start + size));
   }
+
+  return batches;
 };
 
-const sleep = (ms: number): Promise<void> => {
-  const { promise, resolve } = Promise.withResolvers<undefined>();
-  setTimeout(resolve, ms);
-  return promise;
-};
+const retryDelay = (recurrence: number): Duration.Duration =>
+  Duration.millis(RETRY_BASE_MS * RETRY_DELAY_FACTOR ** recurrence);
 
-interface SparqlResults {
-  results: {
-    bindings: Record<string, { value: string }>[];
-  };
-}
-
-const runQuery = async (
-  query: string,
+const retryNotice = (
+  reason: RetryableSparqlFailure,
   label: string,
-  retries = 2
-): Promise<SparqlResults | null> => {
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    try {
-      const response = await fetch(ENDPOINT, {
+  delay: Duration.Duration
+): string =>
+  Match.value(reason).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      serviceBusy: ({ status }) =>
+        `  HTTP ${status} on ${label}, retry in ${Duration.toSeconds(delay)}s…`,
+      transportFailed: ({ cause }) =>
+        `  Network error on ${label}, retry in ${Duration.toSeconds(delay)}s: ${describe(cause)}`,
+    })
+  );
+
+const giveUpNotice = (reason: SparqlFailure, label: string): string =>
+  Match.value(reason).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      rejected: ({ status }) => `  Unexpected HTTP ${status} on ${label}`,
+      serviceBusy: ({ status }) =>
+        `  Failed ${label} after ${SPARQL_ATTEMPTS} attempts: HTTP ${status}`,
+      transportFailed: ({ cause }) => `  Failed ${label}: ${describe(cause)}`,
+    })
+  );
+
+const retryBackoff = (label: string) =>
+  Schedule.recurs(SPARQL_RETRIES).pipe(
+    Schedule.setInputType<SparqlQueryFailed>(),
+    Schedule.addDelay(({ output }) => Effect.succeed(retryDelay(output))),
+    Schedule.tap(({ input, output }) => {
+      const { reason } = input;
+
+      return reason.kind === "rejected"
+        ? Effect.void
+        : Effect.sync(() => {
+            console.log(retryNotice(reason, label, retryDelay(output)));
+          });
+    })
+  );
+
+const requestSparql = Effect.fnUntraced(function* requestSparql(query: string) {
+  const response = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new SparqlQueryFailed({ reason: { cause, kind: "transportFailed" } }),
+    try: () =>
+      fetch(ENDPOINT, {
         body: `query=${encodeURIComponent(query)}`,
         headers: {
           Accept: "application/sparql-results+json",
@@ -114,114 +168,118 @@ const runQuery = async (
           "User-Agent": USER_AGENT,
         },
         method: "POST",
-      });
+      }),
+  });
 
-      if (response.status === 429 || response.status >= 500) {
-        if (attempt < retries) {
-          const wait = Math.min(30_000, 5000 * (attempt + 1));
-          console.log(
-            `  HTTP ${response.status} on ${label}, retry in ${wait / 1000}s…`
-          );
-          await sleep(wait);
-          continue;
-        }
-        console.log(
-          `  Failed ${label} after ${retries + 1} attempts: HTTP ${response.status}`
-        );
-        return null;
-      }
-
-      if (!response.ok) {
-        console.log(`  Unexpected HTTP ${response.status} on ${label}`);
-        return null;
-      }
-
-      // SAFETY: WDQS returns well-known SPARQL results JSON structure
-      return (await response.json()) as SparqlResults;
-    } catch (error) {
-      if (attempt < retries) {
-        const wait = 5000 * (attempt + 1);
-        console.log(
-          `  Network error on ${label}, retry in ${wait / 1000}s: ${error instanceof Error ? error.message : String(error)}`
-        );
-        await sleep(wait);
-        continue;
-      }
-      console.log(
-        `  Failed ${label}: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return null;
-    }
+  if (
+    response.status === TOO_MANY_REQUESTS ||
+    response.status >= SERVER_ERROR
+  ) {
+    return yield* new SparqlQueryFailed({
+      reason: { kind: "serviceBusy", status: response.status },
+    });
   }
-  return null;
-};
 
-// ── Phase 0: SIRENE enrichment for curated merchants ─────────────────────
+  if (!response.ok) {
+    return yield* new SparqlQueryFailed({
+      reason: { kind: "rejected", status: response.status },
+    });
+  }
+
+  /* SAFETY: WDQS answered 2xx to a SPARQL query it accepted, so the body is
+     the SPARQL 1.1 results JSON shape its content type declares */
+  return yield* Effect.tryPromise({
+    catch: (cause) =>
+      new SparqlQueryFailed({ reason: { cause, kind: "transportFailed" } }),
+    try: async () => (await response.json()) as SparqlResults,
+  });
+});
+
+const runQuery = (
+  query: string,
+  label: string
+): Effect.Effect<Option.Option<SparqlResults>> =>
+  requestSparql(query).pipe(
+    Effect.retry({
+      schedule: retryBackoff(label),
+      times: SPARQL_RETRIES,
+      while: ({ reason }) => reason.kind !== "rejected",
+    }),
+    Effect.map(Option.some),
+    Effect.catchTag("SparqlQueryFailed", ({ reason }) =>
+      Effect.sync(() => {
+        console.log(giveUpNotice(reason, label));
+
+        return Option.none<SparqlResults>();
+      })
+    )
+  );
 
 const parseSireneResult = (
   data: SireneSearchResponse,
   name: string
 ): SireneResult | null => {
   const [topResult] = data.results;
+
   if (!topResult) {
     return null;
   }
-  const [etab] = topResult.matching_etablissements;
-  if (!etab?.activite_principale) {
+
+  const [establishment] = topResult.matching_etablissements;
+
+  if (!establishment?.activite_principale) {
     return null;
   }
+
   return {
     denomination: topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
-    nafCode: etab.activite_principale,
-    tradeName: etab.nom_commercial ?? null,
+    nafCode: establishment.activite_principale,
+    tradeName: establishment.nom_commercial ?? null,
   };
 };
 
-const fetchSireneForCuratedMerchants = async (): Promise<
-  Map<string, SireneResult>
-> => {
-  const names = CURATED_MERCHANTS.map((m) => m.name);
-  console.log(
-    `Phase 0: querying SIRENE for ${names.length} curated merchants…`
-  );
-
-  const outcome = await fetchSireneBatch(names, parseSireneResult, {
-    budgetMs: CURATED_SIRENE_BUDGET_MS,
-    onProgress: (done, total) => {
-      if (done % 20 === 0 || done === total) {
-        console.log(`  ${done}/${total} queried`);
-      }
-    },
-  });
-
-  const sireneMap = new Map<string, SireneResult>();
-  for (const { query, data } of outcome.results) {
-    if (data) {
-      sireneMap.set(query, data);
-    }
-  }
-
-  console.log(`  ${sireneMap.size}/${names.length} matched`);
-  if (outcome.stop !== "complete") {
+const fetchSireneForCuratedMerchants = Effect.fnUntraced(
+  function* fetchSireneForCuratedMerchants() {
+    const names = CURATED_MERCHANTS.map((merchant) => merchant.name);
     console.log(
-      `  Warning: SIRENE lookup stopped early (${outcome.stop}); ${outcome.skipped} names unqueried, ${outcome.failed} requests failed`
+      `Phase 0: querying SIRENE for ${names.length} curated merchants…`
     );
+
+    const outcome = yield* Effect.promise(() =>
+      fetchSireneBatch(names, parseSireneResult, {
+        budgetMs: CURATED_SIRENE_BUDGET_MS,
+        onProgress: (done, total) => {
+          if (done % CURATED_SIRENE_PROGRESS_EVERY === 0 || done === total) {
+            console.log(`  ${done}/${total} queried`);
+          }
+        },
+      })
+    );
+
+    const sireneByName = new Map<string, SireneResult>();
+
+    for (const { query, data } of outcome.results) {
+      if (data) {
+        sireneByName.set(query, data);
+      }
+    }
+
+    console.log(`  ${sireneByName.size}/${names.length} matched`);
+
+    if (outcome.stop !== "complete") {
+      console.log(
+        `  Warning: SIRENE lookup stopped early (${outcome.stop}); ${outcome.skipped} names unqueried, ${outcome.failed} requests failed`
+      );
+    }
+
+    return sireneByName;
   }
-  return sireneMap;
-};
+);
 
-// ── Phase 1: fetch entities by type ──────────────────────────────────────
-
-interface EntityEntry {
-  countries: Set<string>;
-  domains: Set<string>;
-  label: string;
-}
-
-const fetchEntitiesByType = async (
+const fetchEntitiesByType = Effect.fnUntraced(function* fetchEntitiesByType(
   typeQid: string,
   typeName: string
-): Promise<Map<string, EntityEntry>> => {
+) {
   const query = `SELECT ?item ?itemLabel ?website ?countryCode WHERE {
   ?item wdt:P31 wd:${typeQid} .
   ?item wdt:P856 ?website .
@@ -229,172 +287,62 @@ const fetchEntitiesByType = async (
   OPTIONAL { ?item wdt:P17/wdt:P297 ?countryCode }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
   FILTER NOT EXISTS { ?item wdt:P31 wd:Q4167410 }
-} LIMIT 10000`;
+} LIMIT ${ENTITY_ROW_LIMIT}`;
 
-  const data = await runQuery(query, `type ${typeQid} (${typeName})`);
+  const data = yield* runQuery(query, `type ${typeQid} (${typeName})`);
   const result = new Map<string, EntityEntry>();
 
-  if (!data) {
+  if (Option.isNone(data)) {
     return result;
   }
 
-  for (const row of data.results.bindings) {
+  for (const row of data.value.results.bindings) {
     const qid = row.item.value.split("/").pop() ?? row.item.value;
     const label = row.itemLabel.value;
     const domain = extractDomain(row.website.value);
     const countryCode = row.countryCode?.value.toUpperCase();
 
     let entry = result.get(qid);
+
     if (!entry) {
       entry = { countries: new Set(), domains: new Set(), label };
       result.set(qid, entry);
     }
-    if (domain) {
-      entry.domains.add(domain);
+
+    if (Option.isSome(domain)) {
+      entry.domains.add(domain.value);
     }
+
     if (countryCode) {
       entry.countries.add(countryCode);
     }
   }
 
   return result;
-};
+});
 
-// ── Phase 1b: Wikidata lookup for curated merchants ─────────────────────
-
-const fetchCuratedFromWikidata = async (
-  names: string[],
+const mergeEntitiesByType = Effect.fnUntraced(function* mergeEntitiesByType(
   merged: Map<string, EntityEntry>
-): Promise<void> => {
-  console.log(
-    `\nPhase 1b: querying Wikidata for ${names.length} curated merchant names…`
-  );
-
-  for (let i = 0; i < names.length; i += CURATED_WIKIDATA_BATCH_SIZE) {
-    const batch = names.slice(i, i + CURATED_WIKIDATA_BATCH_SIZE);
-    const valuesClause = batch
-      .map((n) => `"${n.replaceAll('"', '\\"')}"@en`)
-      .join(" ");
-
-    const query = `SELECT ?item ?itemLabel ?website ?countryCode WHERE {
-  VALUES ?searchLabel { ${valuesClause} }
-  ?item rdfs:label ?searchLabel .
-  OPTIONAL { ?item wdt:P856 ?website }
-  OPTIONAL { ?item wdt:P17/wdt:P297 ?countryCode }
-  FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
-}
-ORDER BY ?item ?website
-LIMIT ${batch.length * 50}`;
-
-    const batchNum = Math.floor(i / CURATED_WIKIDATA_BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(names.length / CURATED_WIKIDATA_BATCH_SIZE);
-    const data = await runQuery(
-      query,
-      `curated batch ${batchNum}/${totalBatches}`
-    );
-
-    if (data) {
-      let batchNew = 0;
-      for (const row of data.results.bindings) {
-        const itemVal = row.item;
-        const labelVal = row.itemLabel;
-        if (!itemVal || !labelVal) {
-          continue;
-        }
-        const qid = itemVal.value.split("/").pop() ?? itemVal.value;
-        const label = labelVal.value;
-        const domain = row.website ? extractDomain(row.website.value) : null;
-
-        let entry = merged.get(qid);
-        if (!entry) {
-          entry = { countries: new Set(), domains: new Set(), label };
-          merged.set(qid, entry);
-          batchNew += 1;
-        }
-        if (domain) {
-          entry.domains.add(domain);
-        }
-        const countryCode = row.countryCode?.value.toUpperCase();
-        if (countryCode) {
-          entry.countries.add(countryCode);
-        }
-      }
-      console.log(
-        `  Batch ${batchNum}/${totalBatches}: ${batch.length} names, ${batchNew} new entities`
-      );
-    }
-
-    if (i + CURATED_WIKIDATA_BATCH_SIZE < names.length) {
-      await sleep(DELAY_MS);
-    }
-  }
-};
-
-// ── Phase 2: batch alias lookup ──────────────────────────────────────────
-
-const ALIAS_BATCH_SIZE = 400;
-
-const fetchAliasesBatch = async (
-  qids: string[]
-): Promise<Map<string, string[]>> => {
-  const values = qids.map((q) => `wd:${q}`).join(" ");
-  const query = `SELECT ?item (GROUP_CONCAT(DISTINCT ?altLabel; separator="|") AS ?aliases) WHERE {
-  VALUES ?item { ${values} }
-  ?item skos:altLabel ?altLabel . FILTER(LANG(?altLabel) IN ("en", "fr"))
-} GROUP BY ?item`;
-
-  const data = await runQuery(query, `aliases batch (${qids.length} items)`);
-  const result = new Map<string, string[]>();
-
-  if (!data) {
-    return result;
-  }
-
-  for (const row of data.results.bindings) {
-    const qid = row.item.value.split("/").pop() ?? row.item.value;
-    const aliasStr = row.aliases?.value ?? "";
-    if (aliasStr.length > 0) {
-      const aliases = aliasStr
-        .split("|")
-        .map((a) => a.trim())
-        .filter((a) => a.length > 0);
-      if (aliases.length > 0) {
-        result.set(qid, aliases);
-      }
-    }
-  }
-
-  return result;
-};
-
-// ── Main ─────────────────────────────────────────────────────────────────
-
-const main = async (): Promise<void> => {
-  // Phase 0: SIRENE enrichment for curated merchants
-  const sireneMap = await fetchSireneForCuratedMerchants();
-  console.log(
-    `\nPhase 0 complete: ${sireneMap.size}/${CURATED_MERCHANTS.length} curated merchants matched in SIRENE`
-  );
-
-  // Phase 1: collect all entities across types
-  const merged = new Map<string, EntityEntry>();
-
+) {
   console.log(
     `\nPhase 1: fetching entities by type (${Object.keys(ENTITY_TYPES).length} types)…`
   );
 
   for (const [typeQid, typeName] of Object.entries(ENTITY_TYPES)) {
-    const entities = await fetchEntitiesByType(typeQid, typeName);
+    const entities = yield* fetchEntitiesByType(typeQid, typeName);
 
     let newCount = 0;
+
     for (const [qid, entry] of entities) {
       const existing = merged.get(qid);
+
       if (existing) {
-        for (const d of entry.domains) {
-          existing.domains.add(d);
+        for (const domain of entry.domains) {
+          existing.domains.add(domain);
         }
-        for (const c of entry.countries) {
-          existing.countries.add(c);
+
+        for (const country of entry.countries) {
+          existing.countries.add(country);
         }
       } else {
         merged.set(qid, {
@@ -409,90 +357,239 @@ const main = async (): Promise<void> => {
     console.log(
       `  ${typeQid} (${typeName}): ${entities.size} entities, ${newCount} new (total: ${merged.size})`
     );
-    await sleep(DELAY_MS);
+    yield* Effect.sleep(DELAY_MS);
   }
 
   console.log(`\nPhase 1 complete: ${merged.size} unique entities`);
+});
 
-  // Phase 1b: Wikidata lookup for curated merchants by label
-  const curatedNames = CURATED_MERCHANTS.map((m) => m.name);
-  await fetchCuratedFromWikidata(curatedNames, merged);
-  console.log(
-    `Phase 1b complete: ${merged.size} total entities after curated lookup`
-  );
+const fetchCuratedFromWikidata = Effect.fnUntraced(
+  function* fetchCuratedFromWikidata(
+    names: string[],
+    merged: Map<string, EntityEntry>
+  ) {
+    console.log(
+      `\nPhase 1b: querying Wikidata for ${names.length} curated merchant names…`
+    );
 
-  // Phase 2: fetch aliases in batches
-  const allQids = [...merged.keys()];
+    const batches = chunk(names, CURATED_WIKIDATA_BATCH_SIZE);
+
+    for (const [index, batch] of batches.entries()) {
+      const valuesClause = batch
+        .map((name) => `"${name.replaceAll('"', '\\"')}"@en`)
+        .join(" ");
+
+      const query = `SELECT ?item ?itemLabel ?website ?countryCode WHERE {
+  VALUES ?searchLabel { ${valuesClause} }
+  ?item rdfs:label ?searchLabel .
+  OPTIONAL { ?item wdt:P856 ?website }
+  OPTIONAL { ?item wdt:P17/wdt:P297 ?countryCode }
+  FILTER NOT EXISTS { ?item wdt:P31 wd:Q5 }
+}
+ORDER BY ?item ?website
+LIMIT ${batch.length * ROWS_PER_CURATED_NAME}`;
+
+      const batchNum = index + 1;
+      const data = yield* runQuery(
+        query,
+        `curated batch ${batchNum}/${batches.length}`
+      );
+
+      if (Option.isSome(data)) {
+        let batchNew = 0;
+
+        for (const row of data.value.results.bindings) {
+          const itemVal = row.item;
+          const labelVal = row.itemLabel;
+
+          if (!(itemVal && labelVal)) {
+            continue;
+          }
+
+          const qid = itemVal.value.split("/").pop() ?? itemVal.value;
+          const label = labelVal.value;
+          const domain = Option.fromNullishOr(row.website).pipe(
+            Option.flatMap((website) => extractDomain(website.value))
+          );
+
+          let entry = merged.get(qid);
+
+          if (!entry) {
+            entry = { countries: new Set(), domains: new Set(), label };
+            merged.set(qid, entry);
+            batchNew += 1;
+          }
+
+          if (Option.isSome(domain)) {
+            entry.domains.add(domain.value);
+          }
+
+          const countryCode = row.countryCode?.value.toUpperCase();
+
+          if (countryCode) {
+            entry.countries.add(countryCode);
+          }
+        }
+
+        console.log(
+          `  Batch ${batchNum}/${batches.length}: ${batch.length} names, ${batchNew} new entities`
+        );
+      }
+
+      if (batchNum < batches.length) {
+        yield* Effect.sleep(DELAY_MS);
+      }
+    }
+
+    console.log(
+      `Phase 1b complete: ${merged.size} total entities after curated lookup`
+    );
+  }
+);
+
+const fetchAliasesBatch = Effect.fnUntraced(function* fetchAliasesBatch(
+  qids: string[]
+) {
+  const values = qids.map((qid) => `wd:${qid}`).join(" ");
+  const query = `SELECT ?item (GROUP_CONCAT(DISTINCT ?altLabel; separator="|") AS ?aliases) WHERE {
+  VALUES ?item { ${values} }
+  ?item skos:altLabel ?altLabel . FILTER(LANG(?altLabel) IN ${ALIAS_LANGUAGES})
+} GROUP BY ?item`;
+
+  const data = yield* runQuery(query, `aliases batch (${qids.length} items)`);
+  const result = new Map<string, string[]>();
+
+  if (Option.isNone(data)) {
+    return result;
+  }
+
+  for (const row of data.value.results.bindings) {
+    const qid = row.item.value.split("/").pop() ?? row.item.value;
+    const aliasStr = row.aliases?.value ?? "";
+
+    if (aliasStr.length > 0) {
+      const aliases = aliasStr
+        .split("|")
+        .map((alias) => alias.trim())
+        .filter((alias) => alias.length > 0);
+
+      if (aliases.length > 0) {
+        result.set(qid, aliases);
+      }
+    }
+  }
+
+  return result;
+});
+
+const collectAliases = Effect.fnUntraced(function* collectAliases(
+  qids: string[]
+) {
   const allAliases = new Map<string, string[]>();
+  const batches = chunk(qids, ALIAS_BATCH_SIZE);
 
-  const batchCount = Math.ceil(allQids.length / ALIAS_BATCH_SIZE);
   console.log(
-    `\nPhase 2: fetching aliases (${batchCount} batches of ${ALIAS_BATCH_SIZE})…`
+    `\nPhase 2: fetching aliases (${batches.length} batches of ${ALIAS_BATCH_SIZE})…`
   );
 
-  for (let i = 0; i < allQids.length; i += ALIAS_BATCH_SIZE) {
-    const batch = allQids.slice(i, i + ALIAS_BATCH_SIZE);
-    const batchNum = Math.floor(i / ALIAS_BATCH_SIZE) + 1;
-    const aliases = await fetchAliasesBatch(batch);
+  for (const [index, batch] of batches.entries()) {
+    const batchNum = index + 1;
+    const aliases = yield* fetchAliasesBatch(batch);
 
     for (const [qid, aliasList] of aliases) {
       allAliases.set(qid, aliasList);
     }
 
-    if (batchNum % 10 === 0 || batchNum === batchCount) {
+    if (
+      batchNum % ALIAS_BATCH_PROGRESS_EVERY === 0 ||
+      batchNum === batches.length
+    ) {
       console.log(
-        `  Batch ${batchNum}/${batchCount}: ${allAliases.size} entities with aliases`
+        `  Batch ${batchNum}/${batches.length}: ${allAliases.size} entities with aliases`
       );
     }
 
-    if (i + ALIAS_BATCH_SIZE < allQids.length) {
-      await sleep(DELAY_MS);
+    if (batchNum < batches.length) {
+      yield* Effect.sleep(DELAY_MS);
     }
   }
 
-  // Build label-to-sirene lookup for curated merchants
-  const labelToSirene = new Map<string, SireneResult>();
-  for (const [name, sirene] of sireneMap) {
-    labelToSirene.set(name.toLowerCase(), sirene);
+  return allAliases;
+});
+
+const assembleBrands = (
+  merged: Map<string, EntityEntry>,
+  allAliases: Map<string, string[]>,
+  sireneByName: Map<string, SireneResult>
+): WikidataBrand[] => {
+  const sireneByLowerLabel = new Map<string, SireneResult>();
+
+  for (const [name, sirene] of sireneByName) {
+    sireneByLowerLabel.set(name.toLowerCase(), sirene);
   }
 
-  // Assemble final output
   const brands: WikidataBrand[] = [];
+
   for (const [qid, entry] of merged) {
     const entityAliases = allAliases.get(qid) ?? [];
-    const filteredAliases = entityAliases.filter((a) => a !== entry.label);
-    const sirene = labelToSirene.get(entry.label.toLowerCase());
+    const sirene = sireneByLowerLabel.get(entry.label.toLowerCase());
 
     const brand: WikidataBrand = {
-      aliases: filteredAliases.toSorted(),
+      aliases: entityAliases
+        .filter((alias) => alias !== entry.label)
+        .toSorted(),
       countries: [...entry.countries].toSorted(),
       domains: [...entry.domains].toSorted(),
       id: qid,
       label: entry.label,
     };
+
     if (sirene) {
       brand.sirene = sirene;
     }
+
     brands.push(brand);
   }
 
-  // Sort by Wikidata id for stable output
-  const sorted = brands.toSorted((a, b) => a.id.localeCompare(b.id));
+  return brands.toSorted((left, right) => left.id.localeCompare(right.id));
+};
 
-  await writeFile(OUTPUT_PATH, JSON.stringify(sorted, null, 2), "utf-8");
-  const frenchCount = sorted.filter((b) => b.countries.includes("FR")).length;
+const fetchWikidataBrands = Effect.fnUntraced(function* fetchWikidataBrands() {
+  const sireneByName = yield* fetchSireneForCuratedMerchants();
+  console.log(
+    `\nPhase 0 complete: ${sireneByName.size}/${CURATED_MERCHANTS.length} curated merchants matched in SIRENE`
+  );
+
+  const merged = new Map<string, EntityEntry>();
+  yield* mergeEntitiesByType(merged);
+
+  yield* fetchCuratedFromWikidata(
+    CURATED_MERCHANTS.map((merchant) => merchant.name),
+    merged
+  );
+
+  const allAliases = yield* collectAliases([...merged.keys()]);
+  const sorted = assembleBrands(merged, allAliases, sireneByName);
+
+  yield* Effect.promise(() =>
+    writeFile(OUTPUT_PATH, JSON.stringify(sorted, null, 2), "utf-8")
+  );
+
+  const frenchCount = sorted.filter((brand) =>
+    brand.countries.includes("FR")
+  ).length;
   console.log(`\nWrote ${sorted.length} brands to ${OUTPUT_PATH}`);
   console.log(`French-linked brands (P17 = FR): ${frenchCount}`);
-};
+});
 
-const run = async (): Promise<void> => {
-  try {
-    await main();
-  } catch (error) {
-    console.warn(
-      `Warning: Wikidata brand fetch failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-};
-
-run();
+await Effect.runPromise(
+  fetchWikidataBrands().pipe(
+    Effect.catchDefect((cause) =>
+      Effect.sync(() => {
+        console.warn(
+          `Warning: Wikidata brand fetch failed, continuing without it: ${describe(cause)}`
+        );
+      })
+    )
+  )
+);

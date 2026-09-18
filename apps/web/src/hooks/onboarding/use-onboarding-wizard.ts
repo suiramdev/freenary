@@ -21,7 +21,6 @@ export const useOnboardingWizard = ({
   const queryClient = useQueryClient();
   const { refetch: refetchSession } = authClient.useSession();
   const [step, setStep] = useState(() => (loadOnboardingState() ? 1 : 0));
-  // Which way the step body should travel on the next swap.
   const [direction, setDirection] = useState<1 | -1>(1);
   const [country, setCountry] = useState<string | null>(
     () => loadOnboardingState()?.country ?? null
@@ -32,13 +31,14 @@ export const useOnboardingWizard = ({
     if (!country) {
       return;
     }
+
     setIsCompleting(true);
-    const result = await client.onboarding
+    const wasCompleted = await client.onboarding
       .completeOnboarding({ country })
       .then(() => true as const)
       .catch(() => false as const);
 
-    if (result) {
+    if (wasCompleted) {
       await queryClient.invalidateQueries({
         queryKey: orpc.onboarding.getStatus.queryOptions().queryKey,
       });
@@ -47,6 +47,7 @@ export const useOnboardingWizard = ({
     } else {
       toast.error(m.onboarding_error_generic());
     }
+
     setIsCompleting(false);
   };
 
@@ -60,10 +61,13 @@ export const useOnboardingWizard = ({
       if (country) {
         persistOnboardingState({ country });
       }
+
       setDirection(1);
       setStep(1);
+
       return;
     }
+
     clearOnboardingState();
     void completeOnboarding();
   };
@@ -78,12 +82,8 @@ export const useOnboardingWizard = ({
     authClient.signOut({
       fetchOptions: {
         onSuccess: async () => {
-          // signOut settles before better-auth updates its session atom, and
-          // AuthGate routes on that atom — leaving now bounces off /login.
           await refetchSession();
           await navigate({ to: "/login" });
-          // Only once this page is gone: the next user would otherwise be
-          // gated on this one's cached onboarding status.
           queryClient.clear();
         },
       },

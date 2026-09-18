@@ -7,15 +7,14 @@ import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/utils/orpc";
 
 const HomePage = () => {
-  // AuthGate only renders this once the session has resolved.
   const { data: session } = authClient.useSession();
   const { data, isPending } = useQuery(
     orpc.assistant.getConversation.queryOptions()
   );
 
-  // SAFETY: `parts` is the JSON the assistant's own stream wrote, so the stored
-  // shape is `UIMessage["parts"]` by construction; the API cannot type a JSON
-  // column more precisely than that.
+  /* SAFETY: `parts` is the JSON the assistant's own stream wrote, so the stored
+     shape is `UIMessage["parts"]` by construction; the API cannot type a JSON
+     column more precisely than that. */
   const initialMessages = data?.messages as UIMessage[] | undefined;
 
   return (

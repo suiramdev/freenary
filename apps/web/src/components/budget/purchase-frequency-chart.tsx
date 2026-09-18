@@ -8,10 +8,8 @@ interface PurchaseFrequencyChartProps {
   rows: FrequencyRow[];
 }
 
-/**
- * The companies a reader deals with most often. Bars measure observed
- * occurrences; the two hues are the two kinds, as everywhere else on this tab.
- */
+const SMALLEST_DIVISIBLE_OCCURRENCE_COUNT = 1;
+
 export const PurchaseFrequencyChart = ({
   currency,
   rows,
@@ -24,8 +22,10 @@ export const PurchaseFrequencyChart = ({
     );
   }
 
-  // A row with no observed occurrence would divide the bar width by nothing.
-  const scale = Math.max(1, ...rows.map((row) => row.occurrences));
+  const occurrenceScale = Math.max(
+    SMALLEST_DIVISIBLE_OCCURRENCE_COUNT,
+    ...rows.map((row) => row.occurrences)
+  );
 
   return (
     <ul
@@ -53,7 +53,7 @@ export const PurchaseFrequencyChart = ({
                   row.kind === "fixed"
                     ? CHART_COLOR_VARS.blue
                     : CHART_COLOR_VARS.orange,
-                width: `${(row.occurrences / scale) * 100}%`,
+                width: `${(row.occurrences / occurrenceScale) * 100}%`,
               }}
             />
           </span>

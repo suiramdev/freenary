@@ -5,8 +5,6 @@ import type { SpendingCategory } from "./taxonomy";
 
 describe("deriveCategory", () => {
   it("names a salary credit from its bank code", () => {
-    // A credit is positive, so a bank code naming the income has to be read
-    // before the sign alone decides. Otherwise the salary keyword is dead.
     expect(
       deriveCategory({ amount: 250_000, bankTransactionCode: "SALARY" })
     ).toBe("salary");
@@ -19,7 +17,6 @@ describe("deriveCategory", () => {
   });
 
   it("treats a credit matching an expense keyword as unnamed income", () => {
-    // A refund whose code says "transfer" is income, not a transfer out.
     expect(
       deriveCategory({ amount: 4500, bankTransactionCode: "TRANSFER IN" })
     ).toBe("other-income");
@@ -43,8 +40,6 @@ describe("deriveCategory", () => {
   });
 
   it("splits the issuer-assigned 3xxx block at its real boundaries", () => {
-    // 3000-3299 airlines, 3300-3499 car rental, 3500-3999 lodging. An off-by-one
-    // here silently files a flight under accommodation.
     const byMcc = {
       "2999": "uncategorised",
       "3000": "flights",
@@ -55,6 +50,7 @@ describe("deriveCategory", () => {
       "3999": "accommodation",
       "4000": "uncategorised",
     } as const satisfies Record<string, SpendingCategory>;
+
     for (const [mcc, expected] of Object.entries(byMcc)) {
       expect(deriveCategory({ amount: -5000, merchantCategoryCode: mcc })).toBe(
         expected
@@ -78,8 +74,6 @@ describe("deriveCategory", () => {
   });
 
   it("decodes a resolution stored before the hierarchy", () => {
-    // Legacy `dining` covered restaurants, bars and fast food, so it decodes to
-    // the group's catch-all rather than claiming one of them.
     expect(deriveCategory({ amount: -500, resolvedCategory: "dining" })).toBe(
       "other-daily-living"
     );

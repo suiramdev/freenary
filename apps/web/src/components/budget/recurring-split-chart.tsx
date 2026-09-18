@@ -9,10 +9,6 @@ interface RecurringSplitChartProps {
   split: SpendSplit;
 }
 
-/**
- * How much of the observed window was already committed or already habitual.
- * Read-only: no filter maps onto this split, so nothing here may look pressable.
- */
 export const RecurringSplitChart = ({
   currency,
   split,

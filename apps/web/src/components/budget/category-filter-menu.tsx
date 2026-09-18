@@ -33,7 +33,6 @@ interface CategoryFilterMenuProps {
   onFilterChange: (filter: CategoryFilter) => void;
 }
 
-/** The transaction list's category filter: sixteen groups and what they hold. */
 export const CategoryFilterMenu = ({
   filter,
   onFilterChange,
@@ -41,8 +40,7 @@ export const CategoryFilterMenu = ({
   const [query, setQuery] = useState("");
   const activeCount = filterCount(filter);
 
-  // Seventy-five categories are too many to scan, so typing narrows them.
-  const matches = useMemo(() => matchCategoryGroups(query), [query]);
+  const matchingGroups = useMemo(() => matchCategoryGroups(query), [query]);
 
   return (
     <DropdownMenu onOpenChange={() => setQuery("")}>
@@ -60,18 +58,19 @@ export const CategoryFilterMenu = ({
           placeholder={m.budget_category_search_placeholder()}
           value={query}
         />
-        {matches.length === 0 && (
+        {matchingGroups.length === 0 && (
           <DropdownMenuEmpty>
             {m.budget_category_search_empty()}
           </DropdownMenuEmpty>
         )}
-        {matches.map(({ categories, group }) => {
-          const isGroupActive = filter.groups.includes(group);
+        {matchingGroups.map(({ categories, group }) => {
+          const isWholeGroupFiltered = filter.groups.includes(group);
+
           return (
             <DropdownMenuGroup key={group}>
               <DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
-                  checked={isGroupActive}
+                  checked={isWholeGroupFiltered}
                   onCheckedChange={() =>
                     onFilterChange(toggleGroup(filter, group))
                   }
@@ -86,14 +85,10 @@ export const CategoryFilterMenu = ({
               {categories.map((category) => (
                 <DropdownMenuCheckboxItem
                   key={category}
-                  // The server unions groups into their categories, so a ticked
-                  // group already covers these rows; showing them unchecked
-                  // would misreport what is being filtered, and toggling one
-                  // would change no result.
                   checked={
-                    isGroupActive || filter.categories.includes(category)
+                    isWholeGroupFiltered || filter.categories.includes(category)
                   }
-                  disabled={isGroupActive}
+                  disabled={isWholeGroupFiltered}
                   className="ps-8"
                   onCheckedChange={() =>
                     onFilterChange(toggleCategory(filter, category))

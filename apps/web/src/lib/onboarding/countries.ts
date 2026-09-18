@@ -7,21 +7,12 @@ export interface Country {
   name: string;
 }
 
-/**
- * Countries with a local layer behind them: bank coverage, institution cleanup
- * and categorisation rules. Every other country is selectable, and the screen
- * says its support is partial.
- */
 const FULLY_SUPPORTED_COUNTRY_CODES = { FR: true } as const;
 
 export const isFullySupportedCountry = (code: string): boolean =>
   Object.hasOwn(FULLY_SUPPORTED_COUNTRY_CODES, code);
 
-/**
- * ISO 3166-1 alpha-2. Names and flags are derived from the code, so a country
- * costs one line here and needs no translation of its own.
- */
-const COUNTRY_CODES = [
+const ISO_ALPHA2_COUNTRY_CODES = [
   "AF",
   "AL",
   "DZ",
@@ -223,7 +214,6 @@ const COUNTRY_CODES = [
 const REGIONAL_INDICATOR_A = 0x1_f1_e6;
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-/** "FR" → 🇫🇷: a flag is its two letters written as regional-indicator symbols. */
 const flagOf = (code: string) =>
   String.fromCodePoint(
     ...Array.from(
@@ -232,32 +222,34 @@ const flagOf = (code: string) =>
     )
   );
 
-// Naming and sorting 196 regions is the whole cost of this screen, and the
-// search box would otherwise redo it on every keystroke.
-const byLocale = new Map<Locale, readonly Country[]>();
+const fullySupportedFirstThenLocalName =
+  (collator: Intl.Collator) => (a: Country, b: Country) => {
+    const bySupport =
+      Number(isFullySupportedCountry(b.code)) -
+      Number(isFullySupportedCountry(a.code));
+
+    return bySupport || collator.compare(a.name, b.name);
+  };
+
+const countriesByLocale = new Map<Locale, readonly Country[]>();
 
 const countriesIn = (locale: Locale): readonly Country[] => {
-  const cached = byLocale.get(locale);
+  const cached = countriesByLocale.get(locale);
+
   if (cached) {
     return cached;
   }
 
   const names = new Intl.DisplayNames(locale, { type: "region" });
   const collator = new Intl.Collator(locale);
-  const countries = COUNTRY_CODES.map((code) => ({
+  const countries = ISO_ALPHA2_COUNTRY_CODES.map((code) => ({
     code,
     flag: flagOf(code),
     name: names.of(code) ?? code,
-  })).toSorted((a, b) => {
-    // Fully supported countries come first; the rest are alphabetical in the
-    // reader's own language, not in English.
-    const bySupport =
-      Number(isFullySupportedCountry(b.code)) -
-      Number(isFullySupportedCountry(a.code));
-    return bySupport || collator.compare(a.name, b.name);
-  });
+  })).toSorted(fullySupportedFirstThenLocalName(collator));
 
-  byLocale.set(locale, countries);
+  countriesByLocale.set(locale, countries);
+
   return countries;
 };
 

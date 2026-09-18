@@ -23,12 +23,10 @@ import {
 } from "../lib/taxonomy";
 import type { CategoryColor, CategoryIconName } from "../lib/taxonomy";
 
-/** Shared by createCustomCategory and updateCustomCategory. */
 const customCategoryFields = {
   color: z.enum(CATEGORY_COLOR_VALUES),
   icon: z.enum(CATEGORY_ICON_NAMES),
   label: z.string().trim().min(1).max(40),
-  // A custom category nests under a group, never under another category.
   parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
 };
 
@@ -55,8 +53,6 @@ const toCategoryEntry = (custom: {
   icon: custom.icon as CategoryIconName,
   isAssignable: true,
   isCustom: true,
-  // A top-level custom category is a group of the user's own, and stays
-  // assignable because it holds no categories to pick instead.
   isGroup: custom.parentSlug === null,
   key: customCategoryKey(custom.id),
   label: custom.label,
@@ -64,13 +60,13 @@ const toCategoryEntry = (custom: {
   usageCount: custom._count.budgetLines,
 });
 
-/** Highest sortOrder within a parent group, so a new or re-parented row lands last. */
 const nextSortOrder = async (userId: string, parentSlug: string | null) => {
   const last = await prisma.customCategory.findFirst({
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
     where: { parentSlug, userId },
   });
+
   return (last?.sortOrder ?? -1) + 1;
 };
 
@@ -120,15 +116,11 @@ export const settingsRouter = {
         throw new ORPCError("NOT_FOUND", { message: "Category not found" });
       }
 
-      // A budget line must land on a category, and the parent is a group, so
-      // reassignment goes to that group's catch-all.
       const fallbackSlug =
         category.parentSlug && isCategoryGroup(category.parentSlug)
           ? CATEGORY_GROUP_FALLBACKS[category.parentSlug]
           : "uncategorised";
 
-      // Reassigning before the delete is what keeps `onDelete: Restrict` satisfied,
-      // so a budget line can never silently lose its category.
       const [reassigned] = await prisma.$transaction([
         prisma.budgetLine.updateMany({
           data: { categoryId: null, categorySlug: fallbackSlug },
@@ -181,6 +173,7 @@ export const settingsRouter = {
       group,
     } of predefinedCategoryGroups()) {
       categories.push(group, ...predefined);
+
       for (const custom of customs) {
         if (custom.parentSlug === group.key) {
           categories.push(toCategoryEntry(custom));
@@ -188,12 +181,11 @@ export const settingsRouter = {
       }
     }
 
-    // Groups of the user's own close the list, after every predefined group.
-    for (const custom of customs) {
-      if (custom.parentSlug === null) {
-        categories.push(toCategoryEntry(custom));
-      }
-    }
+    const userOwnedGroups = customs.filter(
+      (custom) => custom.parentSlug === null
+    );
+
+    categories.push(...userOwnedGroups.map(toCategoryEntry));
 
     return { categories };
   }),
@@ -252,8 +244,6 @@ export const settingsRouter = {
             z.object({
               amount: z.number().int().min(0).max(MAX_AMOUNT_MINOR_UNITS),
               categoryKey: z.string(),
-              // Optional: an empty name is stored as null and the category's
-              // own name stands in when the line is displayed.
               label: z.string().trim().max(MAX_BUDGET_LINE_LABEL_LENGTH),
             })
           )
@@ -269,8 +259,6 @@ export const settingsRouter = {
       });
       const ownedIds = new Set(owned.map((category) => category.id));
 
-      // sortOrder is the row's position in the profile — one flat list, so it
-      // is the whole ordering getBudgetProfile reads back.
       const data = input.lines.map((line, index) => {
         const parsed = parseCategoryKey(line.categoryKey);
 

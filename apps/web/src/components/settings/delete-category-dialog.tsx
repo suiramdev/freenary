@@ -16,7 +16,6 @@ import { RiDeleteBinLine } from "@remixicon/react";
 import { m } from "@/paraglide/messages.js";
 
 interface DeleteCategoryDialogProps {
-  /** Where referencing budget lines land — the parent group's catch-all category, or "Uncategorised". */
   fallbackLabel: string;
   isDeleting: boolean;
   label: string;
@@ -31,8 +30,7 @@ export const DeleteCategoryDialog = ({
   onConfirm,
   usageCount,
 }: DeleteCategoryDialogProps) => {
-  // Names the fallback category, never the group: a group cannot hold lines.
-  const impact =
+  const deleteImpactDescription =
     usageCount > 0
       ? m.settings_category_delete_reassign({
           count: usageCount,
@@ -41,8 +39,6 @@ export const DeleteCategoryDialog = ({
       : m.settings_category_delete_unused({ label });
 
   return (
-    // Left open on confirm: a successful delete unmounts the row, and a failed
-    // one keeps the dialog available to retry.
     <AlertDialog>
       <AlertDialogTrigger render={<Button variant="ghost" />}>
         <RiDeleteBinLine />
@@ -55,7 +51,9 @@ export const DeleteCategoryDialog = ({
           <AlertDialogTitle>
             {m.settings_category_delete_title({ label })}
           </AlertDialogTitle>
-          <AlertDialogDescription>{impact}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {deleteImpactDescription}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>

@@ -15,17 +15,14 @@ import { m } from "@/paraglide/messages.js";
 
 interface BankListProps {
   connecting: string | null;
-  /** The connection currently being disconnected, if any. */
   disconnectingId: string | null;
   hasSearch: boolean;
-  /** The institutions could not be loaded and none are cached. */
   isError: boolean;
   isPending: boolean;
   onConnect: (row: BankRow) => void;
   onDisconnect: (connectionId: string) => void;
   onSync: (connection: BankConnection) => void;
   rows: BankRow[];
-  /** The connection currently being re-synced, if any. */
   syncingId: string | null;
 }
 
@@ -86,8 +83,6 @@ export const BankList = ({
   }
 
   return (
-    // A real list rather than ItemGroup: its `div[role=list]` cannot hold the
-    // `<li>` rows without tripping HTML's content model.
     <ul className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
       {rows.map((row) => (
         <BankCard

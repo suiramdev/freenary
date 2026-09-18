@@ -1,51 +1,56 @@
 import type { SpendingCategory } from "../lib/taxonomy";
-import type { TransactionPath } from "./types";
+import type {
+  Iso3166Alpha2Country,
+  Iso4217Currency,
+  Iso18245MerchantCategoryCode,
+  OutgoingNegativeMinorUnits,
+  TransactionPath,
+} from "./types";
 
 export interface ScrubbedPayload {
-  /** Normalised descriptor (merchant identity only, no dates/amounts/account info). */
   normalisedDescriptor: string;
-  /** Amount bucket: "micro" (<10€), "small" (<50€), "medium" (<200€), "large" (≥200€). */
   amountBucket: "micro" | "small" | "medium" | "large";
-  /** ISO 4217 currency. */
-  currency: string;
-  /** ISO 3166-1 alpha-2 country of the institution. */
-  country: string;
-  /** ISO 18245 MCC when available. */
-  merchantCategoryCode: string | null;
-  /** Transaction path. */
+  currency: Iso4217Currency;
+  country: Iso3166Alpha2Country;
+  merchantCategoryCode: Iso18245MerchantCategoryCode | null;
   transactionType: TransactionPath;
-  /** The category label assigned (by user or pipeline). */
   category: SpendingCategory;
 }
 
 export interface ScrubInput {
   normalisedDescriptor: string;
-  amountMinor: number;
-  currency: string;
-  country: string | null;
-  merchantCategoryCode: string | null;
+  amountMinor: OutgoingNegativeMinorUnits;
+  currency: Iso4217Currency;
+  country: Iso3166Alpha2Country | null;
+  merchantCategoryCode: Iso18245MerchantCategoryCode | null;
   transactionPath: TransactionPath;
   category: SpendingCategory;
 }
 
-const amountBucket = (amountMinor: number): ScrubbedPayload["amountBucket"] => {
+const SMALL_FROM_MINOR = 1000;
+const MEDIUM_FROM_MINOR = 5000;
+const LARGE_FROM_MINOR = 20_000;
+
+const amountBucket = (
+  amountMinor: OutgoingNegativeMinorUnits
+): ScrubbedPayload["amountBucket"] => {
   const abs = Math.abs(amountMinor);
-  if (abs < 1000) {
+
+  if (abs < SMALL_FROM_MINOR) {
     return "micro";
   }
-  if (abs < 5000) {
+
+  if (abs < MEDIUM_FROM_MINOR) {
     return "small";
   }
-  if (abs < 20_000) {
+
+  if (abs < LARGE_FROM_MINOR) {
     return "medium";
   }
+
   return "large";
 };
 
-/**
- * Scrub a transaction to the strict allow-list before cloud submission.
- * Returns null when required fields are missing (the transaction should not be submitted).
- */
 export const scrubForContribution = (
   input: ScrubInput
 ): ScrubbedPayload | null => {

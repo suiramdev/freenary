@@ -1,6 +1,7 @@
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
 import { ORPCError } from "@orpc/server";
+import { Option } from "effect";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
@@ -20,37 +21,35 @@ import {
   verifyBankConnectionState,
 } from "./bank-connection-state";
 
-/** The provider a callback names, refusing an id this build does not carry. */
-const resolveProvider = (providerId: string): BankingProvider => {
-  try {
-    return getProvider(providerId);
-  } catch {
-    throw new ORPCError("NOT_FOUND", { message: "Unknown banking provider" });
-  }
-};
+const providerById = Option.liftThrowable(getProvider);
 
-/**
- * Resolves the signed state a provider hands back, refusing anything that is
- * not this session's own in-flight connection.
- */
+const decodeConnectionState = Option.liftThrowable(parseBankConnectionState);
+
+const resolveProvider = (providerId: string): BankingProvider =>
+  Option.getOrThrowWith(
+    providerById(providerId),
+    () => new ORPCError("NOT_FOUND", { message: "Unknown banking provider" })
+  );
+
 const readConnectionState = (
   state: string,
   providerId: string,
   userId: string
 ): BankConnectionState => {
-  let connectionState: BankConnectionState;
-  try {
-    connectionState = parseBankConnectionState(state);
-  } catch {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Invalid bank connection state",
-    });
-  }
+  const connectionState = Option.getOrThrowWith(
+    decodeConnectionState(state),
+    () =>
+      new ORPCError("BAD_REQUEST", {
+        message: "Invalid bank connection state",
+      })
+  );
+
   if (connectionState.providerId !== providerId) {
     throw new ORPCError("BAD_REQUEST", {
       message: "Invalid banking provider in connection state",
     });
   }
+
   if (
     !verifyBankConnectionState(connectionState, userId, env.BETTER_AUTH_SECRET)
   ) {
@@ -58,6 +57,7 @@ const readConnectionState = (
       message: "Bank connection state does not belong to this session",
     });
   }
+
   return connectionState;
 };
 
@@ -76,14 +76,13 @@ export const bankConnectionRouter = {
         },
         where: { id: input.connectionId, userId },
       });
+
       if (!connection) {
         throw new ORPCError("NOT_FOUND", {
           message: "Bank connection not found",
         });
       }
 
-      // Ask the provider to revoke first so the bank-side consent stops too,
-      // but never let a failure there block the user from deleting their data.
       const provider = getProvider(connection.provider);
       const providerUser = await findProviderUser(userId, provider);
       const revocationRequested = provider.isConfigured()
@@ -96,11 +95,8 @@ export const bankConnectionRouter = {
             .catch(() => false)
         : false;
 
-      // Accounts, transactions and holdings go with it through the FK cascade.
       await prisma.bankConnection.delete({ where: { id: connection.id } });
 
-      // The provider identity outlives no connection: the last one taking it
-      // away is what closes the account at the provider.
       await releaseProviderUser(userId, provider);
 
       return {
@@ -121,11 +117,13 @@ export const bankConnectionRouter = {
       const provider = resolveProvider(input.providerId);
       const userId = context.session.user.id;
       const { state } = input.params;
+
       if (!state) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Missing bank connection state",
         });
       }
+
       const connectionState = readConnectionState(state, provider.id, userId);
 
       const institutions = await provider.listInstitutions(
@@ -136,15 +134,15 @@ export const bankConnectionRouter = {
         connectionState.institution.id,
         connectionState.institution.country
       );
+
       if (!institution) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Bank institution is no longer available",
         });
       }
 
-      // A per-user provider needs its stored identity: the callback carries a
-      // connection id that only means anything under that user's token.
       const providerUser = await findProviderUser(userId, provider);
+
       if (!providerUser && provider.createUser) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No provider session for this user",
@@ -158,8 +156,6 @@ export const bankConnectionRouter = {
       const providerInstitutionName = result.institutionName.trim();
       const bankName = providerInstitutionName || institution.name;
 
-      // One transaction: a connection whose accounts failed to write would
-      // still list as linked, with nothing under it.
       const connection = await prisma.$transaction(async (db) => {
         const created = await db.bankConnection.create({
           data: {
@@ -205,10 +201,6 @@ export const bankConnectionRouter = {
     available: getDefaultProvider().isConfigured(),
   })),
 
-  /**
-   * The linked banks a user actually has. A row exists only once
-   * `exchangeCode` completed, so this is what "connected" means in the UI.
-   */
   listConnections: protectedProcedure.handler(async ({ context }) => {
     const connections = await prisma.bankConnection.findMany({
       orderBy: { createdAt: "asc" },
@@ -229,14 +221,11 @@ export const bankConnectionRouter = {
     return { connections };
   }),
 
-  /**
-   * Institutions the provider can link in a country. Onboarding passes the
-   * country being picked; elsewhere the user's own country is the answer.
-   */
   listInstitutions: protectedProcedure
     .input(z.object({ country: z.string().optional() }))
     .handler(async ({ context, input }) => {
       let { country } = input;
+
       if (!country) {
         const user = await prisma.user.findUniqueOrThrow({
           select: { country: true },
@@ -244,6 +233,7 @@ export const bankConnectionRouter = {
         });
         country = user.country ?? undefined;
       }
+
       if (!country) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No country to list banks for",
@@ -251,6 +241,7 @@ export const bankConnectionRouter = {
       }
 
       const institutions = await getDefaultProvider().listInstitutions(country);
+
       return {
         banks: institutions.map((inst) => ({
           bic: inst.bic ?? null,
@@ -280,24 +271,23 @@ export const bankConnectionRouter = {
         input.institutionId,
         input.bankCountry
       );
+
       if (!institution) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Unknown bank institution",
         });
       }
 
-      // The provider identity has to exist before the webview opens: it is what
-      // scopes the connection the callback comes back with.
       const providerUser = await ensureProviderUser(userId, provider);
       const redirectUrl = `${env.CORS_ORIGIN}${provider.callbackPath}`;
-      const encodedState = encodeBankConnectionState(
-        provider.id,
+      const encodedState = encodeBankConnectionState({
         institution,
+        original: input.state,
+        providerId: provider.id,
+        returnTo: input.returnTo,
+        secret: env.BETTER_AUTH_SECRET,
         userId,
-        env.BETTER_AUTH_SECRET,
-        input.returnTo,
-        input.state
-      );
+      });
       const result = await provider.startConnection({
         country: input.bankCountry,
         institutionId: institution.id,
@@ -305,6 +295,7 @@ export const bankConnectionRouter = {
         state: encodedState,
         user: providerUser,
       });
+
       return result;
     }),
 };

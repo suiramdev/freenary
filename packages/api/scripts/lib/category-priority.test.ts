@@ -4,8 +4,6 @@ import { categoryPriority } from "./category-priority";
 
 describe("categoryPriority", () => {
   it("keeps incidental retail below the intent it is bolted onto", () => {
-    // A chain's beauty aisle or DIY yard is as incidental as a gift shop, so it
-    // must lose to what the brand is actually for.
     expect(categoryPriority("personal-care")).toBeLessThan(
       categoryPriority("pharmacy")
     );
@@ -17,9 +15,7 @@ describe("categoryPriority", () => {
     );
   });
 
-  it("keeps groceries above eating out", () => {
-    // A supermarket with a café is a supermarket. Equal ranks would resolve on
-    // whichever entry the NSI scan reached first, making the build order-dependent.
+  it("keeps groceries above eating out, so a supermarket with a cafe stays a supermarket", () => {
     for (const eatingOut of [
       "restaurants",
       "takeaway",

@@ -6,6 +6,7 @@ import {
   type UIMessage,
   type UIToolInvocation,
 } from "ai";
+import { cn } from "cn";
 import {
   Loader2,
   MessageCircleIcon,
@@ -28,7 +29,6 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 
-import { cn } from "../../lib/cn";
 import { Markdown } from "../markdown";
 import { buttonVariants } from "../ui/button";
 
@@ -48,6 +48,16 @@ const Context = createContext<{
   setOpen: (open: boolean) => void;
   chat: UseChatHelpers<ChatUIMessage>;
 } | null>(null);
+
+const INPUT_STORAGE_KEY = "__ai_search_input";
+
+const SEARCH_TOOL_PART = "tool-search";
+
+const ROLE_NAMES = {
+  assistant: "fumadocs",
+  system: "unknown",
+  user: "you",
+} satisfies Record<ChatUIMessage["role"], string>;
 
 export function AISearchPanelHeader({
   className,
@@ -129,16 +139,17 @@ export function AISearchInputActions() {
   );
 }
 
-const StorageKeyInput = "__ai_search_input";
 export function AISearchInput(props: ComponentProps<"form">) {
   const { status, sendMessage, stop } = useChatContext();
   const [input, setInput] = useState(
-    () => localStorage.getItem(StorageKeyInput) ?? ""
+    () => localStorage.getItem(INPUT_STORAGE_KEY) ?? ""
   );
   const isLoading = status === "streaming" || status === "submitted";
-  const onStart = (e?: SyntheticEvent) => {
-    e?.preventDefault();
+
+  const onStart = (event: SyntheticEvent) => {
+    event.preventDefault();
     const message = input.trim();
+
     if (message.length === 0) return;
 
     void sendMessage({
@@ -157,7 +168,7 @@ export function AISearchInput(props: ComponentProps<"form">) {
       ],
     });
     setInput("");
-    localStorage.removeItem(StorageKeyInput);
+    localStorage.removeItem(INPUT_STORAGE_KEY);
   };
 
   useEffect(() => {
@@ -178,7 +189,7 @@ export function AISearchInput(props: ComponentProps<"form">) {
         disabled={status === "streaming" || status === "submitted"}
         onChange={(e) => {
           setInput(e.target.value);
-          localStorage.setItem(StorageKeyInput, e.target.value);
+          localStorage.setItem(INPUT_STORAGE_KEY, e.target.value);
         }}
         onKeyDown={(event) => {
           if (!event.shiftKey && event.key === "Enter") {
@@ -225,8 +236,10 @@ function List(props: Omit<ComponentProps<"div">, "dir">) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+
     function callback() {
       const container = containerRef.current;
+
       if (!container) return;
 
       container.scrollTo({
@@ -284,11 +297,6 @@ function Input(props: ComponentProps<"textarea">) {
   );
 }
 
-const roleName: Record<string, string> = {
-  user: "you",
-  assistant: "fumadocs",
-};
-
 function Message({
   message,
   ...props
@@ -302,13 +310,12 @@ function Message({
       continue;
     }
 
-    if (part.type.startsWith("tool-")) {
-      const toolName = part.type.slice("tool-".length);
-      const p = part as UIToolInvocation<Tool>;
+    if (part.type !== SEARCH_TOOL_PART) continue;
 
-      if (toolName !== "search" || !p.toolCallId) continue;
-      searchCalls.push(p);
-    }
+    // SAFETY: `part.type` is `tool-search`, so this part is that tool's invocation.
+    const invocation = part as UIToolInvocation<SearchTool>;
+
+    if (invocation.toolCallId) searchCalls.push(invocation);
   }
 
   return (
@@ -319,7 +326,7 @@ function Message({
           message.role === "assistant" && "text-fd-primary"
         )}
       >
-        {roleName[message.role] ?? "unknown"}
+        {ROLE_NAMES[message.role]}
       </p>
       <div className="prose text-sm">
         <Markdown text={markdown} />
@@ -362,7 +369,6 @@ export function AISearch({
     id: "search",
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      // The answer is grounded in the version the reader is on.
       body: { version },
     }),
   });
@@ -528,6 +534,7 @@ export function useHotKey() {
 
   useEffect(() => {
     window.addEventListener("keydown", onKeyPress);
+
     return () => window.removeEventListener("keydown", onKeyPress);
   }, []);
 }

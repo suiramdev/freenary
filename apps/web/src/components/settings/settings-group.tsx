@@ -7,10 +7,6 @@ interface SettingsGroupProps {
   title: string;
 }
 
-/**
- * One category of settings: a titled band holding the sections that belong
- * together, so sibling cards read as one subject instead of four peers.
- */
 export const SettingsGroup = ({
   children,
   description,

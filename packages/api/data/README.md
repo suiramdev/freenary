@@ -4,7 +4,7 @@
 
 1. **Name Suggestion Index (NSI)** — the OSM brand/operator index, providing ~9,800 consumer-facing merchants with mapped categories.
 2. **Wikidata brands** — ~51k commercial entities with official websites (P856), providing aliases and domain coverage that NSI misses.
-3. **Curated supplement** — a list of ~50 merchant names and categories covering sectors NSI structurally under-covers. Aliases and domains for curated merchants are resolved at build time from Wikidata and SIRENE, not hard-coded.
+3. **Curated supplement** — a list of 54 merchant names and categories covering sectors NSI structurally under-covers. Aliases and domains for curated merchants are resolved at build time from the Wikidata artifact, not hard-coded; the SIRENE pass contributes a NAF category, never an alias or a domain.
 
 Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `SpendingCategory` (or `null` for Wikidata-only entries), and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
 

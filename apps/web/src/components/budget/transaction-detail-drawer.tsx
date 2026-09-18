@@ -22,7 +22,6 @@ import type { Transaction } from "@/lib/budget/transaction";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/** Split out so the drawer root can stay mounted with no transaction selected. */
 const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
   const updateCategory = useTransactionCategory(transaction);
 
@@ -128,18 +127,17 @@ export const TransactionDetailDrawer = ({
   open: boolean;
   transaction: Transaction | null;
 }) => {
-  // Base UI only plays the enter transition when `open` flips on an already
-  // mounted root, so the drawer stays rendered; the last transaction is kept
-  // so the closing animation still has something to show.
-  const [shown, setShown] = useState(transaction);
-  if (transaction !== null && transaction !== shown) {
-    setShown(transaction);
+  const [shownDuringExitAnimation, setShownDuringExitAnimation] =
+    useState(transaction);
+
+  if (transaction !== null && transaction !== shownDuringExitAnimation) {
+    setShownDuringExitAnimation(transaction);
   }
 
-  // A recategorised transaction can drop out of a filtered refetch; without
-  // this the drawer would sit open on the copy it was opened with.
   useEffect(() => {
-    if (open && transaction === null) {
+    const selectionDroppedOutOfResults = open && transaction === null;
+
+    if (selectionDroppedOutOfResults) {
       onOpenChange(false);
     }
   }, [onOpenChange, open, transaction]);
@@ -147,7 +145,9 @@ export const TransactionDetailDrawer = ({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="right">
       <DrawerContent className="w-full sm:max-w-md">
-        {shown === null ? null : <TransactionDetails transaction={shown} />}
+        {shownDuringExitAnimation === null ? null : (
+          <TransactionDetails transaction={shownDuringExitAnimation} />
+        )}
       </DrawerContent>
     </Drawer>
   );

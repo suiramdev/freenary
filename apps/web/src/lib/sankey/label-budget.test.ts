@@ -10,15 +10,17 @@ const node = (id: string, value: number): SankeyNode => ({
   value,
 });
 
-/** Small enough that `stackColumn` floors it below `LABEL_MIN_H`, so it labels beside itself. */
-const SHORT_VALUE = 20;
-const TALL_VALUE = 1000;
+const SHORT_ENOUGH_TO_LABEL_BESIDE = 20;
+const TALL_ENOUGH_TO_LABEL_INSIDE = 1000;
+const CONTESTED_GAP_SHARES = 2;
 
 const budgetOf = (layout: SankeyLayout, id: string) => {
   const rect = layout.nodes.find((candidate) => candidate.id === id);
+
   if (!rect) {
     throw new Error(`node ${id} missing from layout`);
   }
+
   return rect;
 };
 
@@ -26,80 +28,99 @@ const flow = (columns: SankeyNode[][]) =>
   computeSankeyLayout({
     columns,
     links: [
-      { source: "a-tall", target: "b-tall", value: TALL_VALUE },
-      { source: "b-tall", target: "c-tall", value: TALL_VALUE },
+      {
+        source: "a-tall",
+        target: "b-tall",
+        value: TALL_ENOUGH_TO_LABEL_INSIDE,
+      },
+      {
+        source: "b-tall",
+        target: "c-tall",
+        value: TALL_ENOUGH_TO_LABEL_INSIDE,
+      },
     ],
   });
 
-const contestedColumns = () => [
-  [node("a-tall", TALL_VALUE), node("a-short", SHORT_VALUE)],
-  [node("b-tall", TALL_VALUE), node("b-short", SHORT_VALUE)],
-  [node("c-tall", TALL_VALUE)],
+const bothColumnsAimAtTheGap = () => [
+  [
+    node("a-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+    node("a-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+  ],
+  [
+    node("b-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+    node("b-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+  ],
+  [node("c-tall", TALL_ENOUGH_TO_LABEL_INSIDE)],
+];
+
+const secondColumnLabelsInside = () => [
+  [
+    node("a-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+    node("a-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+  ],
+  [node("b-tall", TALL_ENOUGH_TO_LABEL_INSIDE)],
+  [node("c-tall", TALL_ENOUGH_TO_LABEL_INSIDE)],
+];
+
+const shortNodesOnDifferentRows = () => [
+  [
+    node("a-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+    node("a-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+  ],
+  [
+    node("b-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+    node("b-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+  ],
+  [node("c-tall", TALL_ENOUGH_TO_LABEL_INSIDE)],
 ];
 
 describe("label budget", () => {
   test("short nodes really do label beside themselves", () => {
-    // The rest of the suite is meaningless if these end up tall enough to fit
-    // their label inside.
-    const layout = flow(contestedColumns());
+    const layout = flow(bothColumnsAimAtTheGap());
+
     expect(budgetOf(layout, "a-short").h).toBeLessThan(LABEL_MIN_H);
     expect(budgetOf(layout, "b-short").h).toBeLessThan(LABEL_MIN_H);
     expect(budgetOf(layout, "a-tall").h).toBeGreaterThanOrEqual(LABEL_MIN_H);
   });
 
   test("splits the gap when the first two columns both aim at it", () => {
-    const layout = flow(contestedColumns());
+    const layout = flow(bothColumnsAimAtTheGap());
     const first = budgetOf(layout, "a-short");
     const second = budgetOf(layout, "b-short");
 
-    // Both stacks put their short node on the same rows, so each takes half.
     expect(first.y).toBe(second.y);
     expect(first.labelBudget).toBeCloseTo(second.labelBudget, 5);
 
-    const uncontested = budgetOf(
-      flow([
-        [node("a-tall", TALL_VALUE), node("a-short", SHORT_VALUE)],
-        [node("b-tall", TALL_VALUE)],
-        [node("c-tall", TALL_VALUE)],
-      ]),
-      "a-short"
-    );
+    const uncontested = budgetOf(flow(secondColumnLabelsInside()), "a-short");
+
     expect(first.labelBudget + LABEL_INSET).toBeCloseTo(
-      (uncontested.labelBudget + LABEL_INSET) / 2,
+      (uncontested.labelBudget + LABEL_INSET) / CONTESTED_GAP_SHARES,
       5
     );
   });
 
   test("keeps the whole gap when nothing else aims at it", () => {
-    // Column 1 is a single tall node, so it labels inside and contests nothing.
-    const layout = flow([
-      [node("a-tall", TALL_VALUE), node("a-short", SHORT_VALUE)],
-      [node("b-tall", TALL_VALUE)],
-      [node("c-tall", TALL_VALUE)],
-    ]);
-    const first = budgetOf(layout, "a-short");
-    const contested = budgetOf(flow(contestedColumns()), "a-short");
+    const first = budgetOf(flow(secondColumnLabelsInside()), "a-short");
+    const contested = budgetOf(flow(bothColumnsAimAtTheGap()), "a-short");
 
     expect(first.labelBudget).toBeGreaterThan(contested.labelBudget);
   });
 
   test("leaves the gap whole when the short nodes miss each other's rows", () => {
-    // Column 1's short node sits below column 0's, so their labels cannot meet.
-    const layout = flow([
-      [node("a-short", SHORT_VALUE), node("a-tall", TALL_VALUE)],
-      [node("b-tall", TALL_VALUE), node("b-short", SHORT_VALUE)],
-      [node("c-tall", TALL_VALUE)],
-    ]);
-    const first = budgetOf(layout, "a-short");
-    const contested = budgetOf(flow(contestedColumns()), "a-short");
+    const first = budgetOf(flow(shortNodesOnDifferentRows()), "a-short");
+    const contested = budgetOf(flow(bothColumnsAimAtTheGap()), "a-short");
 
     expect(first.labelBudget).toBeGreaterThan(contested.labelBudget);
   });
 
   test("never promises room past the chart edge when no column follows", () => {
-    // A lone column has no gap to write into, so its budget cannot be positive.
     const layout = computeSankeyLayout({
-      columns: [[node("a-tall", TALL_VALUE), node("a-short", SHORT_VALUE)]],
+      columns: [
+        [
+          node("a-tall", TALL_ENOUGH_TO_LABEL_INSIDE),
+          node("a-short", SHORT_ENOUGH_TO_LABEL_BESIDE),
+        ],
+      ],
       links: [],
     });
 
@@ -107,7 +128,8 @@ describe("label budget", () => {
   });
 
   test("gives every node a budget", () => {
-    const layout = flow(contestedColumns());
+    const layout = flow(bothColumnsAimAtTheGap());
+
     for (const rect of layout.nodes) {
       expect(rect.labelBudget).toBeGreaterThanOrEqual(0);
       expect(Number.isFinite(rect.labelBudget)).toBe(true);

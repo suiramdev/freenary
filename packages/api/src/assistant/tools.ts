@@ -17,26 +17,14 @@ const aggregation = z
   .default("total")
   .describe("total over the period, or the per-month average or median");
 
-/** A `to` at midnight would drop that day's transactions. */
-const rangeOf = (from: string, to: string) => ({
+const inclusiveDayRange = (from: string, to: string) => ({
   from: new Date(`${from}T00:00:00.000Z`),
   to: new Date(`${to}T23:59:59.999Z`),
 });
 
-/**
- * Minor units to a decimal string. A model asked to divide by 100 itself does it
- * for some rows of a list and not others, presenting a €120 budget as €12,000;
- * a string, not a number, because that is a figure to repeat, not to compute
- * with, and JSON floats reintroduce the rounding this model stores integers to
- * avoid.
- */
-const major = (minor: number): string => (minor / 100).toFixed(2);
+const decimalAmount = (minorUnits: number): string =>
+  (minorUnits / 100).toFixed(2);
 
-/**
- * Every tool the assistant may call. The factory below is checked against this,
- * so a tool cannot be added without naming it — and the interface's label table
- * is checked against it too, so a new tool cannot ship untranslated.
- */
 export type AssistantToolName = keyof typeof ASSISTANT_TOOL_NAMES;
 
 const ASSISTANT_TOOL_NAMES = {
@@ -49,22 +37,15 @@ const ASSISTANT_TOOL_NAMES = {
   search_transactions: true,
 } as const;
 
-/**
- * Read-only tools over the financial model. Each one calls the very procedure
- * the interface calls, through a server-side router client, so an answer here
- * and a chart in Budget cannot disagree.
- *
- * Amounts leave as decimal strings beside their currency: the procedures answer
- * the interface, which knows they are minor units, and the model does not.
- */
+const MAX_TRANSACTION_ROWS = 20;
+
+const DEFAULT_TRANSACTION_ROWS = 10;
+
 export const assistantTools = (api: AppRouterClient) =>
   ({
     get_accounts_overview: tool({
       description:
         "List the user's bank accounts and the date range transaction data covers. Call this first when you do not know whether any account is connected.",
-      // The procedure carries IBANs because the interface shows them. No tool
-      // takes one as input, so they never reach the model provider — and never
-      // land in the stored transcript that replays to it every turn.
       execute: async () => {
         const { accounts, ...range } = await api.budget.getAccounts();
 
@@ -86,15 +67,15 @@ export const assistantTools = (api: AppRouterClient) =>
       execute: async ({ aggregation: mode, from, to }) => {
         const { groups, hasPlan } = await api.budget.getBudgetVsActual({
           aggregation: mode,
-          ...rangeOf(from, to),
+          ...inclusiveDayRange(from, to),
         });
 
         return {
           currency: "EUR",
           groups: groups.map(({ actual, group, planned }) => ({
-            actual: major(actual),
+            actual: decimalAmount(actual),
             group,
-            planned: major(planned),
+            planned: decimalAmount(planned),
           })),
           hasPlan,
         };
@@ -106,14 +87,16 @@ export const assistantTools = (api: AppRouterClient) =>
       description:
         "Incoming and outgoing totals over time for a period, bucketed by day, week or month depending on its length.",
       execute: async ({ from, to }) => {
-        const { periods } = await api.budget.getCashFlow(rangeOf(from, to));
+        const { periods } = await api.budget.getCashFlow(
+          inclusiveDayRange(from, to)
+        );
 
         return {
           currency: "EUR",
           periods: periods.map(({ incoming, label, outgoing }) => ({
-            incoming: major(incoming),
+            incoming: decimalAmount(incoming),
             label,
-            outgoing: major(outgoing),
+            outgoing: decimalAmount(outgoing),
           })),
         };
       },
@@ -126,13 +109,13 @@ export const assistantTools = (api: AppRouterClient) =>
       execute: async ({ aggregation: mode, from, to }) => {
         const { fixed, variable } = await api.budget.getFixedVsVariable({
           aggregation: mode,
-          ...rangeOf(from, to),
+          ...inclusiveDayRange(from, to),
         });
 
         return {
           currency: "EUR",
-          fixed: major(fixed),
-          variable: major(variable),
+          fixed: decimalAmount(fixed),
+          variable: decimalAmount(variable),
         };
       },
       inputSchema: z.object({ aggregation, ...period }),
@@ -147,7 +130,7 @@ export const assistantTools = (api: AppRouterClient) =>
         return {
           expenses: expenses.map(({ typicalAmountMinor, ...rest }) => ({
             ...rest,
-            typicalAmount: major(typicalAmountMinor),
+            typicalAmount: decimalAmount(typicalAmountMinor),
           })),
         };
       },
@@ -160,14 +143,14 @@ export const assistantTools = (api: AppRouterClient) =>
       execute: async ({ aggregation: mode, from, to }) => {
         const { groups } = await api.budget.getSpendingBreakdown({
           aggregation: mode,
-          ...rangeOf(from, to),
+          ...inclusiveDayRange(from, to),
         });
 
         return {
           currency: "EUR",
           groups: groups.map(({ amount, group }) => ({
             group,
-            total: major(amount),
+            total: decimalAmount(amount),
           })),
         };
       },
@@ -200,18 +183,18 @@ export const assistantTools = (api: AppRouterClient) =>
           limit,
           search,
           sort,
-          ...rangeOf(from, to),
+          ...inclusiveDayRange(from, to),
         });
 
         return {
           totals: {
             currency: "EUR",
-            incoming: major(totals.incoming),
-            outgoing: major(totals.outgoing),
+            incoming: decimalAmount(totals.incoming),
+            outgoing: decimalAmount(totals.outgoing),
           },
           transactions: transactions.map(({ amount, ...rest }) => ({
             ...rest,
-            amount: major(amount),
+            amount: decimalAmount(amount),
           })),
         };
       },
@@ -219,9 +202,12 @@ export const assistantTools = (api: AppRouterClient) =>
         categories: z.array(z.enum(SPENDING_CATEGORIES)).optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),
         groups: z.array(z.enum(CATEGORY_GROUPS)).optional(),
-        // The procedure allows 100; a hundred raw bank descriptors per turn would
-        // crowd out the conversation itself.
-        limit: z.number().int().min(1).max(20).default(10),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_TRANSACTION_ROWS)
+          .default(DEFAULT_TRANSACTION_ROWS),
         maxAmount: z
           .number()
           .min(0)
@@ -241,10 +227,6 @@ export const assistantTools = (api: AppRouterClient) =>
     }),
   }) satisfies Record<AssistantToolName, Tool>;
 
-/**
- * Membership test for a name off the wire, so the interface can translate a
- * tool row without asserting its way into the table.
- */
 export const isAssistantToolName = (
   value: string
 ): value is AssistantToolName => Object.hasOwn(ASSISTANT_TOOL_NAMES, value);

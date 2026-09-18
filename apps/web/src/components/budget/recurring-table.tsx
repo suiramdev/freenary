@@ -37,32 +37,27 @@ import { categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/**
- * Seven columns do not fit a narrow panel, so each optional one waits for the
- * width it needs. Company, confidence, amount and next date always show.
- */
+interface RecurringTableProps {
+  asOf: Date;
+  hasFilters: boolean;
+  isError: boolean;
+  isPending: boolean;
+  items: RecurringItem[];
+  kind: RecurrenceKind;
+}
+
 const FREQUENCY_COLUMN = "hidden @min-[40rem]/budget:table-cell";
 const MONTHLY_COLUMN = "hidden @min-[52rem]/budget:table-cell";
-/**
- * Yearly cost waits for the widest panel. 60rem, not 64: the app shell caps
- * its content at max-w-5xl, so the container's content box tops out just under
- * 62rem and a 64rem step would never fire.
- */
 const WIDEST_COLUMN = "hidden @min-[60rem]/budget:table-cell";
 
 const MONEY_CELL = "text-end font-mono tabular-nums";
 
 const COLUMN_COUNT = 7;
 
-/** Shared by a real row and its skeleton, so nothing shifts when data lands. */
 const ROW_HEIGHT = "h-14";
 
 const SKELETON_ROWS = 6;
 
-/**
- * Above this the observed amounts differ enough that the median is a typical
- * amount rather than the amount, and printing it bare would overstate it.
- */
 const AMOUNT_SPREAD_APPROX = 0.05;
 
 const RecurringTableHead = () => (
@@ -93,13 +88,11 @@ const ItemRow = ({ asOf, item }: { asOf: Date; item: RecurringItem }) => {
   const amount = formatCurrency(item.typicalAmountMinor, item.currency);
   const next = new Date(item.nextExpected);
   const daysAway = dayDelta(asOf, next);
-  // Inside the horizon the relative reading is the fast one; past it, "in 214
-  // days" is noise the date already carries.
-  const isSoon = daysAway >= 0 && daysAway <= UPCOMING_HORIZON_DAYS;
+  const isWithinUpcomingHorizon =
+    daysAway >= 0 && daysAway <= UPCOMING_HORIZON_DAYS;
 
   return (
     <TableRow className={ROW_HEIGHT}>
-      {/* The category rides under the company so it survives every breakpoint. */}
       <TableCell className="max-w-56">
         <span className="block truncate font-medium">
           {merchantLabel(item)}
@@ -127,7 +120,7 @@ const ItemRow = ({ asOf, item }: { asOf: Date; item: RecurringItem }) => {
             year: "numeric",
           })}
         </span>
-        {isSoon && (
+        {isWithinUpcomingHorizon && (
           <span className="text-muted-foreground block font-sans">
             {relativeDayLabel(daysAway)}
           </span>
@@ -155,21 +148,6 @@ const SkeletonRows = () => (
   </TableBody>
 );
 
-interface RecurringTableProps {
-  asOf: Date;
-  /** Whether a filter, rather than the detection, is why a row is missing. */
-  hasFilters: boolean;
-  isError: boolean;
-  isPending: boolean;
-  items: RecurringItem[];
-  kind: RecurrenceKind;
-}
-
-/**
- * One kind of recurrence, one run of rows. The kind is the reader's own choice
- * above the table, so a predicted habit never sits among confirmed direct
- * debits and no row has to carry the word that tells them apart.
- */
 export const RecurringTable = ({
   asOf,
   hasFilters,
@@ -179,8 +157,6 @@ export const RecurringTable = ({
   kind,
 }: RecurringTableProps) => {
   if (isError) {
-    // A failed request never borrows an empty state: "no commitment detected"
-    // is a claim the response never made.
     return (
       <p className="text-muted-foreground px-4 py-8 text-center">
         {m.budget_recurring_unavailable()}

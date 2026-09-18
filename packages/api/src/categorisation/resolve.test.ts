@@ -20,6 +20,7 @@ describe("categoriseTransaction", () => {
         ...baseInput,
         channel: "atm",
       });
+
       expect(result.stage).toBe("channel");
       expect(result.category).toBe("cash-withdrawal");
       expect(result.band).toBe("auto");
@@ -31,6 +32,7 @@ describe("categoriseTransaction", () => {
         ...baseInput,
         channel: "fee",
       });
+
       expect(result.stage).toBe("channel");
       expect(result.category).toBe("bank-fees");
     });
@@ -40,6 +42,7 @@ describe("categoriseTransaction", () => {
         ...baseInput,
         channel: "cheque",
       });
+
       expect(result.stage).toBe("channel");
       expect(result.category).toBe("uncategorised");
     });
@@ -52,6 +55,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "",
         normalisedDescriptor: "unknown merchant xyz abc",
       });
+
       expect(result.stage).toBe("none");
       expect(result.band).toBe("unknown");
       expect(result.category).toBeNull();
@@ -64,6 +68,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "",
         normalisedDescriptor: "",
       });
+
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("groceries");
     });
@@ -73,12 +78,11 @@ describe("categoriseTransaction", () => {
     it("uses MCC when no earlier stage matches", async () => {
       const result = await categoriseTransaction({
         ...baseInput,
-        // Use a merchant key that won't match anything
         merchantCategoryCode: "5411",
         merchantKey: "unknown-merchant-xyz-abc",
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
-      // Should reach MCC stage (5411 = grocery stores)
+
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("groceries");
       expect(result.band).toBe("auto");
@@ -92,6 +96,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "unknown-merchant-xyz-abc",
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
+
       expect(result.stage).toBe("rules");
       expect(result.category).toBe("rent");
       expect(result.band).toBe("auto");
@@ -104,6 +109,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "unknown-merchant-xyz-abc",
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
+
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("accommodation");
     });
@@ -115,6 +121,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "unknown-merchant-xyz-abc",
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
+
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("flights");
     });
@@ -126,6 +133,7 @@ describe("categoriseTransaction", () => {
         merchantKey: "unknown-merchant-xyz-abc",
         normalisedDescriptor: "unknown-merchant-xyz-abc",
       });
+
       expect(result.stage).toBe("mcc");
       expect(result.category).toBe("other-travel");
     });
@@ -135,6 +143,7 @@ describe("categoriseTransaction", () => {
     it("never throws, returns unknown on error", async () => {
       // SAFETY: deliberately passing empty object to test error resilience
       const result = await categoriseTransaction({} as CategoriseInput);
+
       expect(result.band).toBe("unknown");
       expect(result.stage).toBe("none");
     });
@@ -157,7 +166,6 @@ describe("merchantKeyCandidates", () => {
   });
 
   it("stops at the first token that is not a service word", () => {
-    // "forfait mobile" must never reach "mobile" — that is the fuel brand Mobil.
     expect(merchantKeyCandidates("forfait mobile", "FR")).toEqual([
       "forfait mobile",
       "forfait",

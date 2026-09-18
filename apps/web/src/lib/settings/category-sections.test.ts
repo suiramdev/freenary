@@ -15,7 +15,6 @@ const custom = (
   icon: "HouseIcon",
   isAssignable: true,
   isCustom: true,
-  // A custom category with no parent is a group of the user's own.
   isGroup: parentKey === null,
   key: `custom:${id}`,
   label,
@@ -23,22 +22,25 @@ const custom = (
   usageCount: 0,
 });
 
-/** Mirrors listCategories: each group, its categories, its customs, then top-level customs. */
 const listCategories = (customs: CategoryEntry[]): CategoryEntry[] => {
   const out: CategoryEntry[] = [];
+
   for (const { categories, group } of predefinedCategoryGroups()) {
     out.push(group, ...categories);
+
     for (const entry of customs) {
       if (entry.parentKey === group.key) {
         out.push(entry);
       }
     }
   }
+
   for (const entry of customs) {
     if (entry.parentKey === null) {
       out.push(entry);
     }
   }
+
   return out;
 };
 
@@ -48,13 +50,17 @@ const keysOf = (sections: CategorySection[]) =>
 describe("toCategorySections", () => {
   it("puts every predefined category under its own group heading", () => {
     const sections = toCategorySections(listCategories([]), "");
+
     expect(sections).toHaveLength(16);
     expect(keysOf(sections)).toHaveLength(75);
+
     for (const section of sections) {
       const { heading } = section;
+
       if (!heading) {
         throw new Error("every predefined section has a heading");
       }
+
       for (const item of section.items) {
         expect(item.parentKey).toBe(heading.key);
       }
@@ -67,11 +73,11 @@ describe("toCategorySections", () => {
       ""
     );
     const housing = sections.find((s) => s.heading?.key === "housing");
+
     expect(housing?.items.at(-1)?.key).toBe("custom:a");
   });
 
   it("gives each top-level custom category its own unique section", () => {
-    // Keying these alike would collide inside one radio group.
     const sections = toCategorySections(
       listCategories([
         custom("a", "Hustle one", null),
@@ -80,6 +86,7 @@ describe("toCategorySections", () => {
       ""
     );
     const headless = sections.filter((s) => s.heading === null);
+
     expect(headless).toHaveLength(2);
     expect(new Set(sections.map((s) => s.key)).size).toBe(sections.length);
   });
@@ -89,11 +96,13 @@ describe("toCategorySections", () => {
       listCategories([custom("a", "Housing", null)]),
       ""
     );
+
     expect(new Set(sections.map((s) => s.key)).size).toBe(sections.length);
   });
 
   it("drops headings left with nothing under them", () => {
     const sections = toCategorySections(listCategories([]), "rent");
+
     expect(sections.map((s) => s.heading?.label)).toEqual([
       "Income",
       "Housing",
@@ -109,6 +118,7 @@ describe("toCategorySections", () => {
       ]),
       "zzz"
     );
+
     expect(keysOf(sections).toSorted()).toEqual(["custom:a", "custom:b"]);
     expect(new Set(sections.map((s) => s.key)).size).toBe(sections.length);
   });
@@ -124,6 +134,7 @@ describe("toCategorySections", () => {
     const assignable = all
       .filter((entry) => entry.isAssignable)
       .map((entry) => entry.key);
+
     expect(rendered.toSorted()).toEqual(assignable.toSorted());
   });
 });

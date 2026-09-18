@@ -2,16 +2,15 @@ import { LABEL_INSET, LABEL_MIN_H } from "@/lib/sankey/layout";
 import type { NodeRect } from "@/lib/sankey/layout";
 import { fitSideLabel } from "@/lib/sankey/side-label";
 
-const MAX_LABEL_CHARS = 22;
-const TRUNCATED_CHARS = 20;
-/** Rough width of one character at the 9px side-label size, in user units. */
-const CHAR_W = 4.6;
-
 interface SankeyNodeLabelProps {
   formatValue: (value: number) => string;
   isFirstColumn: boolean;
   node: NodeRect;
 }
+
+const MAX_LABEL_CHARS = 22;
+const TRUNCATED_CHARS = 20;
+const SIDE_LABEL_CHAR_WIDTH = 4.6;
 
 export const SankeyNodeLabel = ({
   formatValue,
@@ -50,14 +49,15 @@ export const SankeyNodeLabel = ({
     );
   }
 
-  // Too short for an inside label — set it beside the node instead. The layout
-  // has already narrowed the budget where a neighbouring column aims a label at
-  // the same gap and rows, so fitting to it cannot overlap.
+  const maxSideLabelChars = Math.floor(
+    node.labelBudget / SIDE_LABEL_CHAR_WIDTH
+  );
   const fitted = fitSideLabel(
     node.label,
     formatValue(node.value),
-    Math.floor(node.labelBudget / CHAR_W)
+    maxSideLabelChars
   );
+
   if (fitted === null) {
     return null;
   }

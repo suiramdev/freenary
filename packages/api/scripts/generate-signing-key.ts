@@ -1,19 +1,22 @@
-/**
- * Generate an Ed25519 key pair for dictionary signing.
- * Writes the private key to data/dictionary.key (gitignored)
- * and prints the public key for embedding in source.
- *
- * Usage: bun packages/api/scripts/generate-signing-key.ts
- */
 import { generateKeyPairSync } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const KEY_PATH = path.resolve(import.meta.dirname, "../data/dictionary.key");
+const PRIVATE_KEY_PATH = path.resolve(
+  import.meta.dirname,
+  "../data/dictionary.key"
+);
 
-if (existsSync(KEY_PATH) && !process.argv.includes("--force")) {
+const OWNER_READ_WRITE_ONLY = 0o600;
+
+const FORCE_OVERWRITE_FLAG = "--force";
+
+if (
+  existsSync(PRIVATE_KEY_PATH) &&
+  !process.argv.includes(FORCE_OVERWRITE_FLAG)
+) {
   console.error(
-    `Key already exists at ${KEY_PATH}. Pass --force to overwrite.`
+    `Key already exists at ${PRIVATE_KEY_PATH}. Pass ${FORCE_OVERWRITE_FLAG} to overwrite.`
   );
   process.exit(1);
 }
@@ -23,9 +26,9 @@ const { publicKey, privateKey } = generateKeyPairSync("ed25519", {
   publicKeyEncoding: { format: "pem", type: "spki" },
 });
 
-mkdirSync(path.dirname(KEY_PATH), { recursive: true });
-writeFileSync(KEY_PATH, privateKey, { mode: 0o600 });
-chmodSync(KEY_PATH, 0o600);
-console.log("Private key written to:", KEY_PATH);
+mkdirSync(path.dirname(PRIVATE_KEY_PATH), { recursive: true });
+writeFileSync(PRIVATE_KEY_PATH, privateKey, { mode: OWNER_READ_WRITE_ONLY });
+chmodSync(PRIVATE_KEY_PATH, OWNER_READ_WRITE_ONLY);
+console.log("Private key written to:", PRIVATE_KEY_PATH);
 console.log("\nPublic key (embed in verify.ts):\n");
 console.log(publicKey);

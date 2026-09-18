@@ -1,22 +1,4 @@
-/**
- * Transaction categorisation pipeline.
- *
- * Stages execute in order; each exits early on a confident hit:
- *   1. Channel short-circuit (ATM, cheque, fee → known category)
- *   2. User override (exact match on merchant key)
- *   3. Shared dictionary (exact match on merchant key)
- *   4. Deterministic layer (MCC, then this country's rules)
- *   5. Local classifier (n-grams + linear model, country as a feature — stub)
- *   6. Opt-in cloud tail (stub)
- *   7. Unknown
- *
- * Stages 1–4 are deterministic: same transaction data, same category, no
- * model involved. The classifier only sees what they leave undecided, and an
- * unconfident classifier yields "uncategorised" rather than a forced guess.
- *
- * The pipeline runs as a batch job, not on the request path.
- * Steps 1–4 are hash lookups and regex tables. Steps 5–6 load/unload resources.
- */
+import { Option } from "effect";
 
 import type { SpendingCategory } from "../lib/taxonomy";
 import { deterministicCategory } from "./deterministic";
@@ -32,9 +14,11 @@ import {
   predict,
   unloadModel,
 } from "./model";
+import type { TransactionChannel } from "./normalise/types";
 import type {
   CategoriseInput,
   DictionaryEntry,
+  Iso3166Alpha2Country,
   ResolutionResult,
 } from "./types";
 import { lookupUserOverride } from "./user-override";
@@ -43,7 +27,7 @@ const CHANNEL_CATEGORY = {
   atm: "cash-withdrawal",
   cheque: "uncategorised",
   fee: "bank-fees",
-} as const satisfies Record<string, SpendingCategory>;
+} as const satisfies Partial<Record<TransactionChannel, SpendingCategory>>;
 
 const UNKNOWN_RESULT: ResolutionResult = {
   band: "unknown",
@@ -54,20 +38,16 @@ const UNKNOWN_RESULT: ResolutionResult = {
   stage: "none",
 };
 
-/** Below this a stripped key is an initial, not a brand ("t mobile" -> "t"). */
-const MIN_STRIPPED_KEY = 3;
+const CHANNEL_CONFIDENCE = 0.9;
+const USER_OVERRIDE_CONFIDENCE = 1;
+const DICTIONARY_CONFIDENCE = 0.85;
+const AUTO_BAND_MIN_CONFIDENCE = 0.85;
 
-/**
- * The keys to try in the dictionary, most specific first: the merchant key
- * itself, then the same key minus its trailing service words, one at a time —
- * so "bouygues telecom mobile" is read as Bouygues Telecom rather than as
- * Bouygues. Only the tail is stripped, and only known service words, because
- * matching any window of the key would read "forfait mobile" as the fuel brand
- * Mobil.
- */
+const MIN_BRAND_KEY_LENGTH = 3;
+
 export const merchantKeyCandidates = (
   merchantKey: string,
-  country?: string | null
+  country: Iso3166Alpha2Country | null | undefined
 ): string[] => {
   const candidates = [merchantKey];
   const { merchantQualifiers } = keywordsFor(country);
@@ -75,163 +55,205 @@ export const merchantKeyCandidates = (
 
   for (let end = parts.length - 1; end >= 1; end -= 1) {
     const tail = parts[end];
+
     if (!(tail && merchantQualifiers.has(tail))) {
       break;
     }
+
     const candidate = parts.slice(0, end).join(" ");
-    if (candidate.length < MIN_STRIPPED_KEY) {
+
+    if (candidate.length < MIN_BRAND_KEY_LENGTH) {
       break;
     }
+
     candidates.push(candidate);
   }
 
   return candidates;
 };
 
-/** The dictionary is an exact-match table; the relaxation is in the key. */
 const lookupMerchant = async (
   merchantKey: string,
-  country?: string | null
+  country: Iso3166Alpha2Country | null | undefined
 ): Promise<DictionaryEntry | null> => {
   for (const candidate of merchantKeyCandidates(merchantKey, country)) {
     // eslint-disable-next-line no-await-in-loop -- ordered, exits on first hit
     const hit = await lookupDictionary(candidate);
+
     if (hit) {
       return hit;
     }
   }
+
   return null;
+};
+
+const hasChannelCategory = (
+  channel: TransactionChannel
+): channel is keyof typeof CHANNEL_CATEGORY =>
+  Object.hasOwn(CHANNEL_CATEGORY, channel);
+
+const fromChannel = (input: CategoriseInput): ResolutionResult | null => {
+  if (!hasChannelCategory(input.channel)) {
+    return null;
+  }
+
+  const channelCategory = CHANNEL_CATEGORY[input.channel];
+
+  return {
+    band: "auto",
+    category: channelCategory,
+    confidence: CHANNEL_CONFIDENCE,
+    intermediaryName: null,
+    merchantName: null,
+    stage: "channel",
+  };
+};
+
+const fromUserOverride = async (
+  input: CategoriseInput
+): Promise<ResolutionResult | null> => {
+  const override = await lookupUserOverride(input.userId, input.merchantKey);
+
+  if (!override) {
+    return null;
+  }
+
+  return {
+    band: "auto",
+    category: override.category,
+    confidence: USER_OVERRIDE_CONFIDENCE,
+    intermediaryName: null,
+    merchantName: override.merchantName,
+    stage: "user-override",
+  };
+};
+
+const fromDictionary = async (
+  input: CategoriseInput
+): Promise<ResolutionResult | null> => {
+  const entry = await lookupMerchant(input.merchantKey, input.country);
+
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    band: "auto",
+    category: entry.category,
+    confidence: DICTIONARY_CONFIDENCE,
+    intermediaryName: null,
+    merchantName: entry.name,
+    stage: "dictionary",
+  };
+};
+
+const fromDeterministicRules = (
+  input: CategoriseInput
+): ResolutionResult | null => {
+  const deterministic = deterministicCategory(input);
+
+  if (!deterministic) {
+    return null;
+  }
+
+  return {
+    band: "auto",
+    category: deterministic.category,
+    confidence: deterministic.confidence,
+    intermediaryName: null,
+    merchantName: null,
+    stage: deterministic.stage,
+  };
+};
+
+const fromLocalClassifier = async (
+  input: CategoriseInput
+): Promise<ResolutionResult | null> => {
+  const prediction = await predict(input.normalisedDescriptor, input.country);
+
+  if (!prediction || prediction.confidence < MODEL_ACCEPT_THRESHOLD) {
+    return null;
+  }
+
+  return {
+    band:
+      prediction.confidence >= AUTO_BAND_MIN_CONFIDENCE ? "auto" : "suggest",
+    category: prediction.category,
+    confidence: prediction.confidence,
+    intermediaryName: null,
+    merchantName: null,
+    stage: "model",
+  };
 };
 
 const categoriseInternal = async (
   input: CategoriseInput
 ): Promise<ResolutionResult> => {
-  const { channel, merchantKey, normalisedDescriptor, userId } = input;
+  const byChannel = fromChannel(input);
 
-  // Stage 1: Channel short-circuit
-  // SAFETY: channel is an arbitrary string; narrowing for the const lookup
-  const channelCategory =
-    CHANNEL_CATEGORY[channel as keyof typeof CHANNEL_CATEGORY];
-  if (channelCategory) {
-    return {
-      band: "auto",
-      category: channelCategory,
-      confidence: 0.9,
-      intermediaryName: null,
-      merchantName: null,
-      stage: "channel",
-    };
+  if (byChannel) {
+    return byChannel;
   }
 
-  // Stages 2–3 key off the merchant key; the deterministic layer and the
-  // classifier do not, so an unkeyed transaction still gets a chance.
-  if (merchantKey.length > 0) {
-    // Stage 2: User override (exact match on merchant key)
-    const override = await lookupUserOverride(userId, merchantKey);
-    if (override) {
-      return {
-        band: "auto",
-        category: override.category,
-        confidence: 1,
-        intermediaryName: null,
-        merchantName: override.merchantName,
-        stage: "user-override",
-      };
+  if (input.merchantKey.length > 0) {
+    const byOverride = await fromUserOverride(input);
+
+    if (byOverride) {
+      return byOverride;
     }
 
-    // Stage 3: Shared dictionary, exact on the merchant key or on it minus a
-    // trailing service word
-    const dictEntry = await lookupMerchant(merchantKey, input.country);
-    if (dictEntry) {
-      return {
-        band: "auto",
-        category: dictEntry.category,
-        confidence: 0.85,
-        intermediaryName: null,
-        merchantName: dictEntry.name,
-        stage: "dictionary",
-      };
+    const byDictionary = await fromDictionary(input);
+
+    if (byDictionary) {
+      return byDictionary;
     }
   }
 
-  // Stage 4: Deterministic layer (MCC, then this country's rules)
-  const deterministic = deterministicCategory(input);
-  if (deterministic) {
-    return {
-      band: "auto",
-      category: deterministic.category,
-      confidence: deterministic.confidence,
-      intermediaryName: null,
-      merchantName: null,
-      stage: deterministic.stage,
-    };
+  const byRules = fromDeterministicRules(input);
+
+  if (byRules) {
+    return byRules;
   }
 
-  // Stage 5: Local classifier — the fallback for what the rules could not decide
-  const modelResult = await predict(normalisedDescriptor, input.country);
-  if (modelResult && modelResult.confidence >= MODEL_ACCEPT_THRESHOLD) {
-    return {
-      band: modelResult.confidence >= 0.85 ? "auto" : "suggest",
-      category: modelResult.category,
-      confidence: modelResult.confidence,
-      intermediaryName: null,
-      merchantName: null,
-      stage: "model",
-    };
-  }
-
-  // Stage 6: Opt-in cloud tail (stub — returns null)
-  // Future: send merchantKey to the cloud API for tail inference
-  // when input.allowCloudInference is true.
-
-  // Stage 7: Unknown
-  return UNKNOWN_RESULT;
+  return (await fromLocalClassifier(input)) ?? UNKNOWN_RESULT;
 };
 
-/**
- * Categorise a single transaction through the pipeline.
- * Never throws — returns UNKNOWN_RESULT on any error.
- */
 export const categoriseTransaction = async (
   input: CategoriseInput
-): Promise<ResolutionResult> => {
-  try {
-    return await categoriseInternal(input);
-  } catch {
-    return UNKNOWN_RESULT;
+): Promise<ResolutionResult> =>
+  Option.getOrElse(
+    await categoriseInternal(input).then(Option.some, Option.none),
+    () => UNKNOWN_RESULT
+  );
+
+const categoriseInOrder = async (
+  transactions: CategoriseInput[]
+): Promise<ResolutionResult[]> => {
+  const results: ResolutionResult[] = [];
+
+  for (const tx of transactions) {
+    // eslint-disable-next-line no-await-in-loop -- sequential: each lookup may hit the DB for user overrides
+    results.push(await categoriseTransaction(tx));
   }
+
+  return results;
 };
 
-/**
- * Run the categorisation pipeline over a batch of transactions.
- * Loads resources once, drains the batch, then frees memory.
- *
- * @param transactions - Array of categorisation inputs
- * @returns Array of results in the same order as inputs
- */
+const releaseBatchResources = (): void => {
+  unloadDictionary();
+  unloadModel();
+};
+
 export const categoriseBatch = async (
   transactions: CategoriseInput[],
-  countries?: string[]
+  countries: Iso3166Alpha2Country[] | undefined
 ): Promise<ResolutionResult[]> => {
   if (transactions.length === 0) {
     return [];
   }
 
-  // Load resources once for the batch
   await Promise.all([loadDictionary(countries), loadModel()]);
 
-  try {
-    const results: ResolutionResult[] = [];
-    for (const tx of transactions) {
-      // Sequential: each lookup may hit the DB for user overrides
-      // eslint-disable-next-line no-await-in-loop
-      const result = await categoriseTransaction(tx);
-      results.push(result);
-    }
-    return results;
-  } finally {
-    // Free batch resources regardless of success/failure
-    unloadDictionary();
-    unloadModel();
-  }
+  return await categoriseInOrder(transactions).finally(releaseBatchResources);
 };

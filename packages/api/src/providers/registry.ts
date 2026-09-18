@@ -11,9 +11,11 @@ const providers = {
 
 export const getProvider = (id: string): BankingProvider => {
   const provider = providers[id];
+
   if (!provider) {
     throw new Error(`Unknown banking provider: ${id}`);
   }
+
   return provider;
 };
 

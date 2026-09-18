@@ -24,7 +24,6 @@ import { getLocale } from "@/paraglide/runtime.js";
 
 interface SecuritySessionsSectionProps {
   isPending: boolean;
-  /** Undefined once the list has failed rather than merely not arrived. */
   sessions: UserSession[] | undefined;
 }
 
@@ -57,9 +56,11 @@ export const SecuritySessionsSection = ({
         if (left.token === currentToken) {
           return -1;
         }
+
         if (right.token === currentToken) {
           return 1;
         }
+
         return right.createdAt.getTime() - left.createdAt.getTime();
       }),
     [currentToken, sessions]
@@ -70,7 +71,9 @@ export const SecuritySessionsSection = ({
 
   const renderRows = () => {
     if (isPending) {
-      return <SecurityRowsSkeleton label={m.settings_sessions_loading()} />;
+      return (
+        <SecurityRowsSkeleton loadingLabel={m.settings_sessions_loading()} />
+      );
     }
 
     if (sessions === undefined) {
@@ -107,8 +110,6 @@ export const SecuritySessionsSection = ({
     <SettingsSection
       action={
         otherCount > 0 ? (
-          // Left open on confirm: success drops the other sessions, which
-          // unmounts this action, and a failure keeps it available to retry.
           <AlertDialog>
             <AlertDialogTrigger render={<Button variant="outline" />}>
               {m.settings_sessions_revoke_others()}

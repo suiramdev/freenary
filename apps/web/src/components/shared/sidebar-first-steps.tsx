@@ -13,23 +13,13 @@ import { useFirstSteps } from "@/hooks/first-steps/use-first-steps";
 import { FIRST_STEPS } from "@/lib/first-steps";
 import { m } from "@/paraglide/messages.js";
 
+type PanelPhase = "closing" | "hidden" | "open";
+
 const HEADING_ID = "first-steps-heading";
 
-/**
- * How long the finished checklist stays up. Without it the panel unmounts in
- * the same render that would have ticked the final step, so both the exit and
- * the screen reader report the stale count.
- */
 const COMPLETION_HOLD_MS = 1400;
 
-/**
- * The panel only orchestrates. Its heading and rows carry the movement, so the
- * entrance reads as a checklist assembling rather than one block sliding in.
- */
-// The panel's own exit keeps a blur: it unmounts, so nothing rests layered.
 const PANEL_VARIANTS = {
-  // Softer and shorter than the enter, and unstaggered: the finished step is
-  // the news, not the checklist leaving.
   exit: {
     filter: "blur(4px)",
     opacity: 0,
@@ -40,13 +30,6 @@ const PANEL_VARIANTS = {
   visible: { transition: { staggerChildren: 0.1 } },
 } as const;
 
-/**
- * Opacity and translateY only, no blur. Motion resolves a `none` filter target
- * back to `blur(0px)` and re-applies it on every render, so an animated filter
- * on an element that stays mounted leaves a compositing layer the sidebar's
- * width transition then fails to repaint.
- */
-// No `exit` key, so the rows hold position while the panel fades out as one.
 const ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 12 },
   visible: {
@@ -72,12 +55,19 @@ const PANEL_MOTION_STAGGERED = {
 
 const MotionSidebarMenuItem = motion.create(SidebarMenuItem);
 
-/**
- * Names every transitioned property so merging keeps the sidebar's own collapse
- * transition, and so completing a step dims the row instead of snapping it.
- */
-const ROW_MOTION_CLASS =
+const ROW_TRANSITION_CLASS =
   "transition-[width,height,padding,scale,color] duration-150 ease-out active:scale-[0.96]";
+
+const phaseOnceChecklistLoaded = (
+  phase: PanelPhase,
+  isComplete: boolean
+): PanelPhase => {
+  if (!isComplete) {
+    return "open";
+  }
+
+  return phase === "open" ? "closing" : phase;
+};
 
 export const SidebarFirstSteps = () => {
   const state = useFirstSteps();
@@ -90,20 +80,13 @@ export const SidebarFirstSteps = () => {
   const isComplete = state !== null && doneCount === FIRST_STEPS.length;
   const itemVariants = prefersReducedMotion ? undefined : ITEM_VARIANTS;
 
-  /**
-   * Derived during render rather than in an effect, so the panel only ever
-   * opens for a checklist first seen with work left: one already finished on
-   * arrival stays hidden instead of flashing.
-   */
-  const [phase, setPhase] = useState<"closing" | "hidden" | "open">("hidden");
+  const [phase, setPhase] = useState<PanelPhase>("hidden");
 
   if (state !== null) {
-    if (isComplete) {
-      if (phase === "open") {
-        setPhase("closing");
-      }
-    } else if (phase !== "open") {
-      setPhase("open");
+    const loadedPhase = phaseOnceChecklistLoaded(phase, isComplete);
+
+    if (loadedPhase !== phase) {
+      setPhase(loadedPhase);
     }
   }
 
@@ -111,10 +94,19 @@ export const SidebarFirstSteps = () => {
     if (phase !== "closing") {
       return;
     }
+
     const timer = setTimeout(() => setPhase("hidden"), COMPLETION_HOLD_MS);
 
     return () => clearTimeout(timer);
   }, [phase]);
+
+  const scrollToStepAlreadyNavigatedTo = (stepHash: string) => {
+    if (hash !== stepHash) {
+      return;
+    }
+
+    document.querySelector(`#${stepHash}`)?.scrollIntoView({ block: "start" });
+  };
 
   return (
     <AnimatePresence>
@@ -125,9 +117,6 @@ export const SidebarFirstSteps = () => {
             : PANEL_MOTION_STAGGERED)}
           className="bg-sidebar-accent/50 ring-sidebar-border rounded-[calc(var(--radius-sm)+6px)] p-1 ring-1 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:ring-0"
         >
-          {/* The label owns the rail's opacity-0 collapse rule, so it must not
-              be the animated element: motion writes opacity inline, which no
-              class can outrank. */}
           <motion.div variants={itemVariants}>
             <SidebarGroupLabel className="justify-between" id={HEADING_ID}>
               <span>{m.first_steps_title()}</span>
@@ -149,23 +138,14 @@ export const SidebarFirstSteps = () => {
                   <SidebarMenuButton
                     className={
                       isStepDone
-                        ? `${ROW_MOTION_CLASS} text-sidebar-foreground/50`
-                        : ROW_MOTION_CLASS
+                        ? `${ROW_TRANSITION_CLASS} text-sidebar-foreground/50`
+                        : ROW_TRANSITION_CLASS
                     }
-                    onClick={() => {
-                      // A Link to the location you are already on emits no
-                      // navigation, so nothing would move the viewport.
-                      if (hash === step.hash) {
-                        document
-                          .querySelector(`#${step.hash}`)
-                          ?.scrollIntoView({ block: "start" });
-                      }
-                    }}
+                    onClick={() => scrollToStepAlreadyNavigatedTo(step.hash)}
                     render={<Link hash={step.hash} to={step.to} />}
                     tooltip={label}
                   >
                     <SidebarFirstStepIcon done={isStepDone} icon={step.icon} />
-                    {/* Before the label: the button truncates its last child. */}
                     <span className="sr-only">
                       {isStepDone
                         ? m.first_steps_state_done()

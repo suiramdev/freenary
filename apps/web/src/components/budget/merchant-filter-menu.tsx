@@ -21,11 +21,6 @@ import { foldForSearch } from "@/lib/search-text";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
-/** How long typing settles before the merchant list is asked again. */
-const MERCHANT_SETTLE_MS = 250;
-
-const SKELETON_ROWS = [0, 1, 2, 3];
-
 interface MerchantFilterMenuProps {
   direction: TransactionDirection;
   from: Date;
@@ -34,11 +29,10 @@ interface MerchantFilterMenuProps {
   to: Date;
 }
 
-/**
- * The transaction list's company filter. The list comes from the period's own
- * transactions, most frequent first, and typing narrows it on the server: the
- * picker holds the top rows, never the whole history.
- */
+const MERCHANT_SETTLE_MS = 250;
+
+const SKELETON_ROWS = [0, 1, 2, 3];
+
 export const MerchantFilterMenu = ({
   direction,
   from,
@@ -54,7 +48,6 @@ export const MerchantFilterMenu = ({
     ...orpc.budget.getMerchants.queryOptions({
       input: { direction, from, search: settled || undefined, to },
     }),
-    // Nothing on the page needs this list until the menu is opened.
     enabled: isOpen,
     placeholderData: keepPreviousData,
   });
@@ -63,14 +56,13 @@ export const MerchantFilterMenu = ({
     const found = merchantsQuery.data?.merchants ?? [];
     const listed = new Set(found.map((row) => row.name));
     const needle = foldForSearch(settled);
-    // A pick that falls outside the top rows keeps its tick, so the menu never
-    // contradicts the chips above the list.
-    const pinned = merchants
+    const selectedButNotInTopRows = merchants
       .filter(
         (name) => !listed.has(name) && foldForSearch(name).includes(needle)
       )
       .map((name) => ({ count: 0, name, totalMinor: 0 }));
-    return [...pinned, ...found];
+
+    return [...selectedButNotInTopRows, ...found];
   }, [merchants, merchantsQuery.data, settled]);
 
   const isLoading = merchantsQuery.isPending && isOpen;
@@ -79,6 +71,7 @@ export const MerchantFilterMenu = ({
     <DropdownMenu
       onOpenChange={(open) => {
         setIsOpen(open);
+
         if (!open) {
           setQuery("");
         }

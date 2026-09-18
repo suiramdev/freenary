@@ -11,13 +11,23 @@ import { z } from "zod";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
 
+export type CustomCategoryValues = z.infer<typeof categorySchema>;
+
+export interface EditedCustomCategory extends CustomCategoryValues {
+  id: string;
+}
+
+interface UseCustomCategoryFormOptions {
+  edited: EditedCustomCategory | null;
+  onCreated?: (key: string) => void;
+  onDone: () => void;
+}
+
 const MAX_LABEL_LENGTH = 40;
 
 const categorySchema = z.object({
   color: z.enum(CATEGORY_COLOR_VALUES),
   icon: z.enum(CATEGORY_ICON_NAMES),
-  // Message thunks, resolved at parse time: evaluating them here would pin the
-  // locale of whichever request loaded this module first.
   label: z
     .string()
     .trim()
@@ -25,16 +35,8 @@ const categorySchema = z.object({
     .max(MAX_LABEL_LENGTH, {
       error: () => m.settings_error_name_too_long({ max: MAX_LABEL_LENGTH }),
     }),
-  // A custom category nests under a group, never under another category.
   parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
 });
-
-export type CustomCategoryValues = z.infer<typeof categorySchema>;
-
-/** The category being edited, or null when creating a new one. */
-export interface EditedCustomCategory extends CustomCategoryValues {
-  id: string;
-}
 
 const DEFAULT_VALUES: CustomCategoryValues = {
   color: "blue",
@@ -42,13 +44,6 @@ const DEFAULT_VALUES: CustomCategoryValues = {
   label: "",
   parentSlug: null,
 };
-
-interface UseCustomCategoryFormOptions {
-  edited: EditedCustomCategory | null;
-  /** Receives the new category's key so the caller can select it immediately. */
-  onCreated?: (key: string) => void;
-  onDone: () => void;
-}
 
 export const useCustomCategoryForm = ({
   edited,
@@ -64,9 +59,12 @@ export const useCustomCategoryForm = ({
           ...values,
           id: edited.id,
         });
+
         return null;
       }
+
       const { key } = await client.settings.createCustomCategory(values);
+
       return key;
     },
     onError: (error: Error) => {
@@ -81,9 +79,11 @@ export const useCustomCategoryForm = ({
           ? m.settings_category_update_success()
           : m.settings_category_create_success()
       );
+
       if (key) {
         onCreated?.(key);
       }
+
       onDone();
     },
   });

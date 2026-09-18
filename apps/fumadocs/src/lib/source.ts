@@ -7,6 +7,13 @@ import { z } from "zod";
 import { docsRoute } from "./shared";
 import { compareVersionIds, isVersionId, NEXT_VERSION } from "./versions";
 
+const UNVERSIONED_DOCS_LINK = /(\]\(|href=")\/docs\//g;
+
+const pageWithDescriptionAndIcon = pageSchema.extend({
+  description: z.string().min(1),
+  icon: z.string().min(1),
+});
+
 export const docs = defineDocs({
   dir: "content/docs",
   docs: {
@@ -14,13 +21,7 @@ export const docs = defineDocs({
     postprocess: {
       includeProcessedMarkdown: true,
     },
-    // The default schema needs `title` only. A page with no description renders
-    // an empty subtitle and no search summary, and a page with no icon renders
-    // a blank sidebar row, so the build refuses both.
-    schema: pageSchema.extend({
-      description: z.string().min(1),
-      icon: z.string().min(1),
-    }),
+    schema: pageWithDescriptionAndIcon,
   },
 });
 
@@ -30,25 +31,21 @@ export const source = loader({
   plugins: [lucideIconsPlugin()],
 });
 
-let versions: string[] | undefined;
+const once = <T>(compute: () => T) => {
+  let computed: T | undefined;
 
-/** Every version folder the loader found, newest release first. */
-export const listVersions = (): string[] => {
-  versions ??= [...new Set(source.getPages().map((page) => page.slugs[0]))]
-    .filter(isVersionId)
-    .sort(compareVersionIds);
-  return versions;
+  return (): T => (computed ??= compute());
 };
 
-/** The newest release, or `next` while no release exists. */
-export const stableVersion = (): string =>
+export const listVersions = once((): string[] =>
+  [...new Set(source.getPages().map((page) => page.slugs[0]))]
+    .filter(isVersionId)
+    .sort(compareVersionIds)
+);
+
+export const newestRelease = (): string =>
   listVersions().find((id) => id !== NEXT_VERSION) ?? NEXT_VERSION;
 
-/**
- * The page-tree folder that holds one version. Its `name` is the version: the
- * `version` rule in `scripts/check-docs.ts` pins each `meta.json` title to its
- * folder name.
- */
 export const versionNode = (version: string) =>
   source
     .getPageTree()
@@ -58,10 +55,8 @@ export const versionNode = (version: string) =>
 
 export async function getLLMText(page: (typeof source)["$inferPage"]) {
   const processed = await page.data.getText("processed");
-  // Authored links carry no version, so a frozen page's Markdown would send a
-  // reader through the redirect and back to the newest release.
   const versioned = processed.replace(
-    /(\]\(|href=")\/docs\//g,
+    UNVERSIONED_DOCS_LINK,
     `$1${docsRoute}/${page.slugs[0]}/`
   );
 

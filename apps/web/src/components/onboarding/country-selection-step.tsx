@@ -33,9 +33,7 @@ export const CountrySelectionStep = ({
   const [search, setSearch] = useState("");
   const locale = getLocale();
 
-  // Country names are CLDR names in the reader's language, so the list is
-  // rebuilt — and re-sorted — when the locale changes, not only the search.
-  const filtered = useMemo(
+  const localizedMatches = useMemo(
     () => filterCountries(search, locale),
     [search, locale]
   );
@@ -51,7 +49,7 @@ export const CountrySelectionStep = ({
         placeholder={m.onboarding_country_search_placeholder()}
         value={search}
       />
-      {filtered.length === 0 ? (
+      {localizedMatches.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -62,7 +60,7 @@ export const CountrySelectionStep = ({
         </Empty>
       ) : (
         <div className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
-          {filtered.map((country) => (
+          {localizedMatches.map((country) => (
             <CountryOption
               key={country.code}
               country={country}

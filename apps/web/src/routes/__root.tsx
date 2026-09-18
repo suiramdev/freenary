@@ -27,11 +27,7 @@ export interface RouterAppContext {
   queryClient: QueryClient;
 }
 
-// The primitives in @freenary/ui carry their own accessible names for controls
-// with no visible text; this is where they learn the reader's language.
 const RootDocument = () => (
-  // The theme class is decided in the browser, so the server renders none and
-  // `ThemeProvider`'s inline script sets it before the first paint.
   <html lang={getLocale()} suppressHydrationWarning>
     <head>
       <HeadContent />
@@ -71,18 +67,13 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     middleware: [createMiddleware().server(evlogErrorHandler)],
   },
 
-  // Answered once per page load from the request's own cookies, so the routes
-  // below redirect before the first byte. In the browser it is `unknown` on
-  // purpose: after hydration the session is the browser's to hold, and
-  // `AuthGate` routes on that — a stale server answer here would fight it.
   beforeLoad: async () => ({
     viewer: isServer ? await getViewer() : UNKNOWN_VIEWER,
   }),
 
   head: () => {
-    // Runs before the module scripts, so the API clients built at module
-    // scope in the browser read the container's PUBLIC_SERVER_URL.
     const serverUrlScript = publicServerUrlScript();
+
     return {
       meta: [
         {

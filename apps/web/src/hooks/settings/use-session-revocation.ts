@@ -11,6 +11,7 @@ export const useSessionRevocation = () => {
   const revokeMutation = useMutation({
     mutationFn: async (token: string) => {
       const { error } = await authClient.revokeSession({ token });
+
       if (error) {
         throw new Error(error.message ?? m.settings_sessions_revoke_error());
       }
@@ -29,6 +30,7 @@ export const useSessionRevocation = () => {
   const revokeOthersMutation = useMutation({
     mutationFn: async () => {
       const { error } = await authClient.revokeOtherSessions();
+
       if (error) {
         throw new Error(
           error.message ?? m.settings_sessions_revoke_others_error()
@@ -50,7 +52,6 @@ export const useSessionRevocation = () => {
     isRevokingOthers: revokeOthersMutation.isPending,
     revokeOtherSessions: revokeOthersMutation.mutate,
     revokeSession: revokeMutation.mutate,
-    /** The row that is busy, so only its own button shows a spinner. */
     revokingToken: revokeMutation.isPending ? revokeMutation.variables : null,
   };
 };

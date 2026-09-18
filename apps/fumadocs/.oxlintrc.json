@@ -1,5 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../node_modules/@jliocsar/begone-slop/preset.json"],
+  "jsPlugins": ["@jliocsar/begone-slop"],
   "plugins": ["typescript", "react", "import"],
   "categories": {},
   "env": {

@@ -17,18 +17,16 @@ import type { SecondFactor } from "@/hooks/auth/use-sign-in-flow";
 import { TOTP_CODE_LENGTH, TOTP_CODE_PATTERN } from "@/lib/auth/auth-schemas";
 import { m } from "@/paraglide/messages.js";
 
-const TRUST_DEVICE_ID = "auth-trust-device";
-
 interface AuthTwoFactorStepProps {
   isSubmitting: boolean;
-  /** Which factor is being asked for; the panel heading follows it too. */
   method: SecondFactor;
   onBack: () => void;
   onMethodSwitch: () => void;
   onSubmit: (values: { code: string; trustDevice: boolean }) => Promise<void>;
-  /** From the server, so the label cannot name a window it does not enforce. */
   trustedDeviceDays: number | undefined;
 }
+
+const TRUST_DEVICE_ID = "auth-trust-device";
 
 export const AuthTwoFactorStep = ({
   isSubmitting,
@@ -44,9 +42,6 @@ export const AuthTwoFactorStep = ({
   const schema = useMemo(
     () =>
       z.object({
-        // Trimmed and digit-checked like the enrolment field: a pasted
-        // "123 456" must not be refused here and accepted there, and six
-        // non-digits must not spend part of the account's lockout budget.
         code: isApp
           ? z
               .string()
@@ -78,8 +73,6 @@ export const AuthTwoFactorStep = ({
         <FieldGroup>
           <form.Field name="code">
             {(field) => (
-              // Keyed by method so switching remounts the input: the reader
-              // lands in the field they just asked for.
               <AuthFormField
                 key={method}
                 autoComplete={isApp ? "one-time-code" : "off"}
@@ -105,10 +98,6 @@ export const AuthTwoFactorStep = ({
             )}
           </form.Field>
 
-          {/* Outside the keyed field, so switching to a recovery code keeps the
-              choice: it is about this browser, not about which code is used.
-              Absent until the server states the window, rather than naming a
-              number this screen invented. */}
           {trustedDeviceDays !== undefined && (
             <Field orientation="horizontal">
               <Checkbox
@@ -136,8 +125,6 @@ export const AuthTwoFactorStep = ({
         </FieldGroup>
       </form>
 
-      {/* The two-factor cookie lapses after ten minutes, so the way out of
-          this step is a control rather than a page reload. */}
       <div className="mt-2 flex flex-col items-center">
         <Button
           type="button"

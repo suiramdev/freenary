@@ -26,11 +26,7 @@ import {
 } from "@remixicon/react";
 import type { RemixiconComponentType } from "@remixicon/react";
 
-/**
- * Keys are persisted category icon names, so they outlive the icon library.
- * Fill variants keep the glyph legible in the 10px chips the lists render.
- */
-const ICON_BY_NAME = {
+const FILL_ICON_BY_NAME = {
   AirplaneIcon: RiPlaneFill,
   ArrowsLeftRightIcon: RiArrowLeftRightFill,
   BankIcon: RiBankFill,
@@ -51,7 +47,6 @@ const ICON_BY_NAME = {
   StorefrontIcon: RiStoreFill,
 } satisfies Record<CategoryIconName, RemixiconComponentType>;
 
-/** Exported for the custom-category color picker. */
 export const SWATCH_BY_COLOR = {
   blue: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
   green: "bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400",
@@ -69,7 +64,8 @@ export const CategoryIcon = ({
   color,
   icon,
 }: CategoryAppearance & { className?: string }) => {
-  const IconComponent = ICON_BY_NAME[icon] ?? ICON_BY_NAME.DotsThreeIcon;
+  const IconComponent =
+    FILL_ICON_BY_NAME[icon] ?? FILL_ICON_BY_NAME.DotsThreeIcon;
   const bg = SWATCH_BY_COLOR[color] ?? SWATCH_BY_COLOR.grey;
 
   return (

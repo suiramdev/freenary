@@ -1,38 +1,23 @@
 import { SUPPORTED_COUNTRIES } from "../../../supported-countries";
 import type { SupportedCountry } from "../../../supported-countries";
-import type { TransactionChannel } from "../../types";
 import type { InstitutionDef } from "../definitions";
 import { fr } from "./fr";
-import type { CountryProfile } from "./types";
+import type { ChannelVerbPattern, CountryProfile } from "./types";
 
-export type { CountryProfile } from "./types";
-
-/**
- * Registry of country profiles keyed by country code.
- * Must stay in sync with SUPPORTED_COUNTRIES — the type-level check
- * below enforces this at compile time.
- */
-const registry = {
+const profilesByCountry = {
   FR: fr,
 } satisfies Record<SupportedCountry, CountryProfile>;
 
-/**
- * All registered country profiles, ordered by SUPPORTED_COUNTRIES.
- */
-const profiles: readonly CountryProfile[] = SUPPORTED_COUNTRIES.map(
-  (code) => registry[code]
-);
+const profilesInSupportOrder: readonly CountryProfile[] =
+  SUPPORTED_COUNTRIES.map((code) => profilesByCountry[code]);
 
-/** Combined institution definitions across all countries. */
-export const allInstitutions: readonly InstitutionDef[] = profiles.flatMap(
-  (p) => p.institutions
-);
+export const allInstitutions: readonly InstitutionDef[] =
+  profilesInSupportOrder.flatMap((profile) => profile.institutions);
 
-/** Combined verb patterns across all countries, deduplicated by reference. */
-export const allVerbPatterns: readonly [RegExp, TransactionChannel][] =
-  profiles.flatMap((p) => p.verbPatterns);
+export const allChannelVerbsLongestFirst: readonly ChannelVerbPattern[] =
+  profilesInSupportOrder.flatMap((profile) => profile.channelVerbsLongestFirst);
 
-/** Combined trailing-noise regexes across all countries. */
-export const allTrailingNoise: readonly RegExp[] = profiles.flatMap(
-  (p) => p.trailingNoise
-);
+export const allTrailingNoiseInStripOrder: readonly RegExp[] =
+  profilesInSupportOrder.flatMap(
+    (profile) => profile.trailingNoiseInStripOrder
+  );

@@ -11,25 +11,14 @@ import type {
   RecurringView,
 } from "@/lib/budget/search";
 
-// The route file imports this hook, so reach the route by id rather than back
-// through its module. The params are validated one level up, on the area
-// route, and inherited here.
 const route = getRouteApi("/_auth/budget/recurring");
 
-/**
- * The Recurring view, read from the URL and written back to it: both chart
- * views, which kind of recurrence the list shows, its ordering and every
- * filter narrowing it. An absent param reads as its default here.
- */
 export const useRecurringView = () => {
   const search = route.useSearch();
   const navigate = route.useNavigate();
 
   const applyPatch = useCallback(
     (patch: BudgetSearchPatch) => {
-      // The URL mirrors the view, so a filter or a keystroke must not fill the
-      // Back button with one history entry each, nor throw the reader back to
-      // the top of a page that never left the screen.
       navigate({
         replace: true,
         resetScroll: false,

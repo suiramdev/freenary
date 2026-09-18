@@ -40,9 +40,6 @@ import {
 } from "@/lib/settings/category-appearance-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** The swatch and the glyph cover the toggle's pressed background, so add a ring. */
-const SELECTED_RING = "aria-pressed:ring-2 aria-pressed:ring-ring";
-
 interface CustomCategoryDrawerProps {
   edited: EditedCustomCategory | null;
   onCreated?: (key: string) => void;
@@ -50,27 +47,28 @@ interface CustomCategoryDrawerProps {
   open: boolean;
 }
 
+const PRESSED_RING_OVER_OPAQUE_SWATCH =
+  "aria-pressed:ring-2 aria-pressed:ring-ring";
+
 export const CustomCategoryDrawer = ({
   edited,
   onCreated,
   onOpenChange,
   open,
 }: CustomCategoryDrawerProps) => {
-  // Held so the title and fields keep the edited category while the drawer
-  // animates closed, instead of snapping to the empty "new" state.
-  const [shown, setShown] = useState(edited);
-  if (open && edited !== shown) {
-    setShown(edited);
+  const [editedHeldThroughCloseAnimation, setEditedHeldThroughCloseAnimation] =
+    useState(edited);
+
+  if (open && edited !== editedHeldThroughCloseAnimation) {
+    setEditedHeldThroughCloseAnimation(edited);
   }
 
   const { form, isSaving } = useCustomCategoryForm({
-    edited: shown,
+    edited: editedHeldThroughCloseAnimation,
     onCreated,
     onDone: () => onOpenChange(false),
   });
 
-  // The component survives close/reopen, so the form would otherwise show the
-  // previous unsaved draft (or stale edit) instead of the requested values.
   useEffect(() => {
     if (open) {
       form.reset();
@@ -82,7 +80,7 @@ export const CustomCategoryDrawer = ({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {shown
+            {editedHeldThroughCloseAnimation
               ? m.settings_category_edit_title()
               : m.settings_category_new()}
           </DrawerTitle>
@@ -132,6 +130,7 @@ export const CustomCategoryDrawer = ({
                       const color = CATEGORY_COLOR_VALUES.find(
                         (value) => value === next
                       );
+
                       if (color) {
                         field.handleChange(color);
                       }
@@ -141,7 +140,10 @@ export const CustomCategoryDrawer = ({
                       <ToggleGroupItem
                         key={color}
                         aria-label={CATEGORY_COLOR_LABELS[color]()}
-                        className={cn("size-8 rounded-full p-0", SELECTED_RING)}
+                        className={cn(
+                          "size-8 rounded-full p-0",
+                          PRESSED_RING_OVER_OPAQUE_SWATCH
+                        )}
                         value={color}
                       >
                         <span
@@ -167,8 +169,6 @@ export const CustomCategoryDrawer = ({
                   </FieldLegend>
                   <form.Subscribe selector={(state) => state.values.color}>
                     {(color) => (
-                      // Past ToggleGroup's usual 2–7 options, but a grid of
-                      // glyphs reads faster here than any list control.
                       <ToggleGroup
                         className="grid grid-cols-9"
                         value={[field.state.value]}
@@ -176,6 +176,7 @@ export const CustomCategoryDrawer = ({
                           const name = CATEGORY_ICON_NAMES.find(
                             (value) => value === next
                           );
+
                           if (name) {
                             field.handleChange(name);
                           }
@@ -187,7 +188,7 @@ export const CustomCategoryDrawer = ({
                             aria-label={CATEGORY_ICON_LABELS[icon]()}
                             className={cn(
                               "size-8 rounded-full p-0",
-                              SELECTED_RING
+                              PRESSED_RING_OVER_OPAQUE_SWATCH
                             )}
                             value={icon}
                           >
@@ -230,7 +231,7 @@ export const CustomCategoryDrawer = ({
                 {m.settings_cancel()}
               </Button>
               <Button disabled={isSaving} type="submit">
-                {shown
+                {editedHeldThroughCloseAnimation
                   ? m.settings_save_changes()
                   : m.settings_category_create()}
               </Button>

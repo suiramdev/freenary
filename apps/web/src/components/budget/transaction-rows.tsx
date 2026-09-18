@@ -23,6 +23,8 @@ import {
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
+const ROWS_BEFORE_END_TO_PREFETCH = 5;
+
 export const TransactionRows = ({
   transactions,
   hasMore,
@@ -63,13 +65,17 @@ export const TransactionRows = ({
   const visibleItems = virtualizer.getVirtualItems();
 
   const loadMoreCheck = useCallback(() => {
-    // A placeholder's `hasNextPage` belongs to the previous view: fetching its
-    // second page would page a list whose first page has not landed.
-    if (!hasMore || isLoading || isStale) {
+    const isShowingSettledPage = !isLoading && !isStale;
+    const canPageFurther = hasMore && isShowingSettledPage;
+
+    if (!canPageFurther) {
       return;
     }
+
     const lastItem = visibleItems.at(-1);
-    if (lastItem && lastItem.index >= virtualItems.length - 5) {
+    const prefetchFromIndex = virtualItems.length - ROWS_BEFORE_END_TO_PREFETCH;
+
+    if (lastItem && lastItem.index >= prefetchFromIndex) {
       onLoadMore();
     }
   }, [
@@ -86,8 +92,6 @@ export const TransactionRows = ({
   }, [loadMoreCheck]);
 
   if (transactions.length === 0 && !isLoading) {
-    // The emptiness itself may belong to the previous view, and an unmarked
-    // "no transactions" reads as the answer to the control just pressed.
     return (
       <StaleRegion className="flex flex-1 flex-col" isStale={isStale}>
         <Empty>
@@ -120,6 +124,7 @@ export const TransactionRows = ({
         >
           {visibleItems.map((virtualRow) => {
             const item = virtualItems[virtualRow.index];
+
             if (!item) {
               return null;
             }

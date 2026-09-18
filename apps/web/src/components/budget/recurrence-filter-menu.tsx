@@ -36,12 +36,6 @@ interface RecurrenceFilterMenuProps {
   onFrequenciesChange: (frequencies: RecurrenceFrequency[]) => void;
 }
 
-/**
- * The two properties of a recurrence itself: how often it lands, and how sure
- * the detection is. One menu rather than two triggers — both answer "which
- * repeats am I looking at", and the filter row has a company and a category
- * filter to fit beside them.
- */
 export const RecurrenceFilterMenu = ({
   confidences,
   frequencies,

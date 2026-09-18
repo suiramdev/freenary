@@ -13,7 +13,6 @@ interface PlannedPageProps {
   title: string;
 }
 
-/** Full-page placeholder for a navigable area that is not built yet. */
 export const PlannedPage = ({
   description,
   icon: PageIcon,

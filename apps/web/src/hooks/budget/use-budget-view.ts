@@ -14,30 +14,18 @@ import type {
 } from "@/lib/budget/search";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
 
-// The route file imports this hook, so reach the route by id rather than back
-// through its module. The params are validated one level up, on the area
-// route, and inherited here.
-const route = getRouteApi("/_auth/budget/transactions");
-
 interface BudgetViewOptions {
   dateBounds?: { first: Date | null; last: Date | null };
 }
 
-/**
- * The Transactions view, read from the URL and written back to it: the period,
- * both chart views, and the list's direction, search, sort and category filter.
- * An absent param reads as its default here, so callers never see the
- * difference between a clean URL and a spelled-out one.
- */
+const route = getRouteApi("/_auth/budget/transactions");
+
 export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
   const search = route.useSearch();
   const navigate = route.useNavigate();
 
   const applyPatch = useCallback(
     (patch: BudgetSearchPatch) => {
-      // The URL mirrors the view, so a filter or a keystroke must not fill the
-      // Back button with one history entry each, nor throw the reader back to
-      // the top of a page that never left the screen.
       navigate({
         replace: true,
         resetScroll: false,

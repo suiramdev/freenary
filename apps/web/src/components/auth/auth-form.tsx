@@ -13,60 +13,17 @@ import type { SecondFactor, SignInStep } from "@/hooks/auth/use-sign-in-flow";
 import type { AuthCapabilities } from "@/lib/auth/auth-capabilities";
 import { m } from "@/paraglide/messages.js";
 
-const STEP_EASE = [0.23, 1, 0.32, 1] as const;
-/** How far the leaving step drops: a hint of direction, never its own height. */
-const STEP_EXIT_OFFSET = 12;
-
-const enterTransition = { duration: 0.2, ease: STEP_EASE };
-const exitTransition = { duration: 0.15, ease: "easeOut" as const };
-const reducedTransition = { duration: 0 };
-
 interface StepHeading {
   description: string;
   title: string;
 }
 
-const stepHeading = (
-  step: SignInStep,
-  email: string,
-  secondFactor: SecondFactor
-): StepHeading => {
-  switch (step) {
-    case "confirm": {
-      return {
-        description: m.auth_verify_description({ email }),
-        title: m.auth_verify_title(),
-      };
-    }
-    case "reset-request": {
-      return {
-        description: m.auth_reset_request_description(),
-        title: m.auth_reset_request_title(),
-      };
-    }
-    case "reset": {
-      return {
-        description: m.auth_reset_description({ email }),
-        title: m.auth_reset_title(),
-      };
-    }
-    case "two-factor": {
-      return {
-        description:
-          secondFactor === "recovery"
-            ? m.auth_two_factor_recovery_description()
-            : m.auth_two_factor_description(),
-        title: m.auth_two_factor_title(),
-      };
-    }
-    default: {
-      return {
-        description: m.auth_welcome_description(),
-        title: m.auth_welcome_title(),
-      };
-    }
-  }
-};
+interface StepHeadingContext {
+  email: string;
+  secondFactor: SecondFactor;
+}
+
+type StepHeadingResolver = (context: StepHeadingContext) => StepHeading;
 
 interface AuthFormProps {
   capabilities: AuthCapabilities | undefined;
@@ -74,42 +31,69 @@ interface AuthFormProps {
   onRetryCapabilities: () => void;
 }
 
+const STEP_EASE = [0.23, 1, 0.32, 1] as const;
+const STEP_EXIT_DROP_PX = 12;
+
+const stepEnterTransition = { duration: 0.2, ease: STEP_EASE };
+const stepExitTransition = { duration: 0.15, ease: "easeOut" as const };
+const reducedTransition = { duration: 0 };
+
+const HEADING_BY_STEP = {
+  confirm: ({ email }) => ({
+    description: m.auth_verify_description({ email }),
+    title: m.auth_verify_title(),
+  }),
+  credentials: () => ({
+    description: m.auth_welcome_description(),
+    title: m.auth_welcome_title(),
+  }),
+  reset: ({ email }) => ({
+    description: m.auth_reset_description({ email }),
+    title: m.auth_reset_title(),
+  }),
+  "reset-request": () => ({
+    description: m.auth_reset_request_description(),
+    title: m.auth_reset_request_title(),
+  }),
+  "two-factor": ({ secondFactor }) => ({
+    description:
+      secondFactor === "recovery"
+        ? m.auth_two_factor_recovery_description()
+        : m.auth_two_factor_description(),
+    title: m.auth_two_factor_title(),
+  }),
+} satisfies Record<SignInStep, StepHeadingResolver>;
+
 export const AuthForm = ({
   capabilities,
   isCapabilitiesError,
   onRetryCapabilities,
 }: AuthFormProps) => {
-  // The flow reports the server's own password bounds in its refusals, so it is
-  // given the deployment's answer rather than a number of this screen's own.
   const flow = useSignInFlow(capabilities);
   const prefersReducedMotion = useReducedMotion();
 
-  // The mark is the one thing on this side that is not the form: it watches
-  // the reader fill it in. Decorative — every state it reacts to is already
-  // said by a spinner, a toast or the fields themselves.
+  const isAwaitingServer =
+    flow.isSubmitting ||
+    flow.isResending ||
+    flow.isPasskeyPending ||
+    flow.pendingProvider !== null;
+
   const avatar = useAuthAvatar({
-    isBusy:
-      flow.isSubmitting ||
-      flow.isResending ||
-      flow.isPasskeyPending ||
-      flow.pendingProvider !== null,
+    isBusy: isAwaitingServer,
     outcome: flow.outcome,
   });
 
-  const heading = stepHeading(flow.step, flow.email, flow.secondFactor);
+  const heading = HEADING_BY_STEP[flow.step]({
+    email: flow.email,
+    secondFactor: flow.secondFactor,
+  });
 
   return (
     <div {...avatar.handlers}>
       <BrandAvatar className="mb-6" size={56} state={avatar.state} />
 
-      {/* The heading is outside the animated body: it names the step, so it is
-          the static cue that stays readable while the body cross-fades. */}
       <AuthHeader description={heading.description} title={heading.title} />
 
-      {/* A step replaces the whole body rather than revealing part of it, so
-          the two states cross-fade in sequence: nothing moves but the leaving
-          step, which drops a little on its way out. `initial={false}` keeps the
-          server-rendered first step opaque. */}
       <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={flow.step}
@@ -118,12 +102,12 @@ export const AuthForm = ({
             opacity: 0,
             transition: prefersReducedMotion
               ? reducedTransition
-              : exitTransition,
-            y: STEP_EXIT_OFFSET,
+              : stepExitTransition,
+            y: STEP_EXIT_DROP_PX,
           }}
           initial={{ opacity: 0, y: 0 }}
           transition={
-            prefersReducedMotion ? reducedTransition : enterTransition
+            prefersReducedMotion ? reducedTransition : stepEnterTransition
           }
         >
           {flow.step === "credentials" && (

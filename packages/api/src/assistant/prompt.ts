@@ -1,9 +1,7 @@
 import { assistantUiPrompt } from "./ui";
 
 export interface AssistantPromptContext {
-  /** BCP-47 tag the answer must be written in; the server cannot infer it. */
   locale: string;
-  /** Today, as YYYY-MM-DD, so relative periods resolve without a clock tool. */
   today: string;
   firstTransactionDate: string | null;
   lastTransactionDate: string | null;

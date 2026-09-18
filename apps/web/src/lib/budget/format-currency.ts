@@ -1,33 +1,26 @@
 import { getLocale } from "@/paraglide/runtime.js";
 
-// Charts hand this straight to `formatValue`/`valueFormatter` as a bare
-// function reference, so the locale is read here rather than threaded through.
+const MINOR_PER_UNIT = 100;
+const DEFAULT_CURRENCY = "EUR";
+const SYMBOL_PROBE_AMOUNT = 0;
+
 export const formatCurrency = (
   amountMinorUnits: number,
-  currency = "EUR"
+  currency = DEFAULT_CURRENCY
 ): string =>
   new Intl.NumberFormat(getLocale(), {
     currency,
     style: "currency",
-  }).format(amountMinorUnits / 100);
+  }).format(amountMinorUnits / MINOR_PER_UNIT);
 
-/**
- * Just the symbol, for an input that labels the number it holds rather than
- * formatting one.
- */
-export const currencySymbol = (currency = "EUR"): string =>
+export const currencySymbol = (currency = DEFAULT_CURRENCY): string =>
   new Intl.NumberFormat(getLocale(), { currency, style: "currency" })
-    .formatToParts(0)
+    .formatToParts(SYMBOL_PROBE_AMOUNT)
     .find((part) => part.type === "currency")?.value ?? currency;
 
-/**
- * The assistant's charts carry decimal amounts, as its tools return them.
- * Formatting the decimal directly keeps a third decimal for currencies that
- * have one; a round trip through minor units would round it away.
- */
 export const formatDecimalCurrency = (
   amount: number,
-  currency = "EUR"
+  currency = DEFAULT_CURRENCY
 ): string =>
   new Intl.NumberFormat(getLocale(), {
     currency,

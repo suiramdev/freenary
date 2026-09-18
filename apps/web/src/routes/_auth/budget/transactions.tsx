@@ -68,8 +68,6 @@ const TransactionsPage = () => {
     setRange: handleRangeChange,
     to,
   } = period;
-  // The drawer drills into one row rather than filtering the view, and a
-  // foreign transaction id would only 404 for whoever opens the link.
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
@@ -180,8 +178,6 @@ const TransactionsPage = () => {
     ? (allTransactions.find((t) => t.id === selectedTransactionId) ?? null)
     : null;
 
-  // One announcement for the whole page: every dimmed region is the same
-  // answer on its way.
   const isUpdating = [
     breakdownQuery,
     sankeyQuery,

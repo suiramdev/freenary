@@ -1,20 +1,13 @@
-/**
- * The rule data for `check-docs.ts`.
- *
- * Every entry restates a rule that `AGENTS.md` already states in prose and that
- * `vite build` does not catch. Keep the two in step.
- */
+type BannedPhrase = readonly [pattern: RegExp, approvedTerm: string];
 
-/** Frontmatter keys a page may carry. Anything else is a mistake. */
-export const ALLOWED_FRONTMATTER_KEYS: Record<string, true> = {
+const ALLOWED_FRONTMATTER_KEYS = {
   description: true,
   full: true,
   icon: true,
   title: true,
-};
+} satisfies Record<string, true>;
 
-/** Shiki language ids this site uses. An id outside the set fails the build. */
-export const ALLOWED_CODE_LANGUAGES: Record<string, true> = {
+const ALLOWED_SHIKI_LANGUAGES = {
   bash: true,
   diff: true,
   dockerfile: true,
@@ -30,13 +23,9 @@ export const ALLOWED_CODE_LANGUAGES: Record<string, true> = {
   ts: true,
   tsx: true,
   yaml: true,
-};
+} satisfies Record<string, true>;
 
-/**
- * Languages that mark a page as operator or contributor material. A guide tells
- * a reader what to do in the interface, so none of these belong in `guides/`.
- */
-export const SHELL_CODE_LANGUAGES: Record<string, true> = {
+const OPERATOR_ONLY_CODE_LANGUAGES = {
   bash: true,
   diff: true,
   dockerfile: true,
@@ -49,10 +38,23 @@ export const SHELL_CODE_LANGUAGES: Record<string, true> = {
   ts: true,
   tsx: true,
   yaml: true,
-};
+} satisfies Record<string, true>;
 
-/** Words the ASD-STE100 dictionary replaces. Each maps to its approved term. */
-export const WORD_SUBSTITUTIONS: ReadonlyArray<readonly [RegExp, string]> = [
+const CONTRACTED_SUFFIX = /\w+(?:n['’]t|['’](?:re|ve|ll|d|m))/;
+
+const WORDS_THAT_CONTRACT_WITH_S =
+  /(?:it|that|there|here|what|who|let|he|she|one)['’]s/;
+
+export const isAllowedFrontmatterKey = (key: string): boolean =>
+  Object.hasOwn(ALLOWED_FRONTMATTER_KEYS, key);
+
+export const isAllowedCodeLanguage = (language: string): boolean =>
+  Object.hasOwn(ALLOWED_SHIKI_LANGUAGES, language);
+
+export const isOperatorOnlyCodeLanguage = (language: string): boolean =>
+  Object.hasOwn(OPERATOR_ONLY_CODE_LANGUAGES, language);
+
+export const STE_WORD_SUBSTITUTIONS: readonly BannedPhrase[] = [
   [/\bhowever\b/gi, "but"],
   [/\balthough\b/gi, "but"],
   [/\bwhilst\b/gi, "but"],
@@ -84,8 +86,7 @@ export const WORD_SUBSTITUTIONS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bas well as\b/gi, "and"],
 ];
 
-/** Modal verbs ASD-STE100 forbids, with the approved replacement. */
-export const BANNED_MODALS: ReadonlyArray<readonly [RegExp, string]> = [
+export const STE_BANNED_MODALS: readonly BannedPhrase[] = [
   [/\bshall\b/gi, "must"],
   [/\bshould\b/gi, "must, or drop the modal"],
   [/\bmay\b/gi, "can"],
@@ -93,7 +94,6 @@ export const BANNED_MODALS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bought to\b/gi, "must"],
 ];
 
-/** Roadmap language. A page states what the code does now, and nothing else. */
 export const ROADMAP_PHRASES: readonly RegExp[] = [
   /\bcoming soon\b/gi,
   /\broadmap\b/gi,
@@ -106,19 +106,15 @@ export const ROADMAP_PHRASES: readonly RegExp[] = [
   /\bat this time\b/gi,
 ];
 
-/**
- * ASD-STE100 allows no contraction. A possessive `'s` is not one, so the `'s`
- * branch names only the words that contract with it.
- */
-export const CONTRACTION =
-  /\b(?:\w+(?:n['’]t|['’](?:re|ve|ll|d|m))|(?:it|that|there|here|what|who|let|he|she|one)['’]s)\b/gi;
+export const CONTRACTION = new RegExp(
+  `\\b(?:${CONTRACTED_SUFFIX.source}|${WORDS_THAT_CONTRACT_WITH_S.source})\\b`,
+  "gi"
+);
 
-/** An environment variable or an enum value: operator and contributor material. */
-export const SCREAMING_SNAKE = /\b[A-Z][A-Z\d]*(?:_[A-Z\d]+)+\b/g;
+export const ENV_VAR_OR_ENUM_NAME = /\b[A-Z][A-Z\d]*(?:_[A-Z\d]+)+\b/g;
 
-/** Sentence limits. ASD-STE100: 20 words for an instruction, 25 for a description. */
-export const MAX_SENTENCE_WORDS = 25;
-export const WARN_SENTENCE_WORDS = 20;
+export const STE_DESCRIPTION_WORD_LIMIT = 25;
 
-/** ASD-STE100 allows 6 sentences in one paragraph. */
-export const MAX_PARAGRAPH_SENTENCES = 6;
+export const STE_INSTRUCTION_WORD_LIMIT = 20;
+
+export const STE_PARAGRAPH_SENTENCE_LIMIT = 6;

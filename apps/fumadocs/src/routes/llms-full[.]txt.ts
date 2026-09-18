@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getLLMText, source, stableVersion } from "@/lib/source";
+import { getLLMText, newestRelease, source } from "@/lib/source";
 
 export const Route = createFileRoute("/llms-full.txt")({
   server: {
     handlers: {
       GET: async () => {
-        // Same scope as `/llms.txt`: the newest release.
-        const stable = stableVersion();
+        const newest = newestRelease();
         const scan = source
           .getPages()
-          .filter((page) => page.slugs[0] === stable)
+          .filter((page) => page.slugs[0] === newest)
           .map(getLLMText);
         const scanned = await Promise.all(scan);
+
         return new Response(scanned.join("\n\n"));
       },
     },

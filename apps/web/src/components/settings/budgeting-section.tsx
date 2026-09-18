@@ -27,11 +27,6 @@ interface BudgetingSectionProps {
   updateLine: (id: string, patch: Partial<EditorLine>) => void;
 }
 
-/**
- * One flat list of lines. The category a line carries is what places it in the
- * flow, so splitting the form into revenue/investment/outgoing sections would
- * only ask the same question twice.
- */
 export const BudgetingSection = ({
   addLine,
   categories,
@@ -47,10 +42,9 @@ export const BudgetingSection = ({
     BUDGETING_ANCHOR,
     !isPending
   );
-  // The row that asked for a new category, so the created one lands back on it.
-  const [creatingForLineId, setCreatingForLineId] = useState<string | null>(
-    null
-  );
+  const [lineIdAwaitingNewCategory, setLineIdAwaitingNewCategory] = useState<
+    string | null
+  >(null);
 
   return (
     <div id={BUDGETING_ANCHOR} ref={sectionRef}>
@@ -89,7 +83,7 @@ export const BudgetingSection = ({
                     error={errors.get(line.id)}
                     key={line.id}
                     line={line}
-                    onCreateCategory={setCreatingForLineId}
+                    onCreateCategory={setLineIdAwaitingNewCategory}
                     onMove={moveLine}
                     onRemove={removeLine}
                     onUpdate={updateLine}
@@ -98,8 +92,6 @@ export const BudgetingSection = ({
               </Reorder.Group>
             ) : null}
 
-            {/* Outline, not ghost: this is the section's primary action and it
-                carries the same weight as Categories' "New category". */}
             <Button className="self-start" onClick={addLine} variant="outline">
               <RiAddLine data-icon="inline-start" />
               {m.settings_budgeting_add_line()}
@@ -110,16 +102,16 @@ export const BudgetingSection = ({
         <CustomCategoryDrawer
           edited={null}
           onCreated={(key) => {
-            if (creatingForLineId) {
-              updateLine(creatingForLineId, { categoryKey: key });
+            if (lineIdAwaitingNewCategory) {
+              updateLine(lineIdAwaitingNewCategory, { categoryKey: key });
             }
           }}
           onOpenChange={(open) => {
             if (!open) {
-              setCreatingForLineId(null);
+              setLineIdAwaitingNewCategory(null);
             }
           }}
-          open={creatingForLineId !== null}
+          open={lineIdAwaitingNewCategory !== null}
         />
       </SettingsSection>
     </div>

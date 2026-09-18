@@ -4,17 +4,19 @@ import { createFromSource } from "fumadocs-core/search/server";
 import { source } from "@/lib/source";
 
 const server = createFromSource(source, {
-  // https://docs.orama.com/docs/orama-js/supported-languages
   language: "english",
-  // One version at a time: a reader on 1.2 must never get a 1.3 hit.
-  buildIndex: async (page) => ({
-    id: page.url,
-    url: page.url,
-    title: page.data.title,
-    description: page.data.description,
-    structuredData: await page.data.structuredData(),
-    tag: page.slugs[0],
-  }),
+  buildIndex: async (page) => {
+    const [version] = page.slugs;
+
+    return {
+      id: page.url,
+      url: page.url,
+      title: page.data.title,
+      description: page.data.description,
+      structuredData: await page.data.structuredData(),
+      tag: version,
+    };
+  },
 });
 
 export const Route = createFileRoute("/api/search")({

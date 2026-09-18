@@ -13,20 +13,12 @@ import { authClient } from "@/lib/auth-client";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/**
- * The list stays local rather than coming down from the route: it is a
- * better-auth atom, which better-auth itself refetches after every passkey
- * write, and a route-level copy would only be a second source of truth.
- */
 export const SecurityPasskeysSection = () => {
   const { data, error, isPending } = authClient.useListPasskeys();
   const { add, isAdding, remove, removingId, rename, renamingId } =
     usePasskeyActions();
   const [isAddOpen, setIsAddOpen] = useState(false);
-  // Registration is an action this card offers, so it asks whether this
-  // browser can do WebAuthn at all — the skeleton covers the frame before the
-  // client answers.
-  const isSupported = useWebAuthnSupport();
+  const isWebAuthnSupported = useWebAuthnSupport();
 
   const locale = getLocale();
   const formatter = useMemo(
@@ -34,11 +26,13 @@ export const SecurityPasskeysSection = () => {
     [locale]
   );
 
-  const isResolving = isPending || isSupported === null;
+  const isResolving = isPending || isWebAuthnSupported === null;
 
   const renderRows = () => {
     if (isResolving) {
-      return <SecurityRowsSkeleton label={m.settings_passkeys_loading()} />;
+      return (
+        <SecurityRowsSkeleton loadingLabel={m.settings_passkeys_loading()} />
+      );
     }
 
     if (error) {
@@ -51,7 +45,7 @@ export const SecurityPasskeysSection = () => {
 
     return (
       <>
-        {isSupported === false && (
+        {isWebAuthnSupported === false && (
           <p className="text-muted-foreground">
             {m.settings_passkeys_unavailable()}
           </p>
@@ -85,9 +79,7 @@ export const SecurityPasskeysSection = () => {
       return <Skeleton aria-hidden="true" className="h-8 w-32 rounded-md" />;
     }
 
-    // A browser without WebAuthn gets the explanation in the body instead of a
-    // button whose only outcome is a thrown error.
-    if (isSupported === false) {
+    if (isWebAuthnSupported === false) {
       return null;
     }
 

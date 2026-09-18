@@ -12,13 +12,10 @@ import { m } from "@/paraglide/messages.js";
 interface AuthResetStepProps {
   isResending: boolean;
   isSubmitting: boolean;
-  /** The server's own floor, so the field never promises a length it rejects. */
   minPasswordLength: number | undefined;
   onBack: () => void;
   onResend: () => void;
   onSubmit: (values: { otp: string; password: string }) => Promise<void>;
-  /** The server's own length. While it is unknown the field neither caps the
-   * input nor names a number, so an outage cannot refuse a valid code. */
   otpLength: number | undefined;
 }
 

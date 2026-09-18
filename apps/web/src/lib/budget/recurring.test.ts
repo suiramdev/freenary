@@ -74,12 +74,12 @@ describe("cost of a cadence", () => {
 describe("upcomingPayments", () => {
   const asOf = new Date(2026, 8, 8);
 
-  it("rolls a next date already behind today onto its next slot", () => {
-    // The detector cannot tell "not posted yet" from "paid, sync lagging", so
-    // a stale date rolls to the next slot rather than posing as due now.
-    const stale = item({ nextExpected: new Date(2026, 7, 3).toISOString() });
+  it("rolls a next date already behind today onto its next slot rather than reporting it as due now", () => {
+    const staleNextExpected = item({
+      nextExpected: new Date(2026, 7, 3).toISOString(),
+    });
 
-    const [first] = upcomingPayments([stale], asOf);
+    const [first] = upcomingPayments([staleNextExpected], asOf);
 
     expect(first?.date).toEqual(new Date(2026, 9, 2));
     expect(first?.daysAway).toBe(24);
@@ -126,16 +126,16 @@ describe("upcomingPayments", () => {
     );
   });
 
-  it("drops an occurrence the cadence cannot walk up to today", () => {
-    // A five-day cadence last expected a year back exhausts the projection's
-    // occurrence cap; the leftover date is behind today and is not upcoming.
-    const stalled = item({
+  it("drops an occurrence whose cadence exhausts the projection cap before reaching today", () => {
+    const stalledAYearBackOnAFiveDayCadence = item({
       frequency: "weekly",
       intervalDays: 5,
       nextExpected: new Date(2025, 8, 15).toISOString(),
     });
 
-    expect(upcomingPayments([stalled], asOf)).toEqual([]);
+    expect(upcomingPayments([stalledAYearBackOnAFiveDayCadence], asOf)).toEqual(
+      []
+    );
   });
 });
 
@@ -314,13 +314,13 @@ describe("recurringTrend", () => {
     expect(recurringTrend([month("2026-01", 10_000)])).toBeNull();
   });
 
-  it("refuses a comparison window that reaches behind the history", () => {
-    // The trailing 12 months are zero-filled, so a reader with four months of
-    // data has two fabricated zeros in the earlier window. Averaging them in
-    // would report a rise that no spending made.
-    const monthly = [
+  it("refuses a comparison window whose earlier half is zero-filled months from before the history", () => {
+    const zeroFilledBeforeTheHistoryBegins = [
       month("2026-01", 0),
       month("2026-02", 0),
+    ];
+    const monthly = [
+      ...zeroFilledBeforeTheHistoryBegins,
       month("2026-03", 10_000),
       month("2026-04", 10_000),
       month("2026-05", 10_000),
