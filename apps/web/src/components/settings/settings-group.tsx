@@ -16,8 +16,8 @@ export const SettingsGroup = ({
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5 border-b pb-2">
-        <h2 className="font-heading text-base font-semibold" id={headingId}>
+      <div className="flex flex-col gap-1 border-b pb-2">
+        <h2 className="font-heading text-[15px] font-semibold" id={headingId}>
           {title}
         </h2>
         <p className="text-muted-foreground text-xs/relaxed">{description}</p>

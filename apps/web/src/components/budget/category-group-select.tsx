@@ -7,10 +7,9 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 
-import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
@@ -35,34 +34,19 @@ export const CategoryGroupSelect = ({
       onValueChange(next !== null && isCategoryGroup(next) ? next : null);
     }}
   >
-    <SelectTrigger id={id}>
-      <SelectValue>
-        {(selected: string | null) => {
-          if (selected === null || !isCategoryGroup(selected)) {
-            return noneLabel;
-          }
-
-          return (
-            <>
-              <CategoryIcon
-                {...categoryGroupAppearance(selected)}
-                className="size-5 [&_svg]:size-3"
-              />
-              {categoryGroupLabel(selected)}
-            </>
-          );
-        }}
-      </SelectValue>
-    </SelectTrigger>
+    <SelectTrigger id={id} placeholder={noneLabel} />
     <SelectContent className="min-w-56">
       <SelectGroup>
-        <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
-        {CATEGORY_GROUPS.map((group) => (
-          <SelectItem key={group} value={group}>
-            <CategoryIcon
-              {...categoryGroupAppearance(group)}
-              className="size-5 [&_svg]:size-3"
-            />
+        <SelectItem index={0} value={NONE_VALUE}>
+          {noneLabel}
+        </SelectItem>
+        {CATEGORY_GROUPS.map((group, position) => (
+          <SelectItem
+            icon={categoryMenuIcon(categoryGroupAppearance(group))}
+            index={position + 1}
+            key={group}
+            value={group}
+          >
             {categoryGroupLabel(group)}
           </SelectItem>
         ))}

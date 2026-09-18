@@ -13,7 +13,7 @@ export const BudgetProfileSummary = ({
   const remaining = totalRevenue - totalAllocated;
 
   return (
-    <div className="mt-2 flex justify-between font-mono text-[11px]">
+    <div className="flex justify-between font-mono text-[11px]">
       <span className="text-muted-foreground">
         {m.settings_summary_revenues()}{" "}
         <span className="text-foreground">{formatCurrency(totalRevenue)}</span>

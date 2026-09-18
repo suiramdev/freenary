@@ -7,7 +7,8 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@freenary/ui/components/item";
-import { Spinner } from "@freenary/ui/components/spinner";
+import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
+import { useRef } from "react";
 
 import type { UserSession } from "@/lib/settings/auth-queries";
 import type { DeviceSlug } from "@/lib/settings/user-agent-device";
@@ -16,9 +17,11 @@ import { m } from "@/paraglide/messages.js";
 
 interface SecuritySessionRowProps {
   formatter: Intl.DateTimeFormat;
+  index: number;
   isCurrent: boolean;
   isRevoking: boolean;
   onRevoke: (token: string) => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
   session: UserSession;
 }
 
@@ -35,21 +38,24 @@ const DEVICE_LABELS = {
 
 export const SecuritySessionRow = ({
   formatter,
+  index,
   isCurrent,
   isRevoking,
   onRevoke,
+  registerItem,
   session,
 }: SecuritySessionRowProps) => {
   const device = DEVICE_LABELS[deviceSlugFromUserAgent(session.userAgent)]();
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
 
   return (
-    <Item render={<li />} size="sm">
+    <Item className="relative z-10" ref={rowRef} render={<li />} size="sm">
       <ItemContent className="min-w-0">
         <ItemTitle className="flex flex-wrap items-center gap-2">
           {device}
-          {isCurrent && (
-            <Badge variant="secondary">{m.settings_sessions_current()}</Badge>
-          )}
+          {isCurrent && <Badge>{m.settings_sessions_current()}</Badge>}
         </ItemTitle>
         <ItemDescription className="flex flex-wrap gap-x-3">
           <span>
@@ -72,11 +78,10 @@ export const SecuritySessionRow = ({
         <ItemActions>
           <Button
             aria-label={m.settings_sessions_revoke_device({ device })}
-            disabled={isRevoking}
+            loading={isRevoking}
             onClick={() => onRevoke(session.token)}
             variant="ghost"
           >
-            {isRevoking && <Spinner data-icon="inline-start" />}
             {m.settings_sessions_revoke()}
           </Button>
         </ItemActions>

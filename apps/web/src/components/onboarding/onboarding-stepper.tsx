@@ -1,5 +1,10 @@
+import { useIcon } from "@freenary/ui/lib/icon-context";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { spring } from "@freenary/ui/lib/springs";
+import { SURFACE_BG } from "@freenary/ui/lib/surface-classes";
+import { useSurface } from "@freenary/ui/lib/surface-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { RiCheckLine } from "@remixicon/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Fragment } from "react";
 
 import { m } from "@/paraglide/messages.js";
@@ -9,65 +14,93 @@ interface OnboardingStepperProps {
   steps: readonly (() => string)[];
 }
 
-const CONNECTOR_DIRECTIONAL_FILL_CLASS =
-  "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none";
-
 export const OnboardingStepper = ({
   current,
   steps,
-}: OnboardingStepperProps) => (
-  <ol
-    aria-label={m.onboarding_progress_label()}
-    className="flex items-center justify-center"
-  >
-    {steps.map((step, index) => {
-      const label = step();
-      const isComplete = index < current;
-      const isCurrent = index === current;
+}: OnboardingStepperProps) => {
+  const CheckIcon = useIcon("check");
+  const size = useSize();
+  const substrate = useSurface();
 
-      return (
-        <Fragment key={label}>
-          <li className="flex items-center gap-2.5">
-            <span
-              aria-current={isCurrent ? "step" : undefined}
-              className={cn(
-                "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors",
-                isComplete && "bg-primary text-primary-foreground ring-primary",
-                isCurrent && "bg-secondary text-primary ring-primary",
-                !(isComplete || isCurrent) &&
-                  "bg-background text-muted-foreground ring-border"
-              )}
-            >
-              {isComplete ? (
-                <RiCheckLine className="animate-in fade-in zoom-in-75 size-3.5 duration-200 ease-out motion-reduce:animate-none" />
-              ) : (
-                index + 1
-              )}
-            </span>
-            <span
-              className={cn(
-                "text-xs font-medium transition-colors",
-                isCurrent ? "text-foreground" : "text-muted-foreground"
-              )}
-            >
-              {label}
-            </span>
-          </li>
-          {index < steps.length - 1 && (
-            <span
-              aria-hidden="true"
-              className="bg-border mx-3 h-px w-8 overflow-hidden sm:w-12"
-            >
+  return (
+    <ol
+      aria-label={m.onboarding_progress_label()}
+      className="flex items-center justify-center"
+    >
+      {steps.map((step, index) => {
+        const label = step();
+        const isComplete = index < current;
+        const isCurrent = index === current;
+
+        return (
+          <Fragment key={label}>
+            <li className="flex items-center gap-2.5">
+              <motion.span
+                aria-current={isCurrent ? "step" : undefined}
+                className={cn(
+                  "flex aspect-square shrink-0 items-center justify-center ring-1",
+                  size.control,
+                  size.text,
+                  isComplete &&
+                    "bg-primary text-primary-foreground ring-primary",
+                  isCurrent && "bg-secondary text-primary ring-primary",
+                  !(isComplete || isCurrent) &&
+                    cn(
+                      SURFACE_BG[substrate],
+                      "text-muted-foreground ring-border"
+                    )
+                )}
+                transition={spring.fast}
+              >
+                <AnimatePresence initial={false} mode="wait">
+                  {isComplete ? (
+                    <motion.span
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, transition: spring.fast.exit }}
+                      initial={{ opacity: 0, scale: 0.75 }}
+                      key="check"
+                      transition={spring.fast}
+                    >
+                      <CheckIcon size={size.icon} />
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, transition: spring.fast.exit }}
+                      initial={{ opacity: 0 }}
+                      key="index"
+                      transition={spring.fast}
+                    >
+                      {index + 1}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.span>
               <span
                 className={cn(
-                  CONNECTOR_DIRECTIONAL_FILL_CLASS,
-                  isComplete ? "scale-x-100" : "scale-x-0"
+                  size.text,
+                  isCurrent ? "text-foreground" : "text-muted-foreground"
                 )}
-              />
-            </span>
-          )}
-        </Fragment>
-      );
-    })}
-  </ol>
-);
+              >
+                {label}
+              </span>
+            </li>
+            {index < steps.length - 1 && (
+              <span
+                aria-hidden="true"
+                className="bg-border mx-3 h-px w-8 overflow-hidden sm:w-12"
+              >
+                <motion.span
+                  animate={{ scaleX: isComplete ? 1 : 0 }}
+                  className="bg-primary block h-px w-full origin-left"
+                  initial={false}
+                  transition={spring.slow}
+                />
+              </span>
+            )}
+          </Fragment>
+        );
+      })}
+    </ol>
+  );
+};

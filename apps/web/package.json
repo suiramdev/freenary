@@ -43,11 +43,11 @@
     "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-markdown": "^10.1.0",
     "recharts": "3.8.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "catalog:",
-    "streamdown": "^2.6.0",
     "tailwindcss": "catalog:",
-    "use-stick-to-bottom": "^1.1.6",
     "zod": "catalog:"
   },
   "devDependencies": {

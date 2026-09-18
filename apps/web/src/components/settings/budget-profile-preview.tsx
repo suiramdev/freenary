@@ -8,6 +8,7 @@ import {
   EmptyTitle,
 } from "@freenary/ui/components/empty";
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { cn } from "@freenary/ui/lib/utils";
 import { RiDonutChartLine } from "@remixicon/react";
 import { useMemo } from "react";
 
@@ -33,6 +34,12 @@ const TYPING_SETTLE_DELAY_MS = 200;
 const NOT_LOADED_YET = null;
 
 const LABEL_IS_ALREADY_TRANSLATED_COPY = true;
+
+const EMPTY_TITLE_LINE_BOX = "flex h-5 items-center";
+
+const EMPTY_DESCRIPTION_LINE_BOX = "flex h-[1.625em] items-center";
+
+const FLOW_AND_TOTALS_GAP = "gap-2";
 
 const uncategorisedGroupInCurrentLocale = (): Pick<
   CategoryEntry,
@@ -113,14 +120,30 @@ export const BudgetProfilePreview = ({
     return (
       <div aria-busy="true">
         <output className="sr-only">{m.settings_budget_flow_loading()}</output>
-        <Skeleton aria-hidden="true" className="h-[200px]" />
+        <Empty aria-hidden="true" className="bg-muted/40 rounded-lg border p-3">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Skeleton className="size-4 rounded-sm" />
+            </EmptyMedia>
+            <EmptyTitle>
+              <span className={EMPTY_TITLE_LINE_BOX}>
+                <Skeleton className="h-3 w-32" />
+              </span>
+            </EmptyTitle>
+            <EmptyDescription>
+              <span className={EMPTY_DESCRIPTION_LINE_BOX}>
+                <Skeleton className="h-2.5 w-56" />
+              </span>
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }
 
   if (profileLines.length === 0) {
     return (
-      <Empty className="bg-muted/40 rounded-md border p-4">
+      <Empty className="bg-muted/40 rounded-lg border p-3">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <RiDonutChartLine />
@@ -135,7 +158,7 @@ export const BudgetProfilePreview = ({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className={cn("flex flex-col", FLOW_AND_TOTALS_GAP)}>
       <SankeyChart
         columns={flow.columns}
         formatValue={formatCurrency}

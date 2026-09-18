@@ -5,7 +5,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@freenary/ui/components/input-group";
+} from "@freenary/ui/components/input-addons";
 import {
   Popover,
   PopoverContent,
@@ -22,6 +22,7 @@ import {
   parseAmountBound,
 } from "@/lib/budget/transaction-filters";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
+import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
@@ -91,10 +92,13 @@ export const AmountFilterMenu = ({
         }
       }}
     >
-      <PopoverTrigger render={<Button variant="outline" />}>
-        <RiCoinsLine data-icon="inline-start" />
+      <PopoverTrigger
+        render={
+          <Button leadingIcon={remixIcon(RiCoinsLine)} variant="tertiary" />
+        }
+      >
         {label}
-        {isActive && <Badge variant="secondary">1</Badge>}
+        {isActive && <Badge className="ml-1.5">1</Badge>}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 gap-2.5">
         <div className="flex items-end gap-2">

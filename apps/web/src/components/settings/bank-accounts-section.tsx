@@ -16,7 +16,7 @@ import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
-const INSTITUTIONS_FOR_THE_USERS_OWN_COUNTRY = {};
+const INSTITUTIONS_FOR_THE_USERS_OWN_JURISDICTIONS = {};
 
 export const BankAccountsSection = () => {
   const availability = useQuery(
@@ -27,7 +27,7 @@ export const BankAccountsSection = () => {
   const banksQuery = useQuery(
     orpc.bankConnection.listInstitutions.queryOptions({
       enabled: isAvailable,
-      input: INSTITUTIONS_FOR_THE_USERS_OWN_COUNTRY,
+      input: INSTITUTIONS_FOR_THE_USERS_OWN_JURISDICTIONS,
     })
   );
 
@@ -91,6 +91,7 @@ export const BankAccountsSection = () => {
         isBanksError={banksQuery.isError}
         isBanksPending={banksQuery.isPending}
         returnTo="settings"
+        unavailableCountries={banksQuery.data?.unavailableCountries ?? []}
       />
     );
   };

@@ -1,5 +1,10 @@
-import { cn } from "@freenary/ui/lib/utils";
+import { spring } from "@freenary/ui/lib/springs";
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
+
+const FADE_DELAY = 0.1;
+
+const STALE_OPACITY = 0.6;
 
 export const StaleRegion = ({
   children,
@@ -10,14 +15,13 @@ export const StaleRegion = ({
   className?: string;
   isStale: boolean;
 }) => (
-  <div
+  <motion.div
+    animate={{ opacity: isStale ? STALE_OPACITY : 1 }}
     aria-busy={isStale || undefined}
-    className={cn(
-      "transition-opacity duration-150",
-      isStale && "opacity-60 delay-100",
-      className
-    )}
+    className={className}
+    initial={false}
+    transition={isStale ? { ...spring.fast, delay: FADE_DELAY } : spring.fast}
   >
     {children}
-  </div>
+  </motion.div>
 );

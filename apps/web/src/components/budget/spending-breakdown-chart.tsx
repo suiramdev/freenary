@@ -2,11 +2,21 @@ import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
 import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
 import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
 import { cn } from "@freenary/ui/lib/utils";
-import { useCallback, useState } from "react";
+import { motion } from "motion/react";
+import { useCallback, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Cell, Pie, PieChart } from "recharts";
 import type { PieSectorDataItem } from "recharts";
 
+import { PRESS_MOTION } from "@/components/budget/list-controls";
+import { ChartTooltipCard } from "@/components/shared/chart-tooltip";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
@@ -58,7 +68,7 @@ const SpendingBreakdownTooltip = ({
   const share = total > 0 ? Math.round((slice.amount / total) * 100) : 0;
 
   return (
-    <div className="border-border/50 bg-background grid min-w-32 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-32">
       <div className="flex flex-1 items-center justify-between gap-3 leading-none">
         <span className="flex items-center gap-1.5">
           <span
@@ -73,7 +83,53 @@ const SpendingBreakdownTooltip = ({
           {formatCurrency(slice.amount)} ({share}%)
         </span>
       </div>
-    </div>
+    </ChartTooltipCard>
+  );
+};
+
+const LegendChip = ({
+  amount,
+  color,
+  index,
+  isSelected,
+  label,
+  onToggle,
+  registerItem,
+}: {
+  amount: number;
+  color: string | undefined;
+  index: number;
+  isSelected: boolean;
+  label: ReactNode;
+  onToggle: (() => void) | undefined;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+}) => {
+  const ref = useRef<HTMLButtonElement>(null);
+  useRegisterFluidHoverItem(registerItem, index, ref);
+
+  return (
+    <li>
+      <motion.button
+        {...PRESS_MOTION}
+        aria-pressed={isSelected}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px]",
+          onToggle && "hover:text-foreground cursor-pointer",
+          isSelected ? "text-foreground" : "text-muted-foreground"
+        )}
+        disabled={!onToggle}
+        onClick={onToggle}
+        ref={ref}
+        type="button"
+      >
+        <span
+          className="size-2 rounded-[1px]"
+          style={{ backgroundColor: color }}
+        />
+        <span>{label}</span>
+        <span className="text-foreground">{formatCurrency(amount)}</span>
+      </motion.button>
+    </li>
   );
 };
 
@@ -85,6 +141,8 @@ export const SpendingBreakdownChart = ({
   const [selectedGroup, setSelectedGroup] = useState<CategoryGroup | null>(
     null
   );
+  const legendRef = useRef<HTMLUListElement>(null);
+  const legendHover = useFluidHover(legendRef, { axis: "xy" });
 
   const total = data.reduce((sum, entry) => sum + entry.amount, 0);
 
@@ -150,36 +208,31 @@ export const SpendingBreakdownChart = ({
           </Pie>
         </PieChart>
       </ChartContainer>
-      <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-x-4 gap-y-1.5 overflow-y-auto px-1">
-        {data.map((entry) => {
-          const isSelected = selectedGroup === entry.group;
-
-          return (
-            <li key={entry.group}>
-              <button
-                type="button"
-                disabled={!onSelect}
-                aria-pressed={isSelected}
-                onClick={() => toggleGroup(entry.group)}
-                className={cn(
-                  "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96]",
-                  onSelect && "hover:text-foreground cursor-pointer",
-                  isSelected ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                <span
-                  className="size-2 rounded-[1px]"
-                  style={{ backgroundColor: config[entry.group]?.color }}
-                />
-                <span>{config[entry.group]?.label ?? entry.group}</span>
-                <span className="text-foreground">
-                  {formatCurrency(entry.amount)}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <ScrollArea className="min-h-0 flex-1">
+        <ul
+          className="relative flex flex-wrap content-start gap-x-4 gap-y-1.5 px-1"
+          ref={legendRef}
+          {...legendHover.handlers}
+        >
+          <FluidHoverHighlight
+            className="rounded-lg"
+            hidden={!onSelect}
+            hover={legendHover}
+          />
+          {data.map((d, index) => (
+            <LegendChip
+              amount={d.amount}
+              color={config[d.group]?.color}
+              index={index}
+              isSelected={selectedGroup === d.group}
+              key={d.group}
+              label={config[d.group]?.label ?? d.group}
+              onToggle={onSelect ? () => toggleGroup(d.group) : undefined}
+              registerItem={legendHover.registerItem}
+            />
+          ))}
+        </ul>
+      </ScrollArea>
     </div>
   );
 };

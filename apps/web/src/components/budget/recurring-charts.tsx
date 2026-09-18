@@ -11,17 +11,19 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
+import { Elevated } from "@freenary/ui/lib/elevated";
+import { motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useMemo } from "react";
 
 import { FrequencyCostChart } from "@/components/budget/frequency-cost-chart";
+import { PRESS_MOTION } from "@/components/budget/list-controls";
 import { PurchaseFrequencyChart } from "@/components/budget/purchase-frequency-chart";
 import { RecurringCategoryChart } from "@/components/budget/recurring-category-chart";
 import { RecurringForecastChart } from "@/components/budget/recurring-forecast-chart";
@@ -63,8 +65,6 @@ interface RecurringChartsProps {
 }
 
 const CHART_BODY = "h-[280px]";
-
-const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
 
 const MAX_CATEGORY_ROWS = 8;
 
@@ -257,7 +257,7 @@ export const RecurringCharts = ({
 
   return (
     <div className="grid grid-cols-1 gap-4 @min-[52rem]/budget:grid-cols-[2fr_1fr]">
-      <div className="min-w-0">
+      <Elevated className="min-w-0 rounded-xl" offset={1}>
         <Card>
           <CardHeader>
             <CardTitle className="truncate">
@@ -282,7 +282,7 @@ export const RecurringCharts = ({
               >
                 {RECURRING_VIEWS.map((candidate) => (
                   <ToggleGroupItem
-                    className={PRESS}
+                    render={<motion.button {...PRESS_MOTION} />}
                     key={candidate}
                     value={candidate}
                   >
@@ -303,9 +303,9 @@ export const RecurringCharts = ({
             />
           </CardContent>
         </Card>
-      </div>
+      </Elevated>
 
-      <div className="min-w-0">
+      <Elevated className="min-w-0 rounded-xl" offset={1}>
         <Card>
           <CardHeader>
             <Select
@@ -318,19 +318,20 @@ export const RecurringCharts = ({
                   onCompanionChange(chosen);
                 }
               }}
+              size="compact"
               value={companion}
             >
-              <SelectTrigger
-                aria-label={m.budget_companion_switch_label()}
-                className={PRESS}
-                size="sm"
-              >
-                <SelectValue>{() => COMPANION_LABELS[companion]()}</SelectValue>
-              </SelectTrigger>
+              <motion.div {...PRESS_MOTION} className="flex">
+                <SelectTrigger aria-label={m.budget_companion_switch_label()} />
+              </motion.div>
               <SelectContent>
                 <SelectGroup>
-                  {RECURRING_COMPANION_VIEWS.map((candidate) => (
-                    <SelectItem key={candidate} value={candidate}>
+                  {RECURRING_COMPANION_VIEWS.map((candidate, position) => (
+                    <SelectItem
+                      index={position}
+                      key={candidate}
+                      value={candidate}
+                    >
                       {COMPANION_LABELS[candidate]()}
                     </SelectItem>
                   ))}
@@ -349,7 +350,7 @@ export const RecurringCharts = ({
             />
           </CardContent>
         </Card>
-      </div>
+      </Elevated>
     </div>
   );
 };

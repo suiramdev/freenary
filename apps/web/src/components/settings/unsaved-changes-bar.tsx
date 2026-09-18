@@ -1,6 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
-import { Card, CardContent } from "@freenary/ui/components/card";
-import { Spinner } from "@freenary/ui/components/spinner";
+import { Elevated } from "@freenary/ui/lib/elevated";
+import { spring } from "@freenary/ui/lib/springs";
 import { AnimatePresence, motion } from "motion/react";
 
 import { m } from "@/paraglide/messages.js";
@@ -12,8 +12,6 @@ interface UnsavedChangesBarProps {
   onCancel: () => void;
   onSave: () => void;
 }
-
-const spring = { bounce: 0, duration: 0.3, type: "spring" as const };
 
 export const UnsavedChangesBar = ({
   changeCount,
@@ -30,26 +28,30 @@ export const UnsavedChangesBar = ({
         exit={{
           filter: "blur(4px)",
           opacity: 0,
-          transition: { duration: 0.15, ease: "easeOut" },
+          transition: spring.slow.exit,
           y: 12,
         }}
         initial={{ filter: "blur(4px)", opacity: 0, y: 12 }}
-        transition={spring}
+        transition={spring.slow}
       >
-        <Card className="shadow-md" size="sm">
-          <CardContent className="flex items-center gap-3">
-            <span className="text-muted-foreground text-xs font-medium">
-              {m.settings_unsaved_change({ count: changeCount })}
-            </span>
-            <Button disabled={isSaving} onClick={onCancel} variant="ghost">
-              {m.settings_cancel()}
-            </Button>
-            <Button disabled={isSaving || hasErrors} onClick={onSave}>
-              {isSaving && <Spinner data-icon="inline-start" />}
-              {m.settings_save()}
-            </Button>
-          </CardContent>
-        </Card>
+        <Elevated
+          className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+          offset={3}
+        >
+          <span className="text-muted-foreground px-1 text-xs font-medium">
+            {m.settings_unsaved_change({ count: changeCount })}
+          </span>
+          <Button disabled={isSaving} onClick={onCancel} variant="ghost">
+            {m.settings_cancel()}
+          </Button>
+          <Button
+            disabled={isSaving || hasErrors}
+            loading={isSaving}
+            onClick={onSave}
+          >
+            {m.settings_save()}
+          </Button>
+        </Elevated>
       </motion.div>
     )}
   </AnimatePresence>

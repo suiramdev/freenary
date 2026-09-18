@@ -1,6 +1,6 @@
+import { ThinkingIndicator } from "@freenary/ui/components/thinking-indicator";
 import { Match } from "effect";
 
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import type { Activity } from "@/lib/assistant/execution";
 import { assistantToolLabel } from "@/lib/assistant/tool-labels";
 import { m } from "@/paraglide/messages.js";
@@ -10,12 +10,10 @@ interface AssistantActivityProps {
   retrying: boolean;
 }
 
-const SHIMMER_DURATION_SECONDS = 1.5;
-
-const activityLabel = (
+const labelOf = (
   activity: NonNullable<Activity>,
   retrying: boolean
-): string =>
+): string | undefined =>
   Match.value(activity).pipe(
     Match.discriminatorsExhaustive("kind")({
       drawing: () => m.assistant_activity_drawing(),
@@ -27,10 +25,7 @@ const activityLabel = (
               tool: assistantToolLabel(tool.type),
             })
           : `${assistantToolLabel(tool.type)}…`,
-      thinking: () =>
-        retrying
-          ? m.assistant_activity_retrying()
-          : m.assistant_activity_thinking(),
+      thinking: () => (retrying ? m.assistant_activity_retrying() : undefined),
       writing: () => m.assistant_activity_writing(),
     })
   );
@@ -43,11 +38,15 @@ export const AssistantActivity = ({
     return null;
   }
 
+  const label = labelOf(activity, retrying);
+
   return (
-    <output aria-live="polite" className="text-muted-foreground block text-xs">
-      <Shimmer as="span" duration={SHIMMER_DURATION_SECONDS}>
-        {activityLabel(activity, retrying)}
-      </Shimmer>
-    </output>
+    <ThinkingIndicator
+      aria-live="polite"
+      className="px-0 py-0"
+      showIcon={false}
+      size="compact"
+      words={label === undefined ? undefined : [label]}
+    />
   );
 };

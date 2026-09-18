@@ -20,7 +20,6 @@ export default defineConfig({
     ".roo/**",
     ".windsurf/**",
     "packages/ui/**",
-    "apps/web/src/components/ai-elements/**",
     "apps/web/src/paraglide/**",
   ],
   jsPlugins: ["@jliocsar/begone-slop"],

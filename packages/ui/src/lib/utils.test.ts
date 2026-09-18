@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 
 import { cn } from "./utils";
 
-// Verbatim class strings from every `cn()` call site in the repo that merges
-// something away, paired with the output clsx + tailwind-merge 3.6.0 produced
-// before `cn` replaced them. A `cn` release that restyles one of these fails
+// Verbatim class strings from live `cn()` call sites across the repo that
+// merge something away, paired with the output clsx + tailwind-merge 3.6.0
+// produced before `cn` replaced them. A `cn` release that restyles one fails
 // here; CI has no test job, so this is the local gate.
 const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
   [
@@ -50,89 +50,51 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
     },
     {
       args: [
-        "ease-fluid relative w-(--sidebar-width) bg-transparent transition-[width] duration-200",
-        "group-data-[collapsible=offcanvas]:w-0",
-        "group-data-[side=right]:rotate-180",
-        "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]",
-        "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+        "flex min-w-0 flex-1 items-center gap-2 transition-colors duration-80",
+        "text-foreground",
+        "text-muted-foreground",
       ],
       expected:
-        "ease-fluid relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 group-data-[collapsible=offcanvas]:w-0 group-data-[side=right]:rotate-180 group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
-      where: "packages/ui/src/components/sidebar.tsx",
+        "flex min-w-0 flex-1 items-center gap-2 transition-colors duration-80 text-muted-foreground",
+      where: "packages/ui/src/components/sidebar-menu.tsx",
     },
     {
       args: [
-        "ease-fluid fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
-        "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]",
-        "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+        "pointer-events-none absolute right-2 z-10 flex h-5 min-w-5 items-center justify-center px-1 tabular-nums",
+        "top-1 text-[10px]",
+        "top-1.5 text-[11px]",
+        "transition-[color,font-variation-settings] duration-80",
+        "text-foreground",
+        "text-muted-foreground",
       ],
       expected:
-        "ease-fluid fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex p-2 group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
-      where: "packages/ui/src/components/sidebar.tsx",
-    },
-    {
-      args: ["size-4 transition-transform", "rotate-180", "rotate-0"],
-      expected: "size-4 transition-transform rotate-0",
-      where: "apps/web/src/components/ai-elements/reasoning.tsx",
+        "pointer-events-none absolute right-2 z-10 flex h-5 min-w-5 items-center justify-center px-1 tabular-nums top-1.5 text-[11px] transition-[color,font-variation-settings] duration-80 text-muted-foreground",
+      where: "packages/ui/src/components/sidebar-menu.tsx",
     },
     {
       args: [
-        "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-        "bg-destructive/10 text-destructive",
-        "bg-muted/50 text-foreground",
-      ],
-      expected:
-        "overflow-x-auto rounded-md text-xs [&_table]:w-full bg-muted/50 text-foreground",
-      where: "apps/web/src/components/ai-elements/tool.tsx",
-    },
-    {
-      args: ["size-4 transition-transform", "rotate-180", "rotate-0"],
-      expected: "size-4 transition-transform rotate-0",
-      where: "apps/web/src/components/ai-elements/chain-of-thought.tsx",
-    },
-    {
-      args: ["grid gap-2 overflow-hidden [&>div]:pb-0", "block", "hidden"],
-      expected: "gap-2 overflow-hidden [&>div]:pb-0 hidden",
-      where: "apps/web/src/components/ai-elements/message.tsx",
-    },
-    {
-      args: [
-        "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors",
+        "flex aspect-square shrink-0 items-center justify-center ring-1",
         "bg-primary text-primary-foreground ring-primary",
         "bg-secondary text-primary ring-primary",
-        "bg-background text-muted-foreground ring-border",
+        "text-muted-foreground ring-border",
       ],
       expected:
-        "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors bg-background text-muted-foreground ring-border",
+        "flex aspect-square shrink-0 items-center justify-center ring-1 bg-secondary text-muted-foreground ring-border",
+      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
+    },
+    {
+      args: ["text-foreground", "text-muted-foreground"],
+      expected: "text-muted-foreground",
       where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
     },
     {
       args: [
-        "text-xs font-medium transition-colors",
-        "text-foreground",
-        "text-muted-foreground",
-      ],
-      expected: "text-xs font-medium transition-colors text-muted-foreground",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
-    },
-    {
-      args: [
-        "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
-        "scale-x-100",
-        "scale-x-0",
-      ],
-      expected:
-        "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none scale-x-0",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
-    },
-    {
-      args: [
-        "hover:bg-muted/60 flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start transition-transform duration-150 ease-out active:scale-[0.96]",
+        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start",
         "text-foreground",
         "text-muted-foreground",
       ],
       expected:
-        "hover:bg-muted/60 flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start transition-transform duration-150 ease-out active:scale-[0.96] text-muted-foreground",
+        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start text-muted-foreground",
       where: "apps/web/src/components/budget/budget-vs-actual-chart.tsx",
     },
     {
@@ -151,13 +113,13 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
     },
     {
       args: [
-        "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96]",
+        "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px]",
         "hover:text-foreground cursor-pointer",
         "text-foreground",
         "text-muted-foreground",
       ],
       expected:
-        "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96] hover:text-foreground cursor-pointer text-muted-foreground",
+        "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] hover:text-foreground cursor-pointer text-muted-foreground",
       where: "apps/web/src/components/budget/spending-breakdown-chart.tsx",
     },
     {
@@ -248,5 +210,24 @@ describe("cn", () => {
       ])
     ).toBe("text-xs");
     expect(cn("p-2", "px-4")).toBe("p-2 px-4");
+  });
+
+  it("counts `ease-fluid` as an easing so a caller's curve wins", () => {
+    // `--ease-fluid` is a theme token of ours (globals.css). Without the
+    // `theme.ease` extension the merge treats it as an unknown class, both
+    // easings reach the DOM and CSS source order picks the curve instead of
+    // the caller. CollapsibleContent's base class is the live call site.
+    expect(
+      cn(
+        "group/collapsible-content ease-fluid flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden transition-[height] duration-200 data-ending-style:h-0 data-starting-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden",
+        "ease-out"
+      )
+    ).toBe(
+      "group/collapsible-content flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden transition-[height] duration-200 data-ending-style:h-0 data-starting-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden ease-out"
+    );
+    expect(cn("ease-fluid duration-200", "ease-out")).toBe(
+      "duration-200 ease-out"
+    );
+    expect(cn("ease-out", "ease-fluid")).toBe("ease-fluid");
   });
 });

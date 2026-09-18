@@ -56,7 +56,6 @@ export const toggleMerchant = (merchants: string[], value: string): string[] =>
   merchants.includes(value)
     ? merchants.filter((merchant) => merchant !== value)
     : [...merchants, value];
-
 export const activeFilterCount = (
   filter: CategoryFilter,
   merchants: string[],

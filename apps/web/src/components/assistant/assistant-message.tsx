@@ -1,18 +1,17 @@
+import { Button } from "@freenary/ui/components/button";
+import { Tooltip } from "@freenary/ui/components/tooltip";
 import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
 import { RiFileCopyLine, RiRefreshLine } from "@remixicon/react";
 import type { UIMessage } from "ai";
+import type { ReactNode } from "react";
 import { memo } from "react";
 
-import {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-  MessageResponse,
-} from "@/components/ai-elements/message";
 import { AssistantActivity } from "@/components/assistant/assistant-activity";
 import { AssistantAvatar } from "@/components/assistant/assistant-avatar";
 import { AssistantChart } from "@/components/assistant/assistant-chart";
+import { AssistantProse } from "@/components/assistant/assistant-prose";
 import { AssistantTrace } from "@/components/assistant/assistant-trace";
 import type { AnswerSegment } from "@/lib/assistant/answer-segments";
 import { activityOf, traceOf } from "@/lib/assistant/execution";
@@ -30,29 +29,25 @@ interface AssistantMessageProps {
   onRetry?: (messageId: string) => void;
 }
 
-const copyableProseOf = (segments: AnswerSegment[]): string =>
+const bubblePad = { compact: "px-3 py-2", default: "px-4 py-3" } as const;
+
+const textOf = (segments: AnswerSegment[]): string =>
   segments
     .flatMap((segment) => (segment.kind === "markdown" ? [segment.text] : []))
     .join("\n\n");
 
 const AnswerSegments = ({
-  live,
   prefix,
   segments,
 }: {
-  live: boolean;
   prefix: string;
   segments: AnswerSegment[];
 }) =>
   segments.map((segment, index) =>
     segment.kind === "markdown" ? (
-      <MessageResponse
-        className="h-auto w-full"
-        isAnimating={live}
-        key={`${prefix}-${index}`}
-      >
+      <AssistantProse className="w-full" key={`${prefix}-${index}`}>
         {segment.text}
-      </MessageResponse>
+      </AssistantProse>
     ) : (
       <AssistantChart
         key={`${prefix}-${index}`}
@@ -62,21 +57,47 @@ const AnswerSegments = ({
     )
   );
 
-const UserMessage = ({ message }: { message: UIMessage }) => (
-  <div className="flex w-full gap-3">
-    <Message from="user">
-      <MessageContent>
-        {message.parts.map((part, index) =>
-          part.type === "text" ? (
-            <MessageResponse key={`${message.id}-${index}`}>
-              {part.text}
-            </MessageResponse>
-          ) : null
-        )}
-      </MessageContent>
-    </Message>
-  </div>
+const AnswerAction = ({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) => (
+  <Tooltip content={label}>
+    <Button
+      aria-label={label}
+      onClick={onClick}
+      size="icon-compact"
+      type="button"
+      variant="ghost"
+    >
+      {children}
+    </Button>
+  </Tooltip>
 );
+
+const UserMessage = ({ message }: { message: UIMessage }) => {
+  const size = useSize();
+  const text = message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("\n\n");
+
+  return (
+    <div className="flex w-full justify-end">
+      <div
+        className={cn(
+          "bg-secondary text-foreground max-w-[85%] min-w-0 rounded-lg text-sm break-words whitespace-pre-wrap",
+          bubblePad[size.variant]
+        )}
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
 
 const AnswerMessage = ({
   avatarState,
@@ -91,12 +112,10 @@ const AnswerMessage = ({
   const trace = traceOf(message.parts, live);
   const timings = useExecutionTimings(message.parts, live, startedAt);
   const answer = trace.steps.flatMap((step) => step.answer);
-  const copyable = copyableProseOf(answer);
-  const hasChart = answer.some((segment) => segment.kind === "chart");
+  const copyable = textOf(answer);
   const traced = trace.steps.some(
     (step) => step.tools.length > 0 || step.thinking !== null
   );
-  const wantsFullColumn = traced || hasChart;
 
   return (
     <div className="flex w-full gap-3">
@@ -105,45 +124,38 @@ const AnswerMessage = ({
         frozen={avatarState === undefined}
         state={avatarState ?? "idle"}
       />
-      <Message from="assistant">
-        <MessageContent className={wantsFullColumn ? "w-full" : undefined}>
-          {traced && (
-            <AssistantTrace
-              live={live}
-              onRetry={retry}
-              timings={timings}
-              trace={trace}
-            />
-          )}
-          <AnswerSegments live={live} prefix={message.id} segments={answer} />
-          {live && (
-            <AssistantActivity
-              activity={activityOf(trace, status)}
-              retrying={retrying}
-            />
-          )}
-        </MessageContent>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+        {traced && (
+          <AssistantTrace
+            live={live}
+            onRetry={retry}
+            timings={timings}
+            trace={trace}
+          />
+        )}
+        <AnswerSegments prefix={message.id} segments={answer} />
+        {live && (
+          <AssistantActivity
+            activity={activityOf(trace, status)}
+            retrying={retrying}
+          />
+        )}
         {!live && copyable.length > 0 && (
-          <MessageActions>
-            <MessageAction
+          <div className="flex items-center gap-1">
+            <AnswerAction
               label={m.assistant_copy()}
               onClick={() => navigator.clipboard.writeText(copyable)}
-              tooltip={m.assistant_copy()}
             >
-              <RiFileCopyLine className="size-3" />
-            </MessageAction>
+              <RiFileCopyLine />
+            </AnswerAction>
             {retry && (
-              <MessageAction
-                label={m.assistant_retry()}
-                onClick={retry}
-                tooltip={m.assistant_retry()}
-              >
-                <RiRefreshLine className="size-3" />
-              </MessageAction>
+              <AnswerAction label={m.assistant_retry()} onClick={retry}>
+                <RiRefreshLine />
+              </AnswerAction>
             )}
-          </MessageActions>
+          </div>
         )}
-      </Message>
+      </div>
     </div>
   );
 };

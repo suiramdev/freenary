@@ -1,6 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
 import { Field, FieldGroup } from "@freenary/ui/components/field";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
 import { useMemo } from "react";
 import { z } from "zod";
@@ -66,8 +65,7 @@ export const AuthConfirmStep = ({
           </form.Field>
 
           <Field>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting && <Spinner data-icon="inline-start" />}
+            <Button loading={isSubmitting} type="submit">
               {m.auth_verify_submit()}
             </Button>
           </Field>
@@ -76,15 +74,14 @@ export const AuthConfirmStep = ({
 
       <div className="mt-2 flex flex-col items-center">
         <Button
-          disabled={isResending}
+          loading={isResending}
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={onResend}
         >
-          {isResending && <Spinner data-icon="inline-start" />}
           {m.auth_code_resend()}
         </Button>
-        <Button type="button" variant="link" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack}>
           {m.auth_use_different_email()}
         </Button>
       </div>

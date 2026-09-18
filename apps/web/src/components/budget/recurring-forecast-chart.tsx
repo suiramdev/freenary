@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartTooltipCard } from "@/components/shared/chart-tooltip";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { ForecastPoint } from "@/lib/budget/recurring";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
@@ -54,7 +55,7 @@ const ForecastTooltip = ({
   }
 
   return (
-    <div className="border-border/50 bg-background grid min-w-40 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-40">
       <div className="font-medium">{row.label}</div>
       <div className="flex items-center gap-2 leading-none">
         <span
@@ -78,7 +79,7 @@ const ForecastTooltip = ({
           <span className="max-w-56 truncate">{row.dueLabels}</span>
         </div>
       )}
-    </div>
+    </ChartTooltipCard>
   );
 };
 

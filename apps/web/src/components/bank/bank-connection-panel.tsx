@@ -24,6 +24,7 @@ interface BankConnectionPanelProps {
   isBanksError: boolean;
   isBanksPending: boolean;
   returnTo: BankConnectionReturnTo;
+  unavailableCountries: string[];
 }
 
 export const BankConnectionPanel = ({
@@ -31,6 +32,7 @@ export const BankConnectionPanel = ({
   isBanksError,
   isBanksPending,
   returnTo,
+  unavailableCountries,
 }: BankConnectionPanelProps) => {
   const [search, setSearch] = useState("");
   const locale = getLocale();
@@ -105,6 +107,7 @@ export const BankConnectionPanel = ({
         onSync={resync}
         rows={matchingRows}
         syncingId={resyncingId}
+        unavailableCountries={unavailableCountries}
       />
     </div>
   );

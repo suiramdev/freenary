@@ -1,28 +1,43 @@
+import type { IconComponentProps } from "@freenary/ui/lib/icon-context";
+import { spring } from "@freenary/ui/lib/springs";
+import { cn } from "@freenary/ui/lib/utils";
 import type { RemixiconComponentType } from "@remixicon/react";
 import { RiCheckboxCircleFill } from "@remixicon/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { createContext, useContext } from "react";
 
-interface SidebarFirstStepIconProps {
+interface FirstStepIconState {
   done: boolean;
   icon: RemixiconComponentType;
 }
 
 const HIDDEN = { opacity: 0, scale: 0.25 };
 const VISIBLE = { opacity: 1, scale: 1 };
-const TRANSITION = { bounce: 0, duration: 0.3, type: "spring" } as const;
+
+export const FirstStepIconContext = createContext<FirstStepIconState | null>(
+  null
+);
 
 export const SidebarFirstStepIcon = ({
-  done,
-  icon: Icon,
-}: SidebarFirstStepIconProps) => {
+  className,
+  size,
+  strokeWidth,
+}: IconComponentProps) => {
   const prefersReducedMotion = useReducedMotion();
-  const DoneOrPendingIcon = done ? RiCheckboxCircleFill : Icon;
-  const doneClassName = done ? "text-primary" : undefined;
+  const state = useContext(FirstStepIconContext);
+
+  if (!state) {
+    return null;
+  }
+
+  const Rendered = state.done ? RiCheckboxCircleFill : state.icon;
+  const iconClassName = cn(className, state.done && "text-primary");
+  const icon = (
+    <Rendered className={iconClassName} size={size} strokeWidth={strokeWidth} />
+  );
 
   if (prefersReducedMotion) {
-    return (
-      <DoneOrPendingIcon className={doneClassName} data-icon="inline-start" />
-    );
+    return icon;
   }
 
   return (
@@ -30,12 +45,12 @@ export const SidebarFirstStepIcon = ({
       <motion.span
         animate={VISIBLE}
         className="flex shrink-0 items-center"
-        exit={HIDDEN}
+        exit={{ ...HIDDEN, transition: spring.slow.exit }}
         initial={HIDDEN}
-        key={done ? "done" : "todo"}
-        transition={TRANSITION}
+        key={state.done ? "done" : "todo"}
+        transition={spring.slow}
       >
-        <DoneOrPendingIcon className={doneClassName} data-icon="inline-start" />
+        {icon}
       </motion.span>
     </AnimatePresence>
   );

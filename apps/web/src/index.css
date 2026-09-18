@@ -1,5 +1,114 @@
 @import "@freenary/ui/globals.css";
 
-/* Streamdown ships prebuilt classes for the markdown the assistant streams;
-   Tailwind has to scan them or MessageResponse renders unstyled. */
-@source "../node_modules/streamdown/dist/*.js";
+/* The assistant writes Markdown, and Preflight strips every element it uses
+   back to bare text. These are the rules that give a rendered answer its
+   flow: block rhythm, list markers, code tint and table rules. They sit in
+   the components layer so a utility on the slot still wins. */
+@layer components {
+  [data-slot="assistant-prose"] {
+    line-height: 1.6;
+  }
+
+  [data-slot="assistant-prose"] > * + * {
+    margin-top: 0.75em;
+  }
+
+  [data-slot="assistant-prose"] :is(h1, h2, h3, h4) {
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  [data-slot="assistant-prose"] :is(h1, h2) {
+    font-size: 1.15em;
+  }
+
+  [data-slot="assistant-prose"] :is(h3, h4) {
+    font-size: 1em;
+  }
+
+  [data-slot="assistant-prose"] strong {
+    font-weight: 600;
+  }
+
+  [data-slot="assistant-prose"] em {
+    font-style: italic;
+  }
+
+  [data-slot="assistant-prose"] :is(ul, ol) {
+    padding-inline-start: 1.35em;
+  }
+
+  [data-slot="assistant-prose"] ul {
+    list-style: disc;
+  }
+
+  [data-slot="assistant-prose"] ol {
+    list-style: decimal;
+  }
+
+  [data-slot="assistant-prose"] li + li {
+    margin-top: 0.25em;
+  }
+
+  [data-slot="assistant-prose"] li > :is(ul, ol) {
+    margin-top: 0.25em;
+  }
+
+  [data-slot="assistant-prose"] a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  [data-slot="assistant-prose"] code {
+    background-color: var(--muted);
+    border-radius: 4px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+  }
+
+  [data-slot="assistant-prose"] pre {
+    background-color: var(--muted);
+    border-radius: 8px;
+    overflow-x: auto;
+    padding: 0.75em;
+  }
+
+  /* The block already carries the tint and the padding. */
+  [data-slot="assistant-prose"] pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+
+  [data-slot="assistant-prose"] blockquote {
+    border-inline-start: 2px solid var(--border);
+    color: var(--muted-foreground);
+    padding-inline-start: 0.75em;
+  }
+
+  [data-slot="assistant-prose"] hr {
+    border-top: 1px solid var(--border);
+  }
+
+  [data-slot="assistant-prose"] table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  [data-slot="assistant-prose"] :is(th, td) {
+    border: 1px solid var(--border);
+    padding: 0.35em 0.6em;
+    text-align: start;
+  }
+
+  [data-slot="assistant-prose"] th {
+    font-weight: 600;
+  }
+
+  /* Figures are the model's own: they read straight down a column. */
+  [data-slot="assistant-prose"] :is(th, td):not(:first-child) {
+    font-variant-numeric: tabular-nums;
+  }
+}

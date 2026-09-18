@@ -2,6 +2,7 @@ import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
 import { CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from "recharts";
 
+import { ChartTooltipCard } from "@/components/shared/chart-tooltip";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { FrequencyRow } from "@/lib/budget/recurring";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
@@ -43,7 +44,7 @@ const FrequencyCostTooltip = ({
   }
 
   return (
-    <div className="border-border/50 bg-background grid min-w-40 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-40">
       <div className="flex items-center gap-1.5 font-medium">
         <span
           className="size-2.5 shrink-0 rounded-[2px]"
@@ -59,7 +60,7 @@ const FrequencyCostTooltip = ({
           {formatCurrency(row.annualMinor, currency)}
         </span>
       </div>
-    </div>
+    </ChartTooltipCard>
   );
 };
 

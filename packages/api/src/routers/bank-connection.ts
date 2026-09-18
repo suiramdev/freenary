@@ -1,7 +1,7 @@
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
 import { ORPCError } from "@orpc/server";
-import { Option } from "effect";
+import { Effect, Option } from "effect";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
@@ -10,8 +10,12 @@ import {
   ensureProviderUser,
   releaseProviderUser,
 } from "../lib/bank-provider-user";
+import {
+  isoAlpha2CountryCode,
+  taxResidencyCountries,
+} from "../lib/country-code";
 import { getDefaultProvider, getProvider } from "../providers/registry";
-import type { BankingProvider } from "../providers/types";
+import type { BankingProvider, ProviderInstitution } from "../providers/types";
 import type { BankConnectionState } from "./bank-connection-state";
 import {
   BANK_CONNECTION_RETURN_TARGETS,
@@ -24,6 +28,8 @@ import {
 const providerById = Option.liftThrowable(getProvider);
 
 const decodeConnectionState = Option.liftThrowable(parseBankConnectionState);
+
+const LIST_INSTITUTIONS_CONCURRENCY = 3;
 
 const resolveProvider = (providerId: string): BankingProvider =>
   Option.getOrThrowWith(
@@ -59,6 +65,29 @@ const readConnectionState = (
   }
 
   return connectionState;
+};
+
+const requireInstitutionsOf = async (
+  provider: BankingProvider,
+  country: string
+): Promise<ProviderInstitution[]> => {
+  const institutions = await Effect.runPromise(
+    provider
+      .listInstitutions(country)
+      .pipe(
+        Effect.catchTag("BankInstitutionsUnavailable", () =>
+          Effect.succeed(null)
+        )
+      )
+  );
+
+  if (institutions === null) {
+    throw new ORPCError("SERVICE_UNAVAILABLE", {
+      message: "Could not load banks for this country",
+    });
+  }
+
+  return institutions;
 };
 
 export const bankConnectionRouter = {
@@ -126,7 +155,8 @@ export const bankConnectionRouter = {
 
       const connectionState = readConnectionState(state, provider.id, userId);
 
-      const institutions = await provider.listInstitutions(
+      const institutions = await requireInstitutionsOf(
+        provider,
         connectionState.institution.country
       );
       const institution = findInstitution(
@@ -210,6 +240,7 @@ export const bankConnectionRouter = {
           select: { iban: true, id: true, name: true },
         },
         id: true,
+        institutionCountry: true,
         institutionId: true,
         institutionName: true,
         lastSyncedAt: true,
@@ -222,41 +253,78 @@ export const bankConnectionRouter = {
   }),
 
   listInstitutions: protectedProcedure
-    .input(z.object({ country: z.string().optional() }))
+    .input(z.object({ countries: taxResidencyCountries.optional() }))
     .handler(async ({ context, input }) => {
-      let { country } = input;
+      let { countries } = input;
 
-      if (!country) {
+      if (!countries?.length) {
         const user = await prisma.user.findUniqueOrThrow({
-          select: { country: true },
+          select: { taxCountries: true },
           where: { id: context.session.user.id },
         });
-        country = user.country ?? undefined;
+        countries = user.taxCountries;
       }
 
-      if (!country) {
+      if (countries.length === 0) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No country to list banks for",
         });
       }
 
-      const institutions = await getDefaultProvider().listInstitutions(country);
+      const provider = getDefaultProvider();
+      const perCountry = await Effect.runPromise(
+        Effect.forEach(
+          [...new Set(countries)],
+          (country) =>
+            provider.listInstitutions(country).pipe(
+              Effect.catchTag("BankInstitutionsUnavailable", () =>
+                Effect.succeed(null)
+              ),
+              Effect.map((institutions) => ({ country, institutions }))
+            ),
+          { concurrency: LIST_INSTITUTIONS_CONCURRENCY }
+        )
+      );
 
-      return {
-        banks: institutions.map((inst) => ({
-          bic: inst.bic ?? null,
-          country: inst.country,
-          id: inst.id,
-          logo: inst.logoUrl ?? null,
-          name: inst.name,
-        })),
-      };
+      const seen = new Set<string>();
+      const banks: {
+        bic: string | null;
+        country: string;
+        id: string;
+        logo: string | null;
+        name: string;
+      }[] = [];
+      const unavailableCountries: string[] = [];
+
+      for (const listed of perCountry) {
+        if (listed.institutions === null) {
+          unavailableCountries.push(listed.country);
+          continue;
+        }
+
+        for (const inst of listed.institutions) {
+          const key = `${inst.country}:${inst.id}`;
+
+          if (!seen.has(key)) {
+            seen.add(key);
+            banks.push({
+              bic: inst.bic ?? null,
+              country: inst.country,
+              id: inst.id,
+              logo: inst.logoUrl ?? null,
+              name: inst.name,
+            });
+          }
+        }
+      }
+
+      return { banks, unavailableCountries };
     }),
 
   startConnection: protectedProcedure
     .input(
       z.object({
-        bankCountry: z.string(),
+        bankCountry: isoAlpha2CountryCode,
         institutionId: z.string(),
         returnTo: z.enum(BANK_CONNECTION_RETURN_TARGETS),
         state: z.string().optional(),
@@ -265,7 +333,10 @@ export const bankConnectionRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
       const provider = getDefaultProvider();
-      const institutions = await provider.listInstitutions(input.bankCountry);
+      const institutions = await requireInstitutionsOf(
+        provider,
+        input.bankCountry
+      );
       const institution = findInstitution(
         institutions,
         input.institutionId,

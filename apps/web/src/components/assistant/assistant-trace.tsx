@@ -1,41 +1,22 @@
 import { Button } from "@freenary/ui/components/button";
-import { Spinner } from "@freenary/ui/components/spinner";
 import {
-  RiBarChartBoxLine,
-  RiBrainLine,
-  RiContractUpDownLine,
-  RiExpandUpDownLine,
-  RiQuillPenLine,
-  RiToolsLine,
-} from "@remixicon/react";
-import type { ComponentType, ReactNode } from "react";
+  ThinkingStep,
+  ThinkingStepDetails,
+  ThinkingSteps,
+  ThinkingStepsContent,
+  ThinkingStepsHeader,
+} from "@freenary/ui/components/thinking-steps";
+import type { IconName } from "@freenary/ui/lib/icon-context";
+import { RiContractUpDownLine, RiExpandUpDownLine } from "@remixicon/react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-  ChainOfThoughtStep,
-} from "@/components/ai-elements/chain-of-thought";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { Shimmer } from "@/components/ai-elements/shimmer";
-import {
-  Task,
-  TaskContent,
-  TaskItem,
-  TaskTrigger,
-} from "@/components/ai-elements/task";
-import {
-  AssistantToolCall,
-  assistantToolIcon,
-} from "@/components/assistant/assistant-tool-call";
+import { AssistantProse } from "@/components/assistant/assistant-prose";
+import { AssistantToolCall } from "@/components/assistant/assistant-tool-call";
 import type { ExecutionStep, ExecutionTrace } from "@/lib/assistant/execution";
 import { toolStatusOf } from "@/lib/assistant/execution";
 import { formatDuration } from "@/lib/assistant/format-duration";
+import { useAutoFold } from "@/lib/assistant/use-auto-fold";
 import {
   durationOf,
   spanOf,
@@ -44,6 +25,7 @@ import {
 import type { ExecutionTimings } from "@/lib/assistant/use-execution-timings";
 import type { ExpandAll } from "@/lib/assistant/use-expand-all";
 import { useExpandAll } from "@/lib/assistant/use-expand-all";
+import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 
 interface AssistantTraceProps {
@@ -53,7 +35,6 @@ interface AssistantTraceProps {
   onRetry?: () => void;
 }
 
-const SHIMMER_DURATION_SECONDS = 1.5;
 const LOOKUPS_START_OPEN = true;
 
 const stepLabel = (step: ExecutionStep, live: boolean): string => {
@@ -74,81 +55,68 @@ const stepLabel = (step: ExecutionStep, live: boolean): string => {
   return m.assistant_step_thinking();
 };
 
-const stepIcon = (
-  step: ExecutionStep,
-  working: boolean
-): ComponentType<{ className?: string }> => {
-  if (working) {
-    return Spinner;
-  }
-
-  if (step.tools.length === 1 && step.tools[0]) {
-    return assistantToolIcon(step.tools[0]);
-  }
-
+const stepIcon = (step: ExecutionStep): IconName => {
   if (step.tools.length > 0) {
-    return RiToolsLine;
+    return "search";
   }
 
   if (step.answer.some((segment) => segment.kind === "chart")) {
-    return RiBarChartBoxLine;
+    return "image";
   }
 
   if (step.answer.length > 0) {
-    return RiQuillPenLine;
+    return "pencil";
   }
 
-  return RiBrainLine;
+  return "brain";
 };
 
-const isWorking = (step: ExecutionStep, live: boolean): boolean =>
-  live &&
-  step.status === "active" &&
-  (step.thinking?.state === "streaming" ||
-    step.tools.some(
-      (tool) =>
-        toolStatusOf(tool, live) !== "completed" &&
-        toolStatusOf(tool, live) !== "failed"
-    ) ||
-    step.answer.length > 0);
-
-const thinkingMessage = (
+const thinkingSummary = (
   streaming: boolean,
   durationMs: number | undefined
-): ReactNode => {
+): string => {
   if (streaming) {
-    return (
-      <Shimmer as="span" duration={SHIMMER_DURATION_SECONDS}>
-        {m.assistant_thinking_streaming()}
-      </Shimmer>
-    );
+    return m.assistant_thinking_streaming();
   }
 
-  return (
-    <span className="inline-flex items-center gap-1">
-      {m.assistant_thinking_done()}
-      {durationMs !== undefined && (
-        <span className="font-mono tabular-nums">
-          {formatDuration(durationMs)}
-        </span>
-      )}
-    </span>
-  );
+  return durationMs === undefined
+    ? m.assistant_thinking_done()
+    : `${m.assistant_thinking_done()} ${formatDuration(durationMs)}`;
 };
 
 const Lookups = ({
   children,
   expanded,
+  summary,
 }: {
   children: ReactNode;
-  expanded: ExpandAll | undefined;
+  expanded?: ExpandAll;
+  summary: string;
 }) => {
   const [open, setOpen] = useExpandAll(expanded, LOOKUPS_START_OPEN);
 
   return (
-    <Task onOpenChange={setOpen} open={open}>
+    <ThinkingStepDetails onOpenChange={setOpen} open={open} summary={summary}>
       {children}
-    </Task>
+    </ThinkingStepDetails>
+  );
+};
+
+const Thought = ({
+  children,
+  live,
+  summary,
+}: {
+  children: ReactNode;
+  live: boolean;
+  summary: string;
+}) => {
+  const [open, setOpen] = useAutoFold(live);
+
+  return (
+    <ThinkingStepDetails onOpenChange={setOpen} open={open} summary={summary}>
+      {children}
+    </ThinkingStepDetails>
   );
 };
 
@@ -159,114 +127,109 @@ export const AssistantTrace = ({
   trace,
 }: AssistantTraceProps) => {
   const [expanded, setExpanded] = useState<ExpandAll>();
+  const [open, setOpen] = useAutoFold(live);
   const turn = durationOf(timings.get(TURN_TIMING_KEY));
+  const lastIndex = trace.steps.length - 1;
 
   return (
-    <ChainOfThought className="max-w-none" defaultOpen={live}>
-      <ChainOfThoughtHeader>
+    <ThinkingSteps
+      className="w-full max-w-none"
+      onOpenChange={setOpen}
+      open={open}
+    >
+      <ThinkingStepsHeader>
         {live ? m.assistant_trace_title_live() : m.assistant_trace_title()}
         {turn !== undefined && (
           <span className="ml-2 font-mono text-xs tabular-nums">
             {formatDuration(turn)}
           </span>
         )}
-      </ChainOfThoughtHeader>
-      <ChainOfThoughtContent>
+      </ThinkingStepsHeader>
+      <ThinkingStepsContent>
         {trace.lookups > 1 && (
           <div className="flex justify-end gap-1">
             <Button
+              leadingIcon={remixIcon(RiExpandUpDownLine)}
               onClick={() => setExpanded({ tick: Date.now(), value: true })}
-              size="xs"
+              size="compact"
               variant="ghost"
             >
-              <RiExpandUpDownLine className="size-3" />
               {m.assistant_trace_expand_all()}
             </Button>
             <Button
+              leadingIcon={remixIcon(RiContractUpDownLine)}
               onClick={() => setExpanded({ tick: Date.now(), value: false })}
-              size="xs"
+              size="compact"
               variant="ghost"
             >
-              <RiContractUpDownLine className="size-3" />
               {m.assistant_trace_collapse_all()}
             </Button>
           </div>
         )}
-        <ol className="flex flex-col gap-3">
-          {trace.steps.map((step) => {
-            const previousHadTools =
-              (trace.steps[step.index - 1]?.tools.length ?? 0) > 0;
-            const notes = [
-              ...(step.tools.length > 1
-                ? [m.assistant_step_parallel({ count: step.tools.length })]
-                : []),
-              ...(previousHadTools
-                ? [m.assistant_step_after({ step: step.index })]
-                : []),
-            ];
-            const streaming = step.thinking?.state === "streaming";
-            const thinkingMs = step.thinking
-              ? spanOf(timings, step.thinking.keys)
-              : undefined;
+        {trace.steps.map((step, position) => {
+          const previousHadTools =
+            (trace.steps[step.index - 1]?.tools.length ?? 0) > 0;
+          const notes = [
+            ...(step.tools.length > 1
+              ? [m.assistant_step_parallel({ count: step.tools.length })]
+              : []),
+            ...(previousHadTools
+              ? [m.assistant_step_after({ step: step.index })]
+              : []),
+          ];
+          const streaming = step.thinking?.state === "streaming";
+          const thinkingMs = step.thinking
+            ? spanOf(timings, step.thinking.keys)
+            : undefined;
 
-            return (
-              <ChainOfThoughtStep
-                description={notes.length > 0 ? notes.join(" · ") : undefined}
-                icon={stepIcon(step, isWorking(step, live))}
-                key={step.index}
-                label={stepLabel(step, live)}
-                status={step.status}
-              >
-                {step.thinking && (
-                  <Reasoning
-                    className="mb-0"
-                    defaultOpen={live}
-                    isStreaming={streaming}
-                  >
-                    <ReasoningTrigger
-                      getThinkingMessage={(isStreaming) =>
-                        thinkingMessage(isStreaming, thinkingMs)
-                      }
+          return (
+            <ThinkingStep
+              description={notes.length > 0 ? notes.join(" · ") : undefined}
+              icon={stepIcon(step)}
+              isLast={position === lastIndex && !trace.answerPending}
+              key={step.index}
+              label={stepLabel(step, live)}
+              status={step.status}
+            >
+              {step.thinking && (
+                <Thought
+                  live={live}
+                  summary={thinkingSummary(streaming, thinkingMs)}
+                >
+                  <AssistantProse>{step.thinking.text}</AssistantProse>
+                </Thought>
+              )}
+              {step.tools.length > 0 && (
+                <Lookups
+                  expanded={expanded}
+                  summary={m.assistant_trace_lookups({
+                    count: step.tools.length,
+                  })}
+                >
+                  {step.tools.map((tool) => (
+                    <AssistantToolCall
+                      durationMs={durationOf(timings.get(tool.toolCallId))}
+                      expanded={expanded}
+                      key={tool.toolCallId}
+                      onRetry={onRetry}
+                      part={tool}
+                      status={toolStatusOf(tool, live)}
                     />
-                    <ReasoningContent>{step.thinking.text}</ReasoningContent>
-                  </Reasoning>
-                )}
-                {step.tools.length > 0 && (
-                  <Lookups expanded={expanded}>
-                    <TaskTrigger
-                      title={m.assistant_trace_lookups({
-                        count: step.tools.length,
-                      })}
-                    />
-                    <TaskContent>
-                      {step.tools.map((tool) => (
-                        <TaskItem key={tool.toolCallId}>
-                          <AssistantToolCall
-                            durationMs={durationOf(
-                              timings.get(tool.toolCallId)
-                            )}
-                            expanded={expanded}
-                            onRetry={onRetry}
-                            part={tool}
-                            status={toolStatusOf(tool, live)}
-                          />
-                        </TaskItem>
-                      ))}
-                    </TaskContent>
-                  </Lookups>
-                )}
-              </ChainOfThoughtStep>
-            );
-          })}
-          {trace.answerPending && (
-            <ChainOfThoughtStep
-              icon={RiQuillPenLine}
-              label={m.assistant_step_answer_pending()}
-              status="pending"
-            />
-          )}
-        </ol>
-      </ChainOfThoughtContent>
-    </ChainOfThought>
+                  ))}
+                </Lookups>
+              )}
+            </ThinkingStep>
+          );
+        })}
+        {trace.answerPending && (
+          <ThinkingStep
+            icon="pencil"
+            isLast
+            label={m.assistant_step_answer_pending()}
+            status="active"
+          />
+        )}
+      </ThinkingStepsContent>
+    </ThinkingSteps>
   );
 };

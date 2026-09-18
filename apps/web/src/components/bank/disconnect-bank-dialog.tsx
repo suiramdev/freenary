@@ -10,7 +10,6 @@ import {
   AlertDialogTrigger,
 } from "@freenary/ui/components/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
-import { Spinner } from "@freenary/ui/components/spinner";
 
 import { m } from "@/paraglide/messages.js";
 
@@ -40,7 +39,7 @@ export const DisconnectBankDialog = ({
             aria-label={m.bank_disconnect_aria_label({
               institution: institutionName,
             })}
-            variant="outline"
+            variant="tertiary"
           />
         }
       >
@@ -56,11 +55,11 @@ export const DisconnectBankDialog = ({
         <AlertDialogFooter>
           <AlertDialogCancel>{m.bank_disconnect_cancel()}</AlertDialogCancel>
           <AlertDialogAction
-            disabled={isDisconnecting}
-            variant="destructive"
+            className="text-destructive hover:text-destructive"
+            loading={isDisconnecting}
             onClick={onConfirm}
+            variant="ghost"
           >
-            {isDisconnecting && <Spinner data-icon="inline-start" />}
             {m.bank_disconnect_confirm()}
           </AlertDialogAction>
         </AlertDialogFooter>

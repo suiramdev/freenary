@@ -1,41 +1,58 @@
+import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@freenary/ui/components/empty";
-import { Spinner } from "@freenary/ui/components/spinner";
+  Combobox,
+  ComboboxChips,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+} from "@freenary/ui/components/combobox";
 import { RiArrowRightLine, RiEarthLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { CountryOption } from "@/components/onboarding/country-option";
 import { OnboardingStepHeader } from "@/components/onboarding/onboarding-step-header";
-import { SearchInput } from "@/components/shared/search-input";
 import { GITHUB_REPO_URL } from "@/lib/constants";
-import { filterCountries } from "@/lib/onboarding/countries";
+import {
+  countriesFor,
+  countryMatches,
+  isFullySupportedCountry,
+} from "@/lib/onboarding/countries";
+import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
 interface CountrySelectionStepProps {
   isCompleting: boolean;
   onContinue: () => void;
-  onSelect: (country: string) => void;
-  selected: string | null;
+  onCountriesChange: (countries: string[]) => void;
+  selected: string[];
+}
+
+interface CountryRow {
+  code: string;
+  flag: string;
+  label: string;
+  value: string;
 }
 
 export const CountrySelectionStep = ({
   isCompleting,
   onContinue,
-  onSelect,
+  onCountriesChange,
   selected,
 }: CountrySelectionStepProps) => {
-  const [search, setSearch] = useState("");
   const locale = getLocale();
 
-  const localizedMatches = useMemo(
-    () => filterCountries(search, locale),
-    [search, locale]
+  const items = useMemo<CountryRow[]>(
+    () =>
+      countriesFor(locale).map((country) => ({
+        code: country.code,
+        flag: country.flag,
+        label: country.name,
+        value: country.code,
+      })),
+    [locale]
   );
 
   return (
@@ -44,32 +61,50 @@ export const CountrySelectionStep = ({
         description={m.onboarding_country_description()}
         title={m.onboarding_country_title()}
       />
-      <SearchInput
-        onChange={setSearch}
-        placeholder={m.onboarding_country_search_placeholder()}
-        value={search}
-      />
-      {localizedMatches.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <RiEarthLine />
-            </EmptyMedia>
-            <EmptyTitle>{m.onboarding_country_empty()}</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <div className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
-          {localizedMatches.map((country) => (
-            <CountryOption
-              key={country.code}
-              country={country}
-              isSelected={selected === country.code}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      )}
+      <Combobox
+        filter={(item, query) => {
+          // SAFETY: every item comes from `items`, built above.
+          const row = item as CountryRow;
+
+          return countryMatches(row.code, row.label, query);
+        }}
+        items={items}
+        multiple
+        onValueChange={onCountriesChange}
+        value={selected}
+      >
+        <ComboboxChips
+          aria-label={m.onboarding_country_search_placeholder()}
+          clearable
+          icon={remixIcon(RiEarthLine)}
+          placeholder={m.onboarding_country_search_placeholder()}
+        />
+        <ComboboxContent>
+          <ComboboxEmpty>{m.onboarding_country_empty()}</ComboboxEmpty>
+          <ComboboxList>
+            {(item) => {
+              // SAFETY: every row comes from `items`, built above.
+              const row = item as CountryRow;
+
+              return (
+                <ComboboxItem value={row.value}>
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span className="truncate">
+                      <span aria-hidden="true">{row.flag} </span>
+                      {row.label}
+                    </span>
+                    {isFullySupportedCountry(row.code) ? null : (
+                      <Badge variant="dot">
+                        {m.onboarding_country_partial_badge()}
+                      </Badge>
+                    )}
+                  </span>
+                </ComboboxItem>
+              );
+            }}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
       <p className="text-muted-foreground text-center text-xs">
         {m.onboarding_contribute_prompt()}{" "}
         <a
@@ -83,16 +118,13 @@ export const CountrySelectionStep = ({
       </p>
       <div className="flex justify-end">
         <Button
-          disabled={!selected || isCompleting}
+          disabled={selected.length === 0 || isCompleting}
+          loading={isCompleting}
           onClick={onContinue}
+          trailingIcon={remixIcon(RiArrowRightLine)}
           type="button"
         >
           {m.onboarding_continue()}
-          {isCompleting ? (
-            <Spinner data-icon="inline-end" />
-          ) : (
-            <RiArrowRightLine data-icon="inline-end" />
-          )}
         </Button>
       </div>
     </div>

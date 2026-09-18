@@ -18,10 +18,15 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@freenary/ui/components/item";
-import { Spinner } from "@freenary/ui/components/spinner";
-import { useMemo } from "react";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
+import { useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 
 import { SecurityRowsSkeleton } from "@/components/settings/security-rows-skeleton";
+import { SettingsRowList } from "@/components/settings/settings-row-list";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useLinkedAccountActions } from "@/hooks/settings/use-linked-account-actions";
 import { CREDENTIAL_PROVIDER_ID } from "@/lib/settings/auth-queries";
@@ -47,11 +52,29 @@ interface DisconnectProviderDialogProps {
   onConfirm: () => void;
 }
 
+interface AccountRowProps {
+  children: ReactNode;
+  index: number;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+}
+
 interface SecurityAccountsSectionProps {
   accounts: LinkedAccount[] | undefined;
   isPending: boolean;
   providers: OAuthProviderOption[] | undefined;
 }
+
+const AccountRow = ({ children, index, registerItem }: AccountRowProps) => {
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
+
+  return (
+    <Item className="relative z-10" ref={rowRef} render={<li />} size="sm">
+      {children}
+    </Item>
+  );
+};
 
 const LABELS_FOR_PROVIDERS_THE_APP_NAMES_ITSELF = {
   apple: m.settings_accounts_provider_apple,
@@ -137,11 +160,11 @@ const DisconnectProviderDialog = ({
       <AlertDialogFooter>
         <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
         <AlertDialogAction
-          disabled={isDisconnecting}
+          className="text-destructive hover:text-destructive"
+          loading={isDisconnecting}
           onClick={onConfirm}
-          variant="destructive"
+          variant="ghost"
         >
-          {isDisconnecting && <Spinner data-icon="inline-start" />}
           {m.settings_accounts_disconnect_confirm()}
         </AlertDialogAction>
       </AlertDialogFooter>
@@ -156,6 +179,8 @@ export const SecurityAccountsSection = ({
 }: SecurityAccountsSectionProps) => {
   const { connect, connectingProvider, disconnect, disconnectingId } =
     useLinkedAccountActions();
+  const listRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
 
   const locale = getLocale();
   const formatter = useMemo(
@@ -205,9 +230,9 @@ export const SecurityAccountsSection = ({
         )}
 
         {(passwordAccount !== undefined || rows.length > 0) && (
-          <ul className="flex flex-col gap-1.5">
+          <SettingsRowList hover={hover} ref={listRef}>
             {passwordAccount === undefined ? null : (
-              <Item render={<li />} size="sm">
+              <AccountRow index={0} registerItem={hover.registerItem}>
                 <ItemContent className="min-w-0">
                   <ItemTitle>{m.settings_accounts_password()}</ItemTitle>
                   <ItemDescription>
@@ -216,18 +241,20 @@ export const SecurityAccountsSection = ({
                     })}
                   </ItemDescription>
                 </ItemContent>
-              </Item>
+              </AccountRow>
             )}
 
-            {rows.map((row) => (
-              <Item key={row.providerId} render={<li />} size="sm">
+            {rows.map((row, position) => (
+              <AccountRow
+                index={(passwordAccount === undefined ? 0 : 1) + position}
+                key={row.providerId}
+                registerItem={hover.registerItem}
+              >
                 <ItemContent className="min-w-0">
                   <ItemTitle className="flex flex-wrap items-center gap-2">
                     {row.label}
                     {row.linkedAccountId === null ? null : (
-                      <Badge variant="secondary">
-                        {m.settings_accounts_connected()}
-                      </Badge>
+                      <Badge>{m.settings_accounts_connected()}</Badge>
                     )}
                   </ItemTitle>
                   {row.isRetiredButStillLinked && (
@@ -243,13 +270,10 @@ export const SecurityAccountsSection = ({
                       aria-label={m.settings_accounts_connect_provider({
                         provider: row.label,
                       })}
-                      disabled={connectingProvider === row.providerId}
+                      loading={connectingProvider === row.providerId}
                       onClick={() => connect(row.providerId)}
-                      variant="outline"
+                      variant="tertiary"
                     >
-                      {connectingProvider === row.providerId && (
-                        <Spinner data-icon="inline-start" />
-                      )}
                       {m.settings_accounts_connect()}
                     </Button>
                   ) : (
@@ -264,9 +288,9 @@ export const SecurityAccountsSection = ({
                     />
                   )}
                 </ItemActions>
-              </Item>
+              </AccountRow>
             ))}
-          </ul>
+          </SettingsRowList>
         )}
       </>
     );

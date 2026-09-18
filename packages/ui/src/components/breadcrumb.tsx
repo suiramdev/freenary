@@ -6,9 +6,10 @@ import { RiArrowRightSLine, RiMoreLine } from "@remixicon/react";
 import * as React from "react";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+  const labels = useUiLabels();
   return (
     <nav
-      aria-label="breadcrumb"
+      aria-label={labels.breadcrumb}
       data-slot="breadcrumb"
       className={cn(className)}
       {...props}

@@ -1,3 +1,5 @@
+import { Button } from "@freenary/ui/components/button";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -5,20 +7,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@freenary/ui/components/sheet";
+import { Tooltip } from "@freenary/ui/components/tooltip";
+import { Elevated } from "@freenary/ui/lib/elevated";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
 import { Renderer } from "@openuidev/react-lang";
 import type { ParseResult } from "@openuidev/react-lang";
 import { RiBarChartBoxLine, RiFullscreenLine } from "@remixicon/react";
 import { useState } from "react";
 
-import {
-  Artifact,
-  ArtifactAction,
-  ArtifactActions,
-  ArtifactContent,
-  ArtifactHeader,
-  ArtifactTitle,
-} from "@/components/ai-elements/artifact";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { assistantUiLibrary } from "@/components/assistant/assistant-ui-library";
 import { m } from "@/paraglide/messages.js";
 
@@ -32,7 +29,7 @@ interface ProgramParse {
   result: ParseResult | null;
 }
 
-const SHIMMER_DURATION_SECONDS = 1.5;
+const HEADER_PAD = { compact: "px-2.5 py-1", default: "px-3 py-1.5" } as const;
 
 const isBroken = (result: ParseResult | null): boolean => {
   if (result === null || result.root === null) {
@@ -46,6 +43,7 @@ const isBroken = (result: ParseResult | null): boolean => {
 };
 
 export const AssistantChart = ({ program, streaming }: AssistantChartProps) => {
+  const size = useSize();
   const [parsed, setParsed] = useState<ProgramParse>();
   const [large, setLarge] = useState(false);
   const failed =
@@ -63,36 +61,43 @@ export const AssistantChart = ({ program, streaming }: AssistantChartProps) => {
   }
 
   return (
-    <Artifact className="my-2">
-      <ArtifactHeader>
-        <ArtifactTitle>
+    <Elevated
+      className="my-2 flex w-full shrink-0 flex-col overflow-hidden rounded-xl"
+      offset={1}
+    >
+      <div
+        className={cn(
+          "bg-muted/40 flex items-center justify-between border-b",
+          size.gap,
+          HEADER_PAD[size.variant]
+        )}
+      >
+        <p className="text-muted-foreground flex items-center gap-1.5 truncate text-xs font-medium">
           <RiBarChartBoxLine className="size-3.5" />
           {m.assistant_chart_label()}
           {streaming && (
-            <Shimmer as="span" duration={SHIMMER_DURATION_SECONDS}>
-              {m.assistant_chart_drawing()}
-            </Shimmer>
+            <span className="shimmer-text">{m.assistant_chart_drawing()}</span>
           )}
-        </ArtifactTitle>
-        <ArtifactActions>
-          <ArtifactAction
+        </p>
+        <Tooltip content={m.assistant_chart_expand()}>
+          <Button
+            aria-label={m.assistant_chart_expand()}
             disabled={streaming}
-            label={m.assistant_chart_expand()}
             onClick={() => setLarge(true)}
-            tooltip={m.assistant_chart_expand()}
+            size="icon-compact"
+            type="button"
+            variant="ghost"
           >
-            <RiFullscreenLine className="size-3.5" />
-          </ArtifactAction>
-        </ArtifactActions>
-      </ArtifactHeader>
-      <ArtifactContent className="p-0">
-        <Renderer
-          isStreaming={streaming}
-          library={assistantUiLibrary}
-          onParseResult={(result) => setParsed({ program, result })}
-          response={program}
-        />
-      </ArtifactContent>
+            <RiFullscreenLine />
+          </Button>
+        </Tooltip>
+      </div>
+      <Renderer
+        isStreaming={streaming}
+        library={assistantUiLibrary}
+        onParseResult={(result) => setParsed({ program, result })}
+        response={program}
+      />
       <Sheet onOpenChange={setLarge} open={large}>
         <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-3xl">
           <SheetHeader>
@@ -101,11 +106,14 @@ export const AssistantChart = ({ program, streaming }: AssistantChartProps) => {
               {m.assistant_chart_expand()}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-auto p-4 text-sm [&_[data-slot=chart].w-full]:h-80">
+          <ScrollArea
+            className="min-h-0 flex-1"
+            viewportClassName="p-4 text-sm [&_[data-slot=chart].w-full]:h-80"
+          >
             <Renderer library={assistantUiLibrary} response={program} />
-          </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
-    </Artifact>
+    </Elevated>
   );
 };

@@ -7,7 +7,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@freenary/ui/components/field";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
 import { z } from "zod";
@@ -117,8 +116,7 @@ export const AuthTwoFactorStep = ({
           )}
 
           <Field>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting && <Spinner data-icon="inline-start" />}
+            <Button loading={isSubmitting} type="submit">
               {m.auth_code_submit()}
             </Button>
           </Field>
@@ -128,7 +126,7 @@ export const AuthTwoFactorStep = ({
       <div className="mt-2 flex flex-col items-center">
         <Button
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={() => {
             form.reset();
             onMethodSwitch();
@@ -138,7 +136,7 @@ export const AuthTwoFactorStep = ({
             ? m.auth_two_factor_use_recovery()
             : m.auth_two_factor_use_app()}
         </Button>
-        <Button type="button" variant="link" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack}>
           {m.auth_back_to_sign_in()}
         </Button>
       </div>

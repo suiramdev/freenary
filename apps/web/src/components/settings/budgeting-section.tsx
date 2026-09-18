@@ -2,7 +2,9 @@ import type { CategoryEntry } from "@freenary/api/lib/categories";
 import { Button } from "@freenary/ui/components/button";
 import { Separator } from "@freenary/ui/components/separator";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { RiAddLine } from "@remixicon/react";
+import { useIcon } from "@freenary/ui/lib/icon-context";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
 import { Reorder } from "motion/react";
 import { useState } from "react";
 
@@ -27,6 +29,8 @@ interface BudgetingSectionProps {
   updateLine: (id: string, patch: Partial<EditorLine>) => void;
 }
 
+const SKELETON_LINES = 3;
+
 export const BudgetingSection = ({
   addLine,
   categories,
@@ -45,6 +49,8 @@ export const BudgetingSection = ({
   const [lineIdAwaitingNewCategory, setLineIdAwaitingNewCategory] = useState<
     string | null
   >(null);
+  const PlusIcon = useIcon("plus");
+  const { control } = useSize();
 
   return (
     <div id={BUDGETING_ANCHOR} ref={sectionRef}>
@@ -65,10 +71,14 @@ export const BudgetingSection = ({
             <output className="sr-only">
               {m.settings_budgeting_loading()}
             </output>
-            <Skeleton aria-hidden="true" className="h-[120px]" />
+            <div aria-hidden="true" className="flex flex-col gap-2">
+              {Array.from({ length: SKELETON_LINES }, (_, i) => (
+                <Skeleton className={cn("w-full", control)} key={i} />
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {lines.length > 0 ? (
               <Reorder.Group
                 as="div"
@@ -92,8 +102,12 @@ export const BudgetingSection = ({
               </Reorder.Group>
             ) : null}
 
-            <Button className="self-start" onClick={addLine} variant="outline">
-              <RiAddLine data-icon="inline-start" />
+            <Button
+              className="self-start"
+              leadingIcon={PlusIcon}
+              onClick={addLine}
+              variant="tertiary"
+            >
               {m.settings_budgeting_add_line()}
             </Button>
           </div>

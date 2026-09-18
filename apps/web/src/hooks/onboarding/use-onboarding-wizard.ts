@@ -22,19 +22,19 @@ export const useOnboardingWizard = ({
   const { refetch: refetchSession } = authClient.useSession();
   const [step, setStep] = useState(() => (loadOnboardingState() ? 1 : 0));
   const [direction, setDirection] = useState<1 | -1>(1);
-  const [country, setCountry] = useState<string | null>(
-    () => loadOnboardingState()?.country ?? null
+  const [taxCountries, setTaxCountries] = useState<string[]>(
+    () => loadOnboardingState()?.taxCountries ?? []
   );
   const [isCompleting, setIsCompleting] = useState(false);
 
   const completeOnboarding = async () => {
-    if (!country) {
+    if (taxCountries.length === 0) {
       return;
     }
 
     setIsCompleting(true);
     const wasCompleted = await client.onboarding
-      .completeOnboarding({ country })
+      .completeOnboarding({ taxCountries })
       .then(() => true as const)
       .catch(() => false as const);
 
@@ -56,10 +56,14 @@ export const useOnboardingWizard = ({
     setStep(0);
   };
 
+  const handleCountriesChange = (codes: string[]) => {
+    setTaxCountries(codes);
+  };
+
   const handleCountryContinue = () => {
     if (hasBankStep) {
-      if (country) {
-        persistOnboardingState({ country });
+      if (taxCountries.length > 0) {
+        persistOnboardingState({ taxCountries });
       }
 
       setDirection(1);
@@ -91,14 +95,14 @@ export const useOnboardingWizard = ({
   };
 
   return {
-    country,
     direction,
     handleBack,
+    handleCountriesChange,
     handleCountryContinue,
-    handleCountrySelect: setCountry,
     handleFinish,
     handleSignOut,
     isCompleting,
     step,
+    taxCountries,
   };
 };

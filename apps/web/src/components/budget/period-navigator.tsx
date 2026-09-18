@@ -1,5 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
 import { Calendar } from "@freenary/ui/components/calendar";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
 import {
   Popover,
   PopoverContent,
@@ -11,14 +12,17 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@freenary/ui/components/select";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
 import {
@@ -35,6 +39,37 @@ import { getLocale } from "@/paraglide/runtime.js";
 
 const YEAR_PAGE_SIZE = 12;
 
+const YearCell = ({
+  index,
+  isDisabled,
+  isSelected,
+  onSelect,
+  registerItem,
+  year,
+}: {
+  index: number;
+  isDisabled: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+  year: number;
+}) => {
+  const cellRef = useRef<HTMLButtonElement>(null);
+  useRegisterFluidHoverItem(registerItem, index, cellRef);
+
+  return (
+    <Button
+      className="tabular-nums [--hover:transparent]"
+      disabled={isDisabled}
+      onClick={onSelect}
+      ref={cellRef}
+      variant={isSelected ? "primary" : "ghost"}
+    >
+      {year}
+    </Button>
+  );
+};
+
 const PeriodYearPicker = ({
   selectedYear,
   minYear,
@@ -50,12 +85,18 @@ const PeriodYearPicker = ({
     selectedYear - (selectedYear % YEAR_PAGE_SIZE)
   );
   const years = Array.from({ length: YEAR_PAGE_SIZE }, (_, i) => pageStart + i);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(gridRef, {
+    axis: "xy",
+    isItemDisabled: (element) => element.matches(":disabled"),
+  });
 
   return (
     <div className="flex flex-col gap-2 p-3">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
+          size="icon-compact"
           onClick={() => setPageStart((p) => p - YEAR_PAGE_SIZE)}
           aria-label={m.budget_year_picker_previous()}
         >
@@ -66,30 +107,33 @@ const PeriodYearPicker = ({
         </span>
         <Button
           variant="ghost"
+          size="icon-compact"
           onClick={() => setPageStart((p) => p + YEAR_PAGE_SIZE)}
           aria-label={m.budget_year_picker_next()}
         >
           <RiArrowRightSLine />
         </Button>
       </div>
-      <div className="grid grid-cols-3 gap-1">
-        {years.map((year) => {
-          const disabled =
-            (minYear !== undefined && year < minYear) ||
-            (maxYear !== undefined && year > maxYear);
-
-          return (
-            <Button
-              key={year}
-              variant={year === selectedYear ? "default" : "ghost"}
-              disabled={disabled}
-              onClick={() => onSelectYear(year)}
-              className="tabular-nums"
-            >
-              {year}
-            </Button>
-          );
-        })}
+      <div
+        className="relative grid grid-cols-3 gap-1"
+        ref={gridRef}
+        {...hover.handlers}
+      >
+        <FluidHoverHighlight className="rounded-lg" hover={hover} />
+        {years.map((year, index) => (
+          <YearCell
+            index={index}
+            isDisabled={
+              (minYear !== undefined && year < minYear) ||
+              (maxYear !== undefined && year > maxYear)
+            }
+            isSelected={year === selectedYear}
+            key={year}
+            onSelect={() => onSelectYear(year)}
+            registerItem={hover.registerItem}
+            year={year}
+          />
+        ))}
       </div>
     </div>
   );
@@ -149,6 +193,7 @@ export const PeriodNavigator = ({
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
+          size="icon-compact"
           disabled={!canGoBack}
           onClick={() => navigate(-1)}
           aria-label={m.budget_period_previous()}
@@ -192,6 +237,7 @@ export const PeriodNavigator = ({
         </Popover>
         <Button
           variant="ghost"
+          size="icon-compact"
           disabled={!canGoForward}
           onClick={() => navigate(1)}
           aria-label={m.budget_period_next()}
@@ -214,13 +260,11 @@ export const PeriodNavigator = ({
               }
             }}
           >
-            <SelectTrigger>
-              <SelectValue>{() => aggregationLabel(aggregation)}</SelectValue>
-            </SelectTrigger>
+            <SelectTrigger />
             <SelectContent>
               <SelectGroup>
-                {AGGREGATION_MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
+                {AGGREGATION_MODES.map((mode, position) => (
+                  <SelectItem index={position} key={mode} value={mode}>
                     {aggregationLabel(mode)}
                   </SelectItem>
                 ))}

@@ -25,6 +25,7 @@ const connection = (
 ): BankConnection => ({
   accounts: [{ iban: null, id: `${id}-account`, name: null }],
   id,
+  institutionCountry: "FR",
   institutionId: id,
   institutionName: id,
   lastSyncedAt: null,
@@ -110,5 +111,43 @@ describe("buildBankRows", () => {
     expect(rows[0]?.description).toBe(
       "1 account · Reconnect to resume importing"
     );
+  });
+
+  test("the same bank in two countries stays two rows", () => {
+    const rows = buildBankRows(
+      [institution("n26"), institution("n26", { country: "DE" })],
+      [],
+      "en"
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.institution?.country)).toEqual(["FR", "DE"]);
+
+    const idsReactWillKeyOn = new Set(rows.map((row) => row.id));
+
+    expect(idsReactWillKeyOn.size).toBe(2);
+  });
+
+  test("connecting a bank in one country leaves the other on offer", () => {
+    const rows = buildBankRows(
+      [institution("n26"), institution("n26", { country: "DE" })],
+      [connection("n26")],
+      "en"
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.connection?.id).toBe("n26");
+    expect(rows[1]?.institution?.country).toBe("DE");
+  });
+
+  test("a list spanning countries names the one each bank links", () => {
+    const rows = buildBankRows(
+      [institution("alpha"), institution("beta", { bic: null, country: "DE" })],
+      [],
+      "en"
+    );
+
+    expect(rows[0]?.description).toBe("France · ALPHAXXX");
+    expect(rows[1]?.description).toBe("Germany");
   });
 });

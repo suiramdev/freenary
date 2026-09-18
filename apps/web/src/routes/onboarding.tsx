@@ -19,8 +19,8 @@ const OnboardingPage = () => {
 
   const banksQuery = useQuery(
     orpc.bankConnection.listInstitutions.queryOptions({
-      enabled: wizard.country !== null && isBankStepReachable,
-      input: { country: wizard.country ?? undefined },
+      enabled: wizard.taxCountries.length > 0 && isBankStepReachable,
+      input: { countries: wizard.taxCountries },
     })
   );
 
@@ -32,7 +32,6 @@ const OnboardingPage = () => {
     <OnboardingWizard
       banks={banksQuery.data?.banks ?? []}
       connectedCount={connectionsQuery.data?.connections.length ?? 0}
-      country={wizard.country}
       direction={wizard.direction}
       hasBankStep={hasBankStep}
       isBanksError={banksQuery.isError}
@@ -40,11 +39,13 @@ const OnboardingPage = () => {
       isCompleting={wizard.isCompleting}
       isPending={availability.isLoading}
       onBack={wizard.handleBack}
+      onCountriesChange={wizard.handleCountriesChange}
       onCountryContinue={wizard.handleCountryContinue}
-      onCountrySelect={wizard.handleCountrySelect}
       onFinish={wizard.handleFinish}
       onSignOut={wizard.handleSignOut}
       step={wizard.step}
+      taxCountries={wizard.taxCountries}
+      unavailableCountries={banksQuery.data?.unavailableCountries ?? []}
     />
   );
 };

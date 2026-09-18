@@ -1,5 +1,7 @@
 import { Toaster } from "@freenary/ui/components/sonner";
+import { IconProvider } from "@freenary/ui/lib/icon-context";
 import { UiLabelsProvider } from "@freenary/ui/lib/labels";
+import { SizeProvider } from "@freenary/ui/lib/size-context";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -14,6 +16,7 @@ import { evlogErrorHandler } from "evlog/nitro/v3";
 import { ThemeProvider } from "next-themes";
 
 import { UNKNOWN_VIEWER, getViewer } from "@/functions/get-viewer";
+import { ffIcons } from "@/lib/ff-icons";
 import { isServer } from "@/lib/is-server";
 import { publicServerUrlScript } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
@@ -39,20 +42,42 @@ const RootDocument = () => (
         disableTransitionOnChange
         enableSystem
       >
-        <UiLabelsProvider
-          labels={{
-            close: m.ui_close(),
-            loading: m.ui_loading(),
-            more: m.ui_more(),
-            scrollToEnd: m.ui_scroll_to_end(),
-            scrollToStart: m.ui_scroll_to_start(),
-            sidebar: m.ui_sidebar(),
-            sidebarDescription: m.ui_sidebar_description(),
-            toggleSidebar: m.ui_toggle_sidebar(),
-          }}
-        >
-          <Outlet />
-        </UiLabelsProvider>
+        <SizeProvider defaultSize="compact">
+          <IconProvider icons={ffIcons}>
+            <UiLabelsProvider
+              labels={{
+                breadcrumb: m.ui_breadcrumb(),
+                clear: m.ui_clear(),
+                close: m.ui_close(),
+                collapseSidebar: m.ui_collapse_sidebar(),
+                dismiss: m.ui_dismiss(),
+                expandSidebar: m.ui_expand_sidebar(),
+                filterResults: m.ui_filter_results(),
+                loading: m.ui_loading(),
+                loadingPreview: m.ui_loading_preview(),
+                more: m.ui_more(),
+                open: m.ui_open(),
+                peekSidebar: m.ui_peek_sidebar(),
+                remove: m.ui_remove(),
+                resizeSidebar: m.ui_resize_sidebar(),
+                run: m.ui_run(),
+                select: m.ui_select(),
+                sidebar: m.ui_sidebar(),
+                suggestedPrompts: m.ui_suggested_prompts(),
+                tabs: m.ui_tabs(),
+                thinking: m.ui_thinking(),
+                thinkingWords: [
+                  m.ui_thinking_word_thinking(),
+                  m.ui_thinking_word_reading(),
+                  m.ui_thinking_word_planning(),
+                ],
+                toggleSidebar: m.ui_toggle_sidebar(),
+              }}
+            >
+              <Outlet />
+            </UiLabelsProvider>
+          </IconProvider>
+        </SizeProvider>
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />

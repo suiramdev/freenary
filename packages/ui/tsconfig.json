@@ -7,7 +7,11 @@
     "paths": {
       "@freenary/ui/*": ["./src/*"]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    // Off for the whole project because the vendored Fluid Functionalism
+    // registry sources predate this flag; tsconfig.strict.json puts it back
+    // for the modules this repo owns.
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   // Tests run under Bun and need its ambient types, which `types: []` keeps out

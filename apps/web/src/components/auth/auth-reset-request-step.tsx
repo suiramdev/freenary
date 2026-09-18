@@ -1,6 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
 import { Field, FieldGroup } from "@freenary/ui/components/field";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
 import { useMemo } from "react";
 import { z } from "zod";
@@ -58,8 +57,7 @@ export const AuthResetRequestStep = ({
           </form.Field>
 
           <Field>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting && <Spinner data-icon="inline-start" />}
+            <Button loading={isSubmitting} type="submit">
               {m.auth_reset_request_submit()}
             </Button>
           </Field>
@@ -67,7 +65,7 @@ export const AuthResetRequestStep = ({
       </form>
 
       <div className="mt-2 flex justify-center">
-        <Button type="button" variant="link" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack}>
           {m.auth_back_to_sign_in()}
         </Button>
       </div>

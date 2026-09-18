@@ -1,3 +1,6 @@
+import { Data } from "effect";
+import type { Effect } from "effect";
+
 export interface ProviderInstitution {
   id: string;
   name: string;
@@ -115,7 +118,9 @@ export interface BankingProvider {
   isConfigured: () => boolean;
   createUser?: () => Promise<ProviderUserSession>;
   deleteUser?: (user: ProviderUserSession) => Promise<void>;
-  listInstitutions: (country: string) => Promise<ProviderInstitution[]>;
+  listInstitutions: (
+    country: string
+  ) => Effect.Effect<ProviderInstitution[], BankInstitutionsUnavailable>;
   startConnection: (
     request: StartConnectionRequest
   ) => Promise<{ url: string }>;
@@ -142,6 +147,12 @@ export type ProviderAccountType =
   | "REAL_ESTATE"
   | "CROWDLENDING"
   | "UNKNOWN";
+
+export class BankInstitutionsUnavailable extends Data.TaggedError(
+  "BankInstitutionsUnavailable"
+)<{ country: string }> {
+  override readonly message = "Could not load banks for this country";
+}
 
 const ACCOUNT_TYPES_HOLDING_POSITIONS_NOT_CASH = {
   BROKERAGE: true,

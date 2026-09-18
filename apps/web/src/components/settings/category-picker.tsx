@@ -1,23 +1,17 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
-import { Button } from "@freenary/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSearch,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@freenary/ui/components/dropdown-menu";
-import { cn } from "@freenary/ui/lib/utils";
-import { RiAddLine, RiExpandUpDownLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@freenary/ui/components/combobox";
+import { useMemo } from "react";
 
-import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
+import { categoryRowMatches } from "@/lib/budget/category-search";
+import type { CategoryRow } from "@/lib/budget/category-search";
 import { toCategorySections } from "@/lib/settings/category-sections";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
@@ -29,82 +23,79 @@ interface CategoryPickerProps {
   value: string;
 }
 
+interface EntryRow extends CategoryRow {
+  entry: CategoryEntry;
+}
+
 export const CategoryPicker = ({
   categories,
   onCreateRequest,
   onSelect,
   value,
 }: CategoryPickerProps) => {
-  const [query, setQuery] = useState("");
-  const selected = categories.find((entry) => entry.key === value);
+  const items = useMemo<EntryRow[]>(() => {
+    const rows: EntryRow[] = [];
 
-  const sections = useMemo(
-    () => toCategorySections(categories, query),
-    [categories, query]
-  );
+    for (const section of toCategorySections(categories, "")) {
+      const heading = section.heading
+        ? categoryEntryLabel(section.heading)
+        : "";
+
+      for (const entry of section.items) {
+        rows.push({
+          entry,
+          group: heading,
+          label: categoryEntryLabel(entry),
+          value: entry.key,
+        });
+      }
+    }
+
+    return rows;
+  }, [categories]);
 
   return (
-    <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownMenuTrigger
-        render={
-          <Button className="w-40 shrink-0 justify-between" variant="outline" />
+    <Combobox
+      createLabel={() => m.settings_category_new_ellipsis()}
+      filter={categoryRowMatches}
+      items={items}
+      onCreate={onCreateRequest}
+      onValueChange={(next) => {
+        if (next !== "") {
+          onSelect(next);
         }
-      >
-        <span className="truncate">
-          {selected
-            ? categoryEntryLabel(selected)
-            : m.settings_category_picker_placeholder()}
-        </span>
-        <RiExpandUpDownLine data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="max-h-72 w-64 overflow-y-auto"
-      >
-        <DropdownMenuSearch
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={m.settings_category_search_placeholder()}
-          value={query}
-        />
-        <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
-          {sections.map((section) => (
-            <DropdownMenuGroup key={section.key}>
-              {section.heading && (
-                <DropdownMenuLabel>
-                  {categoryEntryLabel(section.heading)}
-                </DropdownMenuLabel>
-              )}
-              {section.items.map((entry) => (
-                <DropdownMenuRadioItem
-                  key={entry.key}
-                  value={entry.key}
-                  closeOnClick={true}
-                  className={cn(section.heading && "ps-8")}
-                >
-                  <CategoryIcon
-                    color={entry.color}
-                    icon={entry.icon}
-                    className="size-5 [&_svg]:size-3"
-                  />
-                  {categoryEntryLabel(entry)}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuGroup>
-          ))}
-        </DropdownMenuRadioGroup>
-        {sections.length === 0 && (
-          <DropdownMenuEmpty>
-            {m.settings_category_search_empty()}
-          </DropdownMenuEmpty>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem onClick={onCreateRequest}>
-            <RiAddLine data-icon="inline-start" />
-            {m.settings_category_new_ellipsis()}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      }}
+      value={value}
+    >
+      <ComboboxInput
+        className="w-44 shrink-0"
+        placeholder={m.settings_category_picker_placeholder()}
+      />
+      <ComboboxContent align="start">
+        <ComboboxEmpty>{m.settings_category_search_empty()}</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => {
+            // SAFETY: every row comes from `items`, built above.
+            const row = item as EntryRow;
+
+            return (
+              <ComboboxItem
+                icon={categoryMenuIcon(row.entry)}
+                value={row.value}
+              >
+                <span className="flex w-full items-baseline justify-between gap-3">
+                  <span className="truncate">{row.label}</span>
+                  {row.group && (
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
+                      {row.group}
+                    </span>
+                  )}
+                </span>
+              </ComboboxItem>
+            );
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 };

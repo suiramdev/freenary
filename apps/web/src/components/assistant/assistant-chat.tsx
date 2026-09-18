@@ -1,25 +1,21 @@
 import { useChat } from "@ai-sdk/react";
 import { Button } from "@freenary/ui/components/button";
+import { InputMessage } from "@freenary/ui/components/input-message";
 import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
-import { RiRefreshLine } from "@remixicon/react";
+import { RiAddLine, RiRefreshLine } from "@remixicon/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
 import { AssistantActivity } from "@/components/assistant/assistant-activity";
 import { AssistantAvatar } from "@/components/assistant/assistant-avatar";
 import { AssistantChatSkeleton } from "@/components/assistant/assistant-chat-skeleton";
-import { AssistantComposer } from "@/components/assistant/assistant-composer";
 import { AssistantEmptyState } from "@/components/assistant/assistant-empty-state";
 import { AssistantMessage } from "@/components/assistant/assistant-message";
 import { AssistantModelSelector } from "@/components/assistant/assistant-model-selector";
 import { AssistantModelStatus } from "@/components/assistant/assistant-model-status";
+import { AssistantTranscript } from "@/components/assistant/assistant-transcript";
 import { assistantAvatarState } from "@/lib/assistant/avatar-state";
 import type { BrowserModelStatus } from "@/lib/assistant/browser/engine";
 import {
@@ -36,6 +32,7 @@ import {
   SERVER_MODEL,
   useRememberedModel,
 } from "@/lib/assistant/model-choice";
+import { remixIcon } from "@/lib/remix-icon";
 import { getServerUrl } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
@@ -110,8 +107,12 @@ const TranscriptTail = ({
         role="alert"
       >
         <span>{errorMessageOf(error.message)}</span>
-        <Button onClick={onRetry} size="sm" variant="ghost">
-          <RiRefreshLine className="size-3" />
+        <Button
+          leadingIcon={remixIcon(RiRefreshLine)}
+          onClick={onRetry}
+          size="compact"
+          variant="ghost"
+        >
           {m.assistant_retry()}
         </Button>
       </div>
@@ -128,6 +129,7 @@ export const AssistantChat = ({
 }: AssistantChatProps) => {
   const queryClient = useQueryClient();
   const [composerActive, setComposerActive] = useState(false);
+  const [draft, setDraft] = useState("");
   const [justFinished, setJustFinished] = useState(false);
   const [turn, setTurn] = useState<{ retrying: boolean; startedAt: number }>();
   const acknowledgeTimer = useRef(0);
@@ -245,54 +247,57 @@ export const AssistantChat = ({
   const streaming = status === "streaming" || status === "submitted";
   const conversationKnown = conversationId !== undefined;
 
+  const suggestions = useMemo(
+    () => [
+      m.assistant_suggestion_spending(),
+      m.assistant_suggestion_cash_flow(),
+      m.assistant_suggestion_recurring(),
+    ],
+    []
+  );
+
   return (
     <div className="flex h-[calc(100svh-4rem)] min-h-0 flex-col gap-4 p-4">
       {isPending ? (
         <AssistantChatSkeleton />
       ) : (
-        <Conversation className="min-h-0 flex-1">
-          <ConversationContent>
-            {messages.length === 0 ? (
-              <AssistantEmptyState
-                avatarState={avatarState}
-                onSuggestion={ready ? ask : undefined}
-                userName={userName}
-              />
-            ) : (
-              messages.map((message, index) => {
-                const live = message.id === streamingMessageId;
-                const isLastAnswer =
-                  message.role === "assistant" && index === messages.length - 1;
-                const retryable = isLastAnswer && status === "ready" && ready;
-
-                return (
-                  <AssistantMessage
-                    avatarState={
-                      message.id === liveMessageId ? avatarState : undefined
-                    }
-                    key={message.id}
-                    live={live}
-                    message={message}
-                    onRetry={retryable ? redo : undefined}
-                    retrying={live && (turn?.retrying ?? false)}
-                    startedAt={live ? turn?.startedAt : undefined}
-                    status={live ? status : "ready"}
-                  />
-                );
-              })
-            )}
-            <TranscriptTail
+        <AssistantTranscript scrollLabel={m.assistant_scroll_to_latest()}>
+          {messages.length === 0 ? (
+            <AssistantEmptyState
               avatarState={avatarState}
-              awaitingFirstChunk={awaitingFirstChunk}
-              error={error}
-              onRetry={redoLastTurn}
-              retrying={turn?.retrying ?? false}
+              userName={userName}
             />
-          </ConversationContent>
-          <ConversationScrollButton
-            aria-label={m.assistant_scroll_to_latest()}
+          ) : (
+            messages.map((message, index) => {
+              const live = message.id === streamingMessageId;
+              const isLastAnswer =
+                message.role === "assistant" && index === messages.length - 1;
+              const retryable = isLastAnswer && status === "ready" && ready;
+
+              return (
+                <AssistantMessage
+                  avatarState={
+                    message.id === liveMessageId ? avatarState : undefined
+                  }
+                  key={message.id}
+                  live={live}
+                  message={message}
+                  onRetry={retryable ? redo : undefined}
+                  retrying={live && (turn?.retrying ?? false)}
+                  startedAt={live ? turn?.startedAt : undefined}
+                  status={live ? status : "ready"}
+                />
+              );
+            })
+          )}
+          <TranscriptTail
+            avatarState={avatarState}
+            awaitingFirstChunk={awaitingFirstChunk}
+            error={error}
+            onRetry={redoLastTurn}
+            retrying={turn?.retrying ?? false}
           />
-        </Conversation>
+        </AssistantTranscript>
       )}
       {!isPending && (
         <AssistantModelStatus
@@ -301,26 +306,56 @@ export const AssistantChat = ({
           webGpu={webGpu}
         />
       )}
-      <AssistantComposer
+      <InputMessage
         disabled={!(conversationKnown && ready)}
-        modelSelector={
-          !isPending && (
-            <AssistantModelSelector
-              disabled={streaming}
-              loadingProgress={loadProgressOf(browserModel, selected)}
-              onSelect={rememberModel}
-              selected={selected}
-              serverModel={serverModel}
-              webGpu={webGpu}
-            />
-          )
+        leftSlot={
+          <>
+            {!isPending && (
+              <AssistantModelSelector
+                disabled={streaming}
+                loadingProgress={loadProgressOf(browserModel, selected)}
+                onSelect={rememberModel}
+                selected={selected}
+                serverModel={serverModel}
+                webGpu={webGpu}
+              />
+            )}
+            <Button
+              disabled={newConversation.isPending}
+              leadingIcon={remixIcon(RiAddLine)}
+              onClick={() => newConversation.mutate({})}
+              size="compact"
+              variant="ghost"
+            >
+              {m.assistant_new_conversation()}
+            </Button>
+          </>
         }
-        newConversationPending={newConversation.isPending}
-        onActiveChange={setComposerActive}
-        onNewConversation={() => newConversation.mutate({})}
-        onSend={ask}
+        onSend={(text) => {
+          if (streaming) {
+            return;
+          }
+
+          ask(text);
+          setDraft("");
+          setComposerActive(false);
+        }}
         onStop={stop}
-        status={status}
+        onValueChange={(next) => {
+          setDraft(next);
+          setComposerActive(true);
+        }}
+        placeholder={m.assistant_composer_placeholder()}
+        sendLabel={m.assistant_send()}
+        stopLabel={m.assistant_stop()}
+        suggestions={messages.length === 0 && ready ? suggestions : undefined}
+        status={streaming ? "streaming" : "idle"}
+        textareaProps={{
+          "aria-label": m.assistant_composer_placeholder(),
+          onBlur: () => setComposerActive(draft.length > 0),
+          onFocus: () => setComposerActive(true),
+        }}
+        value={draft}
       />
     </div>
   );

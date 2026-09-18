@@ -34,7 +34,7 @@ const AuthLayout = () => {
         <AppSidebar />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 px-4">
-            <SidebarTrigger size="default" className="-ms-1" />
+            <SidebarTrigger className="-ms-1" size="icon" />
             <Separator orientation="vertical" className="me-2 h-4 !self-auto" />
             <Breadcrumb>
               <BreadcrumbList>

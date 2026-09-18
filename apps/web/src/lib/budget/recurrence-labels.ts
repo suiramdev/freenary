@@ -34,13 +34,13 @@ const SECTION_EMPTY_MESSAGES = {
   fixed: m.budget_recurring_section_empty_fixed,
 } satisfies Record<RecurrenceKind, () => string>;
 
-const CONFIDENCE_BADGE_VARIANTS = {
-  confirmed: "default",
-  likely: "secondary",
-  pattern: "outline",
+const CONFIDENCE_VARIANTS = {
+  confirmed: { color: "green", variant: "solid" },
+  likely: { color: "amber", variant: "solid" },
+  pattern: { color: "gray", variant: "dot" },
 } as const satisfies Record<
   RecurrenceConfidence,
-  "default" | "outline" | "secondary"
+  { color: "amber" | "gray" | "green"; variant: "dot" | "solid" }
 >;
 
 const TODAY = 0;
@@ -53,7 +53,7 @@ export const confidenceLabel = (confidence: RecurrenceConfidence): string =>
   CONFIDENCE_MESSAGES[confidence]();
 
 export const confidenceVariant = (confidence: RecurrenceConfidence) =>
-  CONFIDENCE_BADGE_VARIANTS[confidence];
+  CONFIDENCE_VARIANTS[confidence];
 
 export const sectionLabel = (kind: RecurrenceKind): string =>
   SECTION_MESSAGES[kind]();

@@ -10,7 +10,7 @@ Your first sign-in opens a short setup. You cannot reach the rest of the app bef
 
 ## The setup steps
 
-The setup asks for your country, then offers a bank connection. A progress bar sits at the top, labelled `Onboarding progress`, with the step names `Country` and `Bank connection`.
+The setup asks for your tax residency, then offers a bank connection. A progress bar sits at the top, labelled `Onboarding progress`, with the step names `Tax residency` and `Bank connection`.
 
 The header carries three controls, in this order:
 
@@ -22,7 +22,7 @@ The header carries three controls, in this order:
 
 <Callout type="info">
 
-The bank step exists only when your instance links banks. Without it the setup holds one step, and `Continue` on the country step finishes the setup.
+The bank step exists only when your instance links banks. Without it the setup holds one step, and `Continue` on the tax residency step finishes the setup.
 
 </Callout>
 
@@ -30,17 +30,19 @@ The bank step exists only when your instance links banks. Without it the setup h
 
 <Step>
 
-### Pick your country
+### Pick your tax residency
 
-The step reads `Where are you based?`, over the line `Select your country to personalize your experience.`
+The step reads `What’s your tax residency?`, over the line `Select every jurisdiction you are subject to. They set the banks you can link and the categorization rules we apply.`
 
-The list holds **196** countries. The search box above it reads `Search countries…`, and it matches the name of a country and its two-letter code. An empty result reads `No countries match your search`.
+The step offers **196** countries in one type-to-filter field. Empty, it reads `Add a country…`, and it matches the name of a country and its two-letter code. A search that matches nothing reads `No countries match your search`.
 
-`France` sits at the top, because Freenary holds bank coverage and category rules for France. Every other country carries the badge `Limited support`. You can pick any of them, and every screen stays open to you. Freenary then files fewer of your transactions under a category by itself.
+You can hold more than one. Each country you pick becomes a chip in the field, and a second press on the same row removes it. Press the chip cross, or the field cross, to clear one or all of them.
 
-Under the list, Freenary asks `Want to add support for your country?` and offers the link `Contribute here`. It opens the project repository in a new tab.
+`France` sits at the top, because Freenary holds bank coverage and category rules for France. Every other row carries the badge `Limited support`. You can pick any of them, and every screen stays open to you. Freenary then files fewer of your transactions under a category by itself.
 
-`Continue` stays off until you pick a country.
+Under the field, Freenary asks `Want to add support for your country?` and offers the link `Contribute here`. It opens the project repository in a new tab.
+
+`Continue` stays off until you pick a minimum of one country.
 
 </Step>
 
@@ -56,7 +58,7 @@ Three buttons sit at the foot:
 
 | Button | What it does |
 | --- | --- |
-| `Back` | Returns you to the country step |
+| `Back` | Returns you to the tax residency step |
 | `Skip for now` | Finishes the setup with no bank |
 | `Finish` | Finishes the setup. With one connection or more it counts them, as in `Finish (1)` |
 
@@ -68,7 +70,7 @@ Three buttons sit at the foot:
 
 ### Land on Home
 
-Freenary saves your country, shows the message `You’re all set!`, and opens Home. A failure reads `Something went wrong. Please try again.` instead.
+Freenary saves your tax residency, shows the message `You’re all set!`, and opens Home. A failure reads `Something went wrong. Please try again.` instead.
 
 </Step>
 
@@ -76,7 +78,7 @@ Freenary saves your country, shows the message `You’re all set!`, and opens Ho
 
 <Callout type="info">
 
-Your country survives the trip to your bank. Come back from a bank page, and the setup re-opens on the bank step.
+Your tax residency survives the trip to your bank. Come back from a bank page, and the setup re-opens on the bank step.
 
 </Callout>
 

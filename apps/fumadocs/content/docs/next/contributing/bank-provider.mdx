@@ -23,7 +23,7 @@ Twelve members, eight of them required. The adapter never touches Prisma: `packa
 | `id` | yes, `readonly` | none | a stable lower-case string | The registry key, and the value of `bank_connection.provider` |
 | `callbackPath` | yes, `readonly` | none | a path typed `` `/callback/${string}` `` | `startConnection` builds the redirect URL from `CORS_ORIGIN` and this path |
 | `isConfigured` | yes | none | a boolean | `bankConnection.getProviderAvailability` gates the settings section and the onboarding bank step. Never call the network here |
-| `listInstitutions` | yes | one ISO 3166-1 alpha-2 country | a promise of provider institutions | The bank picker, and the exact match on the pair of id and country at start and at exchange |
+| `listInstitutions` | yes | one ISO 3166-1 alpha-2 country | an `Effect` of provider institutions, which can fail with `BankInstitutionsUnavailable` | The bank picker, and the exact match on the pair of id and country at start and at exchange |
 | `startConnection` | yes | a start request | a promise of one `url` | The web app sends the browser to that URL |
 | `completeConnection` | yes | the callback parameters and the user session | a promise of one completed connection | `exchangeCode` writes the connection row and one account row per account |
 | `closeConnection` | yes | a connection request | a promise of nothing | `disconnect` calls it before it deletes the local rows |
@@ -245,7 +245,7 @@ With no stable id from the provider, derive one. Enable Banking hashes the stabl
 
 Two rules both shipped adapters follow:
 
-- `listInstitutions` never throws. It returns an empty list when the adapter is unconfigured, when the call fails, and when it throws.
+- `listInstitutions` does not throw, and it does not hide a failed call behind an empty list. It fails the `Effect` with `BankInstitutionsUnavailable`, which carries the `country`. An empty list therefore means the provider has no bank for that country.
 - `closeConnection` and `deleteUser` treat a 404 as success, because the record is already gone.
 
 A sync failure changes no connection status. [Data model](/docs/contributing/data-model#bankconnectionstatus) owns the status vocabulary and states which of its values the code writes.

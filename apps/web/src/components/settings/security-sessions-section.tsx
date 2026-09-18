@@ -10,11 +10,12 @@ import {
   AlertDialogTrigger,
 } from "@freenary/ui/components/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
-import { Spinner } from "@freenary/ui/components/spinner";
-import { useMemo } from "react";
+import { useFluidHover } from "@freenary/ui/hooks/use-fluid-hover";
+import { useMemo, useRef } from "react";
 
 import { SecurityRowsSkeleton } from "@/components/settings/security-rows-skeleton";
 import { SecuritySessionRow } from "@/components/settings/security-session-row";
+import { SettingsRowList } from "@/components/settings/settings-row-list";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useSessionRevocation } from "@/hooks/settings/use-session-revocation";
 import { authClient } from "@/lib/auth-client";
@@ -38,6 +39,8 @@ export const SecuritySessionsSection = ({
     revokeSession,
     revokingToken,
   } = useSessionRevocation();
+  const listRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
 
   const locale = getLocale();
   const formatter = useMemo(
@@ -91,18 +94,20 @@ export const SecuritySessionsSection = ({
     }
 
     return (
-      <ul className="flex flex-col gap-1.5">
-        {ordered.map((item) => (
+      <SettingsRowList hover={hover} ref={listRef}>
+        {ordered.map((item, index) => (
           <SecuritySessionRow
             formatter={formatter}
+            index={index}
             isCurrent={item.token === currentToken}
             isRevoking={revokingToken === item.token}
             key={item.id}
             onRevoke={revokeSession}
+            registerItem={hover.registerItem}
             session={item}
           />
         ))}
-      </ul>
+      </SettingsRowList>
     );
   };
 
@@ -111,7 +116,7 @@ export const SecuritySessionsSection = ({
       action={
         otherCount > 0 ? (
           <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="outline" />}>
+            <AlertDialogTrigger render={<Button variant="tertiary" />}>
               {m.settings_sessions_revoke_others()}
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -128,11 +133,11 @@ export const SecuritySessionsSection = ({
               <AlertDialogFooter>
                 <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
                 <AlertDialogAction
-                  disabled={isRevokingOthers}
+                  loading={isRevokingOthers}
                   onClick={() => revokeOtherSessions()}
-                  variant="destructive"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
                 >
-                  {isRevokingOthers && <Spinner data-icon="inline-start" />}
                   {m.settings_sessions_revoke_others_confirm()}
                 </AlertDialogAction>
               </AlertDialogFooter>

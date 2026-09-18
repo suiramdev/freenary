@@ -1,9 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@freenary/ui/components/tooltip";
+import { Spinner } from "@freenary/ui/components/spinner";
+import { Tooltip } from "@freenary/ui/components/tooltip";
 import { RiRefreshLine } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
@@ -12,7 +9,7 @@ interface SyncButtonProps {
   isSyncing: boolean;
   label: string;
   onSync: () => void;
-  size?: "icon" | "icon-sm";
+  size?: "icon" | "icon-compact";
 }
 
 export const SyncButton = ({
@@ -21,23 +18,16 @@ export const SyncButton = ({
   onSync,
   size = "icon",
 }: SyncButtonProps) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <Button
-          aria-label={isSyncing ? m.budget_sync_running() : label}
-          disabled={isSyncing}
-          onClick={onSync}
-          size={size}
-          type="button"
-          variant="ghost"
-        />
-      }
+  <Tooltip content={isSyncing ? m.budget_sync_running() : label}>
+    <Button
+      aria-label={isSyncing ? m.budget_sync_running() : label}
+      disabled={isSyncing}
+      onClick={onSync}
+      size={size}
+      type="button"
+      variant="ghost"
     >
-      <RiRefreshLine className={isSyncing ? "animate-spin" : undefined} />
-    </TooltipTrigger>
-    <TooltipContent>
-      {isSyncing ? m.budget_sync_running() : label}
-    </TooltipContent>
+      {isSyncing ? <Spinner /> : <RiRefreshLine />}
+    </Button>
   </Tooltip>
 );
