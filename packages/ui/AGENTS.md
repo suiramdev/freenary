@@ -48,7 +48,7 @@ The baseline is `mickadesign/fluid-functionalism@e07409c`, vendored 2026-09-10. 
 | --- | --- |
 | `button.tsx` | The Tailwind group is named `group/button`, and every modifier that depends on it is scoped to that name (`group-hover/button:`, `group-active/button:` — 21 of them across the variant table). Upstream's bare `group` also answers a hovered ancestor `.group`, which lights every button inside a hovered row or card. The inner label span gains `w-full min-w-0 [justify-content:inherit]`. The spinner gains `role="status"` and an `aria-label` from the labels seam. |
 | `menu-item.tsx` | Adds a `submenu?: boolean` prop, a `useIcon("chevron-right")` slot and the chevron markup it renders. |
-| `dropdown.tsx` | Adds a `DropdownSubmenu` component, consumed by `apps/web/src/components/shared/sidebar-user-menu.tsx`. Adds five `isOwnEvent` guards to `DropdownMenu`'s pointer, click and focus handlers; without them a submenu's events reach the parent popup and drive its highlight. |
+| `dropdown.tsx` | Adds a `DropdownSubmenu` component, consumed by `apps/web/src/components/shared/sidebar-user-menu.tsx`. Adds an `isOwnEvent` helper and guards four of `DropdownMenu`'s handlers with it — `onMouseMove`, `onClick`, `onFocus` and `onBlur`; without them a submenu's events reach the parent popup and drive its highlight. |
 | `command-menu.tsx` | Upstream's `text-caption` class becomes an explicit `text-[11px]` / `text-[12px]`; this repo defines no `text-caption` utility. |
 | `card.tsx` | Upstream's `next/link` import becomes a local link shim — this is not a Next app. |
 | `combobox.tsx` | Adds `onQueryChange` and `onOpenChange` props, used by `apps/web/src/components/budget/merchant-filter-menu.tsx`. |
