@@ -14,15 +14,13 @@ import type { RecurringInsight, RecurringTrend } from "@/lib/budget/recurring";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/** Past four lines a reader skims none of them. */
-const MAX_INSIGHTS = 4;
-
 interface InsightLine {
   Icon: RemixiconComponentType;
   text: string;
 }
 
-/** Flat carries no figure, so the three directions cannot share one table. */
+const MAX_INSIGHTS = 4;
+
 const trendLine = (
   trend: RecurringTrend,
   percentFormat: Intl.NumberFormat
@@ -35,23 +33,20 @@ const trendLine = (
       text: m.budget_recurring_insight_trend_up({ percent }),
     };
   }
+
   if (trend.direction === "down") {
     return {
       Icon: RiArrowDownLine,
       text: m.budget_recurring_insight_trend_down({ percent }),
     };
   }
+
   return {
     Icon: RiRepeatLine,
     text: m.budget_recurring_insight_trend_flat(),
   };
 };
 
-/**
- * Returns rather than a `switch`: the trailing `insight.trend` only typechecks
- * once every other variant has returned, so a new insight kind is a compile
- * error here instead of a silently missing line.
- */
 const insightLine = (
   insight: RecurringInsight,
   currency: string,
@@ -66,8 +61,10 @@ const insightLine = (
       }),
     };
   }
+
   if (insight.kind === "share") {
     const percent = percentFormat.format(insight.share);
+
     return {
       Icon: RiPieChartLine,
       text:
@@ -76,6 +73,7 @@ const insightLine = (
           : m.budget_recurring_insight_share_income({ percent }),
     };
   }
+
   if (insight.kind === "top-annual") {
     return {
       Icon: RiRepeatLine,
@@ -85,17 +83,12 @@ const insightLine = (
       }),
     };
   }
+
   return trendLine(insight.trend, percentFormat);
 };
 
-/** One wrapped row of `text-sm`, matched by the pending placeholder. */
 const ROW_HEIGHT = "h-5";
 
-/**
- * The sentences the headline figures are worth saying out loud. A rising
- * recurring cost is not an error, so the arrow carries the direction and the
- * copy stays muted.
- */
 export const RecurringInsights = ({
   currency,
   insights,
@@ -105,8 +98,6 @@ export const RecurringInsights = ({
   insights: RecurringInsight[];
   isPending: boolean;
 }) => {
-  // The strip sits above every other section, so arriving without a stand-in
-  // would shove the whole tab down by a row.
   if (isPending) {
     return (
       <div aria-busy="true">

@@ -8,7 +8,6 @@ import { m } from "@/paraglide/messages.js";
 interface AssistantEmptyStateProps {
   avatarState: BrandAvatarState;
   userName: string;
-  /** Absent while nothing is loaded to answer with. */
   onSuggestion: ((text: string) => void) | undefined;
 }
 
@@ -23,8 +22,6 @@ export const AssistantEmptyState = ({
     m.assistant_suggestion_recurring(),
   ];
 
-  // `children` replaces the component's own icon/title/description, so the whole
-  // greeting is composed here rather than passed as those three props.
   return (
     <ConversationEmptyState>
       <AssistantAvatar

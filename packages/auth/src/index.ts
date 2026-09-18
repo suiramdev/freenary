@@ -41,19 +41,11 @@ import {
   socialProviders,
 } from "./providers";
 
-export type { AuthCapabilities, OAuthProviderDescriptor } from "./providers";
-export { authCapabilities } from "./providers";
-export { resolveCookiePolicy } from "./cookies";
-
 const APP_NAME = "Freenary";
+const MILLISECONDS_PER_SECOND = 1000;
 
-/**
- * WebAuthn binds a credential to the origin that created it, which is the web
- * app rather than this API. The relying party is therefore the web app's
- * hostname, and a credential registered on one deployment cannot be replayed
- * against another.
- */
-const webOrigin = new URL(env.CORS_ORIGIN);
+const webAppOrigin = new URL(env.CORS_ORIGIN);
+const passkeyRelyingPartyId = webAppOrigin.hostname;
 
 const buildPlugins = (): BetterAuthPlugin[] => {
   const plugins: BetterAuthPlugin[] = [
@@ -63,7 +55,7 @@ const buildPlugins = (): BetterAuthPlugin[] => {
     }),
     passkey({
       origin: env.CORS_ORIGIN,
-      rpID: webOrigin.hostname,
+      rpID: passkeyRelyingPartyId,
       rpName: APP_NAME,
     }),
   ];
@@ -74,13 +66,9 @@ const buildPlugins = (): BetterAuthPlugin[] => {
         allowedAttempts: OTP_ALLOWED_ATTEMPTS,
         expiresIn: OTP_EXPIRY_SECONDS,
         otpLength: OTP_LENGTH,
-        // Makes email verification and password reset run on codes rather than
-        // on links: a link is pre-fetched by mail clients and breaks across
-        // devices, and this way there is one delivery path to keep working.
         overrideDefaultEmailVerification: true,
         sendVerificationOTP: (data) =>
           sendOtpEmail(data.email, data.otp, data.type),
-        // A database dump must not contain codes that still open accounts.
         storeOTP: "hashed",
       })
     );
@@ -97,13 +85,6 @@ const buildPlugins = (): BetterAuthPlugin[] => {
   return plugins;
 };
 
-/**
- * One `before` hook for the policies Better Auth cannot express in options:
- * routes and code purposes this deployment does not offer, and the narrower
- * re-authentication window over changing which identities open the account.
- * Better Auth guards `/unlink-account` with `session.freshAge` but leaves
- * `/link-social` on a plain session check, and both change the same thing.
- */
 const enforceAuthPolicy = createAuthMiddleware(async (ctx) => {
   if (Object.hasOwn(DISABLED_PATHS, ctx.path)) {
     throw APIError.from("NOT_FOUND", {
@@ -127,6 +108,7 @@ const enforceAuthPolicy = createAuthMiddleware(async (ctx) => {
   }
 
   const session = await getSessionFromCtx(ctx);
+
   if (!session?.session) {
     throw APIError.from("UNAUTHORIZED", {
       code: "UNAUTHORIZED",
@@ -134,8 +116,9 @@ const enforceAuthPolicy = createAuthMiddleware(async (ctx) => {
     });
   }
 
-  const age = Date.now() - new Date(session.session.createdAt).getTime();
-  if (age >= REAUTH_WINDOW_SECONDS * 1000) {
+  const sessionAge = Date.now() - new Date(session.session.createdAt).getTime();
+
+  if (sessionAge >= REAUTH_WINDOW_SECONDS * MILLISECONDS_PER_SECOND) {
     throw APIError.from("FORBIDDEN", {
       code: "SESSION_NOT_FRESH",
       message: "Session is not fresh",
@@ -149,9 +132,6 @@ export const createAuth = () => {
   return betterAuth({
     account: {
       accountLinking: {
-        // One person, one account — but only when the provider proves the
-        // address and the local row is already verified, so pre-registering an
-        // unverified account at someone else's address links nothing.
         allowDifferentEmails: false,
         allowUnlinkingAll: false,
         enabled: true,
@@ -159,16 +139,11 @@ export const createAuth = () => {
     },
 
     advanced: {
-      // A declared parent domain is what lets both origins share one Lax
-      // cookie; without it a split-subdomain deployment falls back to None.
       crossSubDomainCookies:
         env.AUTH_COOKIE_DOMAIN === undefined
           ? undefined
           : { domain: env.AUTH_COOKIE_DOMAIN, enabled: true },
       defaultCookieAttributes: cookiePolicy,
-      // Better Auth refuses a multi-hop `x-forwarded-for` without this list and
-      // keys every caller into one bucket, which would cap the deployment
-      // instead of the caller on every rule below.
       ipAddress: { trustedProxies: env.TRUSTED_PROXIES },
     },
 
@@ -184,31 +159,22 @@ export const createAuth = () => {
       enabled: true,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
       minPasswordLength: MIN_PASSWORD_LENGTH,
-      // Demanded only where a code can actually be delivered. It is also what
-      // makes sign-up answer identically for a taken and a free address.
       requireEmailVerification: isEmailEnabled,
     },
 
     emailVerification: {
       autoSignInAfterVerification: true,
-      // Confirming an address mints a session, and the route neither checks
-      // nor changes anything for an address that is already confirmed. Without
-      // this refusal an emailed code would sign in past both the password and
-      // the second factor, which is the one thing this deployment does not
-      // allow. `user` still carries the pre-update flag here.
-      beforeEmailVerification: (user) => {
-        if (user.emailVerified) {
+      beforeEmailVerification: (userBeforeUpdate) => {
+        if (userBeforeUpdate.emailVerified) {
           throw APIError.from("BAD_REQUEST", {
             code: "INVALID_OTP",
             message: "Invalid code",
           });
         }
+
         return Promise.resolve();
       },
       expiresIn: OTP_EXPIRY_SECONDS,
-      // A sign-in blocked for want of confirmation lands the user on the code
-      // step, so send the code with the refusal rather than making them ask.
-      // Fires only after the password verifies, so it is not a spray vector.
       sendOnSignIn: true,
     },
 
@@ -220,8 +186,6 @@ export const createAuth = () => {
 
     rateLimit: {
       customRules: RATE_LIMIT_RULES,
-      // On in development too: a limiter that only exists in production is one
-      // nobody has ever seen work.
       enabled: env.NODE_ENV !== "test",
       max: RATE_LIMIT_DEFAULT.max,
       storage: "database",
@@ -232,13 +196,6 @@ export const createAuth = () => {
 
     session: {
       expiresIn: SESSION_EXPIRY_SECONDS,
-      // Matched to the lifetime rather than left at its 24-hour default: it
-      // gates `/list-sessions`, and a session's `createdAt` never moves, so the
-      // shorter default breaks the active-sessions screen for six days out of
-      // seven. It also gates `/unlink-account`, both halves of passkey
-      // registration and `/delete-user`; the first three take their narrower
-      // window from `REAUTH_PATHS`, and enabling user deletion means adding it
-      // there too rather than relying on a gate this line has made inert.
       freshAge: SESSION_EXPIRY_SECONDS,
     },
 
@@ -262,3 +219,7 @@ export const createAuth = () => {
 };
 
 export const auth = createAuth();
+
+export type { AuthCapabilities, OAuthProviderDescriptor } from "./providers";
+export { authCapabilities } from "./providers";
+export { resolveCookiePolicy } from "./cookies";

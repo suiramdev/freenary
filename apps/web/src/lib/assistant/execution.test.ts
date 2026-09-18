@@ -4,8 +4,8 @@ import type { ToolUIPart, UIMessage } from "ai";
 
 import { activityOf, toolStatusOf, traceOf } from "./execution";
 
-// SAFETY: the SDK's tool part union needs every generic field filled in; a
-// test fixture carries only what `traceOf` and `toolStatusOf` read.
+/* SAFETY: the SDK's tool part union needs every generic field filled in; a
+   test fixture carries only what `traceOf` and `toolStatusOf` read. */
 const tool = (state: ToolUIPart["state"], id = "call_1"): ToolUIPart =>
   ({
     input: { from: "2026-06-01", to: "2026-08-31" },

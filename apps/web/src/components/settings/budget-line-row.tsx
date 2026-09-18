@@ -17,9 +17,6 @@ import type { EditorLine } from "@/hooks/settings/use-budget-profile-editor";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** Settling, not springing back: a dropped row should stop where it landed. */
-const reorderTransition = { bounce: 0, duration: 0.3, type: "spring" } as const;
-
 interface BudgetLineRowProps {
   categories: CategoryEntry[];
   error: string | undefined;
@@ -30,6 +27,12 @@ interface BudgetLineRowProps {
   onUpdate: (id: string, patch: Partial<EditorLine>) => void;
 }
 
+const SETTLE_WHERE_DROPPED_TRANSITION = {
+  bounce: 0,
+  duration: 0.3,
+  type: "spring",
+} as const;
+
 export const BudgetLineRow = ({
   categories,
   error,
@@ -39,16 +42,9 @@ export const BudgetLineRow = ({
   onRemove,
   onUpdate,
 }: BudgetLineRowProps) => {
-  // The row is dragged by its handle alone (`dragListener={false}`), so a
-  // pointer down on an input or the picker still does what it looks like.
-  const dragControls = useDragControls();
-  // The lift is CSS, not `whileDrag`: motion's keyframe parser does not read
-  // `oklch()` in a `box-shadow`, so reverting the variant left the shadow and
-  // the scale stuck on the row after the first drop.
+  const handleOnlyDragControls = useDragControls();
   const [isDragging, setIsDragging] = useState(false);
   const selected = categories.find((entry) => entry.key === line.categoryKey);
-  // The name is optional; the category's own name is what the line is called
-  // until the user overrides it, so it doubles as the field's placeholder.
   const categoryLabel = selected ? categoryEntryLabel(selected) : "";
   const displayName = line.label.trim() || categoryLabel;
 
@@ -56,6 +52,7 @@ export const BudgetLineRow = ({
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
       return;
     }
+
     event.preventDefault();
     onMove(line.id, event.key === "ArrowUp" ? "up" : "down");
   };
@@ -65,20 +62,19 @@ export const BudgetLineRow = ({
       as="div"
       className="rounded-md transition-[box-shadow,scale] duration-150 ease-out data-[dragging=true]:scale-[1.01] data-[dragging=true]:shadow-md"
       data-dragging={isDragging ? "true" : undefined}
-      dragControls={dragControls}
+      dragControls={handleOnlyDragControls}
       dragListener={false}
       onDragEnd={() => setIsDragging(false)}
       onDragStart={() => setIsDragging(true)}
-      transition={reorderTransition}
+      transition={SETTLE_WHERE_DROPPED_TRANSITION}
       value={line}
     >
       <Field data-invalid={Boolean(error)}>
         <div className="flex items-center gap-2">
-          {/* `touch-none`: without it a touch drag scrolls the page instead. */}
           <Button
             className="cursor-grab touch-none active:cursor-grabbing"
             onKeyDown={handleKeyDown}
-            onPointerDown={(event) => dragControls.start(event)}
+            onPointerDown={(event) => handleOnlyDragControls.start(event)}
             variant="ghost"
           >
             <RiDraggable />

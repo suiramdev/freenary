@@ -13,7 +13,6 @@ import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** One slice: a category group's spending for the period. */
 interface GroupData {
   amount: number;
   group: CategoryGroup;
@@ -24,28 +23,21 @@ interface SpendingBreakdownChartProps {
   onSelect?: (selection: CategorySelection | null) => void;
 }
 
-/** Everything but the selection recedes, so the picked group reads at a glance. */
 const UNSELECTED_OPACITY = 0.3;
 
-// Keyed by the group slug, never the display name: the label is translated,
-// so it changes with the locale while the identity must not. The config is the
-// single source of a group's colour — slices and legend both read it back.
-const buildConfig = (data: GroupData[]): ChartConfig => {
+const buildConfigKeyedByGroupSlug = (data: GroupData[]): ChartConfig => {
   const config: ChartConfig = {};
-  for (const d of data) {
-    config[d.group] = {
-      color: CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[d.group]],
-      label: categoryGroupLabel(d.group),
+
+  for (const entry of data) {
+    config[entry.group] = {
+      color: CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[entry.group]],
+      label: categoryGroupLabel(entry.group),
     };
   }
+
   return config;
 };
 
-/**
- * Recharts injects `active` and `payload` into whatever element `content` is
- * given; a module-scope component keeps the swatch, the translated label, the
- * amount and the share the default row cannot express on its own.
- */
 const SpendingBreakdownTooltip = ({
   active,
   config,
@@ -58,6 +50,7 @@ const SpendingBreakdownTooltip = ({
   total: number;
 }) => {
   const slice = active ? payload?.[0]?.payload : undefined;
+
   if (!slice) {
     return null;
   }
@@ -84,20 +77,16 @@ const SpendingBreakdownTooltip = ({
   );
 };
 
-/**
- * The spending split by group. Groups, not categories: seventy-five slices
- * would carry less than the sixteen do, and the Sankey already shows detail.
- */
 export const SpendingBreakdownChart = ({
   data,
   onSelect,
 }: SpendingBreakdownChartProps) => {
-  const config = buildConfig(data);
+  const config = buildConfigKeyedByGroupSlug(data);
   const [selectedGroup, setSelectedGroup] = useState<CategoryGroup | null>(
     null
   );
 
-  const total = data.reduce((sum, d) => sum + d.amount, 0);
+  const total = data.reduce((sum, entry) => sum + entry.amount, 0);
 
   const toggleGroup = useCallback(
     (group: CategoryGroup) => {
@@ -108,10 +97,10 @@ export const SpendingBreakdownChart = ({
     [onSelect, selectedGroup]
   );
 
-  // The clicked sector carries geometry, not the group; its position in `data` does.
   const selectSlice = useCallback(
     (_sector: PieSectorDataItem, index: number) => {
       const entry = data[index];
+
       if (entry) {
         toggleGroup(entry.group);
       }
@@ -147,12 +136,12 @@ export const SpendingBreakdownChart = ({
             className={onSelect ? "cursor-pointer" : undefined}
             onClick={onSelect ? selectSlice : undefined}
           >
-            {data.map((d) => (
+            {data.map((entry) => (
               <Cell
-                key={d.group}
-                fill={config[d.group]?.color}
+                key={entry.group}
+                fill={config[entry.group]?.color}
                 fillOpacity={
-                  selectedGroup !== null && selectedGroup !== d.group
+                  selectedGroup !== null && selectedGroup !== entry.group
                     ? UNSELECTED_OPACITY
                     : 1
                 }
@@ -161,18 +150,17 @@ export const SpendingBreakdownChart = ({
           </Pie>
         </PieChart>
       </ChartContainer>
-      {/* In flow beside the chart rather than a recharts legend: it carries
-          each group's amount and the click that filters the transaction list. */}
       <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-x-4 gap-y-1.5 overflow-y-auto px-1">
-        {data.map((d) => {
-          const isSelected = selectedGroup === d.group;
+        {data.map((entry) => {
+          const isSelected = selectedGroup === entry.group;
+
           return (
-            <li key={d.group}>
+            <li key={entry.group}>
               <button
                 type="button"
                 disabled={!onSelect}
                 aria-pressed={isSelected}
-                onClick={() => toggleGroup(d.group)}
+                onClick={() => toggleGroup(entry.group)}
                 className={cn(
                   "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96]",
                   onSelect && "hover:text-foreground cursor-pointer",
@@ -181,11 +169,11 @@ export const SpendingBreakdownChart = ({
               >
                 <span
                   className="size-2 rounded-[1px]"
-                  style={{ backgroundColor: config[d.group]?.color }}
+                  style={{ backgroundColor: config[entry.group]?.color }}
                 />
-                <span>{config[d.group]?.label ?? d.group}</span>
+                <span>{config[entry.group]?.label ?? entry.group}</span>
                 <span className="text-foreground">
-                  {formatCurrency(d.amount)}
+                  {formatCurrency(entry.amount)}
                 </span>
               </button>
             </li>

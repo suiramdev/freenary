@@ -14,11 +14,6 @@ interface RecurringCategoryChartProps {
   rows: RecurringCategoryRow[];
 }
 
-/**
- * Where the recurring cost sits, a month at a time. Rows share one scale so
- * they compare against each other. Read-only: a category here filters nothing,
- * so no row may look pressable.
- */
 export const RecurringCategoryChart = ({
   currency,
   rows,
@@ -31,7 +26,7 @@ export const RecurringCategoryChart = ({
     );
   }
 
-  const scale = Math.max(...rows.map((row) => row.monthlyMinor));
+  const sharedScaleMinor = Math.max(...rows.map((row) => row.monthlyMinor));
 
   return (
     <ul
@@ -56,7 +51,7 @@ export const RecurringCategoryChart = ({
                   CHART_COLOR_VARS[
                     CATEGORY_GROUP_COLORS[CATEGORY_GROUP_OF[row.category]]
                   ],
-                width: `${(row.monthlyMinor / scale) * 100}%`,
+                width: `${(row.monthlyMinor / sharedScaleMinor) * 100}%`,
               }}
             />
           </span>

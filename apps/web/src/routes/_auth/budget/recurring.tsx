@@ -27,11 +27,6 @@ import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
-/**
- * What keeps costing money, and what it will cost next. Every figure comes off
- * one response: the server detects the patterns and measures the months, and
- * this page derives the rest, so a view switch or a filter costs no request.
- */
 const RecurringPage = () => {
   const {
     applyPatch,
@@ -48,8 +43,6 @@ const RecurringPage = () => {
   const { isError } = recurringQuery;
   const isPending = recurringQuery.isLoading;
 
-  // Detection is a property of when it ran, not of when this rendered: a
-  // clock read here would move every projection between two renders.
   const asOf = useMemo(() => (data ? new Date(data.asOf) : new Date()), [data]);
 
   const derived = useMemo(
@@ -127,8 +120,6 @@ const RecurringPage = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      {/* Recurring reads a fixed trailing year rather than the period the
-          Transactions view carries, so it says so where that control sits. */}
       <p className="text-muted-foreground text-xs">
         {m.budget_recurring_scope()}
       </p>

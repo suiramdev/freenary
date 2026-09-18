@@ -12,9 +12,7 @@ import {
 } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 
-/** What the steps are judged against: one field per step, read from real records. */
 export interface FirstStepsState {
-  /** A second factor or a passkey: either one ends "a stolen password gets in". */
   hasAccountProtection: boolean;
   hasBankConnection: boolean;
   hasBudgetLine: boolean;
@@ -25,12 +23,10 @@ interface FirstStep {
   icon: RemixiconComponentType;
   id: string;
   isDone: (state: FirstStepsState) => boolean;
-  /** The message function, so the label follows a locale change with the tree. */
   label: () => string;
   to: string;
 }
 
-/** A further step needs a row here, a field on FirstStepsState, and its query in useFirstSteps. */
 export const FIRST_STEPS = [
   {
     hash: BANK_ACCOUNTS_ANCHOR,

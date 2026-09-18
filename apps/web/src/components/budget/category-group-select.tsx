@@ -14,20 +14,15 @@ import { CategoryIcon } from "@/components/budget/category-icon";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-const NONE_VALUE = "none";
-
 interface CategoryGroupSelectProps {
-  /** Labels the trigger from an external `FieldLabel`. */
   id?: string;
   noneLabel?: string;
   onValueChange: (value: CategoryGroup | null) => void;
   value: CategoryGroup | null;
 }
 
-/**
- * Select of the sixteen category groups. A custom category nests under a group,
- * so this is what the "nested under" field offers.
- */
+const NONE_VALUE = "none";
+
 export const CategoryGroupSelect = ({
   id,
   noneLabel = m.budget_category_group_none(),
@@ -36,8 +31,6 @@ export const CategoryGroupSelect = ({
 }: CategoryGroupSelectProps) => (
   <Select
     value={value ?? NONE_VALUE}
-    // Base UI types the selected value as `any`; naming the contract here is
-    // what lets the guard below decide, rather than a shape check.
     onValueChange={(next: string | null) => {
       onValueChange(next !== null && isCategoryGroup(next) ? next : null);
     }}
@@ -48,6 +41,7 @@ export const CategoryGroupSelect = ({
           if (selected === null || !isCategoryGroup(selected)) {
             return noneLabel;
           }
+
           return (
             <>
               <CategoryIcon

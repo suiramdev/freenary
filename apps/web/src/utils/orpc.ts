@@ -9,18 +9,23 @@ import { toast } from "sonner";
 import { getServerUrl } from "@/lib/server-url";
 import { m } from "@/paraglide/messages.js";
 
+interface ForwardedCookieContext {
+  cookie?: string;
+}
+
+const STALE_TIME_MS = 60 * 1000;
+
 export const createQueryClient = () =>
   new QueryClient({
-    defaultOptions: { queries: { staleTime: 60 * 1000 } },
+    defaultOptions: { queries: { staleTime: STALE_TIME_MS } },
     queryCache: new QueryCache({
       onError: (error, query) => {
-        // A prefetch has no observer: nothing on screen is waiting for it, and
-        // its Retry would only invalidate a query no component reads.
-        if (query.getObserversCount() === 0) {
+        const isUnobservedPrefetch = query.getObserversCount() === 0;
+
+        if (isUnobservedPrefetch) {
           return;
         }
-        // `error.message` stays as the server sent it; only the framing is ours
-        // to translate.
+
         toast.error(m.query_error({ reason: error.message }), {
           action: {
             label: m.query_error_retry(),
@@ -33,16 +38,7 @@ export const createQueryClient = () =>
     }),
   });
 
-/**
- * Per-call context. The browser never sets it — its cookies travel with
- * `credentials`. A server-side call has no cookie jar, so a request made on a
- * visitor's behalf while rendering carries the visitor's own cookie header.
- */
-interface ClientContext {
-  cookie?: string;
-}
-
-const link = new RPCLink<ClientContext>({
+const link = new RPCLink<ForwardedCookieContext>({
   fetch(url, options) {
     return fetch(url, {
       ...options,
@@ -56,8 +52,9 @@ const link = new RPCLink<ClientContext>({
 
 // SAFETY: createORPCClient returns a generic client; cast aligns it with the known AppRouter type
 const getORPCClient = () =>
-  createORPCClient(link) as RouterClient<AppRouter, ClientContext>;
+  createORPCClient(link) as RouterClient<AppRouter, ForwardedCookieContext>;
 
-export const client: RouterClient<AppRouter, ClientContext> = getORPCClient();
+export const client: RouterClient<AppRouter, ForwardedCookieContext> =
+  getORPCClient();
 
 export const orpc = createTanstackQueryUtils(client);

@@ -1,4 +1,3 @@
-/** The device families a session row can name; anything else reads as unknown. */
 export type DeviceSlug =
   | "android"
   | "chromebook"
@@ -9,12 +8,7 @@ export type DeviceSlug =
   | "unknown"
   | "windows";
 
-/**
- * Order is the whole trick: an Android user agent also claims "Linux", ChromeOS
- * claims both, and an iPad claims "Macintosh" in desktop mode — so the narrower
- * family has to be tested first.
- */
-const DEVICE_PATTERNS: [RegExp, DeviceSlug][] = [
+const DEVICE_PATTERNS_NARROWEST_FIRST: [RegExp, DeviceSlug][] = [
   [/\biphone\b/iu, "iphone"],
   [/\bipad\b/iu, "ipad"],
   [/\bcros\b/iu, "chromebook"],
@@ -25,13 +19,13 @@ const DEVICE_PATTERNS: [RegExp, DeviceSlug][] = [
 ];
 
 export const deviceSlugFromUserAgent = (
-  userAgent?: string | null
+  userAgent: string | null = null
 ): DeviceSlug => {
   if (!userAgent) {
     return "unknown";
   }
 
-  for (const [pattern, slug] of DEVICE_PATTERNS) {
+  for (const [pattern, slug] of DEVICE_PATTERNS_NARROWEST_FIRST) {
     if (pattern.test(userAgent)) {
       return slug;
     }

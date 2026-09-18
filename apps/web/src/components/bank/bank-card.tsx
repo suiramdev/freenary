@@ -40,7 +40,6 @@ export const BankCard = ({
     size="sm"
     variant="outline"
   >
-    {/* Bank logos are full marks, not avatars — cropping them loses the name. */}
     <ItemMedia
       className="text-muted-foreground [&_img]:object-contain [&_svg]:size-5"
       variant="image"

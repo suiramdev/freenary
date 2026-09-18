@@ -10,7 +10,6 @@ import { securityPasswordSchema } from "@/lib/settings/security-schemas";
 import { m } from "@/paraglide/messages.js";
 
 interface UseTwoFactorDisableOptions {
-  /** Refetches the session, whose user carries the flag this section reads. */
   onDisabled: () => void;
   onDone: () => void;
 }
@@ -30,13 +29,13 @@ export const useTwoFactorDisable = ({
       const { error } = await authClient.twoFactor.disable({
         password: value.password,
       });
+
       if (error) {
         setPasswordError(twoFactorErrorMessage(error));
+
         return;
       }
 
-      // Turning the factor off can rotate the session, so the list is refetched
-      // rather than left marking a token that no longer exists.
       onDisabled();
       await queryClient.invalidateQueries({
         queryKey: AUTH_SESSIONS_QUERY_KEY,

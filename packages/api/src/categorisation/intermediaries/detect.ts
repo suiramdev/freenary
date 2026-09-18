@@ -1,10 +1,9 @@
 import { normaliseDescriptor } from "../normalise/normalise-descriptor";
 import {
-  CREDITOR_IDENTIFIER_INDEX,
-  HIGH_CONFIDENCE_MARKER_IDS,
-  IBAN_INDEX,
-  INTERMEDIARY_CATALOGUE,
-  MARKER_INDEX,
+  BY_CREDITOR_IBAN,
+  BY_LEADING_MARKER,
+  BY_SEPA_CREDITOR_IDENTIFIER,
+  intermediaryFor,
 } from "./catalogue";
 import type {
   DetectIntermediaryInput,
@@ -12,30 +11,19 @@ import type {
   IntermediaryMatch,
 } from "./types";
 
-/**
- * Visa/MC scheme-permitted acquirer prefix widths: 3, 7, or 12 chars
- * before the asterisk (Chase Paymentech / Worldpay format rules).
- * An asterisk at one of these raw positions corroborates a marker match.
- */
-const CORROBORATING_ASTERISK_POSITIONS = [3, 7, 12] as const;
-const ASTERISK_CODE = 42;
+const SCHEME_PERMITTED_ACQUIRER_PREFIX_WIDTHS = [3, 7, 12] as const;
+const ASTERISK_CODE_POINT = 42;
 
 const hasCorroboratingAsterisk = (raw: string): boolean => {
-  for (const pos of CORROBORATING_ASTERISK_POSITIONS) {
-    if (raw.codePointAt(pos) === ASTERISK_CODE) {
+  for (const prefixWidth of SCHEME_PERMITTED_ACQUIRER_PREFIX_WIDTHS) {
+    if (raw.codePointAt(prefixWidth) === ASTERISK_CODE_POINT) {
       return true;
     }
   }
+
   return false;
 };
 
-/**
- * Detect a payment intermediary (PSP / acquirer) in a transaction descriptor
- * and recover the sub-merchant text when present.
- *
- * Returns null rather than a low-confidence guess — a wrong intermediary
- * attribution is worse than none.
- */
 export const detectIntermediary = (
   input: DetectIntermediaryInput
 ): IntermediaryMatch | null => {
@@ -46,102 +34,67 @@ export const detectIntermediary = (
     rawDescriptor,
   } = input;
 
-  // --- Marker-based detection (leading token only) ---
   if (normalisedDescriptor.length > 0) {
-    const spaceIdx = normalisedDescriptor.indexOf(" ");
+    const leadingTokenEnd = normalisedDescriptor.indexOf(" ");
     const leadingToken =
-      spaceIdx === -1
+      leadingTokenEnd === -1
         ? normalisedDescriptor
-        : normalisedDescriptor.slice(0, spaceIdx);
+        : normalisedDescriptor.slice(0, leadingTokenEnd);
 
-    const intermediaryId = MARKER_INDEX[leadingToken];
+    const marked = intermediaryFor(BY_LEADING_MARKER, leadingToken);
 
-    if (intermediaryId !== undefined) {
-      // SAFETY: intermediaryId comes from MARKER_INDEX which maps to valid catalogue keys
-      const def =
-        INTERMEDIARY_CATALOGUE[
-          intermediaryId as keyof typeof INTERMEDIARY_CATALOGUE
-        ];
-      if (!def) {
-        return null;
-      }
-
-      // SAFETY: arbitrary key; miss returns undefined which !== true, giving "medium"
-      let confidence: IntermediaryConfidence =
-        HIGH_CONFIDENCE_MARKER_IDS[
-          intermediaryId as keyof typeof HIGH_CONFIDENCE_MARKER_IDS
-        ] === true
+    if (marked) {
+      const confidence: IntermediaryConfidence =
+        marked.definition.hasSchemeDocumentedPrefix ||
+        hasCorroboratingAsterisk(rawDescriptor)
           ? "high"
           : "medium";
 
-      // Rule 4: asterisk at a scheme-standard position promotes medium → high
-      if (confidence === "medium" && hasCorroboratingAsterisk(rawDescriptor)) {
-        confidence = "high";
-      }
-
-      let submerchantText: string | null = null;
-      let normalisedSubmerchant = "";
-
-      if (def.carriesSubmerchant && spaceIdx !== -1) {
-        const remaining = normalisedDescriptor.slice(spaceIdx + 1);
-        if (remaining.length > 0) {
-          submerchantText = remaining;
-          normalisedSubmerchant = normaliseDescriptor(remaining);
-        }
-      }
+      const trailingText =
+        marked.definition.carriesSubmerchant && leadingTokenEnd !== -1
+          ? normalisedDescriptor.slice(leadingTokenEnd + 1)
+          : "";
+      const submerchantText = trailingText.length > 0 ? trailingText : null;
 
       return {
         confidence,
-        intermediaryId,
-        intermediaryName: def.name,
+        intermediaryId: marked.id,
+        intermediaryName: marked.definition.name,
         matchedBy: "marker",
-        normalisedSubmerchant,
+        normalisedSubmerchant: submerchantText
+          ? normaliseDescriptor(submerchantText)
+          : "",
         submerchantText,
       };
     }
   }
 
-  // --- IBAN-based detection ---
-  if (creditorIban) {
-    const intermediaryId = IBAN_INDEX[creditorIban];
+  const byIban = creditorIban
+    ? intermediaryFor(BY_CREDITOR_IBAN, creditorIban)
+    : undefined;
 
-    if (intermediaryId !== undefined) {
-      // SAFETY: intermediaryId comes from IBAN_INDEX which maps to valid catalogue keys
-      const def =
-        INTERMEDIARY_CATALOGUE[
-          intermediaryId as keyof typeof INTERMEDIARY_CATALOGUE
-        ];
-      if (!def) {
-        return null;
-      }
-      return {
-        confidence: "high",
-        intermediaryId,
-        intermediaryName: def.name,
-        matchedBy: "iban",
-        normalisedSubmerchant: "",
-        submerchantText: null,
-      };
-    }
+  if (byIban) {
+    return {
+      confidence: "high",
+      intermediaryId: byIban.id,
+      intermediaryName: byIban.definition.name,
+      matchedBy: "iban",
+      normalisedSubmerchant: "",
+      submerchantText: null,
+    };
   }
 
-  // --- SEPA creditor-identifier detection ---
   for (const { identification } of creditorIdentifications ?? []) {
-    const intermediaryId = CREDITOR_IDENTIFIER_INDEX[identification];
+    const byCreditorIdentifier = intermediaryFor(
+      BY_SEPA_CREDITOR_IDENTIFIER,
+      identification
+    );
 
-    if (intermediaryId !== undefined) {
-      // SAFETY: intermediaryId comes from the index built from catalogue definitions
-      const def =
-        INTERMEDIARY_CATALOGUE[
-          intermediaryId as keyof typeof INTERMEDIARY_CATALOGUE
-        ];
-      if (!def) {
-        return null;
-      }
+    if (byCreditorIdentifier) {
       return {
         confidence: "high",
-        intermediaryId,
-        intermediaryName: def.name,
+        intermediaryId: byCreditorIdentifier.id,
+        intermediaryName: byCreditorIdentifier.definition.name,
         matchedBy: "creditor-identifier",
         normalisedSubmerchant: "",
         submerchantText: null,

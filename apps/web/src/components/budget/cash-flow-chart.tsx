@@ -14,10 +14,6 @@ interface CashFlowChartProps extends CashFlowData {
   onSelect?: (selection: CategorySelection) => void;
 }
 
-/**
- * Where a period's money came from and where it went. A chart body only: the
- * surrounding card, its title and the view switch belong to `BudgetCharts`.
- */
 export const CashFlowChart = ({
   groups,
   incomeNodes,
@@ -33,6 +29,7 @@ export const CashFlowChart = ({
   const handleNodeClick = useCallback(
     (nodeId: string) => {
       const selection = selectionOfNodeId(nodeId);
+
       if (selection && onSelect) {
         onSelect(selection);
       }
@@ -50,8 +47,6 @@ export const CashFlowChart = ({
 
   return (
     <div className="flex h-full items-center justify-center">
-      {/* The svg keeps its own aspect ratio and letterboxes inside the slot,
-          so switching views never changes the card's height. */}
       <SankeyChart
         className="max-h-full"
         columns={flow.columns}

@@ -9,7 +9,6 @@ import type { ComponentProps, ReactNode } from "react";
 interface AuthFormFieldProps {
   autoComplete: string;
   autoFocus?: boolean;
-  /** Rendered in the input's trailing addon. */
   endAdornment?: ReactNode;
   errors: (string | undefined)[];
   id: string;
@@ -43,8 +42,6 @@ export const AuthFormField = ({
   return (
     <Field data-invalid={isInvalid || undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      {/* The group is unconditional: swapping it in and out remounts the input
-          and drops focus mid-typing. */}
       <InputGroup>
         <InputGroupInput
           aria-invalid={isInvalid || undefined}

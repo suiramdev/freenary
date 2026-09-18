@@ -23,8 +23,17 @@ import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-
 import { categoryEntryLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** `null` closes the drawer; `"new"` opens it empty; an entry opens it for editing. */
 type DrawerState = EditedCustomCategory | "new" | null;
+
+interface CategoryTreeGroup {
+  children: CategoryEntry[];
+  group: CategoryEntry;
+}
+
+interface CategoriesSectionProps {
+  categories: CategoryEntry[];
+  isPending: boolean;
+}
 
 const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
   color: entry.color,
@@ -35,23 +44,16 @@ const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
   parentSlug: entry.parentKey as EditedCustomCategory["parentSlug"],
 });
 
-interface CategoryTreeGroup {
-  children: CategoryEntry[];
-  group: CategoryEntry;
-}
-
-/**
- * Deleting a custom category moves its lines to its group's catch-all, so the
- * confirmation must name that category — never the group, which cannot hold one.
- */
-const fallbackLabelOf = (groupKey: string) =>
+const catchAllCategoryLabelOf = (groupKey: string) =>
   isCategoryGroup(groupKey)
     ? categoryLabel(CATEGORY_GROUP_FALLBACKS[groupKey])
     : categoryLabel("uncategorised");
 
-/** Rebuilds the group → categories tree from the flat, ordered server list. */
-const toTree = (categories: CategoryEntry[]): CategoryTreeGroup[] => {
+const toGroupTreeInServerOrder = (
+  categories: CategoryEntry[]
+): CategoryTreeGroup[] => {
   const tree: CategoryTreeGroup[] = [];
+
   for (const entry of categories) {
     if (entry.isGroup) {
       tree.push({ children: [], group: entry });
@@ -59,13 +61,9 @@ const toTree = (categories: CategoryEntry[]): CategoryTreeGroup[] => {
       tree.at(-1)?.children.push(entry);
     }
   }
+
   return tree;
 };
-
-interface CategoriesSectionProps {
-  categories: CategoryEntry[];
-  isPending: boolean;
-}
 
 export const CategoriesSection = ({
   categories,
@@ -76,7 +74,10 @@ export const CategoriesSection = ({
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
-  const tree = useMemo(() => toTree(categories), [categories]);
+  const tree = useMemo(
+    () => toGroupTreeInServerOrder(categories),
+    [categories]
+  );
 
   return (
     <SettingsSection
@@ -99,13 +100,11 @@ export const CategoriesSection = ({
           <Skeleton aria-hidden="true" className="h-[200px]" />
         </div>
       ) : (
-        // Ninety-odd categories do not read as a flat list, so each group opens
-        // on demand and stays shut until asked for.
         <div className="flex flex-col">
-          {tree.map(({ children, group }) =>
-            // A custom top-level category is a group of the user's own with no
-            // categories under it, so it stays an ordinary editable row.
-            group.isCustom ? (
+          {tree.map(({ children, group }) => {
+            const isUsersOwnTopLevelCategory = group.isCustom;
+
+            return isUsersOwnTopLevelCategory ? (
               <ul className="flex flex-col" key={group.key}>
                 <CategoryRow
                   entry={group}
@@ -148,7 +147,7 @@ export const CategoriesSection = ({
                     {children.map((entry) => (
                       <CategoryRow
                         entry={entry}
-                        fallbackLabel={fallbackLabelOf(group.key)}
+                        fallbackLabel={catchAllCategoryLabelOf(group.key)}
                         isDeleting={isDeleting}
                         isMoving={isMoving}
                         key={entry.key}
@@ -160,8 +159,8 @@ export const CategoriesSection = ({
                   </ul>
                 </CollapsibleContent>
               </Collapsible>
-            )
-          )}
+            );
+          })}
         </div>
       )}
 

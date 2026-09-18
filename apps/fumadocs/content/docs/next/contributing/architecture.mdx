@@ -8,7 +8,7 @@ One instance runs three parts. The web app renders each screen, the API server h
 
 ## Workspaces
 
-The root `package.json` declares two workspace globs, `apps/*` and `packages/*`. Ten workspaces sit under them: three applications and seven packages. A Bun catalog pins each shared version once. `zod`, `typescript`, `elysia`, `better-auth` and `react` resolve to one version each. So do `@orpc/*`, `evlog`, `lucide-react`, `next-themes`, `sonner` and `tailwindcss`.
+The root `package.json` declares two workspace globs, `apps/*` and `packages/*`. Ten workspaces sit under them: three applications and seven packages. A Bun catalog pins each shared version once. `zod`, `effect`, `typescript`, `elysia`, `better-auth` and `react` resolve to one version each. So do `@orpc/*`, `evlog`, `lucide-react`, `next-themes`, `sonner` and `tailwindcss`. `effect` is a dependency of the root, `apps/web`, `packages/api`, `packages/auth` and `packages/email`; `apps/fumadocs` does not carry it.
 
 | Workspace | Path | Owns | Workspace dependencies | Depended on by |
 | --- | --- | --- | --- | --- |

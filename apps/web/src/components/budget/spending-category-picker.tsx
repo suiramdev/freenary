@@ -26,19 +26,13 @@ interface SpendingCategoryPickerProps {
   value: SpendingCategory;
 }
 
-/**
- * Picks one of the seventy-five predefined categories, headed by the group each
- * belongs to. A menu rather than a select, because a list that long needs a
- * search field and `Select` cannot carry one.
- */
 export const SpendingCategoryPicker = ({
   onValueChange,
   value,
 }: SpendingCategoryPickerProps) => {
   const [query, setQuery] = useState("");
 
-  // Seventy-five categories are too many to scan, so typing narrows them.
-  const matches = useMemo(() => matchCategoryGroups(query), [query]);
+  const matchingGroups = useMemo(() => matchCategoryGroups(query), [query]);
 
   return (
     <DropdownMenu onOpenChange={() => setQuery("")}>
@@ -46,7 +40,6 @@ export const SpendingCategoryPicker = ({
         {categoryLabel(value)}
         <RiExpandUpDownLine data-icon="inline-end" />
       </DropdownMenuTrigger>
-      {/* The trigger is content-sized, so the popup needs its own floor. */}
       <DropdownMenuContent
         align="start"
         className="max-h-96 min-w-56 overflow-y-auto"
@@ -56,28 +49,25 @@ export const SpendingCategoryPicker = ({
           placeholder={m.budget_category_search_placeholder()}
           value={query}
         />
-        {matches.length === 0 && (
+        {matchingGroups.length === 0 && (
           <DropdownMenuEmpty>
             {m.budget_category_search_empty()}
           </DropdownMenuEmpty>
         )}
         <DropdownMenuRadioGroup
           value={value}
-          // Base UI types the selected value as `any`; the guard keeps a stray
-          // value from reaching a caller that only handles real categories.
           onValueChange={(next: string) => {
             if (isSpendingCategory(next)) {
               onValueChange(next);
             }
           }}
         >
-          {matches.map(({ categories, group }) => (
+          {matchingGroups.map(({ categories, group }) => (
             <DropdownMenuGroup key={group}>
               <DropdownMenuLabel>{categoryGroupLabel(group)}</DropdownMenuLabel>
               {categories.map((category) => (
                 <DropdownMenuRadioItem
                   className="ps-8"
-                  // One category is the whole answer, so picking one is done.
                   closeOnClick={true}
                   key={category}
                   value={category}

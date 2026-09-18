@@ -37,10 +37,9 @@ export const useCustomCategoryActions = () => {
         }),
       ]);
 
-      // The server reassigns to a category, so the toast names that category.
-      const fallback = resolveCategorySlug(fallbackSlug);
-      const fallbackLabel = fallback
-        ? categoryLabel(fallback)
+      const reassignedTo = resolveCategorySlug(fallbackSlug);
+      const reassignedToLabel = reassignedTo
+        ? categoryLabel(reassignedTo)
         : m.settings_category_other();
 
       if (reassignedLines === 0) {
@@ -49,7 +48,7 @@ export const useCustomCategoryActions = () => {
         toast.success(
           m.settings_category_delete_success_reassign({
             count: reassignedLines,
-            fallback: fallbackLabel,
+            fallback: reassignedToLabel,
           })
         );
       }

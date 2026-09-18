@@ -42,6 +42,7 @@ describe("budgetLineKindOf", () => {
 
   test("follows a re-parented custom category rather than a stored kind", () => {
     const savingsPot = ref(null, "investments");
+
     expect(budgetLineKindOf(savingsPot)).toBe("INVESTMENT");
     expect(budgetLineKindOf({ ...savingsPot, parentSlug: "leisure" })).toBe(
       "OUTGOING"

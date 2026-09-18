@@ -10,44 +10,13 @@ import { ThemeSwitcher } from "@/components/shared/theme-switcher";
 import type { BankInstitution } from "@/hooks/bank/use-bank-connections";
 import { m } from "@/paraglide/messages.js";
 
-// Held as message functions, not strings: a module-level `m.x()` would freeze
-// the label in whichever locale rendered first, and on the server that locale
-// belongs to a single request.
-const STEPS = [m.onboarding_step_country, m.onboarding_step_bank] as const;
-const STEPS_WITHOUT_BANKING = [m.onboarding_step_country] as const;
-
-const STEP_SHIFT_PX = 16;
-const STEP_EASE = [0.23, 1, 0.32, 1] as const;
-const STEP_ENTER = { duration: 0.22, ease: STEP_EASE };
-const STEP_EXIT = { duration: 0.15, ease: STEP_EASE };
-const FADE = { duration: 0.2, ease: STEP_EASE };
-
 interface StepMotion {
   direction: 1 | -1;
-  /** 0 under prefers-reduced-motion: fade only, no travel, no blur. */
   shift: number;
 }
 
-// Blur masks the moment both steps overlap; without it the crossfade
-// double-exposes two blocks of text.
-const stepVariants = {
-  center: { filter: "blur(0px)", opacity: 1, transition: STEP_ENTER, x: 0 },
-  enter: ({ direction, shift }: StepMotion) => ({
-    filter: shift ? "blur(4px)" : "blur(0px)",
-    opacity: 0,
-    x: direction * shift,
-  }),
-  exit: ({ direction, shift }: StepMotion) => ({
-    filter: shift ? "blur(4px)" : "blur(0px)",
-    opacity: 0,
-    transition: STEP_EXIT,
-    x: -direction * shift,
-  }),
-};
-
 interface OnboardingWizardProps {
   banks: BankInstitution[];
-  /** Banks linked so far, counted from the connections the server holds. */
   connectedCount: number;
   country: string | null;
   direction: 1 | -1;
@@ -63,6 +32,38 @@ interface OnboardingWizardProps {
   onSignOut: () => void;
   step: number;
 }
+
+const STEP_LABEL_FNS = [
+  m.onboarding_step_country,
+  m.onboarding_step_bank,
+] as const satisfies readonly (() => string)[];
+const STEP_LABEL_FNS_WITHOUT_BANKING = [
+  m.onboarding_step_country,
+] as const satisfies readonly (() => string)[];
+
+const STEP_SHIFT_PX = 16;
+const NO_STEP_SHIFT_PX = 0;
+const STEP_CROSSFADE_MASK_BLUR = "blur(4px)";
+const NO_BLUR = "blur(0px)";
+const STEP_EASE = [0.23, 1, 0.32, 1] as const;
+const STEP_ENTER = { duration: 0.22, ease: STEP_EASE };
+const STEP_EXIT = { duration: 0.15, ease: STEP_EASE };
+const FADE = { duration: 0.2, ease: STEP_EASE };
+
+const stepVariants = {
+  center: { filter: NO_BLUR, opacity: 1, transition: STEP_ENTER, x: 0 },
+  enter: ({ direction, shift }: StepMotion) => ({
+    filter: shift ? STEP_CROSSFADE_MASK_BLUR : NO_BLUR,
+    opacity: 0,
+    x: direction * shift,
+  }),
+  exit: ({ direction, shift }: StepMotion) => ({
+    filter: shift ? STEP_CROSSFADE_MASK_BLUR : NO_BLUR,
+    opacity: 0,
+    transition: STEP_EXIT,
+    x: -direction * shift,
+  }),
+};
 
 export const OnboardingWizard = ({
   banks,
@@ -84,7 +85,7 @@ export const OnboardingWizard = ({
   const prefersReducedMotion = useReducedMotion();
   const stepMotion: StepMotion = {
     direction,
-    shift: prefersReducedMotion ? 0 : STEP_SHIFT_PX,
+    shift: prefersReducedMotion ? NO_STEP_SHIFT_PX : STEP_SHIFT_PX,
   };
 
   return (
@@ -98,8 +99,6 @@ export const OnboardingWizard = ({
       </div>
 
       <div className="flex flex-1 items-center justify-center px-4 py-10">
-        {/* popLayout takes the outgoing screen out of flow, so the incoming one
-            lands in place instead of leaving an empty frame behind. */}
         <div className="relative flex w-full max-w-md flex-col gap-8">
           <AnimatePresence initial={false} mode="popLayout">
             {isPending ? (
@@ -121,11 +120,13 @@ export const OnboardingWizard = ({
                 initial={{ opacity: 0 }}
                 transition={FADE}
               >
-                {/* Outside the step swap: the stepper stays put and its own
-                    colour transition reports the progress. */}
                 <OnboardingStepper
                   current={step}
-                  steps={hasBankStep ? STEPS : STEPS_WITHOUT_BANKING}
+                  steps={
+                    hasBankStep
+                      ? STEP_LABEL_FNS
+                      : STEP_LABEL_FNS_WITHOUT_BANKING
+                  }
                 />
                 <AnimatePresence
                   custom={stepMotion}

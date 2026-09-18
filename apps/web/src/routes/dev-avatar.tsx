@@ -9,17 +9,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useTheme } from "next-themes";
 import * as React from "react";
 
-/**
- * TEMPORARY dev-only state board for the brand avatar. Not linked from the
- * app, not in the message catalogs, and meant to be deleted — it exists to
- * eyeball every expression animating at once, and to watch the main demo morph
- * between two of them, which no still frame shows.
- */
-
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 const CYCLE_MS = 1600;
 const GRID_SIZES = [16, 24, 40, 56, 88, 128] as const;
 const DEMO_SIZES = [56, 88, 176, 240, 320] as const;
+
+const nextStateAfter = (current: BrandAvatarState) =>
+  BRAND_AVATAR_STATES[
+    (BRAND_AVATAR_STATES.indexOf(current) + 1) % BRAND_AVATAR_STATES.length
+  ];
 
 const DevAvatarPage = () => {
   const [demo, setDemo] = React.useState<BrandAvatarState>("logo");
@@ -27,13 +25,14 @@ const DevAvatarPage = () => {
   const [demoSize, setDemoSize] = React.useState<number>(240);
   const [gridSize, setGridSize] = React.useState<number>(72);
   const [cycling, setCycling] = React.useState(false);
-  const [replay, setReplay] = React.useState(0);
+  const [gridReplayNonce, setGridReplayNonce] = React.useState(0);
   const { setTheme, resolvedTheme } = useTheme();
 
   const reduced = React.useSyncExternalStore(
     (onChange) => {
       const query = window.matchMedia(REDUCED_MOTION);
       query.addEventListener("change", onChange);
+
       return () => query.removeEventListener("change", onChange);
     },
     () => window.matchMedia(REDUCED_MOTION).matches,
@@ -45,19 +44,19 @@ const DevAvatarPage = () => {
     setDemo(state);
   };
 
-  // Walking every state on a timer drives the demo through all 19 blends
-  // back to back — the fastest way to catch a morph that pops or smears.
   React.useEffect(() => {
     if (!cycling) {
       return;
     }
+
     const step = setInterval(() => {
       setDemo((current) => {
         setPrevious(current);
-        const next = BRAND_AVATAR_STATES.indexOf(current) + 1;
-        return BRAND_AVATAR_STATES[next % BRAND_AVATAR_STATES.length];
+
+        return nextStateAfter(current);
       });
     }, CYCLE_MS);
+
     return () => clearInterval(step);
   }, [cycling]);
 
@@ -91,8 +90,6 @@ const DevAvatarPage = () => {
         )}
       </header>
 
-      {/* The demo avatar is never remounted: a fresh mount would restart the
-          engine instead of blending, which is exactly what this page tests. */}
       <section className="border-border mb-6 flex flex-wrap items-center gap-8 rounded-xl border p-6">
         <div
           className="flex shrink-0 items-center justify-center"
@@ -154,7 +151,7 @@ const DevAvatarPage = () => {
           </Button>
         ))}
         <Button
-          onClick={() => setReplay((n) => n + 1)}
+          onClick={() => setGridReplayNonce((nonce) => nonce + 1)}
           size="sm"
           variant="outline"
         >
@@ -162,11 +159,9 @@ const DevAvatarPage = () => {
         </Button>
       </div>
 
-      {/* Remounting on `replay` restarts every grid clock at once, so the
-          one-shot accents (surprise pop, error shake) replay together. */}
       <section
         className="grid gap-3"
-        key={replay}
+        key={gridReplayNonce}
         style={{
           gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize + 56}px, 1fr))`,
         }}

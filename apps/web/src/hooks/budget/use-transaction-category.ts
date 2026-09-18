@@ -10,7 +10,6 @@ import { client } from "@/utils/orpc";
 const isBudgetQuery = ({ queryKey: [key] }: { queryKey: readonly unknown[] }) =>
   key === "budget" || (Array.isArray(key) && key[0] === "budget");
 
-/** Overrides a transaction's category, patching every cached page optimistically. */
 export const useTransactionCategory = (transaction: Transaction) => {
   const queryClient = useQueryClient();
 
@@ -22,6 +21,7 @@ export const useTransactionCategory = (transaction: Transaction) => {
       if (!old?.pages) {
         return old;
       }
+
       return {
         ...old,
         pages: old.pages.map((page) => ({
@@ -49,6 +49,7 @@ export const useTransactionCategory = (transaction: Transaction) => {
       if (context) {
         patchCategory(context.txId, context.previousCategory);
       }
+
       toast.error(m.budget_category_update_error());
     },
     onMutate: async (newCategory) => {

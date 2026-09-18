@@ -12,22 +12,11 @@ interface CountRow {
   count: number;
 }
 
-/**
- * Better Auth's own resolution, not a second guess at it: it reads only the
- * configured header, refuses a multi-hop chain unless the hops are trusted
- * proxies, validates the address and collapses IPv6 to a subnet. A caller it
- * cannot place shares one bucket rather than minting a fresh one per request,
- * which is what a spoofable leftmost-hop read would allow.
- */
-export const callerBucket = (headers: Headers): string =>
-  getIP(headers, auth.options) ?? "untrusted";
+const BUCKET_FOR_A_CALLER_BETTER_AUTH_CANNOT_PLACE = "untrusted";
 
-/**
- * Counts one request against a fixed window, in the same table Better Auth's
- * limiter uses, so a restart cannot clear a lockout. One statement: the read,
- * the window reset and the increment have to be atomic or concurrent callers
- * all pass a stale count.
- */
+export const callerBucket = (headers: Headers): string =>
+  getIP(headers, auth.options) ?? BUCKET_FOR_A_CALLER_BETTER_AUTH_CANNOT_PLACE;
+
 export const consumeRateLimit = async (
   key: string,
   rule: RateLimitRule
@@ -51,6 +40,7 @@ export const consumeRateLimit = async (
   `;
 
   const count = rows[0]?.count ?? 1;
+
   if (count > rule.max) {
     throw new ORPCError("TOO_MANY_REQUESTS");
   }

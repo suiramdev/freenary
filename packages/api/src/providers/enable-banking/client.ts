@@ -1,9 +1,58 @@
 import { createSign } from "node:crypto";
 
 import { env } from "@freenary/env/server";
+import { Data, Effect, Match, Option, Schema } from "effect";
+
+interface EnableBankingCredentials {
+  appId: string;
+  privateKey: string;
+}
+
+type EnableBankingRequestReason =
+  | { readonly kind: "missingCredentials" }
+  | { readonly kind: "unreachable"; readonly detail: string }
+  | {
+      readonly kind: "rejected";
+      readonly status: number;
+      readonly body: string;
+    }
+  | { readonly kind: "undecodable"; readonly detail: string };
+
+export class EnableBankingRequestFailed extends Data.TaggedError(
+  "EnableBankingRequestFailed"
+)<{
+  readonly operation: string;
+  readonly reason: EnableBankingRequestReason;
+}> {
+  override get message(): string {
+    const { operation } = this;
+
+    return Match.value(this.reason).pipe(
+      Match.discriminatorsExhaustive("kind")({
+        missingCredentials: () => "Enable Banking is not configured",
+        rejected: ({ body, status }) =>
+          `Enable Banking ${operation} failed: ${status} ${body}`,
+        undecodable: ({ detail }) =>
+          `Enable Banking ${operation} response does not match the documented shape: ${detail}`,
+        unreachable: ({ detail }) =>
+          `Enable Banking ${operation} failed: ${detail}`,
+      })
+    );
+  }
+}
+
+const API_ORIGIN = "https://api.enablebanking.com";
+const JWT_AUDIENCE = "api.enablebanking.com";
+const JWT_ISSUER = "enablebanking.com";
+const JWT_LIFETIME_SECONDS = 3600;
+const MILLISECONDS_PER_SECOND = 1000;
+const LITERAL_NEWLINE_ESCAPE = "\\n";
+const LONGEST_HISTORY_STRATEGY = "longest";
+const NOT_FOUND = 404;
 
 const base64url = (data: Buffer | string): string => {
   const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
   return buf.toString("base64url");
 };
 
@@ -11,13 +60,13 @@ const createJwt = (appId: string, privateKey: string): string => {
   const header = base64url(
     JSON.stringify({ alg: "RS256", kid: appId, typ: "JWT" })
   );
-  const now = Math.floor(Date.now() / 1000);
+  const issuedAt = Math.floor(Date.now() / MILLISECONDS_PER_SECOND);
   const payload = base64url(
     JSON.stringify({
-      aud: "api.enablebanking.com",
-      exp: now + 3600,
-      iat: now,
-      iss: "enablebanking.com",
+      aud: JWT_AUDIENCE,
+      exp: issuedAt + JWT_LIFETIME_SECONDS,
+      iat: issuedAt,
+      iss: JWT_ISSUER,
       sub: appId,
     })
   );
@@ -30,104 +79,229 @@ const createJwt = (appId: string, privateKey: string): string => {
   return `${signingInput}.${signature}`;
 };
 
-const getCredentials = (): { appId: string; privateKey: string } | null => {
+const readCredentials = (): Option.Option<EnableBankingCredentials> => {
   const appId = env.ENABLE_BANKING_APP_ID;
   const rawKey = env.ENABLE_BANKING_PRIVATE_KEY;
-  if (!appId || !rawKey) {
-    return null;
-  }
-  // Env values may contain literal \n sequences instead of real newlines
-  const privateKey = rawKey.replaceAll("\\n", "\n");
-  return { appId, privateKey };
+
+  return appId && rawKey
+    ? Option.some({
+        appId,
+        privateKey: rawKey.replaceAll(LITERAL_NEWLINE_ESCAPE, "\n"),
+      })
+    : Option.none();
 };
 
-export const isConfigured = (): boolean =>
-  !!(env.ENABLE_BANKING_APP_ID && env.ENABLE_BANKING_PRIVATE_KEY);
+export const isConfigured = (): boolean => Option.isSome(readCredentials());
 
-/**
- * Authenticated fetch against the Enable Banking API.
- * Creates a fresh JWT for each request (valid for 1 hour).
- */
-export const ebFetch = (
+const requireCredentials = (
+  operation: string
+): Effect.Effect<EnableBankingCredentials, EnableBankingRequestFailed> =>
+  Effect.suspend(() =>
+    Option.match(readCredentials(), {
+      onNone: () =>
+        Effect.fail(
+          new EnableBankingRequestFailed({
+            operation,
+            reason: { kind: "missingCredentials" },
+          })
+        ),
+      onSome: Effect.succeed,
+    })
+  );
+
+const send = Effect.fnUntraced(function* send(
+  operation: string,
   path: string,
-  init?: RequestInit
-): Promise<Response> => {
-  const creds = getCredentials();
-  if (!creds) {
-    throw new Error("Enable Banking is not configured");
-  }
-  const token = createJwt(creds.appId, creds.privateKey);
-  return fetch(`https://api.enablebanking.com${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
+  init: RequestInit
+) {
+  const { appId, privateKey } = yield* requireCredentials(operation);
+  const token = createJwt(appId, privateKey);
+
+  return yield* Effect.tryPromise({
+    catch: (cause) =>
+      new EnableBankingRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "unreachable" },
+      }),
+    try: (signal) =>
+      fetch(`${API_ORIGIN}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...init.headers,
+        },
+        signal,
+      }),
   });
-};
+});
 
-/** Raw Enable Banking API transaction type. */
-export interface EBTransaction {
-  entry_reference?: string;
-  transaction_id?: string;
-  booking_date?: string;
-  value_date?: string;
-  transaction_date?: string;
-  transaction_amount?: {
-    amount?: string;
-    currency?: string;
-  };
-  remittance_information?: string[];
-  creditor_agent?: { bic_fi?: string };
-  creditor?: {
-    name?: string;
-    postal_address?: {
-      town_name?: string;
-      country?: string;
-    };
-  };
-  debtor?: { name?: string };
-  credit_debit_indicator?: string;
-  merchant_category_code?: string;
-  bank_transaction_code?: {
-    description?: string;
-    code?: string;
-    sub_code?: string;
-  };
-  status?: string;
-  balance_after_transaction?: {
-    amount?: string;
-    currency?: string;
-  };
-  creditor_account?: { iban?: string };
-  creditor_account_additional_identification?:
-    | EBCreditorIdentification
-    | EBCreditorIdentification[];
-  debtor_account?: { iban?: string };
-  reference_number?: string;
-  reference_number_schema?: string;
-  exchange_rate?: {
-    exchange_rate?: string;
-  };
-  note?: string;
-}
+const failRejected = Effect.fnUntraced(function* failRejected(
+  operation: string,
+  response: Response
+) {
+  const body = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new EnableBankingRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "unreachable" },
+      }),
+    try: () => response.text(),
+  });
 
-export interface EBCreditorIdentification {
-  scheme_name?: string;
-  identification?: string;
-}
+  return yield* new EnableBankingRequestFailed({
+    operation,
+    reason: { body, kind: "rejected", status: response.status },
+  });
+});
 
-/**
- * Fetch all transaction pages for one account.
- * Uses `strategy=longest` on the first page for maximum cold-start history.
- */
-export const fetchTransactionPages = async (
+export const ebJson = Effect.fn("enableBanking.json")(function* ebJson<
+  S extends Schema.ConstraintDecoder<unknown>,
+>(operation: string, schema: S, path: string, init: RequestInit = {}) {
+  const response = yield* send(operation, path, init);
+
+  if (!response.ok) {
+    return yield* failRejected(operation, response);
+  }
+
+  const payload = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new EnableBankingRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "undecodable" },
+      }),
+    try: () => response.json(),
+  });
+
+  return yield* Schema.decodeUnknownEffect(schema)(payload).pipe(
+    Effect.mapError(
+      (cause: Schema.SchemaError) =>
+        new EnableBankingRequestFailed({
+          operation,
+          reason: { detail: cause.message, kind: "undecodable" },
+        })
+    )
+  );
+});
+
+export const ebDeleteIfPresent = Effect.fn("enableBanking.deleteIfPresent")(
+  function* ebDeleteIfPresent(operation: string, path: string) {
+    const response = yield* send(operation, path, { method: "DELETE" });
+
+    if (response.ok || response.status === NOT_FOUND) {
+      return;
+    }
+
+    return yield* failRejected(operation, response);
+  }
+);
+
+const OptionalString = Schema.optional(Schema.String);
+
+const EBAmountSchema = Schema.Struct({
+  amount: OptionalString,
+  currency: OptionalString,
+});
+
+export const EBCreditorIdentificationSchema = Schema.Struct({
+  identification: OptionalString,
+  scheme_name: OptionalString,
+});
+
+export const EBTransactionSchema = Schema.Struct({
+  balance_after_transaction: Schema.optional(EBAmountSchema),
+  bank_transaction_code: Schema.optional(
+    Schema.Struct({
+      code: OptionalString,
+      description: OptionalString,
+      sub_code: OptionalString,
+    })
+  ),
+  booking_date: OptionalString,
+  credit_debit_indicator: OptionalString,
+  creditor: Schema.optional(
+    Schema.Struct({
+      name: OptionalString,
+      postal_address: Schema.optional(
+        Schema.Struct({ country: OptionalString, town_name: OptionalString })
+      ),
+    })
+  ),
+  creditor_account: Schema.optional(Schema.Struct({ iban: OptionalString })),
+  creditor_account_additional_identification: Schema.optional(
+    Schema.Union([
+      EBCreditorIdentificationSchema,
+      Schema.Array(EBCreditorIdentificationSchema),
+    ])
+  ),
+  creditor_agent: Schema.optional(Schema.Struct({ bic_fi: OptionalString })),
+  debtor: Schema.optional(Schema.Struct({ name: OptionalString })),
+  debtor_account: Schema.optional(Schema.Struct({ iban: OptionalString })),
+  entry_reference: OptionalString,
+  exchange_rate: Schema.optional(
+    Schema.Struct({ exchange_rate: OptionalString })
+  ),
+  merchant_category_code: OptionalString,
+  note: OptionalString,
+  reference_number: OptionalString,
+  reference_number_schema: OptionalString,
+  remittance_information: Schema.optional(
+    Schema.mutable(Schema.Array(Schema.String))
+  ),
+  status: OptionalString,
+  transaction_amount: Schema.optional(EBAmountSchema),
+  transaction_date: OptionalString,
+  transaction_id: OptionalString,
+  value_date: OptionalString,
+});
+
+const EBTransactionPageSchema = Schema.Struct({
+  continuation_key: OptionalString,
+  transactions: Schema.optional(Schema.Array(EBTransactionSchema)),
+});
+
+export const EBInstitutionsSchema = Schema.Struct({
+  aspsps: Schema.Array(
+    Schema.Struct({
+      bic: Schema.optional(Schema.NullOr(Schema.String)),
+      country: Schema.String,
+      group: Schema.optional(Schema.NullOr(Schema.String)),
+      logo: Schema.optional(Schema.NullOr(Schema.String)),
+      name: Schema.String,
+    })
+  ),
+});
+
+export const EBAuthorizationSchema = Schema.Struct({ url: Schema.String });
+
+export const EBCompletedConnectionSchema = Schema.Struct({
+  accounts: Schema.Array(
+    Schema.Struct({
+      account_id: Schema.optional(
+        Schema.Struct({
+          iban: OptionalString,
+          identification_hash: OptionalString,
+        })
+      ),
+      name: OptionalString,
+      uid: Schema.String,
+    })
+  ),
+  aspsp: Schema.optional(
+    Schema.Struct({ group: OptionalString, name: OptionalString })
+  ),
+  session_id: Schema.String,
+});
+
+export const fetchTransactionPages = Effect.fn(
+  "enableBanking.fetchTransactionPages"
+)(function* fetchTransactionPages(
   accountId: string,
   dateFrom: string,
   dateTo: string
-): Promise<EBTransaction[]> => {
-  const all: EBTransaction[] = [];
+) {
+  const collected: EBTransaction[] = [];
+  const account = encodeURIComponent(accountId);
   let continuationKey: string | undefined;
   let isFirstPage = true;
 
@@ -136,40 +310,30 @@ export const fetchTransactionPages = async (
       date_from: dateFrom,
       date_to: dateTo,
     });
+
     if (isFirstPage) {
-      params.set("strategy", "longest");
+      params.set("strategy", LONGEST_HISTORY_STRATEGY);
       isFirstPage = false;
     }
+
     if (continuationKey) {
       params.set("continuation_key", continuationKey);
     }
-    // eslint-disable-next-line no-await-in-loop -- pagination is sequential; each page needs the previous continuation_key
-    const response = await ebFetch(
-      `/accounts/${encodeURIComponent(accountId)}/transactions?${params.toString()}`
+
+    const page = yield* ebJson(
+      "transactions",
+      EBTransactionPageSchema,
+      `/accounts/${account}/transactions?${params.toString()}`
     );
 
-    if (!response.ok) {
-      // eslint-disable-next-line no-await-in-loop -- sequential pagination error reporting
-      const text = await response.text();
-      throw new Error(
-        `Enable Banking transactions failed: ${response.status} ${text}`
-      );
-    }
-
-    // SAFETY: Enable Banking GET /accounts/{id}/transactions returns
-    // { transactions: EBTransaction[], continuation_key?: string }
-    // eslint-disable-next-line no-await-in-loop -- sequential pagination; each page depends on the previous continuation_key
-    const data = (await response.json()) as {
-      transactions?: EBTransaction[];
-      continuation_key?: string;
-    };
-
-    if (data.transactions) {
-      all.push(...data.transactions);
-    }
-
-    continuationKey = data.continuation_key ?? undefined;
+    collected.push(...(page.transactions ?? []));
+    continuationKey = page.continuation_key;
   } while (continuationKey);
 
-  return all;
-};
+  return collected;
+});
+
+export type EBCreditorIdentification =
+  typeof EBCreditorIdentificationSchema.Type;
+export type EBTransaction = typeof EBTransactionSchema.Type;
+export type EBCompletedConnection = typeof EBCompletedConnectionSchema.Type;

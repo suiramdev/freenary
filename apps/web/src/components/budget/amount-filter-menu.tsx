@@ -25,25 +25,22 @@ import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/** Long enough that typing 1, 12, 125 costs one request rather than three. */
-const AMOUNT_SETTLE_MS = 400;
-
-/** A bound of zero is no bound, and no bound is an empty box. */
-const draftOf = (range: AmountRange) => ({
-  max: range.max > 0 ? String(range.max) : "",
-  min: range.min > 0 ? String(range.min) : "",
-});
-
 interface AmountFilterMenuProps {
-  /** What the bounds read against, when it is not "how much money moved". */
   hint?: string;
-  /** The trigger's word, when the figure filtered is not a plain amount. */
   label?: string;
   onRangeChange: (range: AmountRange) => void;
   range: AmountRange;
 }
 
-/** A budget list's amount filter: two bounds on the figure the list shows. */
+const AMOUNT_SETTLE_MS = 400;
+const NO_BOUND = 0;
+const NO_BOUND_TEXT = "";
+
+const draftOf = (range: AmountRange) => ({
+  max: range.max > NO_BOUND ? String(range.max) : NO_BOUND_TEXT,
+  min: range.min > NO_BOUND ? String(range.min) : NO_BOUND_TEXT,
+});
+
 export const AmountFilterMenu = ({
   hint = m.budget_filter_amount_hint(),
   label = m.budget_filter_amount(),
@@ -61,27 +58,36 @@ export const AmountFilterMenu = ({
       max: parseAmountBound(settled.max, locale),
       min: parseAmountBound(settled.min, locale),
     };
+
     if (next.min === applied.current.min && next.max === applied.current.max) {
       return;
     }
+
     applied.current = next;
     onRangeChange(next);
   }, [locale, onRangeChange, settled]);
 
-  const isActive = range.min > 0 || range.max > 0;
-  // A floor above the ceiling matches nothing. The filter still applies as
-  // typed — an empty list is the honest answer — and says why.
-  const isImpossible = range.min > 0 && range.max > 0 && range.min > range.max;
+  const isActive = range.min > NO_BOUND || range.max > NO_BOUND;
+  const hasFloorAboveCeiling =
+    range.min > NO_BOUND && range.max > NO_BOUND && range.min > range.max;
   const symbol = currencySymbol();
+
+  const resyncDraftFromRange = () => {
+    applied.current = range;
+    setDraft(draftOf(range));
+  };
+
+  const clearBoundsWithoutWaitingForDebounce = () => {
+    applied.current = EMPTY_AMOUNT_RANGE;
+    setDraft({ max: "", min: "" });
+    onRangeChange(EMPTY_AMOUNT_RANGE);
+  };
 
   return (
     <Popover
       onOpenChange={(open) => {
-        // Reopening re-reads the URL: Back, a shared link or Clear all may have
-        // moved the bounds while the popup was closed.
         if (open) {
-          applied.current = range;
-          setDraft(draftOf(range));
+          resyncDraftFromRange();
         }
       }}
     >
@@ -99,7 +105,7 @@ export const AmountFilterMenu = ({
             <InputGroup>
               <InputGroupAddon>{symbol}</InputGroupAddon>
               <InputGroupInput
-                aria-invalid={isImpossible}
+                aria-invalid={hasFloorAboveCeiling}
                 id={`${fieldId}-min`}
                 inputMode="decimal"
                 onChange={(event) =>
@@ -120,7 +126,7 @@ export const AmountFilterMenu = ({
             <InputGroup>
               <InputGroupAddon>{symbol}</InputGroupAddon>
               <InputGroupInput
-                aria-invalid={isImpossible}
+                aria-invalid={hasFloorAboveCeiling}
                 id={`${fieldId}-max`}
                 inputMode="decimal"
                 onChange={(event) =>
@@ -135,18 +141,15 @@ export const AmountFilterMenu = ({
             </InputGroup>
           </Field>
         </div>
-        <PopoverDescription className={isImpossible ? "text-destructive" : ""}>
-          {isImpossible ? m.budget_filter_amount_impossible() : hint}
+        <PopoverDescription
+          className={hasFloorAboveCeiling ? "text-destructive" : ""}
+        >
+          {hasFloorAboveCeiling ? m.budget_filter_amount_impossible() : hint}
         </PopoverDescription>
         {isActive && (
           <Button
             className="self-start"
-            onClick={() => {
-              // A pressed button answers now; the debounce is for typing.
-              applied.current = EMPTY_AMOUNT_RANGE;
-              setDraft({ max: "", min: "" });
-              onRangeChange(EMPTY_AMOUNT_RANGE);
-            }}
+            onClick={clearBoundsWithoutWaitingForDebounce}
             variant="ghost"
           >
             {m.budget_filter_amount_clear()}

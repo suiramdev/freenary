@@ -40,21 +40,30 @@ type PlannedData = Pick<
 >;
 type FixedData = ComponentProps<typeof FixedVsVariableChart>;
 
-/**
- * Every view of a position draws inside the same box, so switching one never
- * moves the transaction list below.
- */
-const CHART_BODY = "h-[280px]";
-
-const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
-
-/** What a position knows about its query: nothing yet, a failure, or data. */
 interface ChartQuery<T> {
   data: T | undefined;
   isError: boolean;
   isPending: boolean;
   isStale: boolean;
 }
+
+interface BudgetChartsProps {
+  activeGroups: CategoryGroup[];
+  aggregation: AggregationMode;
+  breakdown: ChartQuery<BreakdownData>;
+  cashFlow: ChartQuery<CashFlowData>;
+  companion: CompanionView;
+  fixedVsVariable: ChartQuery<FixedData>;
+  onCompanionChange: (view: CompanionView) => void;
+  onSelect: (selection: CategorySelection | null) => void;
+  onViewChange: (view: PrimaryView) => void;
+  planned: ChartQuery<PlannedData>;
+  view: PrimaryView;
+}
+
+const CHART_BODY = "h-[280px]";
+
+const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
 
 const ChartSkeleton = ({ label }: { label: string }) => (
   <div aria-busy="true" className="h-full">
@@ -63,8 +72,6 @@ const ChartSkeleton = ({ label }: { label: string }) => (
   </div>
 );
 
-// A query that failed must not borrow an empty state: "nothing moved this
-// period" and "you have no plan" are claims the response never made.
 const ChartUnavailable = () => (
   <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
     {m.budget_chart_unavailable()}
@@ -86,23 +93,26 @@ const PrimaryChartBody = ({
     if (cashFlow.isPending) {
       return <ChartSkeleton label={m.budget_cash_flow_loading()} />;
     }
-    // keepPreviousData holds the last period's figures, so a failed refetch
-    // would draw them under the new period's title.
+
     if (cashFlow.isError || !cashFlow.data) {
       return <ChartUnavailable />;
     }
+
     return (
       <StaleRegion className="h-full" isStale={cashFlow.isStale}>
         <CashFlowChart {...cashFlow.data} onSelect={onSelect} />
       </StaleRegion>
     );
   }
+
   if (breakdown.isPending) {
     return <ChartSkeleton label={m.budget_breakdown_loading()} />;
   }
+
   if (breakdown.isError || !breakdown.data) {
     return <ChartUnavailable />;
   }
+
   return (
     <StaleRegion className="h-full" isStale={breakdown.isStale}>
       <SpendingBreakdownChart data={breakdown.data} onSelect={onSelect} />
@@ -127,21 +137,26 @@ const CompanionChartBody = ({
     if (fixedVsVariable.isPending) {
       return <ChartSkeleton label={m.budget_fixed_variable_loading()} />;
     }
+
     if (fixedVsVariable.isError || !fixedVsVariable.data) {
       return <ChartUnavailable />;
     }
+
     return (
       <StaleRegion className="h-full" isStale={fixedVsVariable.isStale}>
         <FixedVsVariableChart {...fixedVsVariable.data} />
       </StaleRegion>
     );
   }
+
   if (planned.isPending) {
     return <ChartSkeleton label={m.budget_planned_loading()} />;
   }
+
   if (planned.isError || !planned.data) {
     return <ChartUnavailable />;
   }
+
   return (
     <StaleRegion className="h-full" isStale={planned.isStale}>
       <BudgetVsActualChart
@@ -153,26 +168,6 @@ const CompanionChartBody = ({
   );
 };
 
-interface BudgetChartsProps {
-  activeGroups: CategoryGroup[];
-  aggregation: AggregationMode;
-  breakdown: ChartQuery<BreakdownData>;
-  cashFlow: ChartQuery<CashFlowData>;
-  companion: CompanionView;
-  fixedVsVariable: ChartQuery<FixedData>;
-  onCompanionChange: (view: CompanionView) => void;
-  onSelect: (selection: CategorySelection | null) => void;
-  onViewChange: (view: PrimaryView) => void;
-  planned: ChartQuery<PlannedData>;
-  view: PrimaryView;
-}
-
-/**
- * Two chart positions, never more: a new chart becomes another view of one of
- * them, so the page above the transaction list keeps its shape as the feature
- * grows. Both selections live in the URL — a period change must not reset the
- * view the reader chose, and a shared link must reproduce it.
- */
 export const BudgetCharts = ({
   activeGroups,
   aggregation,
@@ -243,8 +238,6 @@ export const BudgetCharts = ({
       <div className="min-w-0">
         <Card>
           <CardHeader>
-            {/* The trigger already names the view; a title beside it would
-                print the same words twice in a 293px header. */}
             <Select
               onValueChange={(next) =>
                 onCompanionChange(next === "planned" ? "planned" : "fixed")

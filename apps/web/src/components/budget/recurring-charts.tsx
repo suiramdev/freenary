@@ -52,19 +52,23 @@ type CategoryProps = ComponentProps<typeof RecurringCategoryChart>;
 type FrequencyProps = ComponentProps<typeof PurchaseFrequencyChart>;
 type SplitProps = ComponentProps<typeof RecurringSplitChart>;
 
-/** Both positions draw inside the same box, so a view switch moves nothing. */
+interface RecurringChartsProps {
+  companion: RecurringCompanionView;
+  data: RecurringData | undefined;
+  isError: boolean;
+  isPending: boolean;
+  onCompanionChange: (view: RecurringCompanionView) => void;
+  onViewChange: (view: RecurringView) => void;
+  view: RecurringView;
+}
+
 const CHART_BODY = "h-[280px]";
 
 const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
 
-/** Past the dearest few the shared scale flattens every remaining bar. */
 const MAX_CATEGORY_ROWS = 8;
 
-/**
- * The tables hold message *functions*: calling one at module scope would freeze
- * the locale of whichever request loaded this file first.
- */
-const VIEW_TITLES = {
+const VIEW_TITLE_GETTERS = {
   forecast: m.budget_recurring_forecast_title,
   scatter: m.budget_recurring_scatter_title,
   trend: m.budget_recurring_trend_title,
@@ -89,8 +93,6 @@ const ChartSkeleton = ({ label }: { label: string }) => (
   </div>
 );
 
-// "Nothing recurring" and "the request failed" are different claims, and a
-// failed request must not print one the response never made.
 const ChartUnavailable = () => (
   <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
     {m.budget_chart_unavailable()}
@@ -116,26 +118,34 @@ const RecurringPrimaryBody = ({
     if (isPending) {
       return <ChartSkeleton label={m.budget_recurring_forecast_loading()} />;
     }
+
     if (isError || !forecast) {
       return <ChartUnavailable />;
     }
+
     return <RecurringForecastChart {...forecast} />;
   }
+
   if (view === "scatter") {
     if (isPending) {
       return <ChartSkeleton label={m.budget_recurring_scatter_loading()} />;
     }
+
     if (isError || !scatter) {
       return <ChartUnavailable />;
     }
+
     return <FrequencyCostChart {...scatter} />;
   }
+
   if (isPending) {
     return <ChartSkeleton label={m.budget_recurring_trend_loading()} />;
   }
+
   if (isError || !trend) {
     return <ChartUnavailable />;
   }
+
   return <RecurringTrendChart {...trend} />;
 };
 
@@ -158,44 +168,37 @@ const RecurringCompanionBody = ({
     if (isPending) {
       return <ChartSkeleton label={m.budget_recurring_frequency_loading()} />;
     }
+
     if (isError || !frequency) {
       return <ChartUnavailable />;
     }
+
     return <PurchaseFrequencyChart {...frequency} />;
   }
+
   if (view === "split") {
     if (isPending) {
       return <ChartSkeleton label={m.budget_recurring_split_loading()} />;
     }
+
     if (isError || !split) {
       return <ChartUnavailable />;
     }
+
     return <RecurringSplitChart {...split} />;
   }
+
   if (isPending) {
     return <ChartSkeleton label={m.budget_recurring_categories_loading()} />;
   }
+
   if (isError || !categories) {
     return <ChartUnavailable />;
   }
+
   return <RecurringCategoryChart {...categories} />;
 };
 
-interface RecurringChartsProps {
-  companion: RecurringCompanionView;
-  data: RecurringData | undefined;
-  isError: boolean;
-  isPending: boolean;
-  onCompanionChange: (view: RecurringCompanionView) => void;
-  onViewChange: (view: RecurringView) => void;
-  view: RecurringView;
-}
-
-/**
- * The Recurring tab's two chart positions. Every view of a position reads the
- * same response, so switching one recomputes nothing the other holds and both
- * selections stay in the URL a reader can share.
- */
 export const RecurringCharts = ({
   companion,
   data,
@@ -257,7 +260,9 @@ export const RecurringCharts = ({
       <div className="min-w-0">
         <Card>
           <CardHeader>
-            <CardTitle className="truncate">{VIEW_TITLES[view]()}</CardTitle>
+            <CardTitle className="truncate">
+              {VIEW_TITLE_GETTERS[view]()}
+            </CardTitle>
             <CardAction>
               <ToggleGroup
                 aria-label={m.budget_recurring_view_switch_label()}
@@ -265,6 +270,7 @@ export const RecurringCharts = ({
                   const chosen = RECURRING_VIEWS.find(
                     (candidate) => candidate === next
                   );
+
                   if (chosen) {
                     onViewChange(chosen);
                   }
@@ -302,13 +308,12 @@ export const RecurringCharts = ({
       <div className="min-w-0">
         <Card>
           <CardHeader>
-            {/* The trigger already names the view; a title beside it would
-                print the same words twice in a narrow header. */}
             <Select
               onValueChange={(next) => {
                 const chosen = RECURRING_COMPANION_VIEWS.find(
                   (candidate) => candidate === next
                 );
+
                 if (chosen) {
                   onCompanionChange(chosen);
                 }

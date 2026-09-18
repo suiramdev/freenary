@@ -5,7 +5,7 @@ import { toJsxRuntime } from "hast-util-to-jsx-runtime";
 import {
   Children,
   type ComponentProps,
-  type ReactElement,
+  isValidElement,
   type ReactNode,
   Suspense,
   use,
@@ -16,21 +16,38 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import { visit } from "unist-util-visit";
+import { z } from "zod";
 
 export interface Processor {
   process: (content: string) => Promise<ReactNode>;
 }
 
+const BEFORE_WHITESPACE = /(?=\s)/;
+
+const LANGUAGE_CLASS_PREFIX = "language-";
+
+const FALLBACK_LANGUAGE = "text";
+
+const MDX_LANGUAGE = "mdx";
+
+const MDX_SHIKI_LANGUAGE = "md";
+
+const codeText = z.string();
+
+const processor = createProcessor();
+
+const renderedByText = new Map<string, Promise<ReactNode>>();
+
 export function rehypeWrapWords() {
   return (tree: Root) => {
     visit(tree, ["text", "element"], (node, index, parent) => {
       if (node.type === "element" && node.tagName === "pre") return "skip";
+
       if (node.type !== "text" || !parent || index === undefined) return;
 
-      const words = node.value.split(/(?=\s)/);
+      const words = node.value.split(BEFORE_WHITESPACE);
 
-      // Create new span nodes for each word and whitespace
-      const newNodes: ElementContent[] = words.flatMap((word) => {
+      const wordSpans: ElementContent[] = words.flatMap((word) => {
         if (word.length === 0) return [];
 
         return {
@@ -47,23 +64,24 @@ export function rehypeWrapWords() {
         type: "element",
         tagName: "span",
         properties: {},
-        children: newNodes,
+        children: wordSpans,
       } satisfies RootContent);
+
       return "skip";
     });
   };
 }
 
 function createProcessor(): Processor {
-  const processor = remark()
+  const remarkProcessor = remark()
     .use(remarkGfm)
     .use(remarkRehype)
     .use(rehypeWrapWords);
 
   return {
     async process(content) {
-      const nodes = processor.parse({ value: content });
-      const hast = await processor.run(nodes);
+      const nodes = remarkProcessor.parse({ value: content });
+      const hast = await remarkProcessor.run(nodes);
 
       return toJsxRuntime(hast, {
         development: false,
@@ -73,31 +91,39 @@ function createProcessor(): Processor {
         components: {
           ...defaultMdxComponents,
           pre: Pre,
-          img: undefined, // use JSX
+          img: undefined,
         },
       });
     },
   };
 }
 
-function Pre(props: ComponentProps<"pre">) {
-  const code = Children.only(props.children) as ReactElement;
-  const codeProps = code.props as ComponentProps<"code">;
-  const content = codeProps.children;
-  if (typeof content !== "string") return null;
-
-  let lang =
-    codeProps.className
+function languageOf(className: string | undefined) {
+  const declared =
+    className
       ?.split(" ")
-      .find((v) => v.startsWith("language-"))
-      ?.slice("language-".length) ?? "text";
+      .find((value) => value.startsWith(LANGUAGE_CLASS_PREFIX))
+      ?.slice(LANGUAGE_CLASS_PREFIX.length) ?? FALLBACK_LANGUAGE;
 
-  if (lang === "mdx") lang = "md";
-
-  return <DynamicCodeBlock lang={lang} code={content.trimEnd()} />;
+  return declared === MDX_LANGUAGE ? MDX_SHIKI_LANGUAGE : declared;
 }
 
-const processor = createProcessor();
+function Pre(props: ComponentProps<"pre">) {
+  const code = Children.only(props.children);
+
+  if (!isValidElement<ComponentProps<"code">>(code)) return null;
+
+  const content = codeText.safeParse(code.props.children);
+
+  if (!content.success) return null;
+
+  return (
+    <DynamicCodeBlock
+      lang={languageOf(code.props.className)}
+      code={content.data.trimEnd()}
+    />
+  );
+}
 
 export function Markdown({ text }: { text: string }) {
   const deferredText = useDeferredValue(text);
@@ -109,11 +135,9 @@ export function Markdown({ text }: { text: string }) {
   );
 }
 
-const cache = new Map<string, Promise<ReactNode>>();
-
 function Renderer({ text }: { text: string }) {
-  const result = cache.get(text) ?? processor.process(text);
-  cache.set(text, result);
+  const result = renderedByText.get(text) ?? processor.process(text);
+  renderedByText.set(text, result);
 
   return use(result);
 }

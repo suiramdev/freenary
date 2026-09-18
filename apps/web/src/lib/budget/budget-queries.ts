@@ -8,20 +8,12 @@ import { amountBoundsMinor } from "@/lib/budget/transaction-filters";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { client, orpc } from "@/utils/orpc";
 
-/**
- * Hand-built rather than `orpc.budget.getTransactions.key()`: the list is an
- * infinite query, and the key has to stay matchable by prefix.
- */
-export const TRANSACTIONS_QUERY_KEY = ["budget", "getTransactions"] as const;
-
-/** What every chart on the page reads: a period, and how to summarise it. */
 export interface PeriodInput {
   aggregation: AggregationMode;
   from: Date;
   to: Date;
 }
 
-/** Everything the transaction list is narrowed by, its period included. */
 export interface TransactionsInput {
   amount: AmountRange;
   direction: TransactionDirection;
@@ -32,6 +24,8 @@ export interface TransactionsInput {
   sort: SortMode;
   to: Date;
 }
+
+export const TRANSACTIONS_QUERY_KEY = ["budget", "getTransactions"] as const;
 
 const PAGE_SIZE = 50;
 
@@ -86,35 +80,25 @@ export const transactionsQueryOptions = ({
   });
 };
 
-/**
- * Fills the cache for a view the reader has not asked for. Settled rather than
- * awaited, so a failed warm-up rejects nothing; the toast is suppressed for it
- * too, because the cache reports only failures a mounted component observes
- * (`createQueryClient` in `@/utils/orpc`).
- */
-const warm = async (fetching: Promise<unknown>[]) => {
+const warmWithoutRaising = async (fetching: Promise<unknown>[]) => {
   await Promise.allSettled(fetching);
 };
 
-/**
- * The list under one more filter than the reader has applied. The global 60 s
- * `staleTime` makes a repeat a no-op, so a pointer resting twice on the same
- * control costs one request.
- */
 export const prefetchTransactions = (
   queryClient: QueryClient,
   input: TransactionsInput
 ) => {
-  void warm([queryClient.infiniteQuery(transactionsQueryOptions(input))]);
+  void warmWithoutRaising([
+    queryClient.infiniteQuery(transactionsQueryOptions(input)),
+  ]);
 };
 
-/** Every request the Transactions page makes for one period, at once. */
 export const prefetchPeriod = (
   queryClient: QueryClient,
   period: PeriodInput,
   list: Omit<TransactionsInput, "from" | "to">
 ) => {
-  void warm([
+  void warmWithoutRaising([
     queryClient.query(
       orpc.budget.getSpendingBreakdown.queryOptions({ input: period })
     ),
@@ -133,10 +117,6 @@ export const prefetchPeriod = (
   ]);
 };
 
-/**
- * True while what is on screen belongs to the previous view and the next one
- * is on its way.
- */
 export const isStaleView = (query: {
   isFetching: boolean;
   isPlaceholderData: boolean;

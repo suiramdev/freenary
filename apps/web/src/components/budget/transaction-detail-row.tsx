@@ -6,7 +6,8 @@ import {
 } from "@freenary/ui/components/item";
 import type { ReactNode } from "react";
 
-/** One label/value line in the transaction sheet: `media` replaces the muted `icon` slot. */
+const FLUSH_WITH_DRAWER_PADDING = "px-0";
+
 export const TransactionDetailRow = ({
   icon,
   media,
@@ -18,8 +19,7 @@ export const TransactionDetailRow = ({
   label: string;
   children: ReactNode;
 }) => (
-  // Flush with the drawer body, which already carries the horizontal padding.
-  <Item className="px-0" render={<li />} size="sm">
+  <Item className={FLUSH_WITH_DRAWER_PADDING} render={<li />} size="sm">
     {media ? (
       <ItemMedia>{media}</ItemMedia>
     ) : (

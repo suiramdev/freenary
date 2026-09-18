@@ -17,27 +17,13 @@ import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
 import { useSettledText } from "@/hooks/shared/use-settled-text";
 import { m } from "@/paraglide/messages.js";
 
-/**
- * The controls every budget list shares, so Transactions and Recurring read as
- * one screen with two subjects: the same search box, the same ordering toggle,
- * the same removable chips under the same filter row.
- */
-
-/** Toggle's sm size sits below the outline trigger beside it, and Toggle
-    carries no press feedback of its own. */
 const SORT_ITEM_CLASS =
   "h-7 text-xs/relaxed transition-transform duration-150 ease-out active:scale-[0.96]";
 
-/** One row, wrapping: a filter that does not fit drops to the next line. */
 export const ListFilterBar = ({ children }: { children: ReactNode }) => (
   <div className="flex flex-wrap items-center gap-2">{children}</div>
 );
 
-/**
- * The box owns its draft, so a keystroke re-renders the input and nothing
- * else: `value` is the text in the URL, and `onChange` receives text that has
- * settled.
- */
 export const ListSearchInput = ({
   onChange,
   placeholder,
@@ -64,7 +50,6 @@ export const ListSearchInput = ({
   );
 };
 
-/** The ordering of a list, as two or three words rather than a menu. */
 export const ListSortToggle = <T extends string>({
   label,
   onChange,
@@ -85,6 +70,7 @@ export const ListSortToggle = <T extends string>({
       aria-label={label}
       onValueChange={([next]) => {
         const chosen = options.find((option) => option.value === next);
+
         if (chosen) {
           onChange(chosen.value);
         }
@@ -108,17 +94,10 @@ export const ListSortToggle = <T extends string>({
   );
 };
 
-/** The chips sit tighter than the controls that produced them. */
 export const ListFilterChips = ({ children }: { children: ReactNode }) => (
   <div className="flex flex-wrap items-center gap-1.5">{children}</div>
 );
 
-/**
- * One active filter, and the control that drops it. The whole chip is the
- * button: a close icon small enough to aim at would be a worse target than the
- * label beside it. `truncate` is for bank text, which has no length a layout
- * can count on.
- */
 export const ListFilterChip = ({
   icon,
   label,
@@ -147,7 +126,6 @@ export const ListFilterChip = ({
   </Badge>
 );
 
-/** Worth offering once two filters are on; one chip is its own clear button. */
 export const ClearFiltersButton = ({ onClear }: { onClear: () => void }) => (
   <Button onClick={onClear} variant="ghost">
     {m.budget_filter_clear_all()}

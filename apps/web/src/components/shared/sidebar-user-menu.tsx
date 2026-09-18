@@ -39,20 +39,15 @@ export const SidebarUserMenu = () => {
   const { isMobile } = useSidebar();
   const { data: session, isPending, refetch } = authClient.useSession();
 
+  const refetchSessionThenLeaveAndDropCache = async () => {
+    await refetch();
+    await navigate({ to: "/login" });
+    queryClient.clear();
+  };
+
   const handleSignOut = () => {
     authClient.signOut({
-      fetchOptions: {
-        onSuccess: async () => {
-          // signOut settles before better-auth updates its session atom, and
-          // AuthGate routes on that atom — leaving now bounces off /login.
-          await refetch();
-          await navigate({ to: "/login" });
-          // Only once the authenticated tree is gone: its queries would
-          // otherwise refetch on a dead cookie, and the next user would be
-          // gated on this one's cached onboarding status.
-          queryClient.clear();
-        },
-      },
+      fetchOptions: { onSuccess: refetchSessionThenLeaveAndDropCache },
     });
   };
 
@@ -65,8 +60,6 @@ export const SidebarUserMenu = () => {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              // The identity row is two lines tall: a default-height sidebar
-              // row clips the avatar and the email.
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
@@ -115,7 +108,6 @@ export const SidebarUserMenu = () => {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              {/* The documentation for the version this image was built from. */}
               <DropdownMenuItem
                 render={
                   <a href={docsUrl()} rel="noopener noreferrer" target="_blank">

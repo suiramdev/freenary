@@ -24,16 +24,11 @@ import { m } from "@/paraglide/messages.js";
 
 interface CategoryPickerProps {
   categories: CategoryEntry[];
-  /** Opens the custom-category sheet for the "none of these fit" case. */
   onCreateRequest: () => void;
   onSelect: (key: string) => void;
   value: string;
 }
 
-/**
- * A menu rather than a select: the list mixes the category values with a
- * "create one" command, which a `Select` cannot carry.
- */
 export const CategoryPicker = ({
   categories,
   onCreateRequest,
@@ -43,7 +38,6 @@ export const CategoryPicker = ({
   const [query, setQuery] = useState("");
   const selected = categories.find((entry) => entry.key === value);
 
-  // Ninety-odd entries are too many to scan, so typing narrows them.
   const sections = useMemo(
     () => toCategorySections(categories, query),
     [categories, query]
@@ -75,8 +69,6 @@ export const CategoryPicker = ({
         <DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
           {sections.map((section) => (
             <DropdownMenuGroup key={section.key}>
-              {/* A group is a heading; a line is assigned a category. Each
-                  heading labels its own section, not the whole radio group. */}
               {section.heading && (
                 <DropdownMenuLabel>
                   {categoryEntryLabel(section.heading)}
@@ -86,7 +78,6 @@ export const CategoryPicker = ({
                 <DropdownMenuRadioItem
                   key={entry.key}
                   value={entry.key}
-                  // One category is the whole answer, so picking one is done.
                   closeOnClick={true}
                   className={cn(section.heading && "ps-8")}
                 >

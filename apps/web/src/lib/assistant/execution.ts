@@ -5,11 +5,6 @@ import type { AnswerSegment } from "./answer-segments";
 
 export type ChatStatus = "ready" | "submitted" | "streaming" | "error";
 
-/**
- * The SDK's tool states as the reader sees them. `cancelled` is not a state
- * the SDK ever writes: it is a call still waiting when the stream ended,
- * because the reader pressed Stop or the connection dropped.
- */
 export type ToolStatus =
   | "preparing"
   | "running"
@@ -19,14 +14,8 @@ export type ToolStatus =
 
 export type StepStatus = "complete" | "active" | "pending";
 
-/** One model call: what it thought, what it called, what it wrote. */
 export interface ExecutionStep {
   index: number;
-  /**
-   * Reasoning parts were present; `"streaming"` while the last one still is.
-   * `keys` are the timing keys the timings hook uses for those parts, `text`
-   * what the model wrote across them.
-   */
   thinking: {
     state: "streaming" | "done";
     keys: string[];
@@ -39,15 +28,10 @@ export interface ExecutionStep {
 
 export interface ExecutionTrace {
   steps: ExecutionStep[];
-  /** Tools ran, nothing was written yet, and the stream is still open. */
   answerPending: boolean;
   lookups: number;
 }
 
-/**
- * What the assistant is doing right now, for a status line. `null` once the
- * answer is complete. `tool` names the lookup when one is in flight.
- */
 export type Activity =
   | { kind: "thinking" }
   | { kind: "preparing"; tool: ToolUIPart }
@@ -56,32 +40,27 @@ export type Activity =
   | { kind: "drawing" }
   | null;
 
-/** Every tool part's type is `tool-<name>`, which no built-in narrowing sees. */
+export const TOOL_PART_TYPE_PREFIX = "tool-";
+
+const TOOL_STATUS_BY_STATE = {
+  "approval-requested": (live: boolean) => (live ? "preparing" : "cancelled"),
+  "approval-responded": (live: boolean) => (live ? "running" : "cancelled"),
+  "input-available": (live: boolean) => (live ? "running" : "cancelled"),
+  "input-streaming": (live: boolean) => (live ? "preparing" : "cancelled"),
+  "output-available": () => "completed",
+  "output-denied": () => "cancelled",
+  "output-error": () => "failed",
+} satisfies Record<ToolUIPart["state"], (live: boolean) => ToolStatus>;
+
 export const isToolPart = (
   part: UIMessage["parts"][number]
-): part is ToolUIPart => part.type.startsWith("tool-");
+): part is ToolUIPart => part.type.startsWith(TOOL_PART_TYPE_PREFIX);
 
-export const toolStatusOf = (part: ToolUIPart, live: boolean): ToolStatus => {
-  switch (part.state) {
-    case "input-streaming":
-    case "approval-requested": {
-      return live ? "preparing" : "cancelled";
-    }
-    case "input-available":
-    case "approval-responded": {
-      return live ? "running" : "cancelled";
-    }
-    case "output-available": {
-      return "completed";
-    }
-    case "output-denied": {
-      return "cancelled";
-    }
-    default: {
-      return "failed";
-    }
-  }
-};
+export const reasoningTimingKey = (partIndex: number): string =>
+  `reasoning-${partIndex}`;
+
+export const toolStatusOf = (part: ToolUIPart, live: boolean): ToolStatus =>
+  TOOL_STATUS_BY_STATE[part.state](live);
 
 const newStep = (index: number): ExecutionStep => ({
   answer: [],
@@ -91,11 +70,6 @@ const newStep = (index: number): ExecutionStep => ({
   tools: [],
 });
 
-/**
- * Groups a message's parts by the `step-start` markers the SDK writes for
- * every model call. Within a step, tool calls ran concurrently; across
- * steps, each call fed the next.
- */
 export const traceOf = (
   parts: UIMessage["parts"],
   live: boolean
@@ -118,7 +92,7 @@ export const traceOf = (
     if (part.type === "reasoning") {
       const before = current.thinking;
       current.thinking = {
-        keys: [...(before?.keys ?? []), `reasoning-${index}`],
+        keys: [...(before?.keys ?? []), reasoningTimingKey(index)],
         state: live && part.state === "streaming" ? "streaming" : "done",
         text: before ? `${before.text}\n\n${part.text}` : part.text,
       };
@@ -130,6 +104,7 @@ export const traceOf = (
   }
 
   const last = steps.at(-1);
+
   if (last && live) {
     last.status = "active";
   }
@@ -158,17 +133,20 @@ export const activityOf = (
   }
 
   const step = trace.steps.at(-1);
+
   if (!step) {
     return { kind: "thinking" };
   }
 
   const preparing = step.tools.find((tool) => tool.state === "input-streaming");
+
   if (preparing) {
     return { kind: "preparing", tool: preparing };
   }
 
   const running = step.tools.filter((tool) => tool.state === "input-available");
   const [first] = running;
+
   if (first) {
     return { kind: "running", parallel: running.length, tool: first };
   }

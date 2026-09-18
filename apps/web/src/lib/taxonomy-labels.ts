@@ -9,11 +9,6 @@ import type {
 
 import { m } from "@/paraglide/messages.js";
 
-/**
- * The tables hold the message *functions*: calling one here would freeze the
- * locale of whichever request loaded this module first. `satisfies` is what
- * makes a new slug in the taxonomy a compile error rather than a blank label.
- */
 const GROUP_MESSAGES = {
   "daily-living": m.category_group_daily_living,
   education: m.category_group_education,
@@ -117,7 +112,6 @@ export const categoryGroupLabel = (group: CategoryGroup): string =>
 export const categoryLabel = (category: SpendingCategory): string =>
   CATEGORY_MESSAGES[category]();
 
-/** A category tree entry: built-in keys are translated, a custom entry's own name is not. */
 export const categoryEntryLabel = (entry: {
   isCustom: boolean;
   key: string;
@@ -126,11 +120,14 @@ export const categoryEntryLabel = (entry: {
   if (entry.isCustom) {
     return entry.label;
   }
+
   if (isCategoryGroup(entry.key)) {
     return categoryGroupLabel(entry.key);
   }
+
   if (isSpendingCategory(entry.key)) {
     return categoryLabel(entry.key);
   }
+
   return entry.label;
 };

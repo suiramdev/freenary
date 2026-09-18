@@ -33,11 +33,11 @@ describe("fitHistory", () => {
   });
 
   it("drops the oldest turns as pairs, never starting on an answer", () => {
-    // Room for the last question and the second turn's answer only: the
-    // answer's question does not fit, so the whole second turn goes.
-    const budget = size(transcript.slice(3)) + 1;
+    const budgetShortOfTheSecondQuestion = size(transcript.slice(3)) + 1;
 
-    expect(fitHistory(transcript, 0, budget).map((m) => m.id)).toEqual(["q3"]);
+    expect(
+      fitHistory(transcript, 0, budgetShortOfTheSecondQuestion).map((m) => m.id)
+    ).toEqual(["q3"]);
   });
 
   it("keeps a whole turn once its question fits", () => {

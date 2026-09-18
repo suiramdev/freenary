@@ -16,6 +16,8 @@ import { BANK_ACCOUNTS_ANCHOR } from "@/lib/settings/anchors";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/utils/orpc";
 
+const INSTITUTIONS_FOR_THE_USERS_OWN_COUNTRY = {};
+
 export const BankAccountsSection = () => {
   const availability = useQuery(
     orpc.bankConnection.getProviderAvailability.queryOptions()
@@ -25,8 +27,7 @@ export const BankAccountsSection = () => {
   const banksQuery = useQuery(
     orpc.bankConnection.listInstitutions.queryOptions({
       enabled: isAvailable,
-      // No country: the procedure answers for the user's own.
-      input: {},
+      input: INSTITUTIONS_FOR_THE_USERS_OWN_COUNTRY,
     })
   );
 
@@ -35,8 +36,9 @@ export const BankAccountsSection = () => {
     !availability.isPending
   );
 
-  // Claiming the provider is missing before its query answers would flash a
-  // wrong verdict on every load.
+  const checkFailedWithNoAnswerYet =
+    availability.isError && availability.data === undefined;
+
   const renderPanel = () => {
     if (availability.isPending) {
       return (
@@ -51,9 +53,7 @@ export const BankAccountsSection = () => {
       );
     }
 
-    // A failed check is not a missing provider — saying so sends the user to
-    // fix the wrong thing — and a failed refetch must not wipe a good answer.
-    if (availability.isError && availability.data === undefined) {
+    if (checkFailedWithNoAnswerYet) {
       return (
         <Empty>
           <EmptyHeader>

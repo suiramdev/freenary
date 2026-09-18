@@ -43,16 +43,16 @@ import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** A category chip carries its group's mark, at chip scale. */
 const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
 
-/** The amount filter as a chip reads: one bound, or the span between two. */
 const amountLabel = (amount: AmountRange): string => {
   const max = formatCurrency(Math.round(amount.max * 100));
   const min = formatCurrency(Math.round(amount.min * 100));
+
   if (amount.min > 0 && amount.max > 0) {
     return m.budget_filter_amount_between({ max, min });
   }
+
   return amount.min > 0
     ? m.budget_filter_amount_from({ amount: min })
     : m.budget_filter_amount_upto({ amount: max });

@@ -25,7 +25,6 @@ export const BudgetProfileSummary = ({
         </span>
       </span>
       <span className="text-muted-foreground">
-        {/* Same name as the chart's band, so one concept reads one way. */}
         {remaining >= 0
           ? m.settings_summary_money_left()
           : m.settings_summary_over_allocated()}{" "}

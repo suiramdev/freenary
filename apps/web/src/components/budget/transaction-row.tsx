@@ -60,8 +60,6 @@ export const TransactionRow = ({
         />
       </ItemMedia>
       <ItemContent className="min-w-0">
-        {/* ItemTitle's own `flex` beats its `line-clamp-1`, so truncation has
-            to be re-stated on a block box. */}
         <ItemTitle className="block w-full truncate">{title}</ItemTitle>
         {transaction.counterpartyName && transaction.description ? (
           <ItemDescription className="block truncate">

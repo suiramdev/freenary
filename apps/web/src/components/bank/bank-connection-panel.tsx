@@ -23,14 +23,9 @@ interface BankConnectionPanelProps {
   banks: BankInstitution[];
   isBanksError: boolean;
   isBanksPending: boolean;
-  /** Where the provider callback returns the user to. */
   returnTo: BankConnectionReturnTo;
 }
 
-/**
- * The one bank-linking surface, shared by onboarding and settings: every bank
- * the provider offers, the connected ones first and disconnectable in place.
- */
 export const BankConnectionPanel = ({
   banks,
   isBanksError,
@@ -56,20 +51,20 @@ export const BankConnectionPanel = ({
     [banks, connections, locale]
   );
 
-  const filtered = useMemo(() => {
+  const matchingRows = useMemo(() => {
     if (!search.trim()) {
       return rows;
     }
-    const q = search.toLowerCase();
+
+    const query = search.toLowerCase();
+
     return rows.filter(
       (row) =>
-        row.name.toLowerCase().includes(q) ||
-        row.institution?.bic?.toLowerCase().includes(q)
+        row.name.toLowerCase().includes(query) ||
+        row.institution?.bic?.toLowerCase().includes(query)
     );
   }, [rows, search]);
 
-  // Without the connections there is no telling which banks are already
-  // connected, and offering one a second consent is worse than no list.
   if (isConnectionsMissing) {
     return (
       <Empty>
@@ -86,6 +81,8 @@ export const BankConnectionPanel = ({
     );
   }
 
+  const hasNoInstitutionsAtAll = banks.length === 0;
+
   return (
     <div className="flex flex-col gap-2.5">
       <SearchInput
@@ -97,9 +94,7 @@ export const BankConnectionPanel = ({
         connecting={connecting}
         disconnectingId={disconnectingId}
         hasSearch={search.length > 0}
-        // Judged on the unfiltered institutions: a refetch failure must not
-        // wipe the ones on screen, and a search that matches none is not one.
-        isError={isBanksError && banks.length === 0}
+        isError={isBanksError && hasNoInstitutionsAtAll}
         isPending={isBanksPending || isConnectionsPending}
         onConnect={(row) => {
           if (row.institution) {
@@ -108,7 +103,7 @@ export const BankConnectionPanel = ({
         }}
         onDisconnect={disconnect}
         onSync={resync}
-        rows={filtered}
+        rows={matchingRows}
         syncingId={resyncingId}
       />
     </div>

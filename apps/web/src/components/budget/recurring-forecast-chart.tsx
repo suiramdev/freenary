@@ -20,7 +20,6 @@ interface RecurringForecastChartProps {
   points: ForecastPoint[];
 }
 
-/** One rendered day: the axis reads `day`, the tooltip reads the rest. */
 interface ForecastRow {
   balanceMinor: number;
   day: number;
@@ -31,23 +30,14 @@ interface ForecastRow {
 
 const BALANCE_KEY = "balanceMinor";
 
-/** A tick every fifth day: thirty-one dates would overlap into a smear. */
-const TICK_STEP = 5;
+const DAYS_BETWEEN_TICKS = 5;
 
 const AREA_FILL_OPACITY = 0.15;
 
 const DAY_TICK: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
-/**
- * The last tick is centred on the final day and needs room to its right; the
- * self-measured value axis needs a little on the left.
- */
 const CHART_MARGIN = { left: 6, right: 24, top: 4 };
 
-/**
- * Recharts injects `active` and `payload`; the day's expected payments are a
- * second and a third fact about the point, which no default row carries.
- */
 const ForecastTooltip = ({
   active,
   currency,
@@ -58,6 +48,7 @@ const ForecastTooltip = ({
   payload?: { payload?: ForecastRow }[];
 }) => {
   const row = active ? payload?.[0]?.payload : undefined;
+
   if (!row) {
     return null;
   }
@@ -91,10 +82,6 @@ const ForecastTooltip = ({
   );
 };
 
-/**
- * The balance walked forward as expected payments land. The zero line is drawn
- * only when the forecast crosses it: "this runs out" is the whole point.
- */
 export const RecurringForecastChart = ({
   currency,
   points,
@@ -124,14 +111,11 @@ export const RecurringForecastChart = ({
       index === 0 ? today : point.date.toLocaleDateString(locale, DAY_TICK),
   }));
   const runsOut = rows.some((row) => row.balanceMinor < 0);
-  // `day` is the row's own index, so a tick every fifth day is arithmetic on it.
   const ticks = rows
     .map((row) => row.day)
-    .filter((day) => day % TICK_STEP === 0 || day === rows.length - 1);
+    .filter((day) => day % DAYS_BETWEEN_TICKS === 0 || day === rows.length - 1);
 
   return (
-    // A figure with an sr-only caption, so the chart carries a name without a
-    // `role` on a div.
     <figure className="h-full">
       <figcaption className="sr-only">
         {m.budget_recurring_forecast_chart_label()}
@@ -139,8 +123,6 @@ export const RecurringForecastChart = ({
       <ChartContainer className="aspect-auto h-full w-full" config={config}>
         <AreaChart accessibilityLayer data={rows} margin={CHART_MARGIN}>
           <CartesianGrid vertical={false} />
-          {/* Chosen ticks, then thinned again by `preserveStartEnd` when the
-              card is too narrow to seat them all. */}
           <XAxis
             axisLine={false}
             dataKey="day"
@@ -150,8 +132,6 @@ export const RecurringForecastChart = ({
             tickMargin={8}
             ticks={ticks}
           />
-          {/* A full currency tick is as wide as its locale makes it, so the
-              axis measures itself rather than clipping the widest one. */}
           <YAxis
             axisLine={false}
             tickFormatter={(value: number) => formatCurrency(value, currency)}
@@ -166,8 +146,6 @@ export const RecurringForecastChart = ({
               y={0}
             />
           )}
-          {/* Anchored at zero rather than at the lowest point: the fill then
-              measures the cushion, or the hole, on either side of it. */}
           <Area
             baseValue={0}
             dataKey={BALANCE_KEY}

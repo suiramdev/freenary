@@ -51,40 +51,6 @@ import type { AmountRange } from "@/lib/budget/transaction-filters";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** A category chip carries its group's mark, at chip scale. */
-const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
-
-const SORT_OPTIONS = [
-  { label: m.budget_recurring_sort_cost, value: "cost" },
-  { label: m.budget_recurring_sort_next, value: "next" },
-] as const satisfies readonly {
-  label: () => string;
-  value: RecurringSortMode;
-}[];
-
-/** The monthly-cost bounds as a chip reads: one bound, or a span. */
-const amountLabel = (amount: AmountRange): string => {
-  const max = formatCurrency(Math.round(amount.max * 100));
-  const min = formatCurrency(Math.round(amount.min * 100));
-  if (amount.min > 0 && amount.max > 0) {
-    return m.budget_filter_amount_between({ max, min });
-  }
-  return amount.min > 0
-    ? m.budget_filter_amount_from({ amount: min })
-    : m.budget_filter_amount_upto({ amount: max });
-};
-
-const KIND_TAB_LABELS = {
-  behavioral: m.budget_recurring_tab_patterns,
-  fixed: m.budget_recurring_tab_commitments,
-} satisfies Record<RecurrenceKind, (input: { amount: string }) => string>;
-
-/**
- * Commitments first, patterns second — the order the sections carry, and the
- * order of certainty: a confirmed debit outranks a habit read off a history.
- */
-const KIND_TABS = ["fixed", "behavioral"] as const satisfies RecurrenceKind[];
-
 interface RecurringListProps {
   asOf: Date;
   currency: string;
@@ -105,12 +71,36 @@ interface RecurringListProps {
   sort: RecurringSortMode;
 }
 
-/**
- * Every detected recurrence, under the same controls the transaction list
- * carries: one search box, one ordering, the same three filter menus, the same
- * removable chips. The two kinds are tabs rather than sections — the reader
- * picks which one they are reading, and each tab owes what it costs a month.
- */
+const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
+
+const SORT_OPTIONS = [
+  { label: m.budget_recurring_sort_cost, value: "cost" },
+  { label: m.budget_recurring_sort_next, value: "next" },
+] as const satisfies readonly {
+  label: () => string;
+  value: RecurringSortMode;
+}[];
+
+const amountLabel = (amount: AmountRange): string => {
+  const max = formatCurrency(Math.round(amount.max * 100));
+  const min = formatCurrency(Math.round(amount.min * 100));
+
+  if (amount.min > 0 && amount.max > 0) {
+    return m.budget_filter_amount_between({ max, min });
+  }
+
+  return amount.min > 0
+    ? m.budget_filter_amount_from({ amount: min })
+    : m.budget_filter_amount_upto({ amount: max });
+};
+
+const KIND_TAB_LABELS = {
+  behavioral: m.budget_recurring_tab_patterns,
+  fixed: m.budget_recurring_tab_commitments,
+} satisfies Record<RecurrenceKind, (input: { amount: string }) => string>;
+
+const KIND_TABS = ["fixed", "behavioral"] as const satisfies RecurrenceKind[];
+
 export const RecurringList = ({
   asOf,
   currency,
@@ -239,6 +229,7 @@ export const RecurringList = ({
         className="flex flex-1 flex-col gap-3"
         onValueChange={(next) => {
           const chosen = KIND_TABS.find((candidate) => candidate === next);
+
           if (chosen) {
             onKindChange(chosen);
           }
@@ -263,8 +254,6 @@ export const RecurringList = ({
             key={candidate}
             value={candidate}
           >
-            {/* What this kind is, once above the rows, rather than a word on
-                every one of them: a prediction must not read as a commitment. */}
             <p className="text-muted-foreground text-xs">
               {sectionHint(candidate)}
             </p>

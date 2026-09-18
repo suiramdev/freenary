@@ -13,10 +13,7 @@ const input = (
   ...overrides,
 });
 
-// ── FR: French institutions ──────────────────────────────────────────────
-
 describe("FR", () => {
-  // ── Boursorama ─────────────────────────────────────────────────────────
   describe("boursorama", () => {
     it("parses CARTE with date and card suffix", () => {
       const result = parseDescriptor(
@@ -25,6 +22,7 @@ describe("FR", () => {
           remittanceLines: ["CARTE 01/03/25 CARREFOUR MARKET 4587 CB*4567"],
         })
       );
+
       expect(result.payeeText).toBe("CARREFOUR MARKET");
       expect(result.normalisedDescriptor).toBe("carrefour market");
       expect(result.channel).toBe("card");
@@ -40,6 +38,7 @@ describe("FR", () => {
           remittanceLines: ["RETRAIT DAB 15/04/25 DISTRIBUTEUR BNP CB*1234"],
         })
       );
+
       expect(result.channel).toBe("atm");
       expect(result.cardLast4).toBe("1234");
       expect(result.parserId).toBe("boursorama");
@@ -52,6 +51,7 @@ describe("FR", () => {
           remittanceLines: ["PRLV SEPA EDF CLIENTS PARTICULIERS"],
         })
       );
+
       expect(result.payeeText).toBe("EDF CLIENTS PARTICULIERS");
       expect(result.normalisedDescriptor).toBe("edf clients particuliers");
       expect(result.channel).toBe("direct-debit");
@@ -64,6 +64,7 @@ describe("FR", () => {
           remittanceLines: ["CARTE 10/05/25 MONOPRIX\\PARIS 15\\ FR CB*9999"],
         })
       );
+
       expect(result.payeeText).toBe("MONOPRIX");
       expect(result.channel).toBe("card");
     });
@@ -78,6 +79,7 @@ describe("FR", () => {
           ],
         })
       );
+
       expect(result.payeeText).toBe("BOULANGERIE PAUL");
       expect(result.droppedLines).toContain("Réf : 12345678");
     });
@@ -90,6 +92,7 @@ describe("FR", () => {
           remittanceLines: ["CARTE 01/03/25 FNAC CB*1111"],
         })
       );
+
       expect(result.parserId).toBe("boursorama");
     });
 
@@ -100,6 +103,7 @@ describe("FR", () => {
           remittanceLines: ["VIR SEPA JEAN DUPONT"],
         })
       );
+
       expect(result.channel).toBe("transfer");
       expect(result.payeeText).toBe("JEAN DUPONT");
     });
@@ -111,6 +115,7 @@ describe("FR", () => {
           remittanceLines: ["ECH PRET: CREDIT IMMOBILIER"],
         })
       );
+
       expect(result.channel).toBe("loan");
     });
 
@@ -121,13 +126,12 @@ describe("FR", () => {
           remittanceLines: ["CARTE 010325 CARREFOUR CB*4567"],
         })
       );
+
       expect(result.payeeText).toBe("CARREFOUR");
       expect(result.labelDate).toBe("2025-03-01");
       expect(result.channel).toBe("card");
     });
   });
-
-  // ── BNP Paribas ──────────────────────────────────────────────────────────
 
   describe("bnp-paribas", () => {
     it("parses FACTURE CARTE DU with date and card", () => {
@@ -139,6 +143,7 @@ describe("FR", () => {
           ],
         })
       );
+
       expect(result.payeeText).toBe("PHARMACIE LAFAYETTE");
       expect(result.normalisedDescriptor).toBe("pharmacie lafayette");
       expect(result.channel).toBe("card");
@@ -156,6 +161,7 @@ describe("FR", () => {
           ],
         })
       );
+
       expect(result.payeeText).toBe("FREE MOBILE");
       expect(result.channel).toBe("direct-debit");
     });
@@ -168,11 +174,10 @@ describe("FR", () => {
           remittanceLines: ["FACTURE CARTE DU 010125 SEPHORA CARTE 5555"],
         })
       );
+
       expect(result.parserId).toBe("bnp-paribas");
     });
   });
-
-  // ── Crédit Agricole ──────────────────────────────────────────────────────
 
   describe("credit-agricole", () => {
     it("parses PAIEMENT PAR CARTE with date suffix (DD/MM, no year)", () => {
@@ -182,10 +187,10 @@ describe("FR", () => {
           remittanceLines: ["PAIEMENT PAR CARTE MONOPRIX PARIS 15 12/03"],
         })
       );
+
       expect(result.payeeText).toBe("MONOPRIX PARIS 15");
       expect(result.normalisedDescriptor).toBe("monoprix paris");
       expect(result.channel).toBe("card");
-      // DD/MM only — no year, so labelDate is undefined
       expect(result.labelDate).toBeUndefined();
       expect(result.parserId).toBe("credit-agricole");
     });
@@ -197,6 +202,7 @@ describe("FR", () => {
           remittanceLines: ["PRELEVEMENT EDF CLIENTS 15/03/2025"],
         })
       );
+
       expect(result.payeeText).toBe("EDF CLIENTS");
       expect(result.channel).toBe("direct-debit");
       expect(result.labelDate).toBe("2025-03-15");
@@ -209,13 +215,12 @@ describe("FR", () => {
           remittanceLines: ["PRELEVEMENT NETFLIX 15-03"],
         })
       );
+
       expect(result.payeeText).toBe("NETFLIX");
       expect(result.channel).toBe("direct-debit");
       expect(result.labelDate).toBeUndefined();
     });
   });
-
-  // ── Société Générale ─────────────────────────────────────────────────────
 
   describe("societe-generale", () => {
     it("parses CARTE with card token before date", () => {
@@ -225,6 +230,7 @@ describe("FR", () => {
           remittanceLines: ["CARTE X1234 15/03 BOULANGERIE DUPONT"],
         })
       );
+
       expect(result.payeeText).toBe("BOULANGERIE DUPONT");
       expect(result.channel).toBe("card");
       expect(result.cardLast4).toBe("X1234");
@@ -240,6 +246,7 @@ describe("FR", () => {
           ],
         })
       );
+
       expect(result.payeeText).toBe("LOYER MARS");
       expect(result.channel).toBe("transfer");
     });
@@ -251,11 +258,10 @@ describe("FR", () => {
           remittanceLines: ["0315/MONOPRIX PARIS"],
         })
       );
+
       expect(result.payeeText).toBe("MONOPRIX PARIS");
     });
   });
-
-  // ── Crédit Mutuel / CIC ─────────────────────────────────────────────────
 
   describe("credit-mutuel", () => {
     it("parses PAIEMENT CB with card after merchant", () => {
@@ -265,6 +271,7 @@ describe("FR", () => {
           remittanceLines: ["PAIEMENT CB 1503 INTERMARCHE CARTE 4567"],
         })
       );
+
       expect(result.payeeText).toBe("INTERMARCHE");
       expect(result.channel).toBe("card");
       expect(result.cardLast4).toBe("4567");
@@ -278,6 +285,7 @@ describe("FR", () => {
           remittanceLines: ["PAIEMENT PSC 0115 SNCF PAYWEB9876"],
         })
       );
+
       expect(result.parserId).toBe("credit-mutuel");
       expect(result.payeeText).toBe("SNCF");
       expect(result.cardLast4).toBe("9876");
@@ -290,11 +298,10 @@ describe("FR", () => {
           remittanceLines: ["PAIEMENT CB 1503 AUCHAN CARTE 1111"],
         })
       );
+
       expect(result.labelDate).toBeUndefined();
     });
   });
-
-  // ── LCL ──────────────────────────────────────────────────────────────────
 
   describe("lcl", () => {
     it("parses CB payee DD/MM/YY (date as suffix)", () => {
@@ -304,14 +311,13 @@ describe("FR", () => {
           remittanceLines: ["CB BOULANGER 15/03/25"],
         })
       );
+
       expect(result.payeeText).toBe("BOULANGER");
       expect(result.channel).toBe("card");
       expect(result.labelDate).toBe("2025-03-15");
       expect(result.parserId).toBe("lcl");
     });
   });
-
-  // ── La Banque Postale ────────────────────────────────────────────────────
 
   describe("la-banque-postale", () => {
     it("parses ACHAT CB payee DD.MM.YY (dot dates)", () => {
@@ -321,6 +327,7 @@ describe("FR", () => {
           remittanceLines: ["ACHAT CB PHARMACIE DE LA GARE 03.04.25"],
         })
       );
+
       expect(result.payeeText).toBe("PHARMACIE DE LA GARE");
       expect(result.normalisedDescriptor).toBe("pharmacie gare");
       expect(result.channel).toBe("card");
@@ -330,8 +337,6 @@ describe("FR", () => {
   });
 });
 
-// ── Generic fallback ─────────────────────────────────────────────────────
-
 describe("generic", () => {
   it("falls back to generic for unknown institutions", () => {
     const result = parseDescriptor(
@@ -340,6 +345,7 @@ describe("generic", () => {
         remittanceLines: ["PRLV SEPA NETFLIX"],
       })
     );
+
     expect(result.parserId).toBe("generic");
     expect(result.payeeText).toBe("NETFLIX");
     expect(result.channel).toBe("direct-debit");
@@ -353,6 +359,7 @@ describe("generic", () => {
         remittanceLines: ["CARTE"],
       })
     );
+
     expect(result.payeeText).toBe("AMAZON EU SARL");
   });
 
@@ -364,6 +371,7 @@ describe("generic", () => {
         remittanceLines: ["VIR"],
       })
     );
+
     expect(result.payeeText).toBe("JEAN DUPONT");
   });
 
@@ -402,6 +410,7 @@ describe("generic", () => {
         remittanceLines: ["VIR SEPA DESCRIPTOR NAME"],
       })
     );
+
     expect(result.payeeText).toBe("DESCRIPTOR NAME");
   });
 
@@ -419,8 +428,6 @@ describe("generic", () => {
   });
 });
 
-// ── Cross-cutting requirements ───────────────────────────────────────────
-
 describe("cross-cutting", () => {
   it("expands upper- and lowercase Latin ligatures", () => {
     const result = parseDescriptor(
@@ -428,6 +435,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["ŒUVRE BœUF ÆSOP CæSAR"],
       })
     );
+
     expect(result.normalisedDescriptor).toBe("oeuvre boeuf aesop caesar");
   });
 
@@ -438,7 +446,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["AMZN Mktp FR*308J"],
       })
     );
-    // normaliseDescriptor strips digit-bearing tokens (308J has digits)
+
     expect(result.normalisedDescriptor).toBe("amzn mktp fr");
     expect(result.payeeText).toBe("AMZN Mktp FR*308J");
   });
@@ -454,6 +462,7 @@ describe("cross-cutting", () => {
         ],
       })
     );
+
     expect(result.payeeText).toBe("CARREFOUR MARKET");
     expect(result.channel).toBe("card");
     expect(result.droppedLines).toContain("Réf : 999999");
@@ -501,6 +510,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["RETRAIT DAB 15/04/25 BNP PARIS CB*1234"],
       })
     );
+
     expect(result.channel).toBe("atm");
   });
 
@@ -511,6 +521,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["PRLV SEPA SFR"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
   });
 
@@ -521,6 +532,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["", "  "],
       })
     );
+
     expect(result.payeeText).toBeNull();
     expect(result.channel).toBe("unknown");
     expect(result.normalisedDescriptor).toBe("");
@@ -533,6 +545,7 @@ describe("cross-cutting", () => {
         remittanceLines: ["CARTE"],
       })
     );
+
     expect(result.channel).toBe("card");
     expect(result.payeeText).toBeNull();
   });
@@ -544,6 +557,7 @@ describe("cross-cutting", () => {
         remittanceLines: [],
       })
     );
+
     expect(result.payeeText).toBeNull();
     expect(result.normalisedDescriptor).toBe("");
   });
@@ -568,12 +582,11 @@ describe("cross-cutting", () => {
           remittanceLines: ["SOME LABEL"],
         })
       );
+
       expect(result.parserId).toBe(expectedId);
     }
   });
 });
-
-// ── Channel verb regression (R2) ─────────────────────────────────────────
 
 describe("channel verb detection", () => {
   it("RETRAIT DAB without date → atm (Boursorama regression)", () => {
@@ -583,6 +596,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["RETRAIT DAB BNP PARIBAS PARIS CB*9876"],
       })
     );
+
     expect(result.channel).toBe("atm");
     expect(result.parserId).toBe("boursorama");
   });
@@ -594,6 +608,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["RETRAIT DAB DISTRIBUTEUR BNP CB*1234"],
       })
     );
+
     expect(result.channel).toBe("atm");
     expect(result.payeeText).toBe("DISTRIBUTEUR BNP");
   });
@@ -605,6 +620,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["RETRAIT DAB 01/03/25 DISTRIBUTEUR BNP CB*1234"],
       })
     );
+
     expect(result.channel).toBe("atm");
   });
 
@@ -615,6 +631,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["RETRAIT ESPECES GUICHET"],
       })
     );
+
     expect(result.channel).toBe("atm");
   });
 
@@ -625,6 +642,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["PRLV SEPA FREE MOBILE"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
   });
 
@@ -635,6 +653,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["PRELEVEMENT EDF"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
   });
 
@@ -645,6 +664,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["VIR SEPA JEAN DUPONT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -655,6 +675,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["VIR INST JEAN DUPONT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -665,6 +686,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["VIR JEAN DUPONT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -675,6 +697,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["VIREMENT JEAN DUPONT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -685,6 +708,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["CARTE MONOPRIX PARIS"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -695,6 +719,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["CB MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -705,6 +730,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["ACHAT CB MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -715,6 +741,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["PAIEMENT PAR CARTE MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -725,6 +752,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["PAIEMENT CB MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -735,6 +763,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["FACTURE CARTE MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -745,6 +774,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["ECH PRET: CREDIT IMMOBILIER"],
       })
     );
+
     expect(result.channel).toBe("loan");
   });
 
@@ -755,6 +785,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["CHEQUE 1234567"],
       })
     );
+
     expect(result.channel).toBe("cheque");
   });
 
@@ -765,6 +796,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["CHQ 1234567"],
       })
     );
+
     expect(result.channel).toBe("cheque");
   });
 
@@ -775,6 +807,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["COTISATION CARTE VISA"],
       })
     );
+
     expect(result.channel).toBe("fee");
   });
 
@@ -785,6 +818,7 @@ describe("channel verb detection", () => {
         remittanceLines: ["FRAIS TENUE DE COMPTE"],
       })
     );
+
     expect(result.channel).toBe("fee");
   });
 
@@ -795,18 +829,18 @@ describe("channel verb detection", () => {
         remittanceLines: ["COMMISSION INTERVENTION"],
       })
     );
+
     expect(result.channel).toBe("fee");
   });
 
   it("verb detection works for Boursorama even when detail patterns fail", () => {
-    // VIR without SEPA/INST qualifier — not matched by Boursorama's VIR_RE
-    // which requires SEPA or INST, but verb detection catches it
     const result = parseDescriptor(
       input({
         institutionName: "Boursorama",
         remittanceLines: ["PRLV SEPA SOME PROVIDER"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
     expect(result.parserId).toBe("boursorama");
   });
@@ -820,6 +854,7 @@ describe("channel verb detection", () => {
       "LCL",
       "La Banque Postale",
     ];
+
     for (const bank of banks) {
       const result = parseDescriptor(
         input({
@@ -827,12 +862,11 @@ describe("channel verb detection", () => {
           remittanceLines: ["RETRAIT DAB SOME ATM"],
         })
       );
+
       expect(result.channel).toBe("atm");
     }
   });
 });
-
-// ── ISO 20022 family code channel signal ──────────────────────────────────
 
 describe("iso 20022 family code", () => {
   it("RCDT → transfer overrides verb detection", () => {
@@ -843,6 +877,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["CARTE MONOPRIX"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -854,6 +889,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["SOME RANDOM TEXT"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
   });
 
@@ -865,6 +901,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["MONOPRIX PARIS"],
       })
     );
+
     expect(result.channel).toBe("card");
   });
 
@@ -876,6 +913,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["TENUE DE COMPTE"],
       })
     );
+
     expect(result.channel).toBe("fee");
   });
 
@@ -887,6 +925,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["RETRAIT"],
       })
     );
+
     expect(result.channel).toBe("atm");
   });
 
@@ -898,6 +937,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["ECHEANCE PRET"],
       })
     );
+
     expect(result.channel).toBe("loan");
   });
 
@@ -909,6 +949,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["VIR SEPA JEAN DUPONT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -920,6 +961,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["PRLV SEPA NETFLIX"],
       })
     );
+
     expect(result.channel).toBe("direct-debit");
   });
 
@@ -931,6 +973,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["SOME TEXT"],
       })
     );
+
     expect(result.channel).toBe("transfer");
   });
 
@@ -942,6 +985,7 @@ describe("iso 20022 family code", () => {
         remittanceLines: ["CARTE 01/03/25 CARREFOUR MARKET CB*4567"],
       })
     );
+
     expect(result.channel).toBe("card");
     expect(result.payeeText).toBe("CARREFOUR MARKET");
     expect(result.cardLast4).toBe("4567");

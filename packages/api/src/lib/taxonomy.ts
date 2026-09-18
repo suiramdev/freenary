@@ -1,13 +1,3 @@
-/**
- * The one category hierarchy: a category group holds spending categories, and
- * nothing nests deeper. Categorisation resolves a transaction to a category,
- * budgeting assigns a category to a line, and the Sankey draws revenues →
- * groups → categories — all three read this file so they cannot disagree.
- *
- * `SpendingCategory` covers income too: money coming in needs the same
- * vocabulary as money going out for a cash flow to balance.
- */
-
 export const CATEGORY_COLOR_VALUES = [
   "blue",
   "green",
@@ -20,7 +10,6 @@ export const CATEGORY_COLOR_VALUES = [
 
 export type CategoryColor = (typeof CATEGORY_COLOR_VALUES)[number];
 
-/** Stable icon names a category may use; the web name→component map covers exactly these. */
 export const CATEGORY_ICON_NAMES = [
   "AirplaneIcon",
   "ArrowsLeftRightIcon",
@@ -44,10 +33,6 @@ export const CATEGORY_ICON_NAMES = [
 
 export type CategoryIconName = (typeof CATEGORY_ICON_NAMES)[number];
 
-/**
- * Groups in flow order: income first because it is the Sankey's left column,
- * then the allocation groups in the order a budget is usually declared.
- */
 export const CATEGORY_GROUPS = [
   "income",
   "investments",
@@ -69,99 +54,88 @@ export const CATEGORY_GROUPS = [
 
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
-/** Categories in group order, so a picker can render this list top to bottom. */
+const CATEGORIES_BY_GROUP = {
+  "daily-living": [
+    "groceries",
+    "restaurants",
+    "takeaway",
+    "bars-cafes",
+    "personal-care",
+    "household-supplies",
+    "pets",
+    "childcare",
+    "other-daily-living",
+  ],
+  education: ["tuition", "courses", "other-education"],
+  financial: [
+    "bank-fees",
+    "loan-repayment",
+    "other-insurance",
+    "child-support",
+    "other-financial",
+  ],
+  health: ["medical", "pharmacy", "health-insurance", "other-health"],
+  housing: [
+    "rent",
+    "mortgage",
+    "home-charges",
+    "home-maintenance",
+    "home-insurance",
+    "other-housing",
+  ],
+  income: [
+    "salary",
+    "self-employment",
+    "benefits",
+    "investment-income",
+    "rental-income",
+    "refunds",
+    "other-income",
+  ],
+  investments: [
+    "savings",
+    "securities",
+    "retirement",
+    "life-insurance",
+    "crypto",
+    "other-investment",
+  ],
+  leisure: ["culture", "sports", "hobbies", "other-leisure"],
+  other: ["donations", "uncategorised"],
+  shopping: ["clothing", "electronics", "furniture", "gifts", "other-shopping"],
+  subscriptions: ["streaming", "software", "memberships", "other-subscription"],
+  taxes: ["income-tax", "property-tax", "other-taxes"],
+  transfers: ["internal-transfer", "cash-withdrawal", "other-transfer"],
+  transport: [
+    "fuel",
+    "public-transport",
+    "taxi",
+    "vehicle-maintenance",
+    "vehicle-insurance",
+    "parking-tolls",
+    "other-transport",
+  ],
+  travel: ["flights", "accommodation", "other-travel"],
+  utilities: ["energy", "water", "telecom", "other-utilities"],
+} as const satisfies Record<CategoryGroup, readonly string[]>;
+
 export const SPENDING_CATEGORIES = [
-  // income
-  "salary",
-  "self-employment",
-  "benefits",
-  "investment-income",
-  "rental-income",
-  "refunds",
-  "other-income",
-  // investments
-  "savings",
-  "securities",
-  "retirement",
-  "life-insurance",
-  "crypto",
-  "other-investment",
-  // housing
-  "rent",
-  "mortgage",
-  "home-charges",
-  "home-maintenance",
-  "home-insurance",
-  "other-housing",
-  // utilities
-  "energy",
-  "water",
-  "telecom",
-  "other-utilities",
-  // daily-living
-  "groceries",
-  "restaurants",
-  "takeaway",
-  "bars-cafes",
-  "personal-care",
-  "household-supplies",
-  "pets",
-  "childcare",
-  "other-daily-living",
-  // transport
-  "fuel",
-  "public-transport",
-  "taxi",
-  "vehicle-maintenance",
-  "vehicle-insurance",
-  "parking-tolls",
-  "other-transport",
-  // travel
-  "flights",
-  "accommodation",
-  "other-travel",
-  // leisure
-  "culture",
-  "sports",
-  "hobbies",
-  "other-leisure",
-  // shopping
-  "clothing",
-  "electronics",
-  "furniture",
-  "gifts",
-  "other-shopping",
-  // subscriptions
-  "streaming",
-  "software",
-  "memberships",
-  "other-subscription",
-  // health
-  "medical",
-  "pharmacy",
-  "health-insurance",
-  "other-health",
-  // education
-  "tuition",
-  "courses",
-  "other-education",
-  // financial
-  "bank-fees",
-  "loan-repayment",
-  "other-insurance",
-  "child-support",
-  "other-financial",
-  // taxes
-  "income-tax",
-  "property-tax",
-  "other-taxes",
-  // transfers
-  "internal-transfer",
-  "cash-withdrawal",
-  "other-transfer",
-  // other
-  "donations",
-  "uncategorised",
+  ...CATEGORIES_BY_GROUP.income,
+  ...CATEGORIES_BY_GROUP.investments,
+  ...CATEGORIES_BY_GROUP.housing,
+  ...CATEGORIES_BY_GROUP.utilities,
+  ...CATEGORIES_BY_GROUP["daily-living"],
+  ...CATEGORIES_BY_GROUP.transport,
+  ...CATEGORIES_BY_GROUP.travel,
+  ...CATEGORIES_BY_GROUP.leisure,
+  ...CATEGORIES_BY_GROUP.shopping,
+  ...CATEGORIES_BY_GROUP.subscriptions,
+  ...CATEGORIES_BY_GROUP.health,
+  ...CATEGORIES_BY_GROUP.education,
+  ...CATEGORIES_BY_GROUP.financial,
+  ...CATEGORIES_BY_GROUP.taxes,
+  ...CATEGORIES_BY_GROUP.transfers,
+  ...CATEGORIES_BY_GROUP.other,
 ] as const;
 
 export type SpendingCategory = (typeof SPENDING_CATEGORIES)[number];
@@ -379,10 +353,6 @@ export const CATEGORY_LABELS = {
   water: "Water",
 } as const satisfies Record<SpendingCategory, string>;
 
-/**
- * Where a group's flow lands when a signal identifies the group but not the
- * category — a NAF division, a deleted custom category, a legacy slug.
- */
 export const CATEGORY_GROUP_FALLBACKS = {
   "daily-living": "other-daily-living",
   education: "other-education",
@@ -402,13 +372,6 @@ export const CATEGORY_GROUP_FALLBACKS = {
   utilities: "other-utilities",
 } as const satisfies Record<CategoryGroup, SpendingCategory>;
 
-/**
- * The flat category set that preceded the hierarchy, kept so the migration and
- * anything decoding a pre-hierarchy value agree. A broad old slug becomes its
- * group's fallback, since it never carried more precision than the group —
- * `dining` covered restaurants, bars and fast food alike, so it cannot claim
- * any one of them. Only `groceries` and `savings` survive one-to-one.
- */
 export const LEGACY_CATEGORY_SLUGS = {
   dining: "other-daily-living",
   education: "other-education",
@@ -429,38 +392,27 @@ export const LEGACY_CATEGORY_SLUGS = {
   utilities: "other-utilities",
 } as const satisfies Record<string, SpendingCategory>;
 
-// CATEGORY_LABELS and CATEGORY_GROUP_LABELS are keyed by exactly their unions,
-// so their own keys are the authoritative membership test.
 export const isSpendingCategory = (value: string): value is SpendingCategory =>
   Object.hasOwn(CATEGORY_LABELS, value);
 
 export const isCategoryGroup = (value: string): value is CategoryGroup =>
   Object.hasOwn(CATEGORY_GROUP_LABELS, value);
 
-const categoriesByGroup = new Map<CategoryGroup, SpendingCategory[]>(
-  CATEGORY_GROUPS.map((group) => [group, []])
-);
-for (const category of SPENDING_CATEGORIES) {
-  categoriesByGroup.get(CATEGORY_GROUP_OF[category])?.push(category);
-}
-
-/** A group's categories, in `SPENDING_CATEGORIES` order. */
 export const categoriesInGroup = (
   group: CategoryGroup
-): readonly SpendingCategory[] => categoriesByGroup.get(group) ?? [];
+): readonly SpendingCategory[] => CATEGORIES_BY_GROUP[group];
 
-/** A category's color and icon are its group's — only groups carry appearance. */
 export const categoryColor = (category: SpendingCategory): CategoryColor =>
   CATEGORY_GROUP_COLORS[CATEGORY_GROUP_OF[category]];
 
 export const categoryIcon = (category: SpendingCategory): CategoryIconName =>
   CATEGORY_GROUP_ICONS[CATEGORY_GROUP_OF[category]];
 
-/** Current slug for a stored one, accepting both current and legacy spellings. */
 export const resolveCategorySlug = (value: string): SpendingCategory | null => {
   if (isSpendingCategory(value)) {
     return value;
   }
+
   // SAFETY: the hasOwn guard proves `value` keys LEGACY_CATEGORY_SLUGS
   return Object.hasOwn(LEGACY_CATEGORY_SLUGS, value)
     ? LEGACY_CATEGORY_SLUGS[value as keyof typeof LEGACY_CATEGORY_SLUGS]

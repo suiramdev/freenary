@@ -23,6 +23,7 @@ describe("deterministicCategory", () => {
     const result = deterministicCategory(
       input({ merchantCategoryCode: "5411", normalisedDescriptor: "netflix" })
     );
+
     expect(result).toEqual({
       category: "groceries",
       confidence: 0.8,
@@ -34,6 +35,7 @@ describe("deterministicCategory", () => {
     const result = deterministicCategory(
       input({ bankTransactionCode: "PRLV LOYER", country: "FR" })
     );
+
     expect(result?.category).toBe("rent");
     expect(result?.stage).toBe("rules");
   });
@@ -46,6 +48,7 @@ describe("deterministicCategory", () => {
         normalisedDescriptor: "netflix",
       })
     );
+
     expect(result?.category).toBe("pharmacy");
   });
 
@@ -56,6 +59,7 @@ describe("deterministicCategory", () => {
         normalisedDescriptor: "netflix com",
       })
     );
+
     expect(result?.category).toBe("streaming");
   });
 
@@ -63,20 +67,21 @@ describe("deterministicCategory", () => {
     const result = deterministicCategory(
       input({ normalisedDescriptor: "netflix com" })
     );
+
     expect(result?.category).toBe("streaming");
   });
 
   it("does not fire on a brand name buried inside another word", () => {
-    // The tables run against whole descriptors, so short brands such as "ica"
-    // and "bolt" must not match "medical" or "boltons".
-    for (const descriptor of [
+    const descriptorsHidingAShortBrandInsideAWord = [
       "american express",
       "american airlines",
       "medical center",
       "clinique medicale",
       "cooperative agricole",
       "boltons pub",
-    ]) {
+    ];
+
+    for (const descriptor of descriptorsHidingAShortBrandInsideAWord) {
       expect(
         deterministicCategory(input({ normalisedDescriptor: descriptor }))
       ).toBeNull();
@@ -91,6 +96,7 @@ describe("deterministicCategory", () => {
       ["PRLV ASSURANCES", "other-insurance", "FR"],
       ["SKATTEVERKET", "other-taxes", null],
     ];
+
     for (const [bankTransactionCode, category, country] of cases) {
       expect(
         deterministicCategory(
@@ -101,8 +107,6 @@ describe("deterministicCategory", () => {
   });
 
   it("anchors non-ASCII keywords too", () => {
-    // A leading \b before "ö" never fires; the tables use letter-aware
-    // lookarounds so this keyword is reachable at all.
     expect(
       deterministicCategory(
         input({ bankTransactionCode: "ÖVERFÖRING", country: "SE" })
@@ -115,7 +119,6 @@ describe("deterministicCategory", () => {
   });
 
   it("leaves a country's own vocabulary alone outside that country", () => {
-    // "pharmacie" is a French rule; the default layer only knows pharmacy/apotek.
     expect(
       deterministicCategory(
         input({ country: "DE", normalisedDescriptor: "pharmacie du centre" })
@@ -127,6 +130,7 @@ describe("deterministicCategory", () => {
     const result = deterministicCategory(
       input({ country: "DE", normalisedDescriptor: "netflix com" })
     );
+
     expect(result?.category).toBe("streaming");
   });
 
@@ -146,13 +150,11 @@ describe("deterministicCategory", () => {
         country: "FR",
       })
     );
+
     expect(result?.category).toBe("salary");
   });
 
-  // Powens sends its own type as the bank code, so a salary credit arrives as
-  // "transfer" — a match the direction check refuses. The label still says
-  // what it is.
-  it("reads the country's wording from the descriptor when the bank code is refused", () => {
+  it("reads a provider's own transaction type as a bank code the direction check refuses, then falls back to the descriptor", () => {
     const result = deterministicCategory(
       input({
         amountMinor: 250_000,
@@ -161,6 +163,7 @@ describe("deterministicCategory", () => {
         normalisedDescriptor: "salaire",
       })
     );
+
     expect(result?.category).toBe("salary");
   });
 

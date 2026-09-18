@@ -6,6 +6,8 @@ import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { useOnboardingWizard } from "@/hooks/onboarding/use-onboarding-wizard";
 import { orpc } from "@/utils/orpc";
 
+const BANK_STEP_INDEX = 1;
+
 const OnboardingPage = () => {
   const availability = useQuery(
     orpc.bankConnection.getProviderAvailability.queryOptions()
@@ -13,18 +15,15 @@ const OnboardingPage = () => {
   const hasBankStep = availability.data?.available ?? false;
 
   const wizard = useOnboardingWizard({ hasBankStep });
+  const isBankStepReachable = hasBankStep || wizard.step === BANK_STEP_INDEX;
 
   const banksQuery = useQuery(
     orpc.bankConnection.listInstitutions.queryOptions({
-      // Prefetch once a country is picked; the `step === 1` arm covers a flow
-      // resumed into the bank step after the banking provider went unavailable.
-      enabled: wizard.country !== null && (hasBankStep || wizard.step === 1),
+      enabled: wizard.country !== null && isBankStepReachable,
       input: { country: wizard.country ?? undefined },
     })
   );
 
-  // Shares its cache entry with the panel's own query; the count only drives
-  // the Finish label, and it counts banks the callback actually linked.
   const connectionsQuery = useQuery(
     orpc.bankConnection.listConnections.queryOptions()
   );
@@ -57,11 +56,11 @@ const OnboardingRoute = () => (
 );
 
 export const Route = createFileRoute("/onboarding")({
-  // `unknown` falls through to `AuthGate`, which holds the live session.
   beforeLoad: ({ context: { viewer } }) => {
     if (viewer.kind === "guest") {
       throw redirect({ to: "/login" });
     }
+
     if (viewer.kind === "member" && viewer.onboarded) {
       throw redirect({ to: "/" });
     }

@@ -8,8 +8,7 @@ describe("parseAmountBound", () => {
     expect(parseAmountBound("1234,56", "fr")).toBe(1234.56);
   });
 
-  test("reads back what the list renders", () => {
-    // `formatCurrency` output, minus its symbol: the number a reader copies.
+  test("reads back a grouped amount as the list renders it", () => {
     expect(parseAmountBound("1,234.56", "en")).toBe(1234.56);
     expect(parseAmountBound("1\u202F234,56", "fr")).toBe(1234.56);
     expect(parseAmountBound("1 234,56", "fr")).toBe(1234.56);

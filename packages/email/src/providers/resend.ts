@@ -1,16 +1,12 @@
 import type { EmailMessage, EmailProvider } from "../types";
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
-
 interface ResendCredentials {
   apiKey: string;
   from: string;
 }
 
-/**
- * Resend over its REST API rather than the vendor SDK: one `fetch` covers the
- * whole surface this app uses, and no dependency ships to production for it.
- */
+const RESEND_ENDPOINT = "https://api.resend.com/emails";
+
 export const createResendEmailProvider = (
   credentials: ResendCredentials
 ): EmailProvider => ({

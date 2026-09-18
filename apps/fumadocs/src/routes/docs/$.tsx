@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { cn } from "cn";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
 import { Callout } from "fumadocs-ui/components/callout";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
@@ -21,22 +22,28 @@ import {
   AISearchTrigger,
 } from "@/components/ai/search";
 import { useMDXComponents } from "@/components/mdx";
-import { cn } from "@/lib/cn";
 import { baseOptions } from "@/lib/layout.shared";
 import { docsRoute, encodeMarkdownUrl, gitConfig } from "@/lib/shared";
-import { docs, source, stableVersion } from "@/lib/source";
+import { docs, newestRelease, source } from "@/lib/source";
 import { NEXT_VERSION } from "@/lib/versions";
 
-/** The newest release, when the page being read is not part of it. */
-type Newer = { version: string; splat: string; samePage: boolean };
+type NewestReleaseLink = {
+  version: string;
+  splat: string;
+  samePage: boolean;
+};
 
-/** Where a reader on an older page goes: the same page, or the version index. */
-const newerOf = (version: string, rest: string[]): Newer => {
-  const same = source.getPage([version, ...rest]);
+const newestReleaseLink = (
+  version: string,
+  rest: string[]
+): NewestReleaseLink => {
+  const samePage = source.getPage([version, ...rest]);
+  const versionIndex = `${docsRoute}/${version}`;
+
   return {
     version,
-    splat: (same?.url ?? `${docsRoute}/${version}`).slice(docsRoute.length + 1),
-    samePage: Boolean(same),
+    splat: (samePage?.url ?? versionIndex).slice(docsRoute.length + 1),
+    samePage: Boolean(samePage),
   };
 };
 
@@ -45,7 +52,7 @@ const VersionNotice = ({
   newer,
 }: {
   version: string;
-  newer: Newer;
+  newer: NewestReleaseLink;
 }) => (
   <Callout type="warn">
     {version === NEXT_VERSION
@@ -66,6 +73,7 @@ export const Route = createFileRoute("/docs/$")({
     const slugs = params._splat?.split("/") ?? [];
     const data = await serverLoader({ data: slugs });
     await docs.getPage(data.path)?.preload();
+
     return data;
   },
 });
@@ -76,18 +84,21 @@ const serverLoader = createServerFn({
   .validator((slugs: string[]) => slugs)
   .handler(async ({ data: slugs }) => {
     const page = source.getPage(slugs);
+
     if (!page) throw notFound();
 
     const version = page.slugs[0];
-    const stable = stableVersion();
+    const newest = newestRelease();
 
     return {
       path: page.path,
       markdownUrl: encodeMarkdownUrl(page.slugs, page.locale),
       pageTree: await source.serializePageTree(source.getPageTree()),
       version,
-      // The same page in the newest release, or its index when it is gone.
-      newer: version === stable ? null : newerOf(stable, page.slugs.slice(1)),
+      newer:
+        version === newest
+          ? null
+          : newestReleaseLink(newest, page.slugs.slice(1)),
     };
   });
 
@@ -100,9 +111,10 @@ function Content({
   path: string;
   markdownUrl: string;
   version: string;
-  newer: Newer | null;
+  newer: NewestReleaseLink | null;
 }) {
   const page = docs.getPage(path);
+
   if (!page) throw new Error(`unknown page: ${path}`);
 
   const { toc } = use(page.load());

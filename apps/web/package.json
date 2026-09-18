@@ -34,6 +34,7 @@
     "ai": "^7.0.62",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "evlog": "catalog:",
     "motion": "^13.1.1",
     "nanoid": "^6.0.1",

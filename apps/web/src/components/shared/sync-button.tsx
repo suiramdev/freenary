@@ -10,16 +10,11 @@ import { m } from "@/paraglide/messages.js";
 
 interface SyncButtonProps {
   isSyncing: boolean;
-  /** What the button re-syncs: its accessible name and its tooltip. */
   label: string;
   onSync: () => void;
   size?: "icon" | "icon-sm";
 }
 
-/**
- * Forces a re-synchronisation. The spin is the live cue and the disabled state
- * the static one, so the button still reads as busy with motion turned off.
- */
 export const SyncButton = ({
   isSyncing,
   label,

@@ -1,12 +1,5 @@
 import { env } from "@freenary/env/server";
-
-const DOMAIN_SUFFIX = /\.biapi\.pro\/?$/u;
-const POWENS_DATETIME =
-  /^(?<date>\d{4}-\d{2}-\d{2})[ T](?<time>\d{2}:\d{2}:\d{2})/u;
-
-/** The API host derived from a domain, accepting `acme` and `acme.biapi.pro` alike. */
-export const powensHost = (domain: string): string =>
-  `${domain.trim().replace(DOMAIN_SUFFIX, "")}.biapi.pro`;
+import { Data, Effect, Match, Option, Schema } from "effect";
 
 interface PowensCredentials {
   clientId: string;
@@ -14,219 +7,387 @@ interface PowensCredentials {
   domain: string;
 }
 
-const getCredentials = (): PowensCredentials | null => {
-  const domain = env.POWENS_DOMAIN;
-  const clientId = env.POWENS_CLIENT_ID;
-  const clientSecret = env.POWENS_CLIENT_SECRET;
-  if (!(domain && clientId && clientSecret)) {
-    return null;
-  }
-  return { clientId, clientSecret, domain };
-};
-
-export const isConfigured = (): boolean => getCredentials() !== null;
-
-/** Throws when Powens is unconfigured, so every caller can assume credentials. */
-export const requireCredentials = (): PowensCredentials => {
-  const credentials = getCredentials();
-  if (!credentials) {
-    throw new Error("Powens is not configured");
-  }
-  return credentials;
-};
-
-const apiBase = (): string =>
-  `https://${powensHost(requireCredentials().domain)}/2.0`;
-
-const powensHeaders = (token?: string): Headers => {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  return headers;
-};
-
 export interface PowensRequest {
-  /** User-scoped bearer token; the auth and connector endpoints take none. */
   token?: string;
   method?: string;
   body?: string;
 }
 
-export const powensFetch = (
-  path: string,
-  request?: PowensRequest
-): Promise<Response> =>
-  fetch(`${apiBase()}${path}`, {
-    body: request?.body,
-    headers: powensHeaders(request?.token),
-    method: request?.method,
-  });
+type PowensRequestReason =
+  | { readonly kind: "missingCredentials" }
+  | { readonly kind: "unreachable"; readonly detail: string }
+  | {
+      readonly kind: "rejected";
+      readonly status: number;
+      readonly body: string;
+    }
+  | { readonly kind: "undecodable"; readonly detail: string };
 
-export const readJson = async <T>(
-  response: Response,
-  what: string
-): Promise<T> => {
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Powens ${what} failed: ${response.status} ${text}`);
+export class PowensRequestFailed extends Data.TaggedError(
+  "PowensRequestFailed"
+)<{
+  readonly operation: string;
+  readonly reason: PowensRequestReason;
+}> {
+  override get message(): string {
+    const { operation } = this;
+
+    return Match.value(this.reason).pipe(
+      Match.discriminatorsExhaustive("kind")({
+        missingCredentials: () => "Powens is not configured",
+        rejected: ({ body, status }) =>
+          `Powens ${operation} failed: ${status} ${body}`,
+        undecodable: ({ detail }) =>
+          `Powens ${operation} response does not match the documented shape: ${detail}`,
+        unreachable: ({ detail }) => `Powens ${operation} failed: ${detail}`,
+      })
+    );
   }
-  // SAFETY: each endpoint's response follows the shape Powens documents for it
-  return (await response.json()) as T;
+}
+
+const DOMAIN_SUFFIX = /\.biapi\.pro\/?$/u;
+const POWENS_UTC_DATETIME =
+  /^(?<date>\d{4}-\d{2}-\d{2})[ T](?<time>\d{2}:\d{2}:\d{2})/u;
+const API_PATH = "/2.0";
+const NOT_FOUND = 404;
+const MAX_TRANSACTIONS_PER_PAGE = 1000;
+const DEFAULT_CURRENCY_PRECISION = 2;
+
+export const powensHost = (domain: string): string =>
+  `${domain.trim().replace(DOMAIN_SUFFIX, "")}.biapi.pro`;
+
+const readCredentials = (): Option.Option<PowensCredentials> => {
+  const domain = env.POWENS_DOMAIN;
+  const clientId = env.POWENS_CLIENT_ID;
+  const clientSecret = env.POWENS_CLIENT_SECRET;
+
+  return domain && clientId && clientSecret
+    ? Option.some({ clientId, clientSecret, domain })
+    : Option.none();
 };
 
-export interface PowensConnector {
-  id?: number;
-  uuid: string;
-  name?: string | null;
-  hidden?: boolean | null;
-  restricted?: boolean | null;
-  beta?: boolean | null;
-  capabilities?: string[] | null;
-  products?: string[] | null;
-}
+export const isConfigured = (): boolean => Option.isSome(readCredentials());
 
-export interface PowensCurrency {
-  id?: string | null;
-  precision?: number | null;
-}
+export const requireCredentials = (
+  operation: string
+): Effect.Effect<PowensCredentials, PowensRequestFailed> =>
+  Effect.suspend(() =>
+    Option.match(readCredentials(), {
+      onNone: () =>
+        Effect.fail(
+          new PowensRequestFailed({
+            operation,
+            reason: { kind: "missingCredentials" },
+          })
+        ),
+      onSome: Effect.succeed,
+    })
+  );
 
-/** Powens documents the account type as `{ name }`; domains send a bare string. */
-export type PowensAccountType = string | { name?: string | null };
+const powensHeaders = (token: string | undefined): Headers => {
+  const headers = new Headers({ "Content-Type": "application/json" });
 
-export interface PowensAccount {
-  id: number;
-  name?: string | null;
-  original_name?: string | null;
-  iban?: string | null;
-  number?: string | null;
-  balance?: number | null;
-  coming?: number | null;
-  currency?: PowensCurrency | null;
-  type?: PowensAccountType | null;
-  disabled?: string | boolean | null;
-  deleted?: string | null;
-  last_update?: string | null;
-}
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
-export interface PowensConnection {
-  id: number;
-  /** null = healthy; anything else names why the connection stopped. */
-  state?: string | null;
-  connector?: { name?: string | null; uuid?: string | null } | null;
-  accounts?: PowensAccount[] | null;
-}
+  return headers;
+};
 
-export interface PowensCounterparty {
-  label?: string | null;
-  account_scheme_name?: string | null;
-  account_identification?: string | null;
-  type?: string | null;
-}
+const powensUrl = Effect.fnUntraced(function* powensUrl(
+  operation: string,
+  path: string
+) {
+  const { domain } = yield* requireCredentials(operation);
 
-export interface PowensTransaction {
-  id: number;
-  id_account?: number;
-  date?: string | null;
-  vdate?: string | null;
-  rdate?: string | null;
-  /** Signed decimal; negative = outgoing. */
-  value?: number | null;
-  type?: string | null;
-  original_wording?: string | null;
-  simplified_wording?: string | null;
-  wording?: string | null;
-  coming?: boolean | null;
-  active?: boolean | null;
-  deleted?: string | null;
-  comment?: string | null;
-  counterparty?: PowensCounterparty | null;
-  original_currency?: PowensCurrency | null;
-}
+  return `https://${powensHost(domain)}${API_PATH}${path}`;
+});
 
-export interface PowensInvestment {
-  id: number;
-  id_account?: number;
-  label?: string | null;
-  code?: string | null;
-  code_type?: string | null;
-  quantity?: number | null;
-  unitprice?: number | null;
-  unitvalue?: number | null;
-  valuation?: number | null;
-  diff?: number | null;
-  diff_percent?: number | null;
-  vdate?: string | null;
-  deleted?: string | null;
-  last_update?: string | null;
-  original_currency?: PowensCurrency | null;
-}
+const send = Effect.fnUntraced(function* send(
+  operation: string,
+  url: string,
+  request: PowensRequest
+) {
+  return yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PowensRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "unreachable" },
+      }),
+    try: (signal) =>
+      fetch(url, {
+        body: request.body,
+        headers: powensHeaders(request.token),
+        method: request.method,
+        signal,
+      }),
+  });
+});
 
-/** Powens reports an unavailable number as null, or by omitting the field. */
+const failRejected = Effect.fnUntraced(function* failRejected(
+  operation: string,
+  response: Response
+) {
+  const body = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PowensRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "unreachable" },
+      }),
+    try: () => response.text(),
+  });
+
+  return yield* new PowensRequestFailed({
+    operation,
+    reason: { body, kind: "rejected", status: response.status },
+  });
+});
+
+const requestJson = Effect.fn("powens.requestJson")(function* requestJson<
+  S extends Schema.ConstraintDecoder<unknown>,
+>(operation: string, schema: S, url: string, request: PowensRequest) {
+  const response = yield* send(operation, url, request);
+
+  if (!response.ok) {
+    return yield* failRejected(operation, response);
+  }
+
+  const payload = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new PowensRequestFailed({
+        operation,
+        reason: { detail: String(cause), kind: "undecodable" },
+      }),
+    try: () => response.json(),
+  });
+
+  return yield* Schema.decodeUnknownEffect(schema)(payload).pipe(
+    Effect.mapError(
+      (cause: Schema.SchemaError) =>
+        new PowensRequestFailed({
+          operation,
+          reason: { detail: cause.message, kind: "undecodable" },
+        })
+    )
+  );
+});
+
+export const powensJson = Effect.fnUntraced(function* powensJson<
+  S extends Schema.ConstraintDecoder<unknown>,
+>(operation: string, schema: S, path: string, request: PowensRequest = {}) {
+  const url = yield* powensUrl(operation, path);
+
+  return yield* requestJson(operation, schema, url, request);
+});
+
+export const powensDeleteIfPresent = Effect.fn("powens.deleteIfPresent")(
+  function* powensDeleteIfPresent(
+    operation: string,
+    path: string,
+    token: string
+  ) {
+    const url = yield* powensUrl(operation, path);
+    const response = yield* send(operation, url, { method: "DELETE", token });
+
+    if (response.ok || response.status === NOT_FOUND) {
+      return;
+    }
+
+    return yield* failRejected(operation, response);
+  }
+);
+
+const NullableString = Schema.optional(Schema.NullOr(Schema.String));
+const NullableNumber = Schema.optional(Schema.NullOr(Schema.Number));
+const NullableBoolean = Schema.optional(Schema.NullOr(Schema.Boolean));
+
+export const PowensCurrencySchema = Schema.Struct({
+  id: NullableString,
+  precision: NullableNumber,
+});
+
+export const PowensConnectorSchema = Schema.Struct({
+  beta: NullableBoolean,
+  capabilities: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+  hidden: NullableBoolean,
+  id: Schema.optional(Schema.Number),
+  name: NullableString,
+  products: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+  restricted: NullableBoolean,
+  uuid: Schema.String,
+});
+
+export const PowensConnectorsSchema = Schema.Struct({
+  connectors: Schema.optional(Schema.Array(PowensConnectorSchema)),
+});
+
+const PowensAccountTypeSchema = Schema.Union([
+  Schema.String,
+  Schema.Struct({ name: NullableString }),
+]);
+
+export const PowensAccountSchema = Schema.Struct({
+  balance: NullableNumber,
+  coming: NullableNumber,
+  currency: Schema.optional(Schema.NullOr(PowensCurrencySchema)),
+  deleted: NullableString,
+  disabled: Schema.optional(
+    Schema.NullOr(Schema.Union([Schema.String, Schema.Boolean]))
+  ),
+  iban: NullableString,
+  id: Schema.Number,
+  last_update: NullableString,
+  name: NullableString,
+  number: NullableString,
+  original_name: NullableString,
+  type: Schema.optional(Schema.NullOr(PowensAccountTypeSchema)),
+});
+
+export const PowensConnectionSchema = Schema.Struct({
+  accounts: Schema.optional(Schema.NullOr(Schema.Array(PowensAccountSchema))),
+  connector: Schema.optional(
+    Schema.NullOr(Schema.Struct({ name: NullableString, uuid: NullableString }))
+  ),
+  id: Schema.Number,
+  state: NullableString,
+});
+
+const PowensCounterpartySchema = Schema.Struct({
+  account_identification: NullableString,
+  account_scheme_name: NullableString,
+  label: NullableString,
+  type: NullableString,
+});
+
+export const PowensTransactionSchema = Schema.Struct({
+  active: NullableBoolean,
+  coming: NullableBoolean,
+  comment: NullableString,
+  counterparty: Schema.optional(Schema.NullOr(PowensCounterpartySchema)),
+  date: NullableString,
+  deleted: NullableString,
+  id: Schema.Number,
+  id_account: Schema.optional(Schema.Number),
+  original_currency: Schema.optional(Schema.NullOr(PowensCurrencySchema)),
+  original_wording: NullableString,
+  rdate: NullableString,
+  simplified_wording: NullableString,
+  type: NullableString,
+  value: NullableNumber,
+  vdate: NullableString,
+  wording: NullableString,
+});
+
+const PowensTransactionPageSchema = Schema.Struct({
+  _links: Schema.optional(
+    Schema.NullOr(
+      Schema.Struct({
+        next: Schema.optional(
+          Schema.NullOr(Schema.Struct({ href: NullableString }))
+        ),
+      })
+    )
+  ),
+  transactions: Schema.optional(
+    Schema.NullOr(Schema.Array(PowensTransactionSchema))
+  ),
+});
+
+export const PowensInvestmentSchema = Schema.Struct({
+  code: NullableString,
+  code_type: NullableString,
+  deleted: NullableString,
+  diff: NullableNumber,
+  diff_percent: NullableNumber,
+  id: Schema.Number,
+  id_account: Schema.optional(Schema.Number),
+  label: NullableString,
+  last_update: NullableString,
+  original_currency: Schema.optional(Schema.NullOr(PowensCurrencySchema)),
+  quantity: NullableNumber,
+  unitprice: NullableNumber,
+  unitvalue: NullableNumber,
+  valuation: NullableNumber,
+  vdate: NullableString,
+});
+
+export const PowensInvestmentsSchema = Schema.Struct({
+  investments: Schema.optional(Schema.Array(PowensInvestmentSchema)),
+});
+
+export const PowensUserSchema = Schema.Struct({
+  auth_token: Schema.String,
+  id_user: Schema.Number,
+});
+
+export const PowensWebviewCodeSchema = Schema.Struct({ code: Schema.String });
+
 export const isReported = (value: number | null | undefined): value is number =>
   value !== null && value !== undefined;
 
-/** Powens amounts are decimals; the core stores minor units of the account currency. */
 export const toMinorUnits = (value: number, precision: number): number =>
   Math.round(value * 10 ** precision);
 
 export const precisionOf = (account: PowensAccount): number =>
-  account.currency?.precision ?? 2;
+  account.currency?.precision ?? DEFAULT_CURRENCY_PRECISION;
 
 export const currencyOf = (account: PowensAccount): string | undefined =>
   account.currency?.id ?? undefined;
 
-/** Powens datetimes are UTC in `YYYY-MM-DD HH:MM:SS` form. */
 export const toIsoDateTime = (
   value: string | null | undefined
 ): string | undefined => {
-  const groups = value?.match(POWENS_DATETIME)?.groups;
+  const groups = value?.match(POWENS_UTC_DATETIME)?.groups;
+
   return groups ? `${groups.date}T${groups.time}Z` : undefined;
 };
 
-export const getAccount = async (
+export const getAccount = (
   token: string,
   accountId: string
-): Promise<PowensAccount> => {
-  const response = await powensFetch(
+): Effect.Effect<PowensAccount, PowensRequestFailed> =>
+  powensJson(
+    "account",
+    PowensAccountSchema,
     `/users/me/accounts/${encodeURIComponent(accountId)}`,
     { token }
   );
-  return await readJson<PowensAccount>(response, "account");
-};
 
-interface PowensTransactionPage {
-  transactions?: PowensTransaction[] | null;
-  _links?: { next?: { href?: string | null } | null } | null;
-}
-
-/**
- * Every transaction page for one account. `limit` is mandatory at Powens and
- * caps at 1000; `last_update` is the sync cursor.
- */
-export const fetchTransactionPages = async (
-  token: string,
-  accountId: string,
-  lastUpdate: string
-): Promise<PowensTransaction[]> => {
-  const all: PowensTransaction[] = [];
-  let url = `${apiBase()}/users/me/accounts/${encodeURIComponent(accountId)}/transactions?limit=1000&last_update=${encodeURIComponent(lastUpdate)}`;
-  let next: string | undefined = url;
-
-  while (next) {
-    url = next;
-    // eslint-disable-next-line no-await-in-loop -- pagination is sequential; each page needs the previous page's next link
-    const response = await fetch(url, { headers: powensHeaders(token) });
-    // eslint-disable-next-line no-await-in-loop -- sequential pagination; the next link only exists once this page is read
-    const page = await readJson<PowensTransactionPage>(
-      response,
-      "transactions"
+export const fetchTransactionPages = Effect.fn("powens.fetchTransactionPages")(
+  function* fetchTransactionPages(
+    token: string,
+    accountId: string,
+    lastUpdate: string
+  ) {
+    const collected: PowensTransaction[] = [];
+    const firstPage = yield* powensUrl(
+      "transactions",
+      `/users/me/accounts/${encodeURIComponent(accountId)}/transactions?limit=${MAX_TRANSACTIONS_PER_PAGE}&last_update=${encodeURIComponent(lastUpdate)}`
     );
-    if (page.transactions) {
-      all.push(...page.transactions);
-    }
-    next = page._links?.next?.href ?? undefined;
-  }
+    let nextPage: string | undefined = firstPage;
 
-  return all;
-};
+    while (nextPage) {
+      const page: PowensTransactionPage = yield* requestJson(
+        "transactions",
+        PowensTransactionPageSchema,
+        nextPage,
+        { token }
+      );
+
+      collected.push(...(page.transactions ?? []));
+      nextPage = page._links?.next?.href ?? undefined;
+    }
+
+    return collected;
+  }
+);
+
+export type PowensCurrency = typeof PowensCurrencySchema.Type;
+export type PowensConnector = typeof PowensConnectorSchema.Type;
+export type PowensAccountType = typeof PowensAccountTypeSchema.Type;
+export type PowensAccount = typeof PowensAccountSchema.Type;
+export type PowensConnection = typeof PowensConnectionSchema.Type;
+export type PowensCounterparty = typeof PowensCounterpartySchema.Type;
+export type PowensTransaction = typeof PowensTransactionSchema.Type;
+export type PowensInvestment = typeof PowensInvestmentSchema.Type;
+type PowensTransactionPage = typeof PowensTransactionPageSchema.Type;

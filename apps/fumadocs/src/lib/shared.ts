@@ -2,22 +2,22 @@ export const appName = "Freenary";
 export const docsRoute = "/docs";
 export const docsImageRoute = "/og/docs";
 
-// fill this with your actual GitHub info, for example:
 export const gitConfig = {
   user: "suiramdev",
   repo: "freenary",
   branch: "main",
 };
 
-/**
- * Where a page links a repository file. Pages name the branch; the release
- * snapshot rewrites the ref, so both sides build the prefix from here.
- */
+const MARKDOWN_EXTENSION = /\.md$/;
+
+const FOLDER_INDEX_SLUG = "index";
+
 export const repoBlobUrl = (ref: string) =>
   `https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${ref}/`;
 
-export function encodeMarkdownUrl(slugs: string[], locale?: string) {
+export function encodeMarkdownUrl(slugs: string[], locale: string = "") {
   const segments = [...slugs];
+
   if (segments.length === 0) {
     segments.push("index.md");
   } else {
@@ -30,13 +30,16 @@ export function encodeMarkdownUrl(slugs: string[], locale?: string) {
   );
 }
 
-/** @returns page slugs */
-export function decodeMarkdownUrl(segments: string[]) {
+export function decodeMarkdownUrl(segments: string[]): string[] {
   if (segments.length === 0) return [];
 
-  const out = [...segments];
-  out[out.length - 1] = out[out.length - 1].replace(/\.md$/, "");
-  // `index` is the folder itself: `/docs/1.2/index.md` is the version index.
-  if (out.at(-1) === "index") out.pop();
-  return out;
+  const slugs = [...segments];
+  slugs[slugs.length - 1] = slugs[slugs.length - 1].replace(
+    MARKDOWN_EXTENSION,
+    ""
+  );
+
+  if (slugs.at(-1) === FOLDER_INDEX_SLUG) slugs.pop();
+
+  return slugs;
 }

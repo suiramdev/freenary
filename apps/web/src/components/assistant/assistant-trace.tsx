@@ -48,25 +48,29 @@ import { m } from "@/paraglide/messages.js";
 
 interface AssistantTraceProps {
   trace: ExecutionTrace;
-  /** The answer is still being streamed. */
   live: boolean;
   timings: ExecutionTimings;
   onRetry?: () => void;
 }
 
-/** The row's label: what the step did, or does right now. */
+const SHIMMER_DURATION_SECONDS = 1.5;
+const LOOKUPS_START_OPEN = true;
+
 const stepLabel = (step: ExecutionStep, live: boolean): string => {
   if (step.tools.length > 0) {
     return m.assistant_step_lookups();
   }
+
   if (step.answer.length > 0) {
     if (live && step.status === "active") {
       return m.assistant_step_answer();
     }
+
     return step.answer.some((segment) => segment.kind === "chart")
       ? m.assistant_step_answer_chart()
       : m.assistant_step_answer_done();
   }
+
   return m.assistant_step_thinking();
 };
 
@@ -77,22 +81,26 @@ const stepIcon = (
   if (working) {
     return Spinner;
   }
+
   if (step.tools.length === 1 && step.tools[0]) {
     return assistantToolIcon(step.tools[0]);
   }
+
   if (step.tools.length > 0) {
     return RiToolsLine;
   }
+
   if (step.answer.some((segment) => segment.kind === "chart")) {
     return RiBarChartBoxLine;
   }
+
   if (step.answer.length > 0) {
     return RiQuillPenLine;
   }
+
   return RiBrainLine;
 };
 
-/** Whether the step still has something in flight. */
 const isWorking = (step: ExecutionStep, live: boolean): boolean =>
   live &&
   step.status === "active" &&
@@ -104,18 +112,18 @@ const isWorking = (step: ExecutionStep, live: boolean): boolean =>
     ) ||
     step.answer.length > 0);
 
-/** What the thought's row reads: streaming, or done with its measured time. */
 const thinkingMessage = (
   streaming: boolean,
   durationMs: number | undefined
 ): ReactNode => {
   if (streaming) {
     return (
-      <Shimmer as="span" duration={1.5}>
+      <Shimmer as="span" duration={SHIMMER_DURATION_SECONDS}>
         {m.assistant_thinking_streaming()}
       </Shimmer>
     );
   }
+
   return (
     <span className="inline-flex items-center gap-1">
       {m.assistant_thinking_done()}
@@ -128,7 +136,6 @@ const thinkingMessage = (
   );
 };
 
-/** A step's lookup list: open by default, and under "Expand all" like its cards. */
 const Lookups = ({
   children,
   expanded,
@@ -136,7 +143,8 @@ const Lookups = ({
   children: ReactNode;
   expanded: ExpandAll | undefined;
 }) => {
-  const [open, setOpen] = useExpandAll(expanded, true);
+  const [open, setOpen] = useExpandAll(expanded, LOOKUPS_START_OPEN);
+
   return (
     <Task onOpenChange={setOpen} open={open}>
       {children}
@@ -144,12 +152,6 @@ const Lookups = ({
   );
 };
 
-/**
- * The steps behind an answer, as a timeline the reader can fold. It opens
- * while the assistant works and stays as it is once the answer lands; a
- * replayed answer starts folded. Every step keeps its thought and its lookups
- * inspectable.
- */
 export const AssistantTrace = ({
   live,
   onRetry,
@@ -218,8 +220,6 @@ export const AssistantTrace = ({
                 {step.thinking && (
                   <Reasoning
                     className="mb-0"
-                    // Open while the thought streams and folded a moment after
-                    // it ends; a replayed answer starts folded and never moves.
                     defaultOpen={live}
                     isStreaming={streaming}
                   >

@@ -14,15 +14,16 @@ describe("matchCategoryGroups", () => {
   it("offers the whole taxonomy when nothing is typed", () => {
     for (const query of ["", "   "]) {
       const matches = matchCategoryGroups(query);
+
       expect(matches.map((match) => match.group)).toEqual([...CATEGORY_GROUPS]);
+
       for (const { categories, group } of matches) {
         expect(categories).toEqual(categoriesInGroup(group));
       }
     }
   });
 
-  it("keeps every category of a group whose own name matches", () => {
-    // "Energy" and "Water" do not contain "utilities"; the group's name does.
+  it("keeps categories no label of theirs matches when the group name does", () => {
     expect(matchCategoryGroups("utilities")).toEqual([
       { categories: categoriesInGroup("utilities"), group: "utilities" },
     ]);

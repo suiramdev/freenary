@@ -23,12 +23,12 @@ describe("apportion", () => {
   });
 
   it("draws from as few sources as possible", () => {
-    // Linking every source to every target would be 3x3 = 9 ribbons.
-    const links = apportion(
-      [end("a", 100), end("b", 100), end("c", 100)],
-      [end("x", 100), end("y", 100), end("z", 100)]
-    );
+    const sources = [end("a", 100), end("b", 100), end("c", 100)];
+    const targets = [end("x", 100), end("y", 100), end("z", 100)];
+    const everySourceToEveryTarget = sources.length * targets.length;
+    const links = apportion(sources, targets);
 
+    expect(links.length).toBeLessThan(everySourceToEveryTarget);
     expect(links).toHaveLength(3);
     expect(links.map((link) => `${link.source}->${link.target}`)).toEqual([
       "a->x",
@@ -52,7 +52,6 @@ describe("apportion", () => {
   });
 
   it("leaves trailing targets unfunded when income falls short", () => {
-    // An overspent period: the shortfall shows as groups with no inbound ribbon.
     const links = apportion(
       [end("salary", 120)],
       [end("rent", 100), end("food", 100)]
@@ -70,6 +69,7 @@ describe("apportion", () => {
     );
 
     const routed = links.reduce((total, link) => total + link.value, 0);
+
     expect(routed).toBe(100);
   });
 
@@ -78,8 +78,7 @@ describe("apportion", () => {
     expect(apportion([end("salary", 100)], [])).toEqual([]);
   });
 
-  it("skips ends that cannot contribute without stalling", () => {
-    // NaN compares false both ways, so retrying such a source would spin forever.
+  it("skips a zero or NaN source without stalling", () => {
     const links = apportion(
       [end("zero", 0), end("nan", Number.NaN), end("salary", 100)],
       [end("empty", 0), end("rent", 100)]
@@ -98,19 +97,19 @@ describe("apportion", () => {
   });
 
   it("never emits a non-finite ribbon", () => {
-    // The layout does arithmetic on a ribbon's value, so Infinity must not reach it.
-    const infinite = apportion(
+    const betweenInfiniteEnds = apportion(
       [end("inf", Number.POSITIVE_INFINITY)],
       [end("inf", Number.POSITIVE_INFINITY)]
     );
-    expect(infinite).toEqual([]);
 
-    // An unbounded source still fills finite targets exactly.
-    const bounded = apportion(
+    expect(betweenInfiniteEnds).toEqual([]);
+
+    const fromAnInfiniteSource = apportion(
       [end("inf", Number.POSITIVE_INFINITY)],
       [end("rent", 100), end("food", 50)]
     );
-    expect(bounded).toEqual([
+
+    expect(fromAnInfiniteSource).toEqual([
       { source: "inf", target: "rent", value: 100 },
       { source: "inf", target: "food", value: 50 },
     ]);

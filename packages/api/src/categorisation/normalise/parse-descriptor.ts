@@ -1,30 +1,39 @@
-import { generic, institutionParsers } from "./institutions/registry";
+import { Data, Result } from "effect";
+
+import { GENERIC_PARSER_ID } from "./institutions/parse-engine";
+import { genericParser, institutionParsers } from "./institutions/registry";
 import type { DescriptorParseInput, DescriptorParseResult } from "./types";
 
-/**
- * Parse a raw bank descriptor into structured merchant/channel data.
- *
- * Selects the first institution parser whose `matches()` returns true,
- * otherwise falls back to the generic parser. Never throws.
- */
+class DescriptorParserCrashed extends Data.TaggedError(
+  "DescriptorParserCrashed"
+)<{
+  readonly institutionName: string;
+  readonly thrown: unknown;
+}> {}
+
+const unidentifiedDescriptor = (): DescriptorParseResult => ({
+  channel: "unknown",
+  droppedLines: [],
+  normalisedDescriptor: "",
+  parserId: GENERIC_PARSER_ID,
+  payeeText: null,
+});
+
 export const parseDescriptor = (
   input: DescriptorParseInput
-): DescriptorParseResult => {
-  try {
-    for (const parser of institutionParsers) {
-      if (parser.matches(input)) {
-        return parser.parse(input);
-      }
-    }
-    return generic.parse(input);
-  } catch {
-    // Absolute safety net — a parser bug must never propagate
-    return {
-      channel: "unknown",
-      droppedLines: [],
-      normalisedDescriptor: "",
-      parserId: "generic",
-      payeeText: null,
-    };
-  }
-};
+): DescriptorParseResult =>
+  Result.getOrElse(
+    Result.try({
+      catch: (thrown) =>
+        new DescriptorParserCrashed({
+          institutionName: input.institutionName,
+          thrown,
+        }),
+      try: () =>
+        (
+          institutionParsers.find((parser) => parser.matches(input)) ??
+          genericParser
+        ).parse(input),
+    }),
+    unidentifiedDescriptor
+  );

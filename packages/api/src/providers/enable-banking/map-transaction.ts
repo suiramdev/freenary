@@ -1,45 +1,51 @@
 import { createHash } from "node:crypto";
 
+import { Array as Arr } from "effect";
+
 import type {
   ProviderCreditorIdentification,
   ProviderTransaction,
 } from "../types";
 import type { EBCreditorIdentification, EBTransaction } from "./client";
 
-/**
- * Parse a decimal amount string to signed minor units (cents) WITHOUT
- * float rounding drift. Splits on `.`, pads/truncates the fraction
- * to exactly 2 digits, then combines into an integer.
- *
- * Sign is applied from the credit/debit indicator, not the string.
- */
+type EBIdentifications =
+  EBTransaction["creditor_account_additional_identification"];
+
+const LEADING_MINUS = /^-/u;
+const MINOR_UNIT_DIGITS = 2;
+const DEBIT_INDICATOR = "DBIT";
+const CREDIT_INDICATOR = "CRDT";
+const UNIT_SEPARATOR = "\u001F";
+const FINGERPRINT_LENGTH = 32;
+const FALLBACK_CURRENCY = "EUR";
+const BOOKED = "BOOK";
+
 export const parseMinorUnits = (
-  amountStr: string,
-  creditDebitIndicator?: string
+  amount: string,
+  creditDebitIndicator: string = CREDIT_INDICATOR
 ): number => {
-  const stripped = amountStr.replace(/^-/u, "");
-  const [intPart = "0", rawFrac = ""] = stripped.split(".");
-  // Pad to 2 or truncate past 2
-  const frac = rawFrac.padEnd(2, "0").slice(0, 2);
-  const abs = Math.trunc(Number(`${intPart}${frac}`));
-  const sign = creditDebitIndicator === "DBIT" ? -1 : 1;
-  return abs * sign;
+  const unsigned = amount.replace(LEADING_MINUS, "");
+  const [units = "0", rawFraction = ""] = unsigned.split(".");
+  const fraction = rawFraction
+    .padEnd(MINOR_UNIT_DIGITS, "0")
+    .slice(0, MINOR_UNIT_DIGITS);
+  const magnitude = Math.trunc(Number(`${units}${fraction}`));
+  const sign = creditDebitIndicator === DEBIT_INDICATOR ? -1 : 1;
+
+  return magnitude * sign;
 };
 
-const fingerprintCreditorIdentifications = (
-  raw: EBCreditorIdentification | EBCreditorIdentification[] | undefined
-): string[] => {
-  if (!raw) {
-    return [];
-  }
-  const identifications = Array.isArray(raw) ? raw : [raw];
-  return identifications
+const identificationsOf = (
+  raw: EBIdentifications
+): readonly EBCreditorIdentification[] => (raw ? Arr.ensure(raw) : []);
+
+const fingerprintCreditorIdentifications = (raw: EBIdentifications): string[] =>
+  identificationsOf(raw)
     .map(
       (identification) =>
-        `${identification.scheme_name ?? ""}\u001F${identification.identification ?? ""}`
+        `${identification.scheme_name ?? ""}${UNIT_SEPARATOR}${identification.identification ?? ""}`
     )
     .toSorted();
-};
 
 const deriveFingerprint = (tx: EBTransaction): string => {
   const stableFields = {
@@ -71,37 +77,34 @@ const deriveFingerprint = (tx: EBTransaction): string => {
     transactionDate: tx.transaction_date,
     valueDate: tx.value_date,
   };
+
   return createHash("sha256")
     .update(JSON.stringify(stableFields))
     .digest("hex")
-    .slice(0, 32);
+    .slice(0, FINGERPRINT_LENGTH);
 };
 
-const normaliseCreditorIdentifications = (
-  raw: EBCreditorIdentification | EBCreditorIdentification[] | undefined
+const toProviderIdentifications = (
+  raw: EBIdentifications
 ): ProviderCreditorIdentification[] | undefined => {
-  if (!raw) {
-    return undefined;
-  }
-  const arr = Array.isArray(raw) ? raw : [raw];
-  const result: ProviderCreditorIdentification[] = [];
-  for (const item of arr) {
-    if (item.scheme_name && item.identification) {
-      result.push({
-        identification: item.identification,
-        schemeName: item.scheme_name,
-      });
+  const named: ProviderCreditorIdentification[] = [];
+
+  for (const item of identificationsOf(raw)) {
+    const { identification, scheme_name: schemeName } = item;
+
+    if (identification && schemeName) {
+      named.push({ identification, schemeName });
     }
   }
-  return result.length > 0 ? result : undefined;
+
+  return named.length > 0 ? named : undefined;
 };
 
-/** Map an Enable Banking raw transaction to the provider-agnostic model. */
 const mapCreditorFields = (tx: EBTransaction) => ({
   creditorAgentBic: tx.creditor_agent?.bic_fi,
   creditorCountry: tx.creditor?.postal_address?.country,
   creditorIban: tx.creditor_account?.iban,
-  creditorIdentifications: normaliseCreditorIdentifications(
+  creditorIdentifications: toProviderIdentifications(
     tx.creditor_account_additional_identification
   ),
   creditorName: tx.creditor?.name,
@@ -116,7 +119,7 @@ const mapAmountFields = (tx: EBTransaction) => ({
   balanceAfterMinor: tx.balance_after_transaction?.amount
     ? parseMinorUnits(tx.balance_after_transaction.amount)
     : undefined,
-  currency: tx.transaction_amount?.currency ?? "EUR",
+  currency: tx.transaction_amount?.currency ?? FALLBACK_CURRENCY,
   exchangeRate: tx.exchange_rate?.exchange_rate,
 });
 
@@ -139,14 +142,13 @@ const mapEBTransaction = (
   referenceNumber: tx.reference_number,
   referenceNumberScheme: tx.reference_number_schema,
   remittanceLines: tx.remittance_information ?? [],
-  status: tx.status ?? "BOOK",
+  status: tx.status ?? BOOKED,
   transactionDate: tx.transaction_date,
   valueDate: tx.value_date,
 });
 
-/** Map a batch so indistinguishable no-reference transactions remain distinct. */
 export const mapEBTransactions = (
-  transactions: EBTransaction[],
+  transactions: readonly EBTransaction[],
   fallbackDate: string
 ): ProviderTransaction[] => {
   const fingerprintOccurrences = new Map<string, number>();
@@ -158,7 +160,9 @@ export const mapEBTransactions = (
 
     const fingerprint = deriveFingerprint(tx);
     const occurrence = (fingerprintOccurrences.get(fingerprint) ?? 0) + 1;
+
     fingerprintOccurrences.set(fingerprint, occurrence);
+
     return mapEBTransaction(
       tx,
       fallbackDate,

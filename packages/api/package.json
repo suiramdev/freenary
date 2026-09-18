@@ -30,6 +30,7 @@
     "ai": "^7.0.62",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "evlog": "catalog:",
     "fflate": "^0.8.3",
     "zod": "catalog:"

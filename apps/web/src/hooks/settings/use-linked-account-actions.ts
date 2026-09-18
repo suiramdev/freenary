@@ -9,8 +9,6 @@ import { m } from "@/paraglide/messages.js";
 export const useLinkedAccountActions = () => {
   const queryClient = useQueryClient();
 
-  // No success path to handle: the client follows the provider redirect, so
-  // this mutation only ever settles when the server refuses.
   const connectMutation = useMutation({
     mutationFn: async (provider: string) => {
       const { origin } = window.location;
@@ -19,6 +17,7 @@ export const useLinkedAccountActions = () => {
         errorCallbackURL: `${origin}/settings`,
         provider,
       });
+
       if (error) {
         throw new Error(linkedAccountErrorMessage(error));
       }
@@ -31,6 +30,7 @@ export const useLinkedAccountActions = () => {
   const disconnectMutation = useMutation({
     mutationFn: async (accountId: string) => {
       const { error } = await authClient.unlinkAccount({ accountId });
+
       if (error) {
         throw new Error(linkedAccountErrorMessage(error));
       }
@@ -48,7 +48,6 @@ export const useLinkedAccountActions = () => {
 
   return {
     connect: connectMutation.mutate,
-    /** The provider being sent off, so only its own button shows a spinner. */
     connectingProvider: connectMutation.isPending
       ? connectMutation.variables
       : null,

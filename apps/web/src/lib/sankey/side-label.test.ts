@@ -4,14 +4,30 @@ import { fitSideLabel } from "./side-label";
 
 const DIGIT = /\d/u;
 
-/**
- * The invariant, stated without assuming where the currency symbol sits:
- * a result either carries the amount in full or carries no digits at all.
- * `formatCurrency` uses the ambient locale, so the symbol may lead (`€216.40`)
- * or trail (`216,40 €`), and a symbol-shaped regex would miss a digit-side cut.
- */
 const amountWholeOrAbsent = (fitted: string, value: string) =>
   fitted.includes(value) || !DIGIT.test(fitted);
+
+const LEADING_SYMBOL_AMOUNTS = [
+  "€2,500.00",
+  "€216.40",
+  "€95.00",
+  "€1.00",
+  "€1,234,567.89",
+];
+const TRAILING_SYMBOL_AMOUNTS = ["2\u202F500,00\u00A0€", "216,40\u00A0€"];
+const DIGIT_FREE_LABELS = [
+  "Salary",
+  "Public transport",
+  "Culture & events",
+  "Rent",
+];
+const PRE_FIX_RENDERS_THAT_SLICED_THE_AMOUNT = [
+  ["Salary: €2…", "€2,500.00"],
+  ["Culture & events: €95.…", "€95.00"],
+  ["Public transport: €216…", "€216.40"],
+  ["Salary: 216,4…", "216,40\u00A0€"],
+] as const;
+const WIDEST_TESTED_LABEL_CHARS = 40;
 
 describe("fitSideLabel", () => {
   it("keeps both when they fit", () => {
@@ -20,49 +36,36 @@ describe("fitSideLabel", () => {
 
   it("trims the label, never the amount", () => {
     const fitted = fitSideLabel("Public transport", "€216.40", 23);
+
     expect(fitted).toBe("Public transp…: €216.40");
   });
 
-  it("drops the amount whole rather than slicing it", () => {
-    // "Salary: €2,500.00" in 11 chars used to render "Salary: €2…", which reads
-    // as €2 — a plausible figure three orders of magnitude out.
+  it("drops the amount whole rather than slicing it to €2…", () => {
     expect(fitSideLabel("Salary", "€2,500.00", 11)).toBe("Salary");
   });
 
   it("would reject the outputs the old slicing produced", () => {
-    // Guards the guard: these are the real pre-fix renders, and the invariant
-    // must call every one of them a violation.
-    for (const [broken, value] of [
-      ["Salary: €2…", "€2,500.00"],
-      ["Culture & events: €95.…", "€95.00"],
-      ["Public transport: €216…", "€216.40"],
-      ["Salary: 216,4…", "216,40\u00A0€"],
-    ] as const) {
+    for (const [broken, value] of PRE_FIX_RENDERS_THAT_SLICED_THE_AMOUNT) {
       expect(amountWholeOrAbsent(broken, value)).toBe(false);
     }
   });
 
   it("never emits a partial amount, wherever the symbol sits", () => {
-    const amounts = [
-      "€2,500.00",
-      "€216.40",
-      "€95.00",
-      "€1.00",
-      "€1,234,567.89",
-      // Trailing symbol with a non-breaking space, as fr-FR formats it.
-      "2\u202F500,00\u00A0€",
-      "216,40\u00A0€",
-    ];
-    // Digit-free labels, so any digit in a result can only come from the amount.
-    const labels = ["Salary", "Public transport", "Culture & events", "Rent"];
+    const amounts = [...LEADING_SYMBOL_AMOUNTS, ...TRAILING_SYMBOL_AMOUNTS];
 
-    for (const label of labels) {
+    for (const label of DIGIT_FREE_LABELS) {
       for (const value of amounts) {
-        for (let maxChars = 0; maxChars <= 40; maxChars += 1) {
+        for (
+          let maxChars = 0;
+          maxChars <= WIDEST_TESTED_LABEL_CHARS;
+          maxChars += 1
+        ) {
           const fitted = fitSideLabel(label, value, maxChars);
+
           if (fitted === null) {
             continue;
           }
+
           expect(amountWholeOrAbsent(fitted, value)).toBe(true);
           expect(fitted.length).toBeLessThanOrEqual(maxChars);
         }

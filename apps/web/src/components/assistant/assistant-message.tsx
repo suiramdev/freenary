@@ -22,21 +22,15 @@ import { m } from "@/paraglide/messages.js";
 
 interface AssistantMessageProps {
   message: UIMessage;
-  /** The live agent state, passed only to the turn currently being answered. */
   avatarState?: BrandAvatarState;
-  /** This answer is the one being streamed right now. */
   live: boolean;
   status: ChatStatus;
-  /** The live answer replaces the last one, so its first wait says so. */
   retrying: boolean;
-  /** When the question was sent, so the whole turn can be timed. */
   startedAt?: number;
-  /** Redo this turn. Takes the id so the chat can pass one stable callback. */
   onRetry?: (messageId: string) => void;
 }
 
-/** The prose only: a copied answer should paste as text, not as a program. */
-const textOf = (segments: AnswerSegment[]): string =>
+const copyableProseOf = (segments: AnswerSegment[]): string =>
   segments
     .flatMap((segment) => (segment.kind === "markdown" ? [segment.text] : []))
     .join("\n\n");
@@ -61,8 +55,8 @@ const AnswerSegments = ({
       </MessageResponse>
     ) : (
       <AssistantChart
-        code={segment.code}
         key={`${prefix}-${index}`}
+        program={segment.code}
         streaming={!segment.closed}
       />
     )
@@ -84,11 +78,6 @@ const UserMessage = ({ message }: { message: UIMessage }) => (
   </div>
 );
 
-/**
- * One answer: the trace of how it was reached, then the answer itself. The
- * trace opens while the assistant works and stays where the reader leaves
- * it; a replayed answer starts with it folded.
- */
 const AnswerMessage = ({
   avatarState,
   live,
@@ -102,12 +91,12 @@ const AnswerMessage = ({
   const trace = traceOf(message.parts, live);
   const timings = useExecutionTimings(message.parts, live, startedAt);
   const answer = trace.steps.flatMap((step) => step.answer);
-  const copyable = textOf(answer);
+  const copyable = copyableProseOf(answer);
   const hasChart = answer.some((segment) => segment.kind === "chart");
-  // A plain answer with no lookup and no thought has no trace worth a row.
   const traced = trace.steps.some(
     (step) => step.tools.length > 0 || step.thinking !== null
   );
+  const wantsFullColumn = traced || hasChart;
 
   return (
     <div className="flex w-full gap-3">
@@ -117,8 +106,7 @@ const AnswerMessage = ({
         state={avatarState ?? "idle"}
       />
       <Message from="assistant">
-        {/* The content box hugs its prose; a trace or a chart wants the column. */}
-        <MessageContent className={traced || hasChart ? "w-full" : undefined}>
+        <MessageContent className={wantsFullColumn ? "w-full" : undefined}>
           {traced && (
             <AssistantTrace
               live={live}
@@ -160,11 +148,6 @@ const AnswerMessage = ({
   );
 };
 
-/**
- * Memoised: a streamed chunk re-renders the chat, and a settled answer with a
- * chart must not re-render its chart on every one. `useChat` keeps settled
- * message objects stable, and the chat passes settled rows stable props.
- */
 const AssistantMessageRow = (props: AssistantMessageProps) =>
   props.message.role === "assistant" ? (
     <AnswerMessage {...props} />

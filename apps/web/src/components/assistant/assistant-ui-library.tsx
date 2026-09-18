@@ -25,13 +25,18 @@ import { formatDecimalCurrency } from "@/lib/budget/format-currency";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/**
- * The renderer behind each component the model may compose. The schemas and
- * the prompt live in `packages/api`; this file only decides how a parsed node
- * looks, on the same chart primitives and palette as the Budget screen.
- */
+interface Series {
+  name: string;
+  values: number[];
+}
 
-/** Series take colours in this order, so two charts in one answer agree. */
+interface TooltipItem {
+  color?: string;
+  dataKey?: string | number;
+  payload?: { fill?: string; label?: string; value?: number };
+  value?: number | null;
+}
+
 const PALETTE = [
   CHART_COLOR_VARS.blue,
   CHART_COLOR_VARS.orange,
@@ -43,31 +48,15 @@ const PALETTE = [
 ];
 
 const DEFAULT_CURRENCY = "EUR";
-const CURRENCY_CODE = /^[A-Z]{3}$/u;
+const ISO_CURRENCY_CODE = /^[A-Z]{3}$/u;
 
-/**
- * A renderer must never throw on what the model wrote: mid-stream the parser
- * auto-closes an open string, so `"EUR"` arrives as `"E"` first, and
- * `Intl.NumberFormat` throws on a malformed code. The renderer's error
- * boundary then re-renders and throws again, without end.
- */
 const currencyOf = (code: string | undefined): string =>
-  code !== undefined && CURRENCY_CODE.test(code) ? code : DEFAULT_CURRENCY;
+  code !== undefined && ISO_CURRENCY_CODE.test(code) ? code : DEFAULT_CURRENCY;
 const CHART_HEIGHT_CLASS = "aspect-auto h-56 w-full";
 
 const seriesKey = (index: number): string => `s${index}`;
 
-interface Series {
-  name: string;
-  values: number[];
-}
-
-/**
- * Recharts wants one row per label with one field per series. A value the
- * model left out is a gap, never a zero: recharts breaks the line and draws no
- * bar for `null`, where `0` would plot money that was never quoted.
- */
-const toRows = (labels: string[], series: Series[]) =>
+const toRowsWithGaps = (labels: string[], series: Series[]) =>
   labels.map((label, index) => ({
     label,
     ...Object.fromEntries(
@@ -94,18 +83,6 @@ const compactCurrency = (value: number, currency: string): string =>
     style: "currency",
   }).format(value);
 
-/** What recharts hands a tooltip for one series; a gap arrives as `null`. */
-interface TooltipItem {
-  color?: string;
-  dataKey?: string | number;
-  payload?: { fill?: string; label?: string; value?: number };
-  value?: number | null;
-}
-
-/**
- * Recharts injects `active`, `label` and `payload`; the default row prints a
- * bare number, and an amount has to read as money.
- */
 const SeriesTooltip = ({
   active,
   config,
@@ -128,9 +105,11 @@ const SeriesTooltip = ({
       {label && <div className="font-medium">{label}</div>}
       {payload.map((item) => {
         const key = String(item.dataKey);
+
         if (item.value === undefined || item.value === null) {
           return null;
         }
+
         return (
           <div
             className="flex items-center justify-between gap-3 leading-none"
@@ -167,6 +146,7 @@ const SliceTooltip = ({
   total: number;
 }) => {
   const slice = active ? payload?.[0]?.payload : undefined;
+
   if (!slice || slice.value === undefined) {
     return null;
   }
@@ -211,7 +191,10 @@ const AssistantBarChart = defineComponent({
 
     return (
       <ChartContainer className={CHART_HEIGHT_CLASS} config={config}>
-        <BarChart accessibilityLayer data={toRows(props.labels, props.series)}>
+        <BarChart
+          accessibilityLayer
+          data={toRowsWithGaps(props.labels, props.series)}
+        >
           <CartesianGrid vertical={false} />
           <XAxis axisLine={false} dataKey="label" tickLine={false} />
           <YAxis
@@ -250,7 +233,10 @@ const AssistantLineChart = defineComponent({
 
     return (
       <ChartContainer className={CHART_HEIGHT_CLASS} config={config}>
-        <LineChart accessibilityLayer data={toRows(props.labels, props.series)}>
+        <LineChart
+          accessibilityLayer
+          data={toRowsWithGaps(props.labels, props.series)}
+        >
           <CartesianGrid vertical={false} />
           <XAxis axisLine={false} dataKey="label" tickLine={false} />
           <YAxis
@@ -285,10 +271,9 @@ const AssistantDonutChart = defineComponent({
   ...ASSISTANT_UI.DonutChart,
   component: ({ props }) => {
     const currency = currencyOf(props.currency);
-    // A label with no value is dropped, not drawn at zero. Keys are positional:
-    // the labels are the model's, and nothing stops it from repeating one.
     const slices = props.labels.flatMap((label, index) => {
       const value = props.values[index];
+
       return value === undefined
         ? []
         : [
@@ -351,7 +336,6 @@ const AssistantDonutChart = defineComponent({
 const Card = defineComponent({
   ...ASSISTANT_UI.Card,
   component: ({ props, renderNode }) => {
-    // Stats sit in one row above the chart, whatever order the model wrote.
     const stats = props.children.filter((child) => child.typeName === "Stat");
     const charts = props.children.filter((child) => child.typeName !== "Stat");
 
@@ -369,8 +353,6 @@ const Card = defineComponent({
   },
 });
 
-// Checked against the definitions, so a component added to `packages/api`
-// cannot reach the prompt without a renderer here.
 const components = {
   BarChart: AssistantBarChart,
   Card,

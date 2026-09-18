@@ -28,27 +28,7 @@ import { m } from "@/paraglide/messages.js";
 
 type PasskeyReachSlug = "device_only" | "not_backed_up" | "synced";
 
-const REACH_LABELS = {
-  device_only: m.settings_passkeys_reach_device_only,
-  not_backed_up: m.settings_passkeys_reach_not_backed_up,
-  synced: m.settings_passkeys_reach_synced,
-} satisfies Record<PasskeyReachSlug, () => string>;
-
-/**
- * Which devices this passkey can actually sign in from — the one thing a user
- * needs when deciding which of several to remove. `singleDevice` cannot leave
- * the authenticator it was made on; `multiDevice` can, but only once its
- * password manager has backed it up.
- */
-const reachSlug = (passkey: Passkey): PasskeyReachSlug => {
-  if (passkey.deviceType === "singleDevice") {
-    return "device_only";
-  }
-  return passkey.backedUp ? "synced" : "not_backed_up";
-};
-
 interface SecurityPasskeyRowProps {
-  /** One formatter for the whole list rather than one per row. */
   formatter: Intl.DateTimeFormat;
   isRemoving: boolean;
   isRenaming: boolean;
@@ -56,6 +36,20 @@ interface SecurityPasskeyRowProps {
   onRename: (input: PasskeyRenameInput) => void;
   passkey: Passkey;
 }
+
+const REACH_LABELS = {
+  device_only: m.settings_passkeys_reach_device_only,
+  not_backed_up: m.settings_passkeys_reach_not_backed_up,
+  synced: m.settings_passkeys_reach_synced,
+} satisfies Record<PasskeyReachSlug, () => string>;
+
+const signInReachOf = (passkey: Passkey): PasskeyReachSlug => {
+  if (passkey.deviceType === "singleDevice") {
+    return "device_only";
+  }
+
+  return passkey.backedUp ? "synced" : "not_backed_up";
+};
 
 export const SecurityPasskeyRow = ({
   formatter,
@@ -66,16 +60,16 @@ export const SecurityPasskeyRow = ({
   passkey,
 }: SecurityPasskeyRowProps) => {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
-  // A passkey registered by another client may carry no name, or a blank one.
-  const givenName = passkey.name?.trim() ?? "";
-  const name = givenName === "" ? m.settings_passkeys_unnamed() : givenName;
-  const reach = REACH_LABELS[reachSlug(passkey)]();
+  const storedName = passkey.name?.trim() ?? "";
+  const displayName =
+    storedName === "" ? m.settings_passkeys_unnamed() : storedName;
+  const reach = REACH_LABELS[signInReachOf(passkey)]();
 
   return (
     <Item render={<li />} size="sm">
       <ItemContent className="min-w-0">
         <ItemTitle className="flex flex-wrap items-center gap-2">
-          {name}
+          {displayName}
           <Badge variant="secondary">{reach}</Badge>
         </ItemTitle>
         <ItemDescription>
@@ -87,7 +81,9 @@ export const SecurityPasskeyRow = ({
 
       <ItemActions>
         <Button
-          aria-label={m.settings_passkeys_rename_passkey({ passkey: name })}
+          aria-label={m.settings_passkeys_rename_passkey({
+            passkey: displayName,
+          })}
           disabled={isRenaming}
           onClick={() => setIsRenameOpen(true)}
           variant="outline"
@@ -96,14 +92,12 @@ export const SecurityPasskeyRow = ({
           {m.settings_passkeys_rename()}
         </Button>
 
-        {/* Left open on confirm: success unmounts this row, and a failure keeps
-            the retry available. */}
         <AlertDialog>
           <AlertDialogTrigger
             render={
               <Button
                 aria-label={m.settings_passkeys_remove_passkey({
-                  passkey: name,
+                  passkey: displayName,
                 })}
                 disabled={isRemoving}
                 variant="ghost"
@@ -115,7 +109,7 @@ export const SecurityPasskeyRow = ({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {m.settings_passkeys_remove_title({ passkey: name })}
+                {m.settings_passkeys_remove_title({ passkey: displayName })}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {m.settings_passkeys_remove_description()}
@@ -136,11 +130,9 @@ export const SecurityPasskeyRow = ({
         </AlertDialog>
       </ItemActions>
 
-      {/* Prefilled with the stored name, never the display fallback: offering
-          the translated "unnamed" label would save it as the real name. */}
       <SecurityPasskeyNameDialog
         confirmLabel={m.settings_passkeys_rename_confirm()}
-        defaultName={givenName}
+        defaultName={storedName}
         description={m.settings_passkeys_rename_description()}
         onOpenChange={setIsRenameOpen}
         onSubmit={(next) => onRename({ id: passkey.id, name: next })}

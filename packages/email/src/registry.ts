@@ -1,12 +1,19 @@
 import { env } from "@freenary/env/server";
+import { Data, Match, Result } from "effect";
 
 import { createLogEmailProvider } from "./providers/log";
 import { createResendEmailProvider } from "./providers/resend";
 import { createSmtpEmailProvider } from "./providers/smtp";
 import type { EmailProvider } from "./types";
 
+export type EmailProviderName = "log" | "resend" | "smtp";
+
+export type EmailProviderUnavailableReason =
+  | { readonly kind: "missing-variable"; readonly variable: string }
+  | { readonly kind: "refused-in-production" };
+
 export interface EmailSettings {
-  provider: "log" | "resend" | "smtp" | undefined;
+  provider: EmailProviderName | undefined;
   from: string | undefined;
   isProduction: boolean;
   resendApiKey: string | undefined;
@@ -20,69 +27,91 @@ export interface EmailSettings {
 const IMPLICIT_TLS_PORT = 465;
 const STARTTLS_PORT = 587;
 
-const requireVar = (
-  provider: string,
-  name: string,
-  value: string | undefined
-): string => {
-  if (value === undefined) {
-    throw new Error(`EMAIL_PROVIDER=${provider} requires ${name} to be set.`);
-  }
-  return value;
-};
+export class EmailProviderUnavailable extends Data.TaggedError(
+  "EmailProviderUnavailable"
+)<{
+  readonly provider: EmailProviderName;
+  readonly reason: EmailProviderUnavailableReason;
+  readonly message: string;
+}> {}
 
-/**
- * Resolves the configured adapter. A provider named but left half-configured
- * throws here, at startup, rather than swallowing one-time codes at delivery
- * time — when the user is the one who finds out.
- */
+const requireVar = (
+  provider: EmailProviderName,
+  variable: string,
+  value: string | undefined
+): Result.Result<string, EmailProviderUnavailable> =>
+  Result.fromNullishOr(
+    value,
+    () =>
+      new EmailProviderUnavailable({
+        message: `EMAIL_PROVIDER=${provider} requires ${variable} to be set.`,
+        provider,
+        reason: { kind: "missing-variable", variable },
+      })
+  );
+
 export const createEmailProvider = (
   settings: EmailSettings
-): EmailProvider | null => {
-  switch (settings.provider) {
-    case undefined: {
-      return null;
-    }
-    case "log": {
-      if (settings.isProduction) {
-        throw new Error(
-          "EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`."
-        );
-      }
-      return createLogEmailProvider();
-    }
-    case "resend": {
-      return createResendEmailProvider({
-        apiKey: requireVar("resend", "RESEND_API_KEY", settings.resendApiKey),
-        from: requireVar("resend", "EMAIL_FROM", settings.from),
-      });
-    }
-    case "smtp": {
-      return createSmtpEmailProvider({
-        from: requireVar("smtp", "EMAIL_FROM", settings.from),
-        host: requireVar("smtp", "SMTP_HOST", settings.smtpHost),
-        password: settings.smtpPassword,
-        port:
-          settings.smtpPort ??
-          (settings.smtpSecure ? IMPLICIT_TLS_PORT : STARTTLS_PORT),
-        secure: settings.smtpSecure,
-        user: settings.smtpUser,
-      });
-    }
-    default: {
-      return null;
-    }
+): Result.Result<EmailProvider | null, EmailProviderUnavailable> => {
+  if (settings.provider === undefined) {
+    return Result.succeed(null);
   }
+
+  return Match.value(settings.provider).pipe(
+    Match.when("log", () =>
+      settings.isProduction
+        ? Result.fail(
+            new EmailProviderUnavailable({
+              message:
+                "EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.",
+              provider: "log",
+              reason: { kind: "refused-in-production" },
+            })
+          )
+        : Result.succeed(createLogEmailProvider())
+    ),
+    Match.when("resend", () =>
+      Result.map(
+        Result.all({
+          apiKey: requireVar("resend", "RESEND_API_KEY", settings.resendApiKey),
+          from: requireVar("resend", "EMAIL_FROM", settings.from),
+        }),
+        createResendEmailProvider
+      )
+    ),
+    Match.when("smtp", () =>
+      Result.map(
+        Result.all({
+          from: requireVar("smtp", "EMAIL_FROM", settings.from),
+          host: requireVar("smtp", "SMTP_HOST", settings.smtpHost),
+        }),
+        ({ from, host }) =>
+          createSmtpEmailProvider({
+            from,
+            host,
+            password: settings.smtpPassword,
+            port:
+              settings.smtpPort ??
+              (settings.smtpSecure ? IMPLICIT_TLS_PORT : STARTTLS_PORT),
+            secure: settings.smtpSecure,
+            user: settings.smtpUser,
+          })
+      )
+    ),
+    Match.exhaustive
+  );
 };
 
-export const emailProvider = createEmailProvider({
-  from: env.EMAIL_FROM,
-  isProduction: env.NODE_ENV === "production",
-  provider: env.EMAIL_PROVIDER,
-  resendApiKey: env.RESEND_API_KEY,
-  smtpHost: env.SMTP_HOST,
-  smtpPassword: env.SMTP_PASSWORD,
-  smtpPort: env.SMTP_PORT,
-  smtpSecure: env.SMTP_SECURE,
-  smtpUser: env.SMTP_USER,
-});
+export const emailProvider = Result.getOrThrow(
+  createEmailProvider({
+    from: env.EMAIL_FROM,
+    isProduction: env.NODE_ENV === "production",
+    provider: env.EMAIL_PROVIDER,
+    resendApiKey: env.RESEND_API_KEY,
+    smtpHost: env.SMTP_HOST,
+    smtpPassword: env.SMTP_PASSWORD,
+    smtpPort: env.SMTP_PORT,
+    smtpSecure: env.SMTP_SECURE,
+    smtpUser: env.SMTP_USER,
+  })
+);

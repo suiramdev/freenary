@@ -22,40 +22,36 @@ import type { BudgetProfileLine } from "@/lib/settings/budget-profile-sankey";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
-/** Every keystroke re-lays out the whole flow, so typing settles first. */
-const PREVIEW_DELAY_MS = 200;
-
-/**
- * A getter, not a constant: resolving the label here would pin the locale.
- * `isCustom` marks the label as already-translated copy, so `categoryEntryLabel`
- * leaves it alone rather than reading `other` as the taxonomy group.
- */
-const fallbackGroupOf = (): Pick<
-  CategoryEntry,
-  "color" | "isCustom" | "key" | "label"
-> => ({
-  color: "grey",
-  isCustom: true,
-  key: "other",
-  label: m.settings_category_other(),
-});
-
 interface BudgetProfilePreviewProps {
   categories: CategoryEntry[];
   isPending: boolean;
   lines: EditorLine[];
 }
 
+const TYPING_SETTLE_DELAY_MS = 200;
+
+const NOT_LOADED_YET = null;
+
+const LABEL_IS_ALREADY_TRANSLATED_COPY = true;
+
+const uncategorisedGroupInCurrentLocale = (): Pick<
+  CategoryEntry,
+  "color" | "isCustom" | "key" | "label"
+> => ({
+  color: "grey",
+  isCustom: LABEL_IS_ALREADY_TRANSLATED_COPY,
+  key: "other",
+  label: m.settings_category_other(),
+});
+
 export const BudgetProfilePreview = ({
   categories,
   isPending,
   lines,
 }: BudgetProfilePreviewProps) => {
-  // Debouncing the pending flag alongside the lines keeps the trailing empty
-  // draft from reading as "no budget" for one debounce window after load.
   const debouncedLines = useDebouncedValue(
-    isPending ? null : lines,
-    PREVIEW_DELAY_MS
+    isPending ? NOT_LOADED_YET : lines,
+    TYPING_SETTLE_DELAY_MS
   );
 
   const profileLines = useMemo<BudgetProfileLine[]>(() => {
@@ -63,24 +59,22 @@ export const BudgetProfilePreview = ({
       categories.map((entry) => [entry.key, entry] as const)
     );
 
-    // A line names a category; the chart's middle column is its group. A
-    // top-level custom category is its own group, so it stands in for itself.
-    const groupOf = (entry: CategoryEntry | undefined) => {
+    const chartColumnGroupOf = (entry: CategoryEntry | undefined) => {
       if (!entry) {
-        return fallbackGroupOf();
+        return uncategorisedGroupInCurrentLocale();
       }
+
       const parent = entry.parentKey
         ? entryByKey.get(entry.parentKey)
         : undefined;
+
       return parent ?? entry;
     };
 
     return (debouncedLines ?? []).map((line) => {
       const entry = entryByKey.get(line.categoryKey);
-      const group = groupOf(entry);
+      const group = chartColumnGroupOf(entry);
       const amount = amountOf(line.amountInput);
-      // A nameless line is called after its category; a line with no category
-      // yet has neither, and still has to occupy a node.
       const categoryLabel = entry ? categoryEntryLabel(entry) : "";
 
       return {
@@ -89,7 +83,6 @@ export const BudgetProfilePreview = ({
         groupKey: group.key,
         groupLabel: categoryEntryLabel(group),
         id: line.id,
-        // Which side of the flow a line falls on is its group's business.
         kind: budgetLineKindOfGroup(group.key),
         label: line.label.trim() || categoryLabel || m.settings_line_untitled(),
       };
@@ -104,6 +97,7 @@ export const BudgetProfilePreview = ({
   const totals = useMemo(() => {
     let totalAllocated = 0;
     let totalRevenue = 0;
+
     for (const line of profileLines) {
       if (line.kind === "REVENUE") {
         totalRevenue += line.amount;
@@ -111,10 +105,11 @@ export const BudgetProfilePreview = ({
         totalAllocated += line.amount;
       }
     }
+
     return { totalAllocated, totalRevenue };
   }, [profileLines]);
 
-  if (debouncedLines === null) {
+  if (debouncedLines === NOT_LOADED_YET) {
     return (
       <div aria-busy="true">
         <output className="sr-only">{m.settings_budget_flow_loading()}</output>

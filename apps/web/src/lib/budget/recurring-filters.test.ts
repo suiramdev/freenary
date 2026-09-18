@@ -64,15 +64,18 @@ describe("narrowing the recurring list", () => {
   });
 
   it("bounds the monthly cost rather than the amount charged", () => {
-    // A yearly 240 charge costs ~20 a month, so a floor of 100 drops it while
-    // a monthly 150 charge survives.
+    const yearlyInsuranceCostingAboutTwentyAMonth = item({
+      intervalDays: 365,
+      merchantKey: "insurance",
+      typicalAmountMinor: 24_000,
+    });
+    const monthlyGymCostingOneFifty = item({
+      merchantKey: "gym",
+      typicalAmountMinor: 15_000,
+    });
     const items = [
-      item({
-        intervalDays: 365,
-        merchantKey: "insurance",
-        typicalAmountMinor: 24_000,
-      }),
-      item({ merchantKey: "gym", typicalAmountMinor: 15_000 }),
+      yearlyInsuranceCostingAboutTwentyAMonth,
+      monthlyGymCostingOneFifty,
     ];
 
     const groups = groupRecurringItems(

@@ -12,12 +12,14 @@ const line = (
 describe("plannedByGroup", () => {
   test("maps a predefined slug to its taxonomy group", () => {
     const planned = plannedByGroup([line(120_000, "rent")], 1);
+
     expect(planned.get(CATEGORY_GROUP_OF.rent)).toBe(120_000);
     expect(planned.size).toBe(1);
   });
 
   test("maps a custom category to its parent group", () => {
     const planned = plannedByGroup([line(4500, null, "leisure")], 1);
+
     expect(planned.get("leisure")).toBe(4500);
   });
 
@@ -26,6 +28,7 @@ describe("plannedByGroup", () => {
       [line(1000, null, null), line(500, null, "not-a-group")],
       1
     );
+
     expect(planned.get("other")).toBe(1500);
     expect(planned.size).toBe(1);
   });
@@ -35,6 +38,7 @@ describe("plannedByGroup", () => {
       [line(90_000, "rent"), line(1500, "home-insurance")],
       1
     );
+
     expect(CATEGORY_GROUP_OF["home-insurance"]).toBe(CATEGORY_GROUP_OF.rent);
     expect(planned.get(CATEGORY_GROUP_OF.rent)).toBe(91_500);
   });
@@ -44,6 +48,7 @@ describe("plannedByGroup", () => {
       [line(2000, "water"), line(3000, "water")],
       3
     );
+
     expect(planned.get(CATEGORY_GROUP_OF.water)).toBe(15_000);
   });
 
@@ -72,10 +77,12 @@ describe("monthSpan", () => {
   });
 
   test("ignores the client's timezone offset on the boundaries", () => {
-    // A UTC+2 client sends 2026-08-31T22:00Z … 2026-09-30T21:59Z for September.
-    const from = new Date("2026-08-31T22:00:00.000Z");
-    const to = new Date("2026-09-30T21:59:59.999Z");
-    expect(monthSpan(from, to)).toBe(1);
+    const septemberStartAtUtcPlusTwo = new Date("2026-08-31T22:00:00.000Z");
+    const septemberEndAtUtcPlusTwo = new Date("2026-09-30T21:59:59.999Z");
+
+    expect(
+      monthSpan(septemberStartAtUtcPlusTwo, septemberEndAtUtcPlusTwo)
+    ).toBe(1);
   });
 });
 

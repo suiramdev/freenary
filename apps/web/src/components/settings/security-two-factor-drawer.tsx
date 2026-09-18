@@ -15,6 +15,7 @@ import {
 import { Input } from "@freenary/ui/components/input";
 import { Spinner } from "@freenary/ui/components/spinner";
 import { RiFileCopyLine } from "@remixicon/react";
+import { Data, Effect } from "effect";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -27,6 +28,13 @@ import { useTwoFactorEnrollment } from "@/hooks/settings/use-two-factor-enrollme
 import { TOTP_CODE_LENGTH } from "@/lib/auth/auth-schemas";
 import { m } from "@/paraglide/messages.js";
 
+interface SecurityTwoFactorDrawerProps {
+  onEnabled: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  purpose: TwoFactorPurpose;
+}
+
 const QR_SIZE_PX = 168;
 
 const STAGE_DESCRIPTIONS = {
@@ -36,17 +44,27 @@ const STAGE_DESCRIPTIONS = {
   scan: m.settings_2fa_step_scan_description,
 } satisfies Record<TwoFactorStage, () => string>;
 
-interface SecurityTwoFactorDrawerProps {
-  onEnabled: () => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  purpose: TwoFactorPurpose;
-}
+class ClipboardWriteRefused extends Data.TaggedError("ClipboardWriteRefused")<{
+  readonly cause: unknown;
+}> {}
 
-/**
- * Enrolment and code re-issue share one surface because they share their first
- * step (the password) and their last (codes shown exactly once).
- */
+const copyBackupCodes = (backupCodes: readonly string[]) =>
+  Effect.tryPromise({
+    catch: (cause) => new ClipboardWriteRefused({ cause }),
+    try: () => navigator.clipboard.writeText(backupCodes.join("\n")),
+  }).pipe(
+    Effect.andThen(
+      Effect.sync(() => {
+        toast.success(m.settings_2fa_codes_copied());
+      })
+    ),
+    Effect.catchTag("ClipboardWriteRefused", () =>
+      Effect.sync(() => {
+        toast.error(m.settings_2fa_codes_copy_error());
+      })
+    )
+  );
+
 export const SecurityTwoFactorDrawer = ({
   onEnabled,
   onOpenChange,
@@ -65,31 +83,21 @@ export const SecurityTwoFactorDrawer = ({
     totpUri,
   } = useTwoFactorEnrollment({ onEnabled, purpose });
 
-  // The component survives close/reopen, so a second run would otherwise start
-  // on the previous run's stage with its password still typed in.
   useEffect(() => {
     if (open) {
       reset();
     }
   }, [open, reset]);
 
-  const copyCodes = async () => {
-    try {
-      await navigator.clipboard.writeText(backupCodes.join("\n"));
-      toast.success(m.settings_2fa_codes_copied());
-    } catch {
-      toast.error(m.settings_2fa_codes_copy_error());
-    }
-  };
+  const isShowingCodesExactlyOnce = stage === "codes";
 
   return (
     <Drawer
       onOpenChange={(next) => {
-        // The codes are shown exactly once, so acknowledging them is the only
-        // way out of that stage — no backdrop click, no Escape.
-        if (!next && stage === "codes") {
+        if (!next && isShowingCodesExactlyOnce) {
           return;
         }
+
         onOpenChange(next);
       }}
       open={open}
@@ -174,11 +182,9 @@ export const SecurityTwoFactorDrawer = ({
           {stage === "scan" && (
             <>
               <figure className="flex flex-col items-center gap-2">
-                {/* The QR spec needs a light quiet zone, which dark mode would eat. */}
                 <div className="rounded-md bg-white p-3">
                   <QRCodeSVG
                     marginSize={2}
-
                     size={QR_SIZE_PX}
                     title={m.settings_2fa_qr_label()}
                     value={totpUri}
@@ -292,7 +298,7 @@ export const SecurityTwoFactorDrawer = ({
               <div className="flex justify-end gap-2">
                 <Button
                   onClick={() => {
-                    void copyCodes();
+                    void Effect.runPromise(copyBackupCodes(backupCodes));
                   }}
                   type="button"
                   variant="outline"

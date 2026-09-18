@@ -1,25 +1,15 @@
 import { useLocation } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
-/** How long the anchor keeps realigning while the rest of the page settles. */
-const SETTLE_WINDOW_MS = 1500;
+const REALIGN_WINDOW_MS = 1500;
 
-/**
- * Any of these means the user took over, so realigning must stop. `mousedown`
- * covers the scrollbar drag and middle-click autoscroll, which emit no `wheel`.
- */
-const TAKEOVER_EVENTS = [
+const USER_TAKEOVER_EVENTS = [
   "wheel",
   "touchstart",
   "keydown",
   "mousedown",
 ] as const;
 
-/**
- * A hash arrived at by client-side navigation is not scrolled to, and the hash
- * can change without this section remounting. `isReady` holds the first scroll
- * until the caller's own content has replaced its skeleton.
- */
 export const useScrollToAnchor = <T extends HTMLElement>(
   anchor: string,
   isReady = true
@@ -34,30 +24,30 @@ export const useScrollToAnchor = <T extends HTMLElement>(
       return;
     }
 
-    const align = () => element.scrollIntoView({ block: "start" });
+    const realignToAnchor = () => element.scrollIntoView({ block: "start" });
 
-    align();
+    realignToAnchor();
 
-    // Sections above resolve their own queries and change height afterwards,
-    // which slides the target out of view; realign until the page stops moving.
-    const observer = new ResizeObserver(align);
-    let deadline = 0;
+    const pageHeightObserver = new ResizeObserver(realignToAnchor);
+    let realignDeadline = 0;
 
-    const release = () => {
-      observer.disconnect();
-      clearTimeout(deadline);
-      for (const event of TAKEOVER_EVENTS) {
-        window.removeEventListener(event, release);
+    const stopRealigning = () => {
+      pageHeightObserver.disconnect();
+      clearTimeout(realignDeadline);
+
+      for (const event of USER_TAKEOVER_EVENTS) {
+        window.removeEventListener(event, stopRealigning);
       }
     };
 
-    observer.observe(document.body);
-    deadline = window.setTimeout(release, SETTLE_WINDOW_MS);
-    for (const event of TAKEOVER_EVENTS) {
-      window.addEventListener(event, release, { passive: true });
+    pageHeightObserver.observe(document.body);
+    realignDeadline = window.setTimeout(stopRealigning, REALIGN_WINDOW_MS);
+
+    for (const event of USER_TAKEOVER_EVENTS) {
+      window.addEventListener(event, stopRealigning, { passive: true });
     }
 
-    return release;
+    return stopRealigning;
   }, [anchor, hash, isReady]);
 
   return ref;

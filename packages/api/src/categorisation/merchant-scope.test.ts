@@ -8,15 +8,11 @@ describe("mergeCountryScopes", () => {
   });
 
   it("keeps a worldwide scope worldwide", () => {
-    // NSI ships McDonald's as worldwide in seven categories and US-scoped in
-    // others; unioning would have hidden it from every batch but those.
     expect(mergeCountryScopes([[], ["US", "HK"]])).toEqual([]);
     expect(mergeCountryScopes([["US", "HK"], []])).toEqual([]);
   });
 
   it("treats a Wikidata country of origin as unable to narrow", () => {
-    // Adidas is worldwide in NSI and P17=DE in Wikidata: DE is where it comes
-    // from, not where it trades.
     expect(mergeCountryScopes([[], ["DE"]])).toEqual([]);
   });
 

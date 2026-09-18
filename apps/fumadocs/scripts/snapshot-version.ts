@@ -1,19 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Freezes the authored documentation as a released version.
- *
- *   bun run docs:snapshot 1.2.0
- *
- * `content/docs/next` is copied to `content/docs/1.2`, the copy is labelled
- * `1.2`, and the root `meta.json` gains it. An authored docs link carries no
- * version, so it resolves inside whichever folder serves it; a repository link
- * names `main`, so the copy pins each one to the release tag.
- *
- * The `Release` workflow runs this before it tags, in a checkout with no
- * `node_modules`. Every import here therefore resolves to a source file or a
- * node built-in, never to a package.
- */
-
 import { cp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -24,35 +9,64 @@ import {
   releaseFolder,
 } from "../src/lib/versions";
 
+type NavMeta = {
+  pages?: string[];
+  title?: string;
+};
+
 const CONTENT_DIR = "content/docs";
-const STAGING_DIR = "content/.snapshot";
+const STAGING_DIR_OUTSIDE_DOCS = "content/.snapshot";
+const VERSION_LIST_FILE = "meta.json";
+const PAGE_EXTENSION = ".mdx";
 
 const exists = async (path: string) => {
   const parent = path.slice(0, path.lastIndexOf("/"));
   const name = path.slice(path.lastIndexOf("/") + 1);
   const entries = await readdir(parent, { withFileTypes: true });
+
   return entries.some((entry) => entry.name === name);
 };
 
-const readJson = async (path: string) =>
-  JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+/* SAFETY: no field of the parsed value is ever read here — `title` and `pages`
+   are overwritten and every other key is re-serialised untouched — so the whole
+   invariant is that a nav file holds a JSON object, which `JSON.parse` checks. */
+const readNavMeta = async (path: string): Promise<NavMeta> =>
+  JSON.parse(await readFile(path, "utf8")) as NavMeta;
 
-const writeJson = async (path: string, value: Record<string, unknown>) => {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+const writeNavMeta = async (path: string, meta: NavMeta) => {
+  await writeFile(path, `${JSON.stringify(meta, null, 2)}\n`);
 };
 
-/** Every `.mdx` file under a directory, at any depth. */
-const pagesUnder = async (dir: string): Promise<string[]> => {
+const mdxFilesUnder = async (dir: string): Promise<string[]> => {
   const found: string[] = [];
+
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
+
     if (entry.isDirectory()) {
-      found.push(...(await pagesUnder(path)));
-    } else if (entry.name.endsWith(".mdx")) {
+      found.push(...(await mdxFilesUnder(path)));
+    } else if (entry.name.endsWith(PAGE_EXTENSION)) {
       found.push(path);
     }
   }
+
   return found;
+};
+
+const pinRepoLinksToTag = async (dir: string, tag: string) => {
+  const movingBranchLinkTarget = `](${repoBlobUrl(gitConfig.branch)}`;
+  const releaseTagLinkTarget = `](${repoBlobUrl(tag)}`;
+
+  for (const page of await mdxFilesUnder(dir)) {
+    const raw = await readFile(page, "utf8");
+
+    if (raw.includes(movingBranchLinkTarget)) {
+      await writeFile(
+        page,
+        raw.replaceAll(movingBranchLinkTarget, releaseTagLinkTarget)
+      );
+    }
+  }
 };
 
 const version = process.argv[2];
@@ -76,41 +90,27 @@ if (await exists(target)) {
     process.exit(1);
   }
 
-  // The copy is staged outside `content/docs` and moved in one step, so an
-  // interrupted run leaves no half-written version for the site to serve or for
-  // a retry to mistake for a finished snapshot.
-  await rm(STAGING_DIR, { force: true, recursive: true });
-  await cp(authored, STAGING_DIR, { recursive: true });
+  await rm(STAGING_DIR_OUTSIDE_DOCS, { force: true, recursive: true });
+  await cp(authored, STAGING_DIR_OUTSIDE_DOCS, { recursive: true });
+  await pinRepoLinksToTag(STAGING_DIR_OUTSIDE_DOCS, `v${version}`);
 
-  // A link target alone. The same prefix appears in prose, where the authoring
-  // page names the branch on purpose.
-  const moving = `](${repoBlobUrl(gitConfig.branch)}`;
-  const pinned = `](${repoBlobUrl(`v${version}`)}`;
-  for (const page of await pagesUnder(STAGING_DIR)) {
-    const raw = await readFile(page, "utf8");
-    if (raw.includes(moving)) {
-      await writeFile(page, raw.replaceAll(moving, pinned));
-    }
-  }
+  const stagedVersionList = join(STAGING_DIR_OUTSIDE_DOCS, VERSION_LIST_FILE);
+  const stagedMeta = await readNavMeta(stagedVersionList);
+  stagedMeta.title = folder;
+  await writeNavMeta(stagedVersionList, stagedMeta);
 
-  const meta = await readJson(join(STAGING_DIR, "meta.json"));
-  meta.title = folder;
-  await writeJson(join(STAGING_DIR, "meta.json"), meta);
-
-  await rename(STAGING_DIR, target);
+  await rename(STAGING_DIR_OUTSIDE_DOCS, target);
   console.log(`Wrote ${target}, with repository links pinned to v${version}.`);
 }
 
-// Always rewritten, never skipped: a run that copied the folder and stopped
-// before this left the release out of the version list, and the retry has to
-// finish the job rather than report success.
 const folders = (await readdir(CONTENT_DIR, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort(compareVersionIds);
 
-const root = await readJson(join(CONTENT_DIR, "meta.json"));
+const versionList = join(CONTENT_DIR, VERSION_LIST_FILE);
+const root = await readNavMeta(versionList);
 root.pages = folders;
-await writeJson(join(CONTENT_DIR, "meta.json"), root);
+await writeNavMeta(versionList, root);
 
 console.log(`Versions: ${folders.join(", ")}.`);

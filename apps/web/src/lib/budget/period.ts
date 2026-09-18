@@ -11,45 +11,46 @@ export const AGGREGATION_MODES: AggregationMode[] = [
   "median",
 ];
 
-// Message *functions*, never their results: evaluating at module scope would
-// freeze the first request's locale for the whole SSR process.
-const AGGREGATION_LABELS = {
+const AGGREGATION_LABEL_MESSAGES = {
   average: m.budget_aggregation_average,
   median: m.budget_aggregation_median,
   total: m.budget_aggregation_total,
 } satisfies Record<AggregationMode, () => string>;
 
-export const aggregationLabel = (mode: AggregationMode): string =>
-  AGGREGATION_LABELS[mode]();
+const MONTHS_IN_RANGE = {
+  "1M": 1,
+  "1Y": 12,
+  "3M": 3,
+} satisfies Record<TimeRange, number>;
 
-/** True when the selected range spans more than a single month. */
+const SHORT_MONTH: Intl.DateTimeFormatOptions = { month: "short" };
+
+const DAY_BEFORE_THE_FIRST = 0;
+const END_OF_DAY = { hours: 23, milliseconds: 999, minutes: 59, seconds: 59 };
+
+export const TIME_RANGES: TimeRange[] = ["1M", "3M", "1Y"];
+
+export const aggregationLabel = (mode: AggregationMode): string =>
+  AGGREGATION_LABEL_MESSAGES[mode]();
+
 export const isMultiMonth = (range: TimeRange) => range !== "1M";
 
-/** Number of calendar months the range spans. */
-export const rangeMonths = (range: TimeRange): number => {
-  switch (range) {
-    case "3M": {
-      return 3;
-    }
-    case "1Y": {
-      return 12;
-    }
-    default: {
-      return 1;
-    }
-  }
-};
+export const rangeMonths = (range: TimeRange): number => MONTHS_IN_RANGE[range];
 
 export const formatMonthYear = (date: Date, locale: Locale): string =>
   date.toLocaleDateString(locale, { month: "long", year: "numeric" });
 
-/**
- * Human-readable period label.
- * - "1M": "August 2026"
- * - "3M" same year: "Jun – Aug 2026"
- * - "3M" cross year: "Nov 2025 – Jan 2026"
- * - "1Y": "2026"
- */
+const formatShortMonthSpan = (from: Date, to: Date, locale: Locale): string => {
+  const fromMonth = from.toLocaleDateString(locale, SHORT_MONTH);
+  const toMonth = to.toLocaleDateString(locale, SHORT_MONTH);
+  const fromYear = from.getFullYear();
+  const toYear = to.getFullYear();
+
+  return fromYear === toYear
+    ? `${fromMonth} – ${toMonth} ${toYear}`
+    : `${fromMonth} ${fromYear} – ${toMonth} ${toYear}`;
+};
+
 export const formatPeriodLabel = (
   from: Date,
   to: Date,
@@ -59,50 +60,34 @@ export const formatPeriodLabel = (
   if (range === "1M") {
     return formatMonthYear(from, locale);
   }
+
   if (range === "1Y") {
     return String(from.getFullYear());
   }
 
-  const opts: Intl.DateTimeFormatOptions = { month: "short" };
-  const fromMonth = from.toLocaleDateString(locale, opts);
-  const toMonth = to.toLocaleDateString(locale, opts);
-  const fromYear = from.getFullYear();
-  const toYear = to.getFullYear();
-
-  if (fromYear === toYear) {
-    return `${fromMonth} – ${toMonth} ${toYear}`;
-  }
-  return `${fromMonth} ${fromYear} – ${toMonth} ${toYear}`;
+  return formatShortMonthSpan(from, to, locale);
 };
 
-export const TIME_RANGES: TimeRange[] = ["1M", "3M", "1Y"];
+const endOfMonth = (year: number, month: number): Date =>
+  new Date(
+    year,
+    month + 1,
+    DAY_BEFORE_THE_FIRST,
+    END_OF_DAY.hours,
+    END_OF_DAY.minutes,
+    END_OF_DAY.seconds,
+    END_OF_DAY.milliseconds
+  );
 
 export const computeDateRange = (
   year: number,
   month: number,
   range: TimeRange
 ) => {
-  const anchor = new Date(year, month, 1);
-  let from: Date;
+  const monthsBeforeAnchor = rangeMonths(range) - 1;
 
-  switch (range) {
-    case "1M": {
-      from = anchor;
-      break;
-    }
-    case "3M": {
-      from = new Date(year, month - 2, 1);
-      break;
-    }
-    case "1Y": {
-      from = new Date(year, month - 11, 1);
-      break;
-    }
-    default: {
-      from = anchor;
-    }
-  }
-
-  const to = new Date(year, month + 1, 0, 23, 59, 59, 999);
-  return { from, to };
+  return {
+    from: new Date(year, month - monthsBeforeAnchor, 1),
+    to: endOfMonth(year, month),
+  };
 };

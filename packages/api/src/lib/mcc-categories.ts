@@ -6,7 +6,22 @@ import {
 import { CATEGORY_GROUP_OF, resolveCategorySlug } from "./taxonomy";
 import type { SpendingCategory } from "./taxonomy";
 
-// MCC → SpendingCategory flat lookup (keys sorted lexicographically)
+interface MccRange {
+  first: number;
+  last: number;
+}
+
+interface CategorySignals {
+  amount: number;
+  bankTransactionCode?: string | null;
+  counterpartyName?: string | null;
+  merchantCategoryCode?: string | null;
+  resolvedCategory?: string | null;
+}
+
+interface OverridableCategorySignals extends CategorySignals {
+  category?: string | null;
+}
 
 const MCC_TO_CATEGORY = {
   "1520": "home-maintenance",
@@ -17,7 +32,6 @@ const MCC_TO_CATEGORY = {
   "1761": "home-maintenance",
   "1771": "home-maintenance",
   "1799": "home-maintenance",
-  // Freight rail, unlike 4112 passenger railways.
   "4011": "other-transport",
   "4111": "public-transport",
   "4112": "public-transport",
@@ -27,7 +41,6 @@ const MCC_TO_CATEGORY = {
   "4457": "other-travel",
   "4468": "other-travel",
   "4511": "flights",
-  // Airport and terminal charges, not the ticket.
   "4582": "other-travel",
   "4722": "other-travel",
   "4723": "other-travel",
@@ -80,7 +93,6 @@ const MCC_TO_CATEGORY = {
   "5451": "groceries",
   "5462": "groceries",
   "5499": "groceries",
-  // Vehicle dealers: a purchase, not upkeep, and the group has no leaf for it.
   "5511": "other-transport",
   "5521": "other-transport",
   "5531": "vehicle-maintenance",
@@ -118,7 +130,6 @@ const MCC_TO_CATEGORY = {
   "5815": "streaming",
   "5816": "hobbies",
   "5817": "software",
-  // Large digital-goods merchant: spans media, apps and games alike.
   "5818": "other-subscription",
   "5912": "pharmacy",
   "5931": "other-shopping",
@@ -147,7 +158,6 @@ const MCC_TO_CATEGORY = {
   "5976": "medical",
   "5977": "personal-care",
   "5978": "other-shopping",
-  // Fuel dealers deliver heating oil, wood and LPG to the home.
   "5983": "energy",
   "5992": "gifts",
   "5993": "other-daily-living",
@@ -157,8 +167,6 @@ const MCC_TO_CATEGORY = {
   "5997": "personal-care",
   "5998": "other-shopping",
   "5999": "other-shopping",
-  // 6010 is a manual cash disbursement — a withdrawal over a counter. 6012 is
-  // the bank selling a service, matching NAF 64 and amenity=bank.
   "6010": "cash-withdrawal",
   "6011": "cash-withdrawal",
   "6012": "other-financial",
@@ -191,7 +199,6 @@ const MCC_TO_CATEGORY = {
   "7641": "furniture",
   "7692": "home-maintenance",
   "7699": "home-maintenance",
-  // Lotteries, licensed online casinos and race betting sit with 7995.
   "7800": "hobbies",
   "7801": "hobbies",
   "7802": "hobbies",
@@ -240,99 +247,87 @@ const MCC_TO_CATEGORY = {
   "9405": "other-taxes",
 } as const satisfies Record<string, SpendingCategory>;
 
-// MCC code → category (range checks first, then flat lookup)
+const AIRLINE_MCC_RANGE: MccRange = { first: 3000, last: 3299 };
 
-/** Category for an ISO 18245 code, or null when the code maps to nothing. */
+const CAR_RENTAL_MCC_RANGE: MccRange = { first: 3300, last: 3499 };
+
+const LODGING_MCC_RANGE: MccRange = { first: 3500, last: 3999 };
+
+const covers = (range: MccRange, code: number): boolean =>
+  code >= range.first && code <= range.last;
+
 export const categoryFromMcc = (code: string): SpendingCategory | null => {
-  const n = Math.trunc(Number(code));
-  if (!Number.isNaN(n)) {
-    // The 3xxx block is issuer-assigned per carrier: airlines, then car-rental
-    // agencies, then lodging chains.
-    if (n >= 3000 && n <= 3299) {
+  const numericCode = Math.trunc(Number(code));
+
+  if (!Number.isNaN(numericCode)) {
+    if (covers(AIRLINE_MCC_RANGE, numericCode)) {
       return "flights";
     }
-    if (n >= 3300 && n <= 3499) {
+
+    if (covers(CAR_RENTAL_MCC_RANGE, numericCode)) {
       return "other-travel";
     }
-    if (n >= 3500 && n <= 3999) {
+
+    if (covers(LODGING_MCC_RANGE, numericCode)) {
       return "accommodation";
     }
   }
+
   // SAFETY: code is always a string key from the EB API; the assertion narrows for const lookup
   return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? null;
 };
 
-// Derive category from transaction data
-// Cascade: MCC → income-by-sign → bank code keywords → counterparty → "uncategorised"
+const keywordMatch = (
+  table: Parameters<typeof matchKeyword>[0],
+  text: string | null | undefined
+): SpendingCategory | null => {
+  const lowered = text?.toLowerCase();
 
-export const deriveCategory = (tx: {
-  resolvedCategory?: string | null;
-  merchantCategoryCode?: string | null;
-  bankTransactionCode?: string | null;
-  counterpartyName?: string | null;
-  amount: number;
-}): SpendingCategory => {
-  const resolved = tx.resolvedCategory
-    ? resolveCategorySlug(tx.resolvedCategory)
-    : null;
-  if (resolved) {
-    return resolved;
-  }
-
-  // 1. MCC lookup
-  if (tx.merchantCategoryCode) {
-    const byMcc = categoryFromMcc(tx.merchantCategoryCode);
-    if (byMcc) {
-      return byMcc;
-    }
-  }
-
-  // 2. A credit's bank code may still name the income precisely. An expense
-  //    keyword on a credit means a refund, not that category, so only an
-  //    income-group match wins.
-  if (tx.amount > 0) {
-    const desc = tx.bankTransactionCode?.toLowerCase();
-    const named = desc ? matchKeyword(allBankCodeKeywords, desc) : null;
-    return named && CATEGORY_GROUP_OF[named] === "income"
-      ? named
-      : "other-income";
-  }
-
-  // 3. Bank transaction code keyword heuristics
-  const bankCode = tx.bankTransactionCode?.toLowerCase();
-  const byBankCode = bankCode
-    ? matchKeyword(allBankCodeKeywords, bankCode)
-    : null;
-  if (byBankCode) {
-    return byBankCode;
-  }
-
-  // 4. Counterparty name heuristics
-  const counterparty = tx.counterpartyName?.toLowerCase();
-  const byCounterparty = counterparty
-    ? matchKeyword(allCounterpartyKeywords, counterparty)
-    : null;
-  if (byCounterparty) {
-    return byCounterparty;
-  }
-
-  return "uncategorised";
+  return lowered ? matchKeyword(table, lowered) : null;
 };
 
-/**
- * The single source of truth for a transaction's category.
- * Returns the user override when set, otherwise the auto-derived category.
- */
-export const effectiveCategory = (tx: {
-  category?: string | null;
-  resolvedCategory?: string | null;
-  merchantCategoryCode?: string | null;
-  bankTransactionCode?: string | null;
-  counterpartyName?: string | null;
-  amount: number;
-}): SpendingCategory => {
-  // A row written before the hierarchy carries a legacy slug; an unrecognised
-  // value is treated as no override at all.
+const incomeFromBankCode = (
+  bankTransactionCode: string | null | undefined
+): SpendingCategory => {
+  const named = keywordMatch(allBankCodeKeywords, bankTransactionCode);
+
+  return named && CATEGORY_GROUP_OF[named] === "income"
+    ? named
+    : "other-income";
+};
+
+export const deriveCategory = (tx: CategorySignals): SpendingCategory => {
+  const alreadyResolved = tx.resolvedCategory
+    ? resolveCategorySlug(tx.resolvedCategory)
+    : null;
+
+  if (alreadyResolved) {
+    return alreadyResolved;
+  }
+
+  const byMcc = tx.merchantCategoryCode
+    ? categoryFromMcc(tx.merchantCategoryCode)
+    : null;
+
+  if (byMcc) {
+    return byMcc;
+  }
+
+  if (tx.amount > 0) {
+    return incomeFromBankCode(tx.bankTransactionCode);
+  }
+
+  return (
+    keywordMatch(allBankCodeKeywords, tx.bankTransactionCode) ??
+    keywordMatch(allCounterpartyKeywords, tx.counterpartyName) ??
+    "uncategorised"
+  );
+};
+
+export const effectiveCategory = (
+  tx: OverridableCategorySignals
+): SpendingCategory => {
   const override = tx.category ? resolveCategorySlug(tx.category) : null;
+
   return override ?? deriveCategory(tx);
 };

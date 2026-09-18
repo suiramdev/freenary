@@ -11,26 +11,20 @@ import {
 import { m } from "@/paraglide/messages.js";
 
 interface NavChild {
-  /** The message function, so the label follows a locale change with the tree. */
   label: () => string;
   routeId: string;
   to: string;
 }
 
 interface NavItem extends NavChild {
-  /** Nested pages of one area, shown under a collapsible parent row. */
   children?: readonly NavChild[];
   icon: RemixiconComponentType;
   planned: boolean;
 }
 
-/**
- * The authenticated shell's navigation, and the source of each page's title.
- *
- * `label` holds the message function rather than its result: this array is
- * built once per process, so an evaluated string would pin the first locale
- * seen and serve it to every later render.
- */
+export type NavEntry = (typeof NAV_ITEMS)[number];
+export type NavAreaEntry = Extract<NavEntry, { children: readonly unknown[] }>;
+
 export const NAV_ITEMS = [
   {
     icon: RiHomeLine,
@@ -88,26 +82,19 @@ export const NAV_ITEMS = [
   },
 ] as const satisfies readonly NavItem[];
 
-export type NavEntry = (typeof NAV_ITEMS)[number];
-/** An entry with pages of its own; `to` keeps its literal type for `Link`. */
-export type NavAreaEntry = Extract<NavEntry, { children: readonly unknown[] }>;
-
 export const isNavArea = (item: NavEntry): item is NavAreaEntry =>
-  "children" in item;
+  Object.hasOwn(item, "children");
 
-/**
- * The breadcrumb for a page, outermost first: one entry for a top-level page
- * and two for a nested one, so a reader on Recurring keeps the area it belongs
- * to. An unknown route falls back to Home rather than an empty header.
- */
 export const navTrailOf = (routeId: string | undefined): string[] => {
   for (const item of NAV_ITEMS) {
     if (item.routeId === routeId) {
       return [item.label()];
     }
+
     const child = isNavArea(item)
       ? item.children.find((entry) => entry.routeId === routeId)
       : undefined;
+
     if (child) {
       return [item.label(), child.label()];
     }

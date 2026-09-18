@@ -7,27 +7,23 @@ import { m } from "@/paraglide/messages.js";
 
 interface AssistantModelStatusProps {
   browserModel: BrowserModelStatus;
-  /** `SERVER_MODEL`, a WebLLM id, or null when nothing is chosen yet. */
   selected: string | null;
   webGpu: boolean | null;
 }
 
-/**
- * What the chosen model is doing, in one line above the composer. It carries
- * what the model button cannot: why no model is chosen yet, and why the
- * chosen one failed. A model that is loading shows in the button itself, and
- * a model that is ready is already named there.
- */
 export const AssistantModelStatus = ({
   browserModel,
   selected,
   webGpu,
 }: AssistantModelStatusProps) => {
-  if (selected === SERVER_MODEL || webGpu === null) {
+  const nothingChosenYet = selected === null;
+  const webGpuUnknown = webGpu === null;
+
+  if (selected === SERVER_MODEL || webGpuUnknown) {
     return null;
   }
 
-  if (selected === null) {
+  if (nothingChosenYet) {
     return (
       <p className="text-muted-foreground text-center text-xs">
         {webGpu
@@ -37,7 +33,10 @@ export const AssistantModelStatus = ({
     );
   }
 
-  if (browserModel.phase === "error" && browserModel.modelId === selected) {
+  const chosenModelFailed =
+    browserModel.phase === "error" && browserModel.modelId === selected;
+
+  if (chosenModelFailed) {
     return (
       <div
         className="text-destructive flex items-center justify-center gap-2 text-xs"

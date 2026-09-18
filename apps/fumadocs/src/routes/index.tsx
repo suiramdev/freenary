@@ -37,9 +37,7 @@ const ENTRY_POINTS = [
 ];
 
 const Home = () => {
-  // The newest release, from the root loader: the landing page never leans on
-  // the redirect that carries unversioned paths.
-  const version = useLoaderData({ from: "__root__" });
+  const newestRelease = useLoaderData({ from: "__root__" });
 
   return (
     <HomeLayout {...baseOptions()}>
@@ -58,7 +56,7 @@ const Home = () => {
               key={entry.title}
               to="/docs/$"
               params={{
-                _splat: [version, entry.slug].filter(Boolean).join("/"),
+                _splat: [newestRelease, entry.slug].filter(Boolean).join("/"),
               }}
               className="hover:bg-fd-accent/50 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
             >

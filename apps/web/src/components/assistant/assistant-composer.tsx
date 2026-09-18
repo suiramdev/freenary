@@ -17,17 +17,16 @@ import { m } from "@/paraglide/messages.js";
 
 interface AssistantComposerProps {
   status: ChatStatus;
-  /** The thread is not known yet, or nothing is loaded to answer with. */
   disabled: boolean;
-  /** The picker for what answers, rendered in the tool row. */
   modelSelector: ReactNode;
   onSend: (text: string) => void;
   onStop: () => void;
   onNewConversation: () => void;
-  /** Disabled while the previous conversation is being archived. */
   newConversationPending: boolean;
   onActiveChange: (active: boolean) => void;
 }
+
+const QUESTION_BOX_GROWTH_CAP_CLASS = "max-h-40 overflow-y-auto";
 
 export const AssistantComposer = ({
   disabled,
@@ -57,10 +56,8 @@ export const AssistantComposer = ({
   return (
     <PromptInput className="shrink-0" onSubmit={handleSubmit}>
       <PromptInputBody>
-        {/* The box grows with its content, and the page no longer scrolls, so
-            a long question would otherwise squeeze the transcript out. */}
         <PromptInputTextarea
-          className="max-h-40 overflow-y-auto"
+          className={QUESTION_BOX_GROWTH_CAP_CLASS}
           disabled={disabled}
           onBlur={() => onActiveChange(text.length > 0)}
           onChange={(event) => {

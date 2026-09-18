@@ -45,7 +45,6 @@ interface SettingsContentProps {
   accounts: LinkedAccount[] | undefined;
   categories: CategoryEntry[];
   isAccountsPending: boolean;
-  /** The categories list alone; the other sections also need the profile. */
   isCategoriesPending: boolean;
   isPending: boolean;
   isSessionsPending: boolean;
@@ -66,7 +65,9 @@ const SettingsContent = ({
   sessions,
 }: SettingsContentProps) => {
   const editor = useBudgetProfileEditor(serverLines, categories);
-  // The security group is the checklist's "protect your account" target.
+  const hasPassword: boolean | undefined = accounts?.some(
+    (account) => account.providerId === CREDENTIAL_PROVIDER_ID
+  );
   const securityRef = useScrollToAnchor<HTMLDivElement>(
     SECURITY_ANCHOR,
     !isAccountsPending
@@ -80,17 +81,10 @@ const SettingsContent = ({
           title={m.settings_group_security_title()}
         >
           <SecurityTwoFactorSection
-            // Undefined when the account list has not answered or failed: a
-            // section that reads "no password" from an outage tells every
-            // password user something false and hides the only fix.
-            hasPassword={accounts?.some(
-              (account) => account.providerId === CREDENTIAL_PROVIDER_ID
-            )}
+            hasPassword={hasPassword}
             isAccountsPending={isAccountsPending}
           />
 
-          {/* A passkey is a way in, so it sits with the other credential
-              controls rather than after the session list. */}
           <SecurityPasskeysSection />
 
           <SecuritySessionsSection
@@ -146,13 +140,9 @@ const SettingsContent = ({
   );
 };
 
-// Connecting a provider that the server then refuses comes back here as
-// `?error=<code>` rather than as a refused request, so the parameter is part of
-// this route.
 const settingsSearchSchema = z.object({ error: z.string().optional() });
 
 const SettingsPage = () => {
-  // Read by path rather than off `Route`, which is defined below this.
   const { error } = useSearch({ from: "/_auth/settings" });
   const navigate = useNavigate();
 
@@ -198,9 +188,6 @@ const SettingsPage = () => {
     <SettingsContent
       accounts={accountsQuery.data}
       categories={categoriesQuery.data?.categories ?? []}
-      // A skeleton only while an answer is still coming. A failed capabilities
-      // query leaves `providers` undefined, which the section reports without
-      // discarding the accounts it does have.
       isAccountsPending={accountsQuery.isPending || capabilitiesQuery.isPending}
       isCategoriesPending={categoriesQuery.isPending}
       isPending={categoriesQuery.isPending || profileQuery.isPending}

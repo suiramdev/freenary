@@ -36,7 +36,6 @@ export const UnsavedChangesBar = ({
         initial={{ filter: "blur(4px)", opacity: 0, y: 12 }}
         transition={spring}
       >
-        {/* Elevated: the bar floats over the page it is editing. */}
         <Card className="shadow-md" size="sm">
           <CardContent className="flex items-center gap-3">
             <span className="text-muted-foreground text-xs font-medium">

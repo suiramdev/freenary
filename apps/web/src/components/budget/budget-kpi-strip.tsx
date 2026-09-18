@@ -12,9 +12,16 @@ interface SummaryLabels {
   net: () => string;
 }
 
-// Message *functions*, never their results: evaluating at module scope would
-// freeze the first request's locale for the whole SSR process.
-const SUMMARY_LABELS = {
+interface BudgetKpiStripProps {
+  aggregation: AggregationMode;
+  isError: boolean;
+  isPending: boolean;
+  isStale: boolean;
+  totalExpenses: number;
+  totalIncome: number;
+}
+
+const SUMMARY_LABEL_GETTERS = {
   average: {
     expenses: m.budget_summary_expenses_average,
     income: m.budget_summary_income_average,
@@ -34,10 +41,8 @@ const SUMMARY_LABELS = {
 
 const STRIP_LAYOUT = "grid grid-cols-1 gap-4 @md/budget:grid-cols-3";
 
-/** Matches a cell's own height so the strip does not resize when data lands. */
 const CELL_HEIGHT = "h-14";
 
-/** A query that failed has no figure; a formatted zero would invent one. */
 const KpiCell = ({
   label,
   tone,
@@ -62,16 +67,6 @@ const KpiCell = ({
   </div>
 );
 
-interface BudgetKpiStripProps {
-  aggregation: AggregationMode;
-  isError: boolean;
-  isPending: boolean;
-  isStale: boolean;
-  totalExpenses: number;
-  totalIncome: number;
-}
-
-/** The period's three headline figures, above every chart that details them. */
 export const BudgetKpiStrip = ({
   aggregation,
   isError,
@@ -80,7 +75,7 @@ export const BudgetKpiStrip = ({
   totalExpenses,
   totalIncome,
 }: BudgetKpiStripProps) => {
-  const labels = SUMMARY_LABELS[aggregation];
+  const labels = SUMMARY_LABEL_GETTERS[aggregation];
 
   if (isPending) {
     return (

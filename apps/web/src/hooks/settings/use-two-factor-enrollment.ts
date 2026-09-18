@@ -12,13 +12,11 @@ import {
 } from "@/lib/settings/security-schemas";
 import { m } from "@/paraglide/messages.js";
 
-/** Enrolling walks all four; re-issuing recovery codes jumps password → codes. */
 export type TwoFactorStage = "codes" | "confirm" | "password" | "scan";
 
 export type TwoFactorPurpose = "enable" | "regenerate";
 
 interface UseTwoFactorEnrollmentOptions {
-  /** Refetches the session, whose user carries the flag this section reads. */
   onEnabled: () => void;
   purpose: TwoFactorPurpose;
 }
@@ -43,12 +41,16 @@ export const useTwoFactorEnrollment = ({
         const { data, error } = await authClient.twoFactor.generateBackupCodes({
           password: value.password,
         });
+
         if (error) {
           setPasswordError(twoFactorErrorMessage(error));
+
           return;
         }
+
         setBackupCodes(data.backupCodes);
         setStage("codes");
+
         return;
       }
 
@@ -56,14 +58,18 @@ export const useTwoFactorEnrollment = ({
         method: "totp",
         password: value.password,
       });
+
       if (error) {
         setPasswordError(twoFactorErrorMessage(error));
+
         return;
       }
-      // The endpoint answers with a union over the requested method, and only
-      // the TOTP branch carries a URI to scan.
-      if (data.method !== "totp") {
+
+      const hasNothingToScan = data.method !== "totp";
+
+      if (hasNothingToScan) {
         setPasswordError(m.settings_2fa_error_generic());
+
         return;
       }
 
@@ -82,13 +88,13 @@ export const useTwoFactorEnrollment = ({
       const { error } = await authClient.twoFactor.verifyTotp({
         code: value.code.trim(),
       });
+
       if (error) {
         setCodeError(twoFactorErrorMessage(error));
+
         return;
       }
 
-      // Confirming enrolment issues a fresh session, so the cached list would
-      // otherwise offer the current one as a revocable stranger.
       onEnabled();
       await queryClient.invalidateQueries({
         queryKey: AUTH_SESSIONS_QUERY_KEY,
@@ -116,7 +122,6 @@ export const useTwoFactorEnrollment = ({
     passwordError,
     passwordForm,
     reset,
-    /** Scanning cannot be verified, so leaving that stage is the user's call. */
     showConfirmStage: () => setStage("confirm"),
     stage,
     totpUri,

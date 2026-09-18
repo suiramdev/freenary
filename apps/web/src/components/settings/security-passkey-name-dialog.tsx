@@ -16,11 +16,18 @@ import { z } from "zod";
 
 import { m } from "@/paraglide/messages.js";
 
-/** Long enough for "MacBook Pro at the office", short enough to fit a row. */
+interface SecurityPasskeyNameDialogProps {
+  confirmLabel: string;
+  defaultName: string;
+  description: string;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (name: string) => void;
+  open: boolean;
+  title: string;
+}
+
 const PASSKEY_NAME_MAX_LENGTH = 60;
 
-// Message thunks, resolved at parse time: evaluating them here would pin the
-// locale of whichever request loaded this module first.
 const passkeyNameSchema = z.object({
   name: z
     .string()
@@ -34,22 +41,6 @@ const passkeyNameSchema = z.object({
     }),
 });
 
-interface SecurityPasskeyNameDialogProps {
-  confirmLabel: string;
-  defaultName: string;
-  description: string;
-  onOpenChange: (open: boolean) => void;
-  /** Closing is the dialog's own business; the caller only gets the name. */
-  onSubmit: (name: string) => void;
-  open: boolean;
-  title: string;
-}
-
-/**
- * Naming serves both writes that take a name: registering a passkey and
- * renaming one. It closes on submit, because the browser's own WebAuthn prompt
- * takes over from here and the outcome arrives as a toast.
- */
 export const SecurityPasskeyNameDialog = ({
   confirmLabel,
   defaultName,
@@ -69,7 +60,6 @@ export const SecurityPasskeyNameDialog = ({
     validators: { onSubmit: passkeyNameSchema },
   });
 
-  // Reopening must offer the current name, not the previous attempt's edit.
   useEffect(() => {
     if (open) {
       form.reset({ name: defaultName });

@@ -11,62 +11,64 @@ import type {
   SharedV4Warning,
 } from "@ai-sdk/provider";
 import type { MLCEngineInterface } from "@mlc-ai/web-llm";
+import { Effect, Match } from "effect";
 
+import { BrowserGenerationFailed } from "./generation-failure";
 import type { ParsedEvent } from "./tool-protocol";
 import { toChatMessages, ToolCallParser } from "./tool-protocol";
 
-/**
- * Ties a request's parts together: the SDK expects a distinct id per text or
- * reasoning run, and the parser can switch between them several times in one
- * answer.
- */
 interface OpenPart {
   id: string;
   kind: "text" | "reasoning";
 }
 
-const usageOf = (usage?: {
+interface WebLlmUsage {
   completion_tokens: number;
   prompt_tokens: number;
-}): LanguageModelV4Usage => ({
+}
+
+const UNREPORTED_USAGE: LanguageModelV4Usage = {
   inputTokens: {
     cacheRead: undefined,
     cacheWrite: undefined,
     noCache: undefined,
-    total: usage?.prompt_tokens,
+    total: undefined,
   },
   outputTokens: {
     reasoning: undefined,
     text: undefined,
-    total: usage?.completion_tokens,
+    total: undefined,
+  },
+};
+
+const usageOf = (usage: WebLlmUsage): LanguageModelV4Usage => ({
+  inputTokens: {
+    cacheRead: undefined,
+    cacheWrite: undefined,
+    noCache: undefined,
+    total: usage.prompt_tokens,
+  },
+  outputTokens: {
+    reasoning: undefined,
+    text: undefined,
+    total: usage.completion_tokens,
   },
 });
 
 const finishReasonOf = (
   raw: string | null | undefined,
   calledTools: boolean
-): LanguageModelV4FinishReason => {
-  if (calledTools) {
-    return { raw: raw ?? undefined, unified: "tool-calls" };
-  }
-  switch (raw) {
-    case "stop": {
-      return { raw, unified: "stop" };
-    }
-    case "length": {
-      return { raw, unified: "length" };
-    }
-    default: {
-      return { raw: raw ?? undefined, unified: "other" };
-    }
-  }
-};
+): LanguageModelV4FinishReason => ({
+  raw: raw ?? undefined,
+  unified: calledTools
+    ? "tool-calls"
+    : Match.value(raw).pipe(
+        Match.when("length", () => "length" as const),
+        Match.when("stop", () => "stop" as const),
+        Match.orElse(() => "other" as const)
+      ),
+});
 
-/**
- * A WebLLM engine as an AI SDK language model. Every request streams: WebLLM
- * generates token by token either way, and one path keeps the tool-call
- * parsing in one place.
- */
 export class WebLlmLanguageModel implements LanguageModelV4 {
   readonly specificationVersion = "v4";
   readonly provider = "webllm";
@@ -92,55 +94,56 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
       raw: undefined,
       unified: "other",
     };
-    let usage = usageOf();
+    let usage = UNREPORTED_USAGE;
     let warnings: SharedV4Warning[] = [];
 
-    for await (const part of stream) {
-      switch (part.type) {
-        case "stream-start": {
-          ({ warnings } = part);
-          break;
-        }
-        case "text-start":
-        case "reasoning-start": {
-          texts.set(part.id, {
-            kind: part.type === "text-start" ? "text" : "reasoning",
-            text: "",
-          });
-          break;
-        }
-        case "text-delta":
-        case "reasoning-delta": {
-          const open = texts.get(part.id);
-          if (open) {
-            open.text += part.delta;
-          }
-          break;
-        }
-        case "text-end":
-        case "reasoning-end": {
-          const open = texts.get(part.id);
-          if (open) {
-            content.push({ text: open.text, type: open.kind });
-            texts.delete(part.id);
-          }
-          break;
-        }
-        case "tool-call": {
-          content.push(part);
-          break;
-        }
-        case "finish": {
-          ({ finishReason, usage } = part);
-          break;
-        }
-        case "error": {
-          throw part.error;
-        }
-        default: {
-          break;
-        }
+    const startText = (id: string, kind: "text" | "reasoning") => {
+      texts.set(id, { kind, text: "" });
+    };
+
+    const appendText = (id: string, delta: string) => {
+      const open = texts.get(id);
+
+      if (open) {
+        open.text += delta;
       }
+    };
+
+    const endText = (id: string) => {
+      const open = texts.get(id);
+
+      if (open) {
+        content.push({ text: open.text, type: open.kind });
+        texts.delete(id);
+      }
+    };
+
+    const absorb = Match.type<LanguageModelV4StreamPart>().pipe(
+      Match.discriminators("type")({
+        error: (part) => {
+          throw part.error;
+        },
+        finish: (part) => {
+          ({ finishReason, usage } = part);
+        },
+        "reasoning-delta": (part) => appendText(part.id, part.delta),
+        "reasoning-end": (part) => endText(part.id),
+        "reasoning-start": (part) => startText(part.id, "reasoning"),
+        "stream-start": (part) => {
+          ({ warnings } = part);
+        },
+        "text-delta": (part) => appendText(part.id, part.delta),
+        "text-end": (part) => endText(part.id),
+        "text-start": (part) => startText(part.id, "text"),
+        "tool-call": (part) => {
+          content.push(part);
+        },
+      }),
+      Match.orElse(() => null)
+    );
+
+    for await (const part of stream) {
+      absorb(part);
     }
 
     return { content, finishReason, usage, warnings };
@@ -178,8 +181,6 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
     const { engine } = this;
 
     const chunks = await engine.chat.completions.create({
-      // Qwen3 thinks before every answer unless told not to; on a laptop GPU
-      // that is a minute per lookup, for a question the tools answer anyway.
       extra_body: { enable_thinking: false },
       max_tokens: maxOutputTokens,
       messages,
@@ -192,11 +193,12 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
     let open: OpenPart | null = null;
     let calledTools = false;
     let rawFinish: string | null | undefined;
-    let usage: { completion_tokens: number; prompt_tokens: number } | undefined;
+    let usage: WebLlmUsage | undefined;
 
     const onAbort = () => {
       engine.interruptGenerate();
     };
+
     abortSignal?.addEventListener("abort", onAbort, { once: true });
 
     const stream = new ReadableStream<LanguageModelV4StreamPart>({
@@ -210,16 +212,18 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
             open = null;
           }
         };
+
         const emit = (kind: "text" | "reasoning", delta: string) => {
           if (open && open.kind !== kind) {
             close();
           }
-          // Qwen3 with thinking off still writes an empty `<think>` block, and
-          // a newline or two after it; a part holding only whitespace would
-          // show as "Thought" or as an empty answer row.
-          if (!open && delta.trim().length === 0) {
+
+          const onlyWhitespaceSoFar = !open && delta.trim().length === 0;
+
+          if (onlyWhitespaceSoFar) {
             return;
           }
+
           if (!open) {
             open = { id: crypto.randomUUID(), kind };
             controller.enqueue({
@@ -227,12 +231,14 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
               type: kind === "text" ? "text-start" : "reasoning-start",
             });
           }
+
           controller.enqueue({
             delta,
             id: open.id,
             type: kind === "text" ? "text-delta" : "reasoning-delta",
           });
         };
+
         const handle = (events: ParsedEvent[]) => {
           for (const event of events) {
             if (event.kind === "tool-call") {
@@ -264,35 +270,53 @@ export class WebLlmLanguageModel implements LanguageModelV4 {
 
         controller.enqueue({ type: "stream-start", warnings });
 
-        try {
-          for await (const chunk of chunks) {
-            const [choice] = chunk.choices;
-            if (choice?.delta.content) {
-              handle(parser.push(choice.delta.content));
+        const drain = Effect.tryPromise({
+          catch: (cause) => new BrowserGenerationFailed({ cause }),
+          try: async () => {
+            for await (const chunk of chunks) {
+              const [choice] = chunk.choices;
+
+              if (choice?.delta.content) {
+                handle(parser.push(choice.delta.content));
+              }
+
+              if (choice?.finish_reason) {
+                rawFinish = choice.finish_reason;
+              }
+
+              if (chunk.usage) {
+                ({ usage } = chunk);
+              }
             }
-            if (choice?.finish_reason) {
-              rawFinish = choice.finish_reason;
-            }
-            if (chunk.usage) {
-              ({ usage } = chunk);
-            }
-          }
-          handle(parser.end());
-          close();
-          controller.enqueue({
-            finishReason: finishReasonOf(
-              abortSignal?.aborted ? "abort" : rawFinish,
-              calledTools
+
+            handle(parser.end());
+            close();
+            controller.enqueue({
+              finishReason: finishReasonOf(
+                abortSignal?.aborted ? "abort" : rawFinish,
+                calledTools
+              ),
+              type: "finish",
+              usage: usage === undefined ? UNREPORTED_USAGE : usageOf(usage),
+            });
+          },
+        });
+
+        await Effect.runPromise(
+          drain.pipe(
+            Effect.catch((error) =>
+              Effect.sync(() => {
+                controller.enqueue({ error: error.cause, type: "error" });
+              })
             ),
-            type: "finish",
-            usage: usageOf(usage),
-          });
-        } catch (error) {
-          controller.enqueue({ error, type: "error" });
-        } finally {
-          abortSignal?.removeEventListener("abort", onAbort);
-          controller.close();
-        }
+            Effect.ensuring(
+              Effect.sync(() => {
+                abortSignal?.removeEventListener("abort", onAbort);
+                controller.close();
+              })
+            )
+          )
+        );
       },
     });
 

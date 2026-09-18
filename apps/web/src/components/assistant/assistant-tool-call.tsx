@@ -44,11 +44,8 @@ import { m } from "@/paraglide/messages.js";
 interface AssistantToolCallProps {
   part: ToolUIPart;
   status: ToolStatus;
-  /** Measured on the live turn only; a replayed transcript has none. */
   durationMs?: number;
-  /** Set by "Expand all" / "Collapse all"; a click on the row overrides it. */
   expanded?: ExpandAll;
-  /** Redo the whole turn; offered on a failed lookup of the last answer. */
   onRetry?: () => void;
 }
 
@@ -62,16 +59,14 @@ const TOOL_ICONS = {
   search_transactions: RiSearchLine,
 } satisfies Record<AssistantToolName, RemixiconComponentType>;
 
-/** The icon a timeline draws beside a step that made this lookup. */
+const UNKNOWN_TOOL_ICON = RiToolsLine;
+
 export const assistantToolIcon = (part: ToolUIPart): RemixiconComponentType => {
   const name = assistantToolNameOf(part.type);
-  return name ? TOOL_ICONS[name] : RiToolsLine;
+
+  return name ? TOOL_ICONS[name] : UNKNOWN_TOOL_ICON;
 };
 
-/**
- * The badge is the app's, not the SDK state's: the SDK never writes
- * "cancelled", and the reader's language does not come from a state name.
- */
 const STATUS_LABELS = {
   cancelled: m.assistant_tool_state_cancelled,
   completed: m.assistant_tool_state_done,
@@ -90,6 +85,7 @@ const STATUS_ICONS = {
 
 const Parameters = ({ input }: { input: ToolUIPart["input"] }) => {
   const parameters = toolParametersOf(input);
+
   return (
     <div className="flex flex-col gap-2 p-4 pb-0">
       <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
@@ -113,12 +109,6 @@ const Parameters = ({ input }: { input: ToolUIPart["input"] }) => {
   );
 };
 
-/**
- * One lookup the assistant made: what it is for, what it was asked with,
- * how it went and what came back. The figures live in the answer's prose;
- * this card exists so the reader can check which question was put to their
- * own data, with which arguments, and whether it succeeded.
- */
 export const AssistantToolCall = ({
   durationMs,
   expanded,
@@ -126,12 +116,12 @@ export const AssistantToolCall = ({
   part,
   status,
 }: AssistantToolCallProps) => {
-  // A failed lookup opens by itself: its error is the thing to read.
-  const [open, setOpen] = useExpandAll(expanded, status === "failed");
+  const failed = status === "failed";
+  const [open, setOpen] = useExpandAll(expanded, failed);
 
   const purpose = assistantToolPurpose(part.type);
   const summary = status === "completed" ? toolResultSummary(part) : undefined;
-  const settled = status === "completed" || status === "failed";
+  const settled = status === "completed" || failed;
 
   return (
     <Tool className="mb-0" onOpenChange={setOpen} open={open}>
@@ -163,15 +153,13 @@ export const AssistantToolCall = ({
         {settled && (
           <ToolOutput
             errorText={part.errorText}
-            output={status === "failed" ? undefined : part.output}
+            output={failed ? undefined : part.output}
             title={
-              status === "failed"
-                ? m.assistant_tool_error()
-                : m.assistant_tool_result()
+              failed ? m.assistant_tool_error() : m.assistant_tool_result()
             }
           />
         )}
-        {status === "failed" && onRetry && (
+        {failed && onRetry && (
           <div className="p-4 pt-0">
             <Button onClick={onRetry} size="sm" variant="outline">
               <RiRefreshLine className="size-3" />

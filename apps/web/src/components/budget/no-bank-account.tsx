@@ -22,7 +22,6 @@ export const NoBankAccount = () => (
         <EmptyTitle>{m.budget_no_account_title()}</EmptyTitle>
         <EmptyDescription>{m.budget_no_account_description()}</EmptyDescription>
       </EmptyHeader>
-      {/* Onboarding is unreachable once completed — banks live in Settings. */}
       <Button render={<Link hash={BANK_ACCOUNTS_ANCHOR} to="/settings" />}>
         {m.budget_no_account_cta()}
       </Button>

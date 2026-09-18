@@ -18,32 +18,102 @@ export type VirtualItem =
 export const HEADER_HEIGHT = 40;
 export const ROW_HEIGHT = 56;
 
-/**
- * Build a grouping key from a date string.
- * 1M → day, 3M → week (ISO week starting Monday), 1Y → month.
- */
+const ISO_DATE_LENGTH = 10;
+const SUNDAY = 0;
+const MONDAY = 1;
+const DAYS_BEFORE_SUNDAY_OF_THE_SAME_WEEK = 6;
+const DAYS_PER_WEEK = 7;
+const TWO_DIGITS = 2;
+
+const isoDay = (date: Date) => date.toISOString().slice(0, ISO_DATE_LENGTH);
+
+const padded = (value: number) => String(value).padStart(TWO_DIGITS, "0");
+
+const mondayOfWeek = (date: Date): Date => {
+  const weekday = date.getDay();
+  const monday = new Date(date);
+  monday.setDate(
+    date.getDate() -
+      weekday +
+      (weekday === SUNDAY ? -DAYS_BEFORE_SUNDAY_OF_THE_SAME_WEEK : MONDAY)
+  );
+
+  return monday;
+};
+
+const weekOfMonth = (monday: Date): number => {
+  const firstWeekdayOfMonth = new Date(
+    monday.getFullYear(),
+    monday.getMonth(),
+    1
+  ).getDay();
+
+  return Math.ceil((monday.getDate() + firstWeekdayOfMonth) / DAYS_PER_WEEK);
+};
+
+const monthKey = (date: Date) =>
+  `${date.getFullYear()}-${padded(date.getMonth() + 1)}`;
+
+const weekKey = (date: Date) => {
+  const monday = mondayOfWeek(date);
+
+  return `${monday.getFullYear()}-W${padded(weekOfMonth(monday))}-${padded(monday.getMonth() + 1)}-${padded(monday.getDate())}`;
+};
+
 export const groupKey = (dateStr: string, range: TimeRange): string => {
-  const d = new Date(dateStr);
+  const date = new Date(dateStr);
 
   if (range === "1Y") {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return monthKey(date);
   }
 
   if (range === "3M") {
-    // ISO week: find Monday of that week
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(d);
-    monday.setDate(diff);
-    return `${monday.getFullYear()}-W${String(Math.ceil((monday.getDate() + new Date(monday.getFullYear(), monday.getMonth(), 1).getDay()) / 7)).padStart(2, "0")}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+    return weekKey(date);
   }
 
-  // 1M → day
-  return d.toISOString().slice(0, 10);
+  return isoDay(date);
 };
 
 const formatShortDate = (date: Date, locale: Locale) =>
   date.toLocaleDateString(locale, { day: "numeric", month: "short" });
+
+const formatMonthKeyLabel = (key: string, locale: Locale): string => {
+  const [year, month] = key.split("-");
+
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString(locale, {
+    month: "long",
+    year: "numeric",
+  });
+};
+
+const formatWeekKeyLabel = (key: string, locale: Locale): string => {
+  const [year, , month, day] = key.split("-");
+  const monday = new Date(Number(year), Number(month) - 1, Number(day));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + DAYS_BEFORE_SUNDAY_OF_THE_SAME_WEEK);
+
+  return `${formatShortDate(monday, locale)} – ${formatShortDate(sunday, locale)}`;
+};
+
+const formatDayKeyLabel = (key: string, locale: Locale): string => {
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  if (key === isoDay(now)) {
+    return m.budget_group_today();
+  }
+
+  if (key === isoDay(yesterday)) {
+    return m.budget_group_yesterday();
+  }
+
+  return new Date(`${key}T00:00:00`).toLocaleDateString(locale, {
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  });
+};
 
 export const formatGroupLabel = (
   key: string,
@@ -51,43 +121,14 @@ export const formatGroupLabel = (
   locale: Locale
 ): string => {
   if (range === "1Y") {
-    const [year, month] = key.split("-");
-    const d = new Date(Number(year), Number(month) - 1);
-    return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
+    return formatMonthKeyLabel(key, locale);
   }
 
   if (range === "3M") {
-    // key is like "2025-W03-08-12" — extract the monday date from the last parts
-    const parts = key.split("-");
-    const year = Number(parts[0]);
-    const month = Number(parts[2]) - 1;
-    const day = Number(parts[3]);
-    const monday = new Date(year, month, day);
-    const sunday = new Date(monday);
-    sunday.setDate(sunday.getDate() + 6);
-
-    return `${formatShortDate(monday, locale)} – ${formatShortDate(sunday, locale)}`;
+    return formatWeekKeyLabel(key, locale);
   }
 
-  // 1M → day
-  const d = new Date(`${key}T00:00:00`);
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
-
-  if (key === today) {
-    return m.budget_group_today();
-  }
-  if (key === yesterdayStr) {
-    return m.budget_group_yesterday();
-  }
-  return d.toLocaleDateString(locale, {
-    day: "numeric",
-    month: "long",
-    weekday: "long",
-  });
+  return formatDayKeyLabel(key, locale);
 };
 
 export const buildVirtualItems = (
@@ -102,33 +143,34 @@ export const buildVirtualItems = (
   const items: VirtualItem[] = [];
   let currentKey = "";
   let groupTotal = 0;
-  // Header totals are only known once the group ends, so the header object is
-  // kept and patched in place after the fact.
-  let openHeader: GroupHeader | null = null;
+  let headerAwaitingItsTotal: GroupHeader | null = null;
 
   for (const tx of transactions) {
     const key = groupKey(tx.date, range);
+
     if (key !== currentKey) {
-      if (openHeader) {
-        openHeader.total = groupTotal;
+      if (headerAwaitingItsTotal) {
+        headerAwaitingItsTotal.total = groupTotal;
       }
+
       currentKey = key;
       groupTotal = 0;
-      openHeader = {
+      headerAwaitingItsTotal = {
         currency: tx.currency,
         key: `header-${key}`,
         label: formatGroupLabel(key, range, locale),
         total: 0,
         type: "header",
       };
-      items.push(openHeader);
+      items.push(headerAwaitingItsTotal);
     }
+
     groupTotal += tx.amount;
     items.push({ key: tx.id, tx, type: "tx" });
   }
 
-  if (openHeader) {
-    openHeader.total = groupTotal;
+  if (headerAwaitingItsTotal) {
+    headerAwaitingItsTotal.total = groupTotal;
   }
 
   return items;

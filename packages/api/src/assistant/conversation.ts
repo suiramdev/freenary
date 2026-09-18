@@ -2,10 +2,18 @@ import prisma from "@freenary/db";
 import type { Prisma } from "@freenary/db";
 import type { UIMessage } from "ai";
 
-/**
- * A user has one active thread. Reading it creates it, so the first question
- * needs no separate "start a conversation" step.
- */
+export interface AppendTurnOptions {
+  answerId: string;
+  replaceMessageIds: string[];
+}
+
+const asJson = (parts: UIMessage["parts"]): Prisma.InputJsonArray =>
+  /* SAFETY: every part is a plain object of JSON values; nothing in the array
+     carries a class instance, a function or a Date. Mapping each part restates
+     the index signature `Prisma.InputJsonValue` wants, which the SDK's part
+     interfaces do not declare, without widening the array through `unknown`. */
+  parts.map((part) => part as Prisma.InputJsonObject);
+
 export const activeConversation = async (userId: string) => {
   const existing = await prisma.conversation.findFirst({
     orderBy: { createdAt: "desc" },
@@ -22,7 +30,6 @@ export const activeConversation = async (userId: string) => {
   );
 };
 
-/** Ordered by `ordinal`: a turn's two messages can share a `createdAt`. */
 export const conversationMessages = (conversationId: string) =>
   prisma.conversationMessage.findMany({
     orderBy: { ordinal: "asc" },
@@ -36,38 +43,6 @@ export const archiveActiveConversation = (userId: string) =>
     where: { archivedAt: null, userId },
   });
 
-/**
- * `UIMessage.parts` is the AI SDK's own JSON wire shape — it arrives over the
- * stream as JSON — but its part interfaces declare no index signature, which is
- * the one thing Prisma's `InputJsonValue` asks for. Mapping each part restates
- * that per element instead of widening the whole array through `unknown`.
- */
-const asJson = (parts: UIMessage["parts"]): Prisma.InputJsonArray =>
-  // SAFETY: every part is a plain object of JSON values; nothing in the array
-  // carries a class instance, a function or a Date.
-  parts.map((part) => part as Prisma.InputJsonObject);
-
-export interface AppendTurnOptions {
-  /**
-   * Id the answer streamed under, so the client and the table agree on it and a
-   * retry can name the turn it is redoing.
-   */
-  answerId: string;
-  /**
-   * Rows the caller verified as the turn being regenerated, deleted before the
-   * new one is written: appending alone would leave the same question twice in
-   * the transcript and two answers where the screen shows one. Empty for an
-   * ordinary turn.
-   */
-  replaceMessageIds: string[];
-}
-
-/**
- * Both halves of a turn are written together, once the answer finished. The
- * conversation row is updated *first*: at READ COMMITTED two concurrent turns
- * would otherwise read the same `MAX(ordinal)` and one would lose to the unique
- * index, so the write lock that update takes is what serializes them.
- */
 export const appendTurn = async (
   conversationId: string,
   userParts: UIMessage["parts"],
@@ -80,9 +55,6 @@ export const appendTurn = async (
       where: { id: conversationId },
     });
 
-    // Scoped by id, not by position: the caller verified *these* rows before
-    // the answer streamed, and a turn committed from another tab meanwhile
-    // would otherwise be the one deleted. Wrong ids are a no-op.
     if (replaceMessageIds.length > 0) {
       await tx.conversationMessage.deleteMany({
         where: { conversationId, id: { in: replaceMessageIds } },

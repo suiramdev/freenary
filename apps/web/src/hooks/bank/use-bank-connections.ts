@@ -14,10 +14,8 @@ export type BankConnection =
 export type BankInstitution =
   InferRouterOutputs<AppRouter>["bankConnection"]["listInstitutions"]["banks"][number];
 
-/** Where the provider callback sends the user once the exchange is done. */
 export type BankConnectionReturnTo = "onboarding" | "settings";
 
-/** One reference, so the row memo does not recompute before the query lands. */
 const EMPTY_CONNECTIONS: BankConnection[] = [];
 
 export const useBankConnections = ({
@@ -47,7 +45,6 @@ export const useBankConnections = ({
         queryClient.invalidateQueries({
           queryKey: orpc.bankConnection.listConnections.queryOptions().queryKey,
         }),
-        // The cascade took the accounts and their transactions with it.
         invalidateBudgetData(queryClient),
       ]);
 
@@ -55,14 +52,18 @@ export const useBankConnections = ({
         toast.warning(
           m.bank_disconnect_revoke_warning({ institution: institutionName })
         );
+
         return;
       }
+
       if (accountsRemoved === 0) {
         toast.success(
           m.bank_disconnect_success({ institution: institutionName })
         );
+
         return;
       }
+
       toast.success(
         m.bank_disconnect_success_accounts({
           count: accountsRemoved,
@@ -72,11 +73,6 @@ export const useBankConnections = ({
     },
   });
 
-  /**
-   * Forces one bank to be re-read from scratch: the provider's whole window,
-   * with every category re-derived. The connection list carries the "synced"
-   * date the row shows, so it goes stale too.
-   */
   const resyncMutation = useMutation({
     mutationFn: (connection: BankConnection) =>
       client.budget.syncAccounts({ connectionId: connection.id, force: true }),
@@ -93,21 +89,19 @@ export const useBankConnections = ({
 
       if (!result.success) {
         toast.error(m.budget_sync_error());
+
         return;
       }
+
       toast.success(
         m.bank_sync_success({ institution: connection.institutionName })
       );
     },
   });
 
-  /**
-   * Hands the browser to the bank. Nothing is marked connected here: the
-   * connection only exists once the callback exchanged the code.
-   */
-  const connect = async (bank: BankInstitution) => {
+  const handOverToBank = async (bank: BankInstitution) => {
     setConnecting(bank.id);
-    const result = await client.bankConnection
+    const started = await client.bankConnection
       .startConnection({
         bankCountry: bank.country,
         institutionId: bank.id,
@@ -116,10 +110,12 @@ export const useBankConnections = ({
       })
       .catch(() => null);
 
-    if (result?.url) {
-      window.location.assign(result.url);
+    if (started?.url) {
+      window.location.assign(started.url);
+
       return;
     }
+
     toast.error(m.bank_connect_error({ institution: bank.name }));
     setConnecting(null);
   };
@@ -127,14 +123,13 @@ export const useBankConnections = ({
   const connections = connectionsQuery.data?.connections ?? EMPTY_CONNECTIONS;
 
   return {
-    connect,
+    connect: handOverToBank,
     connecting,
     connections,
     disconnect: disconnectMutation.mutate,
     disconnectingId: disconnectMutation.isPending
       ? disconnectMutation.variables
       : null,
-    // Only when nothing is cached: a failed refetch must not wipe a good answer.
     isConnectionsMissing:
       connectionsQuery.isError && connectionsQuery.data === undefined,
     isConnectionsPending: connectionsQuery.isPending,

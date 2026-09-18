@@ -13,10 +13,6 @@ import { LOCALE_LABELS } from "@/lib/i18n";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
-/**
- * Standalone language control for the surfaces with no account menu to hang it
- * off — the login screen and the onboarding header.
- */
 export const LocaleSwitcher = () => (
   <DropdownMenu>
     <DropdownMenuTrigger render={<Button variant="ghost" />}>

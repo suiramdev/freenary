@@ -1,10 +1,9 @@
-import { z } from "zod";
+import { Predicate } from "effect";
 
 import type { ProviderAccount, ProviderAccountType } from "../types";
-import type { PowensAccount } from "./client";
+import type { PowensAccount, PowensAccountType } from "./client";
 import { isReported, precisionOf, toIsoDateTime, toMinorUnits } from "./client";
 
-/** Powens account type names, as documented per domain product. */
 const ACCOUNT_TYPE_MAP = {
   article83: "RETIREMENT",
   capitalisation: "LIFE_INSURANCE",
@@ -38,20 +37,13 @@ const isKnownAccountType = (
 ): name is keyof typeof ACCOUNT_TYPE_MAP =>
   Object.hasOwn(ACCOUNT_TYPE_MAP, name);
 
-/**
- * Powens documents the account type as `{ name }`; domains send a bare string.
- * Both decode to the type name, and anything else to none.
- */
-const accountTypeName = z.union([
-  z.string(),
-  z.object({ name: z.string().nullish() }).transform((type) => type.name ?? ""),
-]);
+const accountTypeName = (type: PowensAccountType | null | undefined): string =>
+  Predicate.isString(type) ? type : (type?.name ?? "");
 
 export const mapPowensAccount = (account: PowensAccount): ProviderAccount => {
   const precision = precisionOf(account);
   const { balance } = account;
-  const parsedType = accountTypeName.safeParse(account.type);
-  const typeName = parsedType.success ? parsedType.data : "";
+  const typeName = accountTypeName(account.type);
 
   return {
     balanceAt: toIsoDateTime(account.last_update),

@@ -34,22 +34,15 @@ import { m } from "@/paraglide/messages.js";
 
 type NavEntry = (typeof NAV_ITEMS)[number];
 
-/** Dimmed rather than hidden: a planned area still says what is coming. */
-const PLANNED_CLASS =
+const PLANNED_DIMMED_CLASS =
   "text-sidebar-foreground/40 hover:text-sidebar-foreground/50";
 
-/** The label takes the row's spare width so the chevron keeps its own column. */
-const LABEL_CLASS = "min-w-0 flex-1 truncate";
+const AREA_LABEL_CLASS = "min-w-0 flex-1 truncate";
 
-/**
- * The panel's height opens the group; the rows then fade and lift into it in
- * turn. The exit is one undelayed fade: softer, and done before the close is.
- */
 const SUB_ROW_CLASS =
   "transition-[opacity,translate,filter] duration-200 ease-fluid [transition-delay:calc(var(--nav-sub-index,0)*60ms)] group-data-starting-style/collapsible-content:-translate-y-1 group-data-starting-style/collapsible-content:opacity-0 group-data-starting-style/collapsible-content:blur-[4px] group-data-ending-style/collapsible-content:opacity-0 group-data-ending-style/collapsible-content:delay-0 motion-reduce:transition-none";
 
-/** Feeds the row's position in its group to the delay in `SUB_ROW_CLASS`. */
-const subRowStyle = (
+const subRowStaggerStyle = (
   index: number
 ): CSSProperties & { "--nav-sub-index": number } => ({
   "--nav-sub-index": index,
@@ -69,7 +62,7 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        className={item.planned ? PLANNED_CLASS : undefined}
+        className={item.planned ? PLANNED_DIMMED_CLASS : undefined}
         isActive={isCurrent(pathname, item.to)}
         render={<Link to={item.to} />}
         tooltip={tooltip}
@@ -86,12 +79,7 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => {
   );
 };
 
-/**
- * An area with pages of its own. The parent row discloses them rather than
- * navigating: it is the area, not a page. The icon rail hides every sub-menu,
- * so there the area falls back to `NavRow` and its icon stays a link.
- */
-const NavArea = ({
+const NavAreaDisclosure = ({
   item,
   pathname,
 }: {
@@ -109,7 +97,7 @@ const NavArea = ({
         tooltip={title}
       >
         <item.icon data-icon="inline-start" />
-        <span className={LABEL_CLASS}>{title}</span>
+        <span className={AREA_LABEL_CLASS}>{title}</span>
         <RiArrowRightSLine
           aria-hidden="true"
           className="text-sidebar-foreground/50 ease-fluid transition-transform duration-150 group-data-panel-open/collapsible-trigger:rotate-90"
@@ -121,7 +109,7 @@ const NavArea = ({
             <SidebarMenuSubItem
               className={SUB_ROW_CLASS}
               key={page.to}
-              style={subRowStyle(index)}
+              style={subRowStaggerStyle(index)}
             >
               <SidebarMenuSubButton
                 isActive={isCurrent(pathname, page.to)}
@@ -140,8 +128,7 @@ const NavArea = ({
 export const AppSidebar = () => {
   const pathname = useLocation({ select: (location) => location.pathname });
   const { isMobile, state } = useSidebar();
-  // A disclosure row on the icon rail would toggle a panel nobody can see.
-  const isRail = state === "collapsed" && !isMobile;
+  const hidesSubMenus = state === "collapsed" && !isMobile;
 
   return (
     <Sidebar collapsible="icon" variant="floating">
@@ -155,8 +142,12 @@ export const AppSidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) =>
-                isNavArea(item) && !isRail ? (
-                  <NavArea item={item} key={item.to} pathname={pathname} />
+                isNavArea(item) && !hidesSubMenus ? (
+                  <NavAreaDisclosure
+                    item={item}
+                    key={item.to}
+                    pathname={pathname}
+                  />
                 ) : (
                   <NavRow item={item} key={item.to} pathname={pathname} />
                 )

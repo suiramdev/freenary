@@ -12,10 +12,7 @@ interface FrequencyCostChartProps {
   points: FrequencyRow[];
 }
 
-// One series per kind, so a commitment and a habit never read as one cloud.
-// The table holds the message function: calling it at module scope would
-// freeze the locale at import time.
-const KINDS = [
+const SERIES_BY_KIND = [
   {
     color: CHART_COLOR_VARS.blue,
     key: "fixed",
@@ -28,10 +25,6 @@ const KINDS = [
   },
 ] as const;
 
-/**
- * Recharts injects `active` and `payload`; a point carries a company, a cadence
- * and a cost, which the two axis rows of a default tooltip cannot say.
- */
 const FrequencyCostTooltip = ({
   active,
   config,
@@ -44,6 +37,7 @@ const FrequencyCostTooltip = ({
   payload?: { payload?: FrequencyRow }[];
 }) => {
   const row = active ? payload?.[0]?.payload : undefined;
+
   if (!row) {
     return null;
   }
@@ -69,10 +63,6 @@ const FrequencyCostTooltip = ({
   );
 };
 
-/**
- * Which repeated purchases are both frequent and dear. Up and to the right is
- * where the money goes: a small amount paid often costs as much as one bill.
- */
 export const FrequencyCostChart = ({
   currency,
   points,
@@ -86,13 +76,13 @@ export const FrequencyCostChart = ({
   }
 
   const config: ChartConfig = Object.fromEntries(
-    KINDS.map((kind) => [kind.key, { color: kind.color, label: kind.label() }])
+    SERIES_BY_KIND.map((series) => [
+      series.key,
+      { color: series.color, label: series.label() },
+    ])
   );
 
   return (
-    // A figure with an sr-only caption, so the chart carries a name without a
-    // `role` on a div. The legend sits in flow: a recharts legend for a scatter
-    // series reads its label off a dataKey the series does not have.
     <figure className="flex h-full flex-col gap-2">
       <figcaption className="sr-only">
         {m.budget_recurring_scatter_chart_label()}
@@ -106,8 +96,6 @@ export const FrequencyCostChart = ({
           margin={{ left: 6, right: 16, top: 4 }}
         >
           <CartesianGrid />
-          {/* `auto` rounds the far end up to a tick: at `dataMax` the dearest
-              point sits on the plot edge and renders as half a dot. */}
           <XAxis
             axisLine={false}
             dataKey="perYear"
@@ -117,8 +105,6 @@ export const FrequencyCostChart = ({
             tickMargin={8}
             type="number"
           />
-          {/* A full currency tick is as wide as its locale makes it, so the
-              axis measures itself rather than clipping the widest one. */}
           <YAxis
             axisLine={false}
             dataKey="annualMinor"
@@ -134,29 +120,28 @@ export const FrequencyCostChart = ({
             }
             cursor={{ strokeDasharray: "3 3" }}
           />
-          {/* Recharts draws a circle by default, which is what these points are. */}
-          {KINDS.map((kind) => (
+          {SERIES_BY_KIND.map((series) => (
             <Scatter
-              data={points.filter((row) => row.kind === kind.key)}
-              fill={`var(--color-${kind.key})`}
+              data={points.filter((row) => row.kind === series.key)}
+              fill={`var(--color-${series.key})`}
               isAnimationActive={false}
-              key={kind.key}
-              name={kind.key}
+              key={series.key}
+              name={series.key}
             />
           ))}
         </ScatterChart>
       </ChartContainer>
       <ul className="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 px-1">
-        {KINDS.map((kind) => (
+        {SERIES_BY_KIND.map((series) => (
           <li
             className="text-muted-foreground flex items-center gap-1.5 text-[11px]"
-            key={kind.key}
+            key={series.key}
           >
             <span
               className="size-2 shrink-0 rounded-full"
-              style={{ backgroundColor: kind.color }}
+              style={{ backgroundColor: series.color }}
             />
-            {kind.label()}
+            {series.label()}
           </li>
         ))}
       </ul>

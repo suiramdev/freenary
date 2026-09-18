@@ -1,18 +1,16 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 
 interface SecurityRowsSkeletonProps {
-  /** Names what is loading, for the screen reader only. */
-  label: string;
+  loadingLabel: string;
   rows?: number;
 }
 
-/** Stands in for the session and sign-in-method rows, at their real height. */
 export const SecurityRowsSkeleton = ({
-  label,
+  loadingLabel,
   rows = 2,
 }: SecurityRowsSkeletonProps) => (
   <div aria-busy="true" className="flex flex-col gap-1.5">
-    <output className="sr-only">{label}</output>
+    <output className="sr-only">{loadingLabel}</output>
     {Array.from({ length: rows }, (_, i) => (
       <div
         aria-hidden="true"

@@ -18,32 +18,24 @@ import { createFsDrain } from "evlog/fs";
 
 const SERVER_ERROR_STATUS = 500;
 
+const isCallerRefusal = (error: ORPCError<string, unknown>) =>
+  error.status < SERVER_ERROR_STATUS;
+
 const rpcHandler = new RPCHandler(appRouter, {
-  // Only faults reach the console. A refused call is an answer the caller
-  // asked for — an unauthenticated read, a rejected input — and printing its
-  // stack buries the crashes worth reading; the request's own wide event
-  // already records that it was refused.
   interceptors: [
     // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
-      if (
-        !(error instanceof ORPCError) ||
-        error.status >= SERVER_ERROR_STATUS
-      ) {
+      if (!(error instanceof ORPCError && isCallerRefusal(error))) {
         console.error(error);
       }
     }),
   ],
 });
 const apiHandler = new OpenAPIHandler(appRouter, {
-  // Faults only, as above.
   interceptors: [
     // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern
     onError((error) => {
-      if (
-        !(error instanceof ORPCError) ||
-        error.status >= SERVER_ERROR_STATUS
-      ) {
+      if (!(error instanceof ORPCError && isCallerRefusal(error))) {
         console.error(error);
       }
     }),
@@ -55,17 +47,12 @@ const apiHandler = new OpenAPIHandler(appRouter, {
   ],
 });
 
-/**
- * Elysia leaves `set.status` at its default when a handler returns a `Response`
- * of its own, and the request's wide event reads exactly that — so every
- * refusal on the three routes below would be recorded as a 200. Copying the
- * real status back is what keeps the log honest.
- */
-const recordStatus = (
+const copyResponseStatusOntoWideEvent = (
   set: { status?: number | string },
   response: Response
 ) => {
   set.status = response.status;
+
   return response;
 };
 
@@ -88,6 +75,7 @@ new Elysia()
   )
   .derive(async ({ request, log }) => {
     await identifyUser(log, request.headers, new URL(request.url).pathname);
+
     return {};
   })
   .use(
@@ -100,9 +88,11 @@ new Elysia()
   )
   .all("/api/auth/*", async (context) => {
     const { request, set, status } = context;
+
     if (["POST", "GET"].includes(request.method)) {
-      return recordStatus(set, await auth.handler(request));
+      return copyResponseStatusOntoWideEvent(set, await auth.handler(request));
     }
+
     return status(405);
   })
   .all(
@@ -112,7 +102,8 @@ new Elysia()
         context: await createContext({ context }),
         prefix: "/rpc",
       });
-      return recordStatus(
+
+      return copyResponseStatusOntoWideEvent(
         context.set,
         response ?? new Response("Not Found", { status: 404 })
       );
@@ -121,9 +112,6 @@ new Elysia()
       parse: "none",
     }
   )
-  // Token streaming does not fit a unary oRPC procedure, so the assistant's
-  // stream is a raw route; everything it reads still goes through `appRouter`.
-  // `parse: "none"` for the same reason as /rpc*: Elysia would eat the body.
   .post(
     "/ai/chat",
     (context) =>
@@ -139,7 +127,8 @@ new Elysia()
         context: await createContext({ context }),
         prefix: "/api-reference",
       });
-      return recordStatus(
+
+      return copyResponseStatusOntoWideEvent(
         context.set,
         response ?? new Response("Not Found", { status: 404 })
       );
