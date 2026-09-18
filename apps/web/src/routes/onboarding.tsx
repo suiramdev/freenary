@@ -39,8 +39,8 @@ const OnboardingPage = () => {
       isCompleting={wizard.isCompleting}
       isPending={availability.isLoading}
       onBack={wizard.handleBack}
+      onCountriesChange={wizard.handleCountriesChange}
       onCountryContinue={wizard.handleCountryContinue}
-      onCountryToggle={wizard.handleCountryToggle}
       onFinish={wizard.handleFinish}
       onSignOut={wizard.handleSignOut}
       step={wizard.step}

@@ -18,7 +18,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  useSidebar,
 } from "@freenary/ui/components/sidebar";
 import { spring } from "@freenary/ui/lib/springs";
 import { RiArrowRightSLine } from "@remixicon/react";
@@ -138,8 +137,6 @@ const NavAreaDisclosure = ({
 
 export const AppSidebar = () => {
   const pathname = useLocation({ select: (location) => location.pathname });
-  const { isMobile, state } = useSidebar();
-  const hidesSubMenus = state === "collapsed" && !isMobile;
 
   return (
     <Sidebar collapsible="offcanvas" variant="floating">
@@ -153,7 +150,7 @@ export const AppSidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) =>
-                isNavArea(item) && !hidesSubMenus ? (
+                isNavArea(item) ? (
                   <NavAreaDisclosure
                     item={item}
                     key={item.to}

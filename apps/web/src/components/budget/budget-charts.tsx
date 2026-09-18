@@ -242,13 +242,11 @@ export const BudgetCharts = ({
             onValueChange={(next) =>
               onCompanionChange(next === "planned" ? "planned" : "fixed")
             }
+            size="compact"
             value={companion}
           >
             <motion.div {...PRESS_MOTION} className="flex">
-              <SelectTrigger
-                aria-label={m.budget_companion_switch_label()}
-                size="compact"
-              />
+              <SelectTrigger aria-label={m.budget_companion_switch_label()} />
             </motion.div>
             <SelectContent>
               <SelectGroup>

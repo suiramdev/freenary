@@ -29,8 +29,8 @@ interface OnboardingWizardProps {
   isCompleting: boolean;
   isPending: boolean;
   onBack: () => void;
+  onCountriesChange: (countries: string[]) => void;
   onCountryContinue: () => void;
-  onCountryToggle: (country: string) => void;
   onFinish: () => void;
   onSignOut: () => void;
   step: number;
@@ -75,8 +75,8 @@ export const OnboardingWizard = ({
   isCompleting,
   isPending,
   onBack,
+  onCountriesChange,
   onCountryContinue,
-  onCountryToggle,
   onFinish,
   onSignOut,
   step,
@@ -146,7 +146,7 @@ export const OnboardingWizard = ({
                         <CountrySelectionStep
                           isCompleting={isCompleting}
                           onContinue={onCountryContinue}
-                          onToggle={onCountryToggle}
+                          onCountriesChange={onCountriesChange}
                           selected={taxCountries}
                         />
                       ) : (

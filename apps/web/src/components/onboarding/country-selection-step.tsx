@@ -25,7 +25,7 @@ import { getLocale } from "@/paraglide/runtime.js";
 interface CountrySelectionStepProps {
   isCompleting: boolean;
   onContinue: () => void;
-  onToggle: (country: string) => void;
+  onCountriesChange: (countries: string[]) => void;
   selected: string[];
 }
 
@@ -39,7 +39,7 @@ interface CountryRow {
 export const CountrySelectionStep = ({
   isCompleting,
   onContinue,
-  onToggle,
+  onCountriesChange,
   selected,
 }: CountrySelectionStepProps) => {
   const locale = getLocale();
@@ -70,18 +70,11 @@ export const CountrySelectionStep = ({
         }}
         items={items}
         multiple
-        onValueChange={(next) => {
-          const changed =
-            next.find((code) => !selected.includes(code)) ??
-            selected.find((code) => !next.includes(code));
-
-          if (changed !== undefined) {
-            onToggle(changed);
-          }
-        }}
+        onValueChange={onCountriesChange}
         value={selected}
       >
         <ComboboxChips
+          aria-label={m.onboarding_country_search_placeholder()}
           clearable
           icon={remixIcon(RiEarthLine)}
           placeholder={m.onboarding_country_search_placeholder()}

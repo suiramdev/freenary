@@ -56,6 +56,10 @@ export const useOnboardingWizard = ({
     setStep(0);
   };
 
+  const handleCountriesChange = (codes: string[]) => {
+    setTaxCountries(codes);
+  };
+
   const handleCountryContinue = () => {
     if (hasBankStep) {
       if (taxCountries.length > 0) {
@@ -70,14 +74,6 @@ export const useOnboardingWizard = ({
 
     clearOnboardingState();
     void completeOnboarding();
-  };
-
-  const handleCountryToggle = (code: string) => {
-    setTaxCountries((current) =>
-      current.includes(code)
-        ? current.filter((held) => held !== code)
-        : [...current, code]
-    );
   };
 
   const handleFinish = () => {
@@ -101,8 +97,8 @@ export const useOnboardingWizard = ({
   return {
     direction,
     handleBack,
+    handleCountriesChange,
     handleCountryContinue,
-    handleCountryToggle,
     handleFinish,
     handleSignOut,
     isCompleting,

@@ -148,12 +148,15 @@ export const ListFilterChip = ({
   return (
     <button
       aria-label={m.budget_filter_remove({ label })}
-      className="contents"
+      className="group contents"
       onClick={onRemove}
       type="button"
     >
       <Badge
-        className={cn(truncate && "max-w-48")}
+        className={cn(
+          "group-focus-visible:ring-1 group-focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          truncate && "max-w-48"
+        )}
         ref={badgeRef}
         variant="dot"
       >

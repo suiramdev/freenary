@@ -318,13 +318,11 @@ export const RecurringCharts = ({
                   onCompanionChange(chosen);
                 }
               }}
+              size="compact"
               value={companion}
             >
               <motion.div {...PRESS_MOTION} className="flex">
-                <SelectTrigger
-                  aria-label={m.budget_companion_switch_label()}
-                  size="compact"
-                />
+                <SelectTrigger aria-label={m.budget_companion_switch_label()} />
               </motion.div>
               <SelectContent>
                 <SelectGroup>
