@@ -7,7 +7,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@freenary/ui/components/field";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
 import { useMemo, useState } from "react";
 import { z } from "zod";
@@ -117,8 +116,7 @@ export const AuthTwoFactorStep = ({
           )}
 
           <Field>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting && <Spinner data-icon="inline-start" />}
+            <Button loading={isSubmitting} type="submit">
               {m.auth_code_submit()}
             </Button>
           </Field>

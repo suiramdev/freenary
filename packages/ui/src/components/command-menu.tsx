@@ -1181,8 +1181,13 @@ const CommandMenuList = forwardRef<HTMLDivElement, CommandMenuListProps>(
                     id={headingId}
                     role="presentation"
                     className={cn(
-                      "text-caption text-muted-foreground flex shrink-0 items-center",
-                      compact ? "h-6 px-1.5" : "h-7 px-2"
+                      // The caption step of the type scale, written out: there
+                      // is no `text-caption` utility, so the heading used to
+                      // inherit the dialog's 16px and out-shout its own rows.
+                      "text-muted-foreground flex shrink-0 items-center",
+                      compact
+                        ? "h-6 px-1.5 text-[11px]"
+                        : "h-7 px-2 text-[12px]"
                     )}
                   >
                     {section.heading}

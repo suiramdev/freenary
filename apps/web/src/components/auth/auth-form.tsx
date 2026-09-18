@@ -1,4 +1,5 @@
 import { BrandAvatar } from "@freenary/ui/components/brand-avatar";
+import { spring } from "@freenary/ui/lib/springs";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { AuthConfirmStep } from "@/components/auth/auth-confirm-step";
@@ -31,12 +32,7 @@ interface AuthFormProps {
   onRetryCapabilities: () => void;
 }
 
-const STEP_EASE = [0.23, 1, 0.32, 1] as const;
-const STEP_EXIT_DROP_PX = 12;
-
-const stepEnterTransition = { duration: 0.2, ease: STEP_EASE };
-const stepExitTransition = { duration: 0.15, ease: "easeOut" as const };
-const reducedTransition = { duration: 0 };
+const STEP_EXIT_OFFSET = 12;
 
 const HEADING_BY_STEP = {
   confirm: ({ email }) => ({
@@ -101,14 +97,12 @@ export const AuthForm = ({
           exit={{
             opacity: 0,
             transition: prefersReducedMotion
-              ? reducedTransition
-              : stepExitTransition,
-            y: STEP_EXIT_DROP_PX,
+              ? { duration: 0 }
+              : spring.moderate.exit,
+            y: STEP_EXIT_OFFSET,
           }}
           initial={{ opacity: 0, y: 0 }}
-          transition={
-            prefersReducedMotion ? reducedTransition : stepEnterTransition
-          }
+          transition={prefersReducedMotion ? { duration: 0 } : spring.moderate}
         >
           {flow.step === "credentials" && (
             <AuthCredentialsStep

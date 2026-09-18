@@ -10,14 +10,28 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@freenary/ui/components/collapsible";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { RiAddLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
+import { useIcon } from "@freenary/ui/lib/icon-context";
+import { SizeProvider, useSize } from "@freenary/ui/lib/size-context";
+import type { SizeVariant } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
+import { useMemo, useRef, useState } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
-import { CategoryRow } from "@/components/settings/category-row";
+import {
+  CATEGORY_CHIP_BOX,
+  CategoryRow,
+} from "@/components/settings/category-row";
 import { CustomCategoryDrawer } from "@/components/settings/custom-category-drawer";
-import { SettingsSection } from "@/components/settings/settings-section";
+import {
+  SETTINGS_BLEED,
+  SettingsSection,
+} from "@/components/settings/settings-section";
 import { useCustomCategoryActions } from "@/hooks/settings/use-custom-category-actions";
 import type { EditedCustomCategory } from "@/hooks/settings/use-custom-category-form";
 import { categoryEntryLabel, categoryLabel } from "@/lib/taxonomy-labels";
@@ -34,6 +48,17 @@ interface CategoriesSectionProps {
   categories: CategoryEntry[];
   isPending: boolean;
 }
+
+interface CategoryGroupHeaderProps {
+  count: number;
+  group: CategoryEntry;
+  index: number;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+}
+
+const SKELETON_GROUPS = 16;
+
+const LIST_SIZE: SizeVariant = "default";
 
 const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
   color: entry.color,
@@ -65,6 +90,39 @@ const toGroupTreeInServerOrder = (
   return tree;
 };
 
+const CategoryGroupHeader = ({
+  count,
+  group,
+  index,
+  registerItem,
+}: CategoryGroupHeaderProps) => {
+  const headerRef = useRef<HTMLButtonElement>(null);
+  const { control, text, variant } = useSize();
+
+  useRegisterFluidHoverItem(registerItem, index, headerRef);
+
+  return (
+    <CollapsibleTrigger
+      chevron="leading"
+      className={cn(
+        "relative z-10 px-3 shadow-[inset_0_-1px_0_var(--color-border)]",
+        control
+      )}
+      ref={headerRef}
+    >
+      <CategoryIcon
+        className={CATEGORY_CHIP_BOX[variant]}
+        color={group.color}
+        icon={group.icon}
+      />
+      <span className={cn("flex-1 truncate font-medium", text)}>
+        {categoryEntryLabel(group)}
+      </span>
+      <Badge>{count}</Badge>
+    </CollapsibleTrigger>
+  );
+};
+
 export const CategoriesSection = ({
   categories,
   isPending,
@@ -73,21 +131,42 @@ export const CategoriesSection = ({
     useCustomCategoryActions();
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const PlusIcon = useIcon("plus");
+  const { control } = useSize(LIST_SIZE);
+  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
 
   const tree = useMemo(
     () => toGroupTreeInServerOrder(categories),
     [categories]
   );
 
+  const hoverIndices = useMemo(() => {
+    const indices = new Map<string, number>();
+    let next = 0;
+
+    for (const { children, group } of tree) {
+      indices.set(group.key, next);
+      next += 1;
+
+      for (const child of children) {
+        indices.set(child.key, next);
+        next += 1;
+      }
+    }
+
+    return indices;
+  }, [tree]);
+
   return (
     <SettingsSection
       action={
         <Button
           disabled={isPending}
+          leadingIcon={PlusIcon}
           onClick={() => setDrawer("new")}
           variant="tertiary"
         >
-          <RiAddLine data-icon="inline-start" />
           {m.settings_category_new()}
         </Button>
       }
@@ -97,71 +176,83 @@ export const CategoriesSection = ({
       {isPending ? (
         <div aria-busy="true">
           <output className="sr-only">{m.settings_categories_loading()}</output>
-          <Skeleton aria-hidden="true" className="h-[200px]" />
+          <div
+            aria-hidden="true"
+            className={cn("flex flex-col", SETTINGS_BLEED)}
+          >
+            {Array.from({ length: SKELETON_GROUPS }, (_, i) => (
+              <div className={cn("flex items-center px-3", control)} key={i}>
+                <Skeleton className="h-3 w-40" />
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col">
-          {tree.map(({ children, group }) => {
-            const isUsersOwnTopLevelCategory = group.isCustom;
+        <SizeProvider size={LIST_SIZE}>
+          <div
+            className={cn("relative flex flex-col", SETTINGS_BLEED)}
+            ref={listRef}
+            {...hover.handlers}
+          >
+            <FluidHoverHighlight className="rounded-none" hover={hover} />
+            {tree.map(({ children, group }) => {
+              const isUsersOwnTopLevelCategory = group.isCustom;
 
-            return isUsersOwnTopLevelCategory ? (
-              <ul className="flex flex-col" key={group.key}>
-                <CategoryRow
-                  entry={group}
-                  fallbackLabel={categoryLabel("uncategorised")}
-                  isDeleting={isDeleting}
-                  isMoving={isMoving}
-                  onDelete={deleteCategory}
-                  onEdit={(edited) => setDrawer(editedOf(edited))}
-                  onMove={moveCategory}
-                />
-              </ul>
-            ) : (
-              <Collapsible
-                key={group.key}
-                open={openGroups.includes(group.key)}
-                onOpenChange={(open) =>
-                  setOpenGroups((current) =>
-                    open
-                      ? [...current, group.key]
-                      : current.filter((key) => key !== group.key)
-                  )
-                }
-              >
-                <CollapsibleTrigger
-                  chevron="leading"
-                  className="border-b-border border-b px-2 py-2"
-                >
-                  <CategoryIcon
-                    className="size-8 [&_svg]:size-4"
-                    color={group.color}
-                    icon={group.icon}
+              return isUsersOwnTopLevelCategory ? (
+                <ul className="flex flex-col" key={group.key}>
+                  <CategoryRow
+                    entry={group}
+                    fallbackLabel={categoryLabel("uncategorised")}
+                    index={hoverIndices.get(group.key) ?? 0}
+                    isDeleting={isDeleting}
+                    isMoving={isMoving}
+                    onDelete={deleteCategory}
+                    onEdit={(edited) => setDrawer(editedOf(edited))}
+                    onMove={moveCategory}
+                    registerItem={hover.registerItem}
                   />
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {categoryEntryLabel(group)}
-                  </span>
-                  <Badge>{children.length}</Badge>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <ul className="flex flex-col">
-                    {children.map((entry) => (
-                      <CategoryRow
-                        entry={entry}
-                        fallbackLabel={catchAllCategoryLabelOf(group.key)}
-                        isDeleting={isDeleting}
-                        isMoving={isMoving}
-                        key={entry.key}
-                        onDelete={deleteCategory}
-                        onEdit={(edited) => setDrawer(editedOf(edited))}
-                        onMove={moveCategory}
-                      />
-                    ))}
-                  </ul>
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
-        </div>
+                </ul>
+              ) : (
+                <Collapsible
+                  key={group.key}
+                  onOpenChange={(open) =>
+                    setOpenGroups((current) =>
+                      open
+                        ? [...current, group.key]
+                        : current.filter((key) => key !== group.key)
+                    )
+                  }
+                  open={openGroups.includes(group.key)}
+                >
+                  <CategoryGroupHeader
+                    count={children.length}
+                    group={group}
+                    index={hoverIndices.get(group.key) ?? 0}
+                    registerItem={hover.registerItem}
+                  />
+                  <CollapsibleContent>
+                    <ul className="flex flex-col">
+                      {children.map((entry) => (
+                        <CategoryRow
+                          entry={entry}
+                          fallbackLabel={catchAllCategoryLabelOf(group.key)}
+                          index={hoverIndices.get(entry.key) ?? 0}
+                          isDeleting={isDeleting}
+                          isMoving={isMoving}
+                          key={entry.key}
+                          onDelete={deleteCategory}
+                          onEdit={(edited) => setDrawer(editedOf(edited))}
+                          onMove={moveCategory}
+                          registerItem={hover.registerItem}
+                        />
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
+          </div>
+        </SizeProvider>
       )}
 
       <CustomCategoryDrawer

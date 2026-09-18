@@ -1,9 +1,18 @@
 import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
 import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
 import { cn } from "@freenary/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
+import { useRef } from "react";
 
+import { PRESS_MOTION } from "@/components/budget/list-controls";
 import type { CategorySelection } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
@@ -46,26 +55,35 @@ const PlanTrack = ({
 
 const PlannedRow = ({
   entry,
+  index,
   isSelected,
   onSelect,
+  registerItem,
   scale,
 }: {
   entry: PlannedGroup;
+  index: number;
   isSelected: boolean;
   onSelect: (selection: CategorySelection) => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
   scale: number;
 }) => {
   const hasPlanForGroup = entry.planned > 0;
   const isOverPlan = hasPlanForGroup && entry.actual > entry.planned;
+  const rowRef = useRef<HTMLButtonElement>(null);
+
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
 
   return (
-    <button
+    <motion.button
+      {...PRESS_MOTION}
       aria-pressed={isSelected}
       className={cn(
-        "hover:bg-muted/60 flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start transition-transform duration-150 ease-out active:scale-[0.96]",
+        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start",
         isSelected ? "text-foreground" : "text-muted-foreground"
       )}
       onClick={() => onSelect({ group: entry.group, kind: "group" })}
+      ref={rowRef}
       type="button"
     >
       <span className="flex items-baseline gap-2 text-xs">
@@ -108,7 +126,7 @@ const PlannedRow = ({
         actualShare={entry.actual / scale}
         plannedShare={entry.planned / scale}
       />
-    </button>
+    </motion.button>
   );
 };
 
@@ -118,19 +136,20 @@ export const BudgetVsActualChart = ({
   hasPlan,
   onSelect,
 }: BudgetVsActualChartProps) => {
+  const listRef = useRef<HTMLUListElement>(null);
+  const hover = useFluidHover(listRef);
+
   if (!hasPlan) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-muted-foreground text-xs">
           {m.budget_planned_empty()}
         </p>
-        <Button
-          asChild
-          className="transition-transform duration-150 ease-out active:scale-[0.96]"
-          variant="tertiary"
-        >
-          <Link to="/settings">{m.budget_planned_empty_cta()}</Link>
-        </Button>
+        <motion.div {...PRESS_MOTION} className="inline-flex">
+          <Button asChild variant="tertiary">
+            <Link to="/settings">{m.budget_planned_empty_cta()}</Link>
+          </Button>
+        </motion.div>
       </div>
     );
   }
@@ -154,21 +173,28 @@ export const BudgetVsActualChart = ({
         <span aria-hidden="true">/</span>
         <span>{m.budget_planned_column_planned()}</span>
       </div>
-      <ul
-        aria-label={m.budget_planned_chart_label()}
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
-      >
-        {groups.map((entry) => (
-          <li key={entry.group}>
-            <PlannedRow
-              entry={entry}
-              isSelected={activeGroups.includes(entry.group)}
-              onSelect={onSelect}
-              scale={sharedScale}
-            />
-          </li>
-        ))}
-      </ul>
+      <ScrollArea className="min-h-0 flex-1">
+        <ul
+          aria-label={m.budget_planned_chart_label()}
+          className="relative flex flex-col gap-2"
+          ref={listRef}
+          {...hover.handlers}
+        >
+          <FluidHoverHighlight className="rounded-lg" hover={hover} />
+          {groups.map((entry, index) => (
+            <li key={entry.group}>
+              <PlannedRow
+                entry={entry}
+                index={index}
+                isSelected={activeGroups.includes(entry.group)}
+                onSelect={onSelect}
+                registerItem={hover.registerItem}
+                scale={sharedScale}
+              />
+            </li>
+          ))}
+        </ul>
+      </ScrollArea>
     </div>
   );
 };

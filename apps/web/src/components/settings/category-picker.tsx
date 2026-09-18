@@ -1,21 +1,17 @@
 import type { CategoryEntry } from "@freenary/api/lib/categories";
-import { Button } from "@freenary/ui/components/button";
 import {
-  DropdownContent,
-  DropdownEmpty,
-  DropdownLabel,
-  DropdownMenu,
-  DropdownSearch,
-  DropdownSeparator,
-  DropdownTrigger,
-} from "@freenary/ui/components/dropdown";
-import { MenuItem } from "@freenary/ui/components/menu-item";
-import { cn } from "@freenary/ui/lib/utils";
-import { RiAddLine, RiExpandUpDownLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@freenary/ui/components/combobox";
+import { useMemo } from "react";
 
 import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
-import { remixIcon } from "@/lib/remix-icon";
+import { categoryRowMatches } from "@/lib/budget/category-search";
+import type { CategoryRow } from "@/lib/budget/category-search";
 import { toCategorySections } from "@/lib/settings/category-sections";
 import { categoryEntryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
@@ -27,93 +23,79 @@ interface CategoryPickerProps {
   value: string;
 }
 
+interface EntryRow extends CategoryRow {
+  entry: CategoryEntry;
+}
+
 export const CategoryPicker = ({
   categories,
   onCreateRequest,
   onSelect,
   value,
 }: CategoryPickerProps) => {
-  const [query, setQuery] = useState("");
-  const selected = categories.find((entry) => entry.key === value);
+  const items = useMemo<EntryRow[]>(() => {
+    const rows: EntryRow[] = [];
 
-  const sections = useMemo(
-    () => toCategorySections(categories, query),
-    [categories, query]
-  );
+    for (const section of toCategorySections(categories, "")) {
+      const heading = section.heading
+        ? categoryEntryLabel(section.heading)
+        : "";
 
-  const grouped = useMemo(() => {
-    const out: { offset: number; section: (typeof sections)[number] }[] = [];
-    let offset = 0;
-
-    for (const section of sections) {
-      out.push({ offset, section });
-      offset += section.items.length;
+      for (const entry of section.items) {
+        rows.push({
+          entry,
+          group: heading,
+          label: categoryEntryLabel(entry),
+          value: entry.key,
+        });
+      }
     }
 
-    return out;
-  }, [sections]);
-  const flatEntries = sections.flatMap((section) => section.items);
-  const checkedIndex = flatEntries.findIndex((entry) => entry.key === value);
-  const createIndex = flatEntries.length;
+    return rows;
+  }, [categories]);
 
   return (
-    <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownTrigger
-        render={
-          <Button
-            className="w-40 shrink-0 justify-between"
-            trailingIcon={remixIcon(RiExpandUpDownLine)}
-            variant="tertiary"
-          />
+    <Combobox
+      createLabel={() => m.settings_category_new_ellipsis()}
+      filter={categoryRowMatches}
+      items={items}
+      onCreate={onCreateRequest}
+      onValueChange={(next) => {
+        if (next !== "") {
+          onSelect(next);
         }
-      >
-        <span className="truncate">
-          {selected
-            ? categoryEntryLabel(selected)
-            : m.settings_category_picker_placeholder()}
-        </span>
-      </DropdownTrigger>
-      <DropdownContent
-        align="start"
-        checkedIndex={checkedIndex === -1 ? undefined : checkedIndex}
-        className="max-h-72 w-64 overflow-y-auto"
-      >
-        <DropdownSearch
-          onValueChange={setQuery}
-          placeholder={m.settings_category_search_placeholder()}
-          value={query}
-        />
-        {grouped.map(({ offset, section }) => (
-          <div key={section.key}>
-            {section.heading && (
-              <DropdownLabel>
-                {categoryEntryLabel(section.heading)}
-              </DropdownLabel>
-            )}
-            {section.items.map((entry, position) => (
-              <MenuItem
-                checked={entry.key === value}
-                className={cn(section.heading && "ps-8")}
-                icon={categoryMenuIcon(entry)}
-                index={offset + position}
-                key={entry.key}
-                label={categoryEntryLabel(entry)}
-                onSelect={() => onSelect(entry.key)}
-              />
-            ))}
-          </div>
-        ))}
-        {sections.length === 0 && (
-          <DropdownEmpty>{m.settings_category_search_empty()}</DropdownEmpty>
-        )}
-        <DropdownSeparator />
-        <MenuItem
-          icon={remixIcon(RiAddLine)}
-          index={createIndex}
-          label={m.settings_category_new_ellipsis()}
-          onSelect={onCreateRequest}
-        />
-      </DropdownContent>
-    </DropdownMenu>
+      }}
+      value={value}
+    >
+      <ComboboxInput
+        className="w-44 shrink-0"
+        placeholder={m.settings_category_picker_placeholder()}
+      />
+      <ComboboxContent align="start">
+        <ComboboxEmpty>{m.settings_category_search_empty()}</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => {
+            // SAFETY: every row comes from `items`, built above.
+            const row = item as EntryRow;
+
+            return (
+              <ComboboxItem
+                icon={categoryMenuIcon(row.entry)}
+                value={row.value}
+              >
+                <span className="flex w-full items-baseline justify-between gap-3">
+                  <span className="truncate">{row.label}</span>
+                  {row.group && (
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
+                      {row.group}
+                    </span>
+                  )}
+                </span>
+              </ComboboxItem>
+            );
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 };

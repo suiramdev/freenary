@@ -1,14 +1,13 @@
-import { Badge } from "@freenary/ui/components/badge";
-import { Button } from "@freenary/ui/components/button";
 import {
-  DropdownContent,
-  DropdownEmpty,
-  DropdownMenu,
-  DropdownSearch,
-  DropdownTrigger,
-} from "@freenary/ui/components/dropdown";
-import { MenuItem } from "@freenary/ui/components/menu-item";
-import { Skeleton } from "@freenary/ui/components/skeleton";
+  Combobox,
+  ComboboxChips,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  comboboxItemValue,
+} from "@freenary/ui/components/combobox";
+import type { ComboboxItemData } from "@freenary/ui/components/combobox";
 import { RiStore2Line } from "@remixicon/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -16,7 +15,6 @@ import { useMemo, useState } from "react";
 import { useDebouncedValue } from "@/hooks/shared/use-debounced-value";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TransactionDirection } from "@/lib/budget/search";
-import { toggleMerchant } from "@/lib/budget/transaction-filters";
 import { remixIcon } from "@/lib/remix-icon";
 import { foldForSearch } from "@/lib/search-text";
 import { m } from "@/paraglide/messages.js";
@@ -32,7 +30,7 @@ interface MerchantFilterMenuProps {
 
 const MERCHANT_SETTLE_MS = 250;
 
-const SKELETON_ROWS = [0, 1, 2, 3];
+const KEEP_EVERY_ROW = () => true;
 
 export const MerchantFilterMenu = ({
   direction,
@@ -53,27 +51,47 @@ export const MerchantFilterMenu = ({
     placeholderData: keepPreviousData,
   });
 
-  const rows = useMemo(() => {
+  const totals = useMemo(() => {
+    const byName: Record<string, string> = {};
+
+    for (const row of merchantsQuery.data?.merchants ?? []) {
+      if (row.count > 0) {
+        byName[row.name] = formatCurrency(row.totalMinor);
+      }
+    }
+
+    return byName;
+  }, [merchantsQuery.data]);
+
+  const items = useMemo<ComboboxItemData[]>(() => {
     const found = merchantsQuery.data?.merchants ?? [];
     const listed = new Set(found.map((row) => row.name));
     const needle = foldForSearch(settled);
-    const selectedButNotInTopRows = merchants
-      .filter(
-        (name) => !listed.has(name) && foldForSearch(name).includes(needle)
-      )
-      .map((name) => ({ count: 0, name, totalMinor: 0 }));
+    const pinned = merchants.filter(
+      (name) => !listed.has(name) && foldForSearch(name).includes(needle)
+    );
 
-    return [...selectedButNotInTopRows, ...found];
+    return [...pinned, ...found.map((row) => row.name)].map((name) => ({
+      label: name,
+      value: name,
+    }));
   }, [merchants, merchantsQuery.data, settled]);
 
-  const isLoading = merchantsQuery.isPending && isOpen;
+  const emptyMessageOf = () => {
+    if (merchantsQuery.isPending) {
+      return m.budget_merchant_loading();
+    }
 
-  const checkedIndices = rows.flatMap((row, index) =>
-    merchants.includes(row.name) ? [index] : []
-  );
+    return merchantsQuery.isError
+      ? m.budget_merchant_error()
+      : m.budget_merchant_search_empty();
+  };
 
   return (
-    <DropdownMenu
+    <Combobox
+      filter={KEEP_EVERY_ROW}
+      items={items}
+      multiple
       onOpenChange={(open) => {
         setIsOpen(open);
 
@@ -81,64 +99,37 @@ export const MerchantFilterMenu = ({
           setQuery("");
         }
       }}
+      onQueryChange={setQuery}
+      onValueChange={onMerchantsChange}
+      value={merchants}
     >
-      <DropdownTrigger
-        render={
-          <Button leadingIcon={remixIcon(RiStore2Line)} variant="tertiary" />
-        }
-      >
-        {m.budget_filter_merchant()}
-        {merchants.length > 0 && <Badge>{merchants.length}</Badge>}
-      </DropdownTrigger>
-      <DropdownContent
-        align="end"
-        checkedIndices={checkedIndices}
-        className="max-h-96 min-w-72 overflow-y-auto"
-      >
-        <DropdownSearch
-          onValueChange={setQuery}
-          placeholder={m.budget_merchant_search_placeholder()}
-          value={query}
-        />
-        {isLoading && (
-          <div
-            aria-busy="true"
-            className="flex flex-col gap-1 p-1"
-            data-slot="merchant-skeleton"
-          >
-            <output className="sr-only">{m.budget_merchant_loading()}</output>
-            {SKELETON_ROWS.map((row) => (
-              <Skeleton aria-hidden="true" className="h-7 w-full" key={row} />
-            ))}
-          </div>
-        )}
-        {!isLoading && rows.length === 0 && (
-          <DropdownEmpty>
-            {merchantsQuery.isError
-              ? m.budget_merchant_error()
-              : m.budget_merchant_search_empty()}
-          </DropdownEmpty>
-        )}
-        {!isLoading &&
-          rows.map((row, index) => {
-            const labelWithPeriodTotal =
-              row.count > 0
-                ? `${row.name} — ${formatCurrency(row.totalMinor)}`
-                : row.name;
+      <ComboboxChips
+        className="min-w-52"
+        clearable
+        icon={remixIcon(RiStore2Line)}
+        placeholder={m.budget_filter_merchant()}
+      />
+      <ComboboxContent align="start">
+        <ComboboxEmpty>{emptyMessageOf()}</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => {
+            const name = comboboxItemValue(item);
 
             return (
-              <MenuItem
-                checked={merchants.includes(row.name)}
-                index={index}
-                key={row.name}
-                label={labelWithPeriodTotal}
-                onSelect={() =>
-                  onMerchantsChange(toggleMerchant(merchants, row.name))
-                }
-              />
+              <ComboboxItem value={name}>
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span className="truncate">{name}</span>
+                  {totals[name] && (
+                    <span className="text-muted-foreground shrink-0 tabular-nums">
+                      {totals[name]}
+                    </span>
+                  )}
+                </span>
+              </ComboboxItem>
             );
-          })}
-      </DropdownContent>
-    </DropdownMenu>
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 };

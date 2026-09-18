@@ -1,5 +1,6 @@
 import type { IconComponent, IconName } from "@freenary/ui/lib/icon-context";
 import {
+  RiAddLine,
   RiArrowDownLine,
   RiArrowDownSLine,
   RiArrowLeftLine,
@@ -17,6 +18,7 @@ import {
   RiMoonLine,
   RiMore2Line,
   RiMoreLine,
+  RiPencilLine,
   RiSearchLine,
   RiSidebarFoldLine,
   RiSidebarUnfoldLine,
@@ -44,6 +46,8 @@ export const ffIcons = {
   "more-vertical": remixIcon(RiMore2Line),
   "panel-left": remixIcon(RiSidebarFoldLine),
   "panel-right": remixIcon(RiSidebarUnfoldLine),
+  pencil: remixIcon(RiPencilLine),
+  plus: remixIcon(RiAddLine),
   search: remixIcon(RiSearchLine),
   sun: remixIcon(RiSunLine),
   x: remixIcon(RiCloseLine),

@@ -1,4 +1,5 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
 
 import { StaleRegion } from "@/components/budget/stale-region";
@@ -41,7 +42,7 @@ const SUMMARY_LABEL_GETTERS = {
 
 const STRIP_LAYOUT = "grid grid-cols-1 gap-4 @md/budget:grid-cols-3";
 
-const CELL_HEIGHT = "h-14";
+const CELL_CONTROL_HEIGHTS = 2;
 
 const KpiCell = ({
   label,
@@ -51,21 +52,28 @@ const KpiCell = ({
   label: string;
   tone?: string;
   value: number | null;
-}) => (
-  <div className={cn("flex flex-col gap-1", CELL_HEIGHT)}>
-    {value === null ? (
-      <span className="text-muted-foreground text-2xl font-semibold">
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">{m.budget_summary_unavailable()}</span>
-      </span>
-    ) : (
-      <span className={cn("text-2xl font-semibold tabular-nums", tone)}>
-        {formatCurrency(value)}
-      </span>
-    )}
-    <span className="text-muted-foreground text-sm">{label}</span>
-  </div>
-);
+}) => {
+  const { controlHeight } = useSize();
+
+  return (
+    <div
+      className="flex flex-col gap-1"
+      style={{ height: controlHeight * CELL_CONTROL_HEIGHTS }}
+    >
+      {value === null ? (
+        <span className="text-muted-foreground text-2xl font-semibold">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">{m.budget_summary_unavailable()}</span>
+        </span>
+      ) : (
+        <span className={cn("text-2xl font-semibold tabular-nums", tone)}>
+          {formatCurrency(value)}
+        </span>
+      )}
+      <span className="text-muted-foreground text-sm">{label}</span>
+    </div>
+  );
+};
 
 export const BudgetKpiStrip = ({
   aggregation,
@@ -75,15 +83,18 @@ export const BudgetKpiStrip = ({
   totalExpenses,
   totalIncome,
 }: BudgetKpiStripProps) => {
+  const { controlHeight } = useSize();
   const labels = SUMMARY_LABEL_GETTERS[aggregation];
 
   if (isPending) {
+    const cellHeight = controlHeight * CELL_CONTROL_HEIGHTS;
+
     return (
       <div aria-busy="true" className={STRIP_LAYOUT}>
         <output className="sr-only">{m.budget_summary_loading()}</output>
-        <Skeleton aria-hidden="true" className={CELL_HEIGHT} />
-        <Skeleton aria-hidden="true" className={CELL_HEIGHT} />
-        <Skeleton aria-hidden="true" className={CELL_HEIGHT} />
+        <Skeleton aria-hidden="true" style={{ height: cellHeight }} />
+        <Skeleton aria-hidden="true" style={{ height: cellHeight }} />
+        <Skeleton aria-hidden="true" style={{ height: cellHeight }} />
       </div>
     );
   }

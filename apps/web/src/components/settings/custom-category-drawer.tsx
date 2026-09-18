@@ -19,12 +19,13 @@ import {
   FieldSet,
 } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
+import { useIcon } from "@freenary/ui/lib/icon-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { RiCheckLine } from "@remixicon/react";
 import { useEffect, useState } from "react";
 
 import { CategoryGroupSelect } from "@/components/budget/category-group-select";
@@ -63,6 +64,8 @@ export const CustomCategoryDrawer = ({
     setEditedHeldThroughCloseAnimation(edited);
   }
 
+  const CheckIcon = useIcon("check");
+
   const { form, isSaving } = useCustomCategoryForm({
     edited: editedHeldThroughCloseAnimation,
     onCreated,
@@ -90,153 +93,157 @@ export const CustomCategoryDrawer = ({
         </DrawerHeader>
 
         <form
-          className="overflow-y-auto p-4 pt-0"
+          className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
             form.handleSubmit();
           }}
         >
-          <FieldGroup>
-            <form.Field name="label">
-              {(field) => (
-                <Field data-invalid={field.state.meta.errors.length > 0}>
-                  <FieldLabel htmlFor="custom-category-label">
-                    {m.settings_field_name()}
-                  </FieldLabel>
-                  <Input
-                    aria-invalid={field.state.meta.errors.length > 0}
-                    id="custom-category-label"
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder={m.settings_category_name_placeholder()}
-                    value={field.state.value}
-                  />
-                  <FieldError errors={field.state.meta.errors} />
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Field name="color">
-              {(field) => (
-                <FieldSet>
-                  <FieldLegend variant="label">
-                    {m.settings_field_color()}
-                  </FieldLegend>
-                  <ToggleGroup
-                    className="flex-wrap"
-                    value={[field.state.value]}
-                    onValueChange={([next]) => {
-                      const color = CATEGORY_COLOR_VALUES.find(
-                        (value) => value === next
-                      );
-
-                      if (color) {
-                        field.handleChange(color);
+          <ScrollArea className="min-h-0 flex-1" viewportClassName="p-4 pt-0">
+            <FieldGroup>
+              <form.Field name="label">
+                {(field) => (
+                  <Field data-invalid={field.state.meta.errors.length > 0}>
+                    <FieldLabel htmlFor="custom-category-label">
+                      {m.settings_field_name()}
+                    </FieldLabel>
+                    <Input
+                      aria-invalid={field.state.meta.errors.length > 0}
+                      id="custom-category-label"
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
                       }
-                    }}
-                  >
-                    {CATEGORY_COLOR_VALUES.map((color) => (
-                      <ToggleGroupItem
-                        key={color}
-                        aria-label={CATEGORY_COLOR_LABELS[color]()}
-                        className={cn(
-                          "size-8 rounded-full p-0",
-                          PRESSED_RING_OVER_OPAQUE_SWATCH
-                        )}
-                        value={color}
-                      >
-                        <span
+                      placeholder={m.settings_category_name_placeholder()}
+                      value={field.state.value}
+                    />
+                    <FieldError errors={field.state.meta.errors} />
+                  </Field>
+                )}
+              </form.Field>
+
+              <form.Field name="color">
+                {(field) => (
+                  <FieldSet>
+                    <FieldLegend variant="label">
+                      {m.settings_field_color()}
+                    </FieldLegend>
+                    <ToggleGroup
+                      className="flex-wrap"
+                      value={[field.state.value]}
+                      onValueChange={([next]) => {
+                        const color = CATEGORY_COLOR_VALUES.find(
+                          (value) => value === next
+                        );
+
+                        if (color) {
+                          field.handleChange(color);
+                        }
+                      }}
+                    >
+                      {CATEGORY_COLOR_VALUES.map((color) => (
+                        <ToggleGroupItem
+                          key={color}
+                          aria-label={CATEGORY_COLOR_LABELS[color]()}
                           className={cn(
-                            "flex size-full items-center justify-center rounded-full",
-                            SWATCH_BY_COLOR[color]
+                            "size-8 rounded-full p-0",
+                            PRESSED_RING_OVER_OPAQUE_SWATCH
                           )}
+                          value={color}
                         >
-                          {field.state.value === color ? <RiCheckLine /> : null}
-                        </span>
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </FieldSet>
-              )}
-            </form.Field>
-
-            <form.Field name="icon">
-              {(field) => (
-                <FieldSet>
-                  <FieldLegend variant="label">
-                    {m.settings_field_icon()}
-                  </FieldLegend>
-                  <form.Subscribe selector={(state) => state.values.color}>
-                    {(color) => (
-                      <ToggleGroup
-                        className="grid grid-cols-9"
-                        value={[field.state.value]}
-                        onValueChange={([next]) => {
-                          const name = CATEGORY_ICON_NAMES.find(
-                            (value) => value === next
-                          );
-
-                          if (name) {
-                            field.handleChange(name);
-                          }
-                        }}
-                      >
-                        {CATEGORY_ICON_NAMES.map((icon) => (
-                          <ToggleGroupItem
-                            key={icon}
-                            aria-label={CATEGORY_ICON_LABELS[icon]()}
+                          <span
                             className={cn(
-                              "size-8 rounded-full p-0",
-                              PRESSED_RING_OVER_OPAQUE_SWATCH
+                              "flex size-full items-center justify-center rounded-full",
+                              SWATCH_BY_COLOR[color]
                             )}
-                            value={icon}
                           >
-                            <CategoryIcon
-                              className="size-7 [&_svg]:size-4"
-                              color={color}
-                              icon={icon}
-                            />
-                          </ToggleGroupItem>
-                        ))}
-                      </ToggleGroup>
-                    )}
-                  </form.Subscribe>
-                </FieldSet>
-              )}
-            </form.Field>
+                            {field.state.value === color ? <CheckIcon /> : null}
+                          </span>
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </FieldSet>
+                )}
+              </form.Field>
 
-            <form.Field name="parentSlug">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor="custom-category-parent">
-                    {m.settings_field_parent()}
-                  </FieldLabel>
-                  <CategoryGroupSelect
-                    id="custom-category-parent"
-                    noneLabel={m.settings_category_parent_none()}
-                    onValueChange={(v) => field.handleChange(v)}
-                    value={field.state.value}
-                  />
-                </Field>
-              )}
-            </form.Field>
+              <form.Field name="icon">
+                {(field) => (
+                  <FieldSet>
+                    <FieldLegend variant="label">
+                      {m.settings_field_icon()}
+                    </FieldLegend>
+                    <form.Subscribe selector={(state) => state.values.color}>
+                      {(color) => (
+                        <ToggleGroup
+                          className="grid grid-cols-9"
+                          value={[field.state.value]}
+                          onValueChange={([next]) => {
+                            const name = CATEGORY_ICON_NAMES.find(
+                              (value) => value === next
+                            );
 
-            <Field orientation="horizontal" className="justify-end">
-              <Button
-                onClick={() => onOpenChange(false)}
-                type="button"
-                variant="ghost"
-              >
-                {m.settings_cancel()}
-              </Button>
-              <Button disabled={isSaving} type="submit">
-                {editedHeldThroughCloseAnimation
-                  ? m.settings_save_changes()
-                  : m.settings_category_create()}
-              </Button>
-            </Field>
-          </FieldGroup>
+                            if (name) {
+                              field.handleChange(name);
+                            }
+                          }}
+                        >
+                          {CATEGORY_ICON_NAMES.map((icon) => (
+                            <ToggleGroupItem
+                              key={icon}
+                              aria-label={CATEGORY_ICON_LABELS[icon]()}
+                              className={cn(
+                                "size-8 rounded-full p-0",
+                                PRESSED_RING_OVER_OPAQUE_SWATCH
+                              )}
+                              value={icon}
+                            >
+                              <CategoryIcon
+                                className="size-7 [&_svg]:size-4"
+                                color={color}
+                                icon={icon}
+                              />
+                            </ToggleGroupItem>
+                          ))}
+                        </ToggleGroup>
+                      )}
+                    </form.Subscribe>
+                  </FieldSet>
+                )}
+              </form.Field>
+
+              <form.Field name="parentSlug">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor="custom-category-parent">
+                      {m.settings_field_parent()}
+                    </FieldLabel>
+                    <CategoryGroupSelect
+                      id="custom-category-parent"
+                      noneLabel={m.settings_category_parent_none()}
+                      onValueChange={(v) => field.handleChange(v)}
+                      value={field.state.value}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+
+              <Field orientation="horizontal" className="justify-end">
+                <Button
+                  onClick={() => onOpenChange(false)}
+                  type="button"
+                  variant="ghost"
+                >
+                  {m.settings_cancel()}
+                </Button>
+                <Button disabled={isSaving} type="submit">
+                  {editedHeldThroughCloseAnimation
+                    ? m.settings_save_changes()
+                    : m.settings_category_create()}
+                </Button>
+              </Field>
+            </FieldGroup>
+          </ScrollArea>
         </form>
       </DrawerContent>
     </Drawer>

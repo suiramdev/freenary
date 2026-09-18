@@ -1,34 +1,20 @@
-import { CATEGORY_GROUPS, categoriesInGroup } from "@freenary/api/lib/taxonomy";
-import type {
-  CategoryGroup,
-  SpendingCategory,
-} from "@freenary/api/lib/taxonomy";
-
 import { foldForSearch } from "@/lib/search-text";
-import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 
-export interface CategoryGroupMatch {
-  categories: readonly SpendingCategory[];
-  group: CategoryGroup;
+export interface CategoryRow {
+  group: string;
+  label: string;
+  value: string;
 }
 
-export const matchCategoryGroups = (query: string): CategoryGroupMatch[] => {
+export const categoryRowMatches = (
+  row: CategoryRow,
+  query: string
+): boolean => {
   const needle = foldForSearch(query.trim());
-  const matches: CategoryGroupMatch[] = [];
 
-  for (const group of CATEGORY_GROUPS) {
-    const groupOwnNameMatches =
-      !needle || foldForSearch(categoryGroupLabel(group)).includes(needle);
-    const categories = groupOwnNameMatches
-      ? categoriesInGroup(group)
-      : categoriesInGroup(group).filter((category) =>
-          foldForSearch(categoryLabel(category)).includes(needle)
-        );
-
-    if (categories.length > 0) {
-      matches.push({ categories, group });
-    }
-  }
-
-  return matches;
+  return (
+    needle === "" ||
+    foldForSearch(row.label).includes(needle) ||
+    foldForSearch(row.group).includes(needle)
+  );
 };

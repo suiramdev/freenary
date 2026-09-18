@@ -19,8 +19,8 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@freenary/ui/components/item";
-import { Spinner } from "@freenary/ui/components/spinner";
-import { useState } from "react";
+import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
+import { useRef, useState } from "react";
 
 import { SecurityPasskeyNameDialog } from "@/components/settings/security-passkey-name-dialog";
 import type { PasskeyRenameInput } from "@/hooks/settings/use-passkey-actions";
@@ -30,11 +30,13 @@ type PasskeyReachSlug = "device_only" | "not_backed_up" | "synced";
 
 interface SecurityPasskeyRowProps {
   formatter: Intl.DateTimeFormat;
+  index: number;
   isRemoving: boolean;
   isRenaming: boolean;
   onRemove: (id: string) => void;
   onRename: (input: PasskeyRenameInput) => void;
   passkey: Passkey;
+  registerItem: (index: number, element: HTMLElement | null) => void;
 }
 
 const REACH_LABELS = {
@@ -53,20 +55,25 @@ const signInReachOf = (passkey: Passkey): PasskeyReachSlug => {
 
 export const SecurityPasskeyRow = ({
   formatter,
+  index,
   isRemoving,
   isRenaming,
   onRemove,
   onRename,
   passkey,
+  registerItem,
 }: SecurityPasskeyRowProps) => {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const storedName = passkey.name?.trim() ?? "";
   const displayName =
     storedName === "" ? m.settings_passkeys_unnamed() : storedName;
   const reach = REACH_LABELS[signInReachOf(passkey)]();
 
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
+
   return (
-    <Item render={<li />} size="sm">
+    <Item className="relative z-10" ref={rowRef} render={<li />} size="sm">
       <ItemContent className="min-w-0">
         <ItemTitle className="flex flex-wrap items-center gap-2">
           {displayName}
@@ -84,11 +91,10 @@ export const SecurityPasskeyRow = ({
           aria-label={m.settings_passkeys_rename_passkey({
             passkey: displayName,
           })}
-          disabled={isRenaming}
+          loading={isRenaming}
           onClick={() => setIsRenameOpen(true)}
           variant="tertiary"
         >
-          {isRenaming && <Spinner data-icon="inline-start" />}
           {m.settings_passkeys_rename()}
         </Button>
 
@@ -118,12 +124,11 @@ export const SecurityPasskeyRow = ({
             <AlertDialogFooter>
               <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
               <AlertDialogAction
-                disabled={isRemoving}
+                loading={isRemoving}
                 onClick={() => onRemove(passkey.id)}
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
               >
-                {isRemoving && <Spinner data-icon="inline-start" />}
                 {m.settings_passkeys_remove_confirm()}
               </AlertDialogAction>
             </AlertDialogFooter>

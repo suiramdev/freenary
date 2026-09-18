@@ -365,6 +365,52 @@ type DropdownTriggerProps = MenuTriggerProps;
 const DropdownTrigger = Menu.Trigger;
 
 // ---------------------------------------------------------------------------
+// DropdownSubmenu
+//
+// A nested menu, opened by a `submenu` MenuItem inside the parent popup.
+// Base UI's SubmenuTrigger owns the interaction: pointer hover after 100ms
+// with a safe-polygon path to the popup, ArrowRight/ArrowLeft and typeahead
+// for the keyboard, and tap for touch, where hover does not exist.
+//
+// It provides its own DropdownMenu context, so the DropdownContent inside it
+// animates and unmounts on the submenu's open state rather than the root's.
+// ---------------------------------------------------------------------------
+
+interface DropdownSubmenuProps {
+  children: ReactNode;
+  onOpenChange?: (open: boolean) => void;
+}
+
+function DropdownSubmenu({ children, onOpenChange }: DropdownSubmenuProps) {
+  const [open, setOpen] = useState(false);
+  const actionsRef = useRef<DropdownMenuActions | null>(null);
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange]
+  );
+
+  const ctx = useMemo(() => ({ open, actionsRef }), [open]);
+
+  return (
+    <DropdownMenuContext.Provider value={ctx}>
+      <Menu.SubmenuRoot
+        actionsRef={actionsRef}
+        onOpenChange={handleOpenChange}
+        open={open}
+      >
+        {children}
+      </Menu.SubmenuRoot>
+    </DropdownMenuContext.Provider>
+  );
+}
+
+DropdownSubmenu.displayName = "DropdownSubmenu";
+
+// ---------------------------------------------------------------------------
 // DropdownContent (popup panel)
 //
 // Portal > Positioner > Popup carrying the exact inline-panel visuals:
@@ -504,10 +550,21 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
         disabled,
         label,
         closeOnClick,
+        submenu,
         element,
         children,
       }: MenuItemRenderOptions) =>
-        checkbox ? (
+        submenu ? (
+          // Opens the nested popup; Base UI owns hover, tap, ArrowRight and
+          // the aria-haspopup/aria-expanded pair on the row.
+          <Menu.SubmenuTrigger
+            label={label}
+            disabled={disabled}
+            render={element}
+          >
+            {children}
+          </Menu.SubmenuTrigger>
+        ) : checkbox ? (
           // The row's own onClick toggles the consumer state; the primitive
           // only owns the role, aria-checked, and keyboard activation.
           <Menu.CheckboxItem
@@ -562,6 +619,14 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       ]
     );
 
+    // A submenu's popup is portalled, but it stays a React child of this one,
+    // so its clicks, focus and pointer moves bubble here. Only this popup's
+    // own rows may drive its hover model: a child row's index would otherwise
+    // light the parent row of the same number, and route a gap click to it.
+    const isOwnEvent = (e: React.SyntheticEvent) =>
+      (e.target as Element | null)?.closest?.('[role="menu"]') ===
+      e.currentTarget;
+
     return (
       <Menu.Portal>
         <Menu.Positioner
@@ -591,8 +656,12 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                   render={<Elevated offset={2} shadowLevel={3} ref={ref} />}
                   onKeyDownCapture={redirectTypingToSearch}
                   onMouseEnter={handlers.onMouseEnter}
-                  onMouseMove={handlers.onMouseMove}
-                  onClick={handlers.onClick}
+                  onMouseMove={(e) => {
+                    if (isOwnEvent(e)) handlers.onMouseMove(e);
+                  }}
+                  onClick={(e) => {
+                    if (isOwnEvent(e)) handlers.onClick(e);
+                  }}
                   onMouseLeave={() => {
                     handlers.onMouseLeave();
                     // The pointer's session is over; a focused search field
@@ -600,6 +669,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                     if (isSearchField(document.activeElement)) highlightFirst();
                   }}
                   onFocus={(e) => {
+                    if (!isOwnEvent(e)) return;
                     const indexAttr = (e.target as HTMLElement)
                       .closest("[data-fluid-hover-index]")
                       ?.getAttribute("data-fluid-hover-index");
@@ -619,9 +689,18 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                     }
                   }}
                   onBlur={(e) => {
+                    if (!isOwnEvent(e)) return;
                     // The popup itself takes focus when the pointer leaves a row; only a
                     // departure from the whole popup ends the hover session.
                     if (e.currentTarget.contains(e.relatedTarget as Node))
+                      return;
+                    // Focus moved into the submenu this row opened: the row
+                    // stays lit as the path to the child popup.
+                    if (
+                      (e.relatedTarget as Element | null)?.closest?.(
+                        '[role="menu"]'
+                      )
+                    )
                       return;
                     setActiveIndex(null);
                   }}
@@ -751,6 +830,7 @@ export {
   DropdownLabel,
   DropdownSeparator,
   DropdownMenu,
+  DropdownSubmenu,
   DropdownTrigger,
   DropdownContent,
   DropdownSearch,
@@ -762,6 +842,7 @@ export {
 export type {
   DropdownProps,
   DropdownMenuProps,
+  DropdownSubmenuProps,
   DropdownTriggerProps,
   DropdownContentProps,
   DropdownSearchProps,

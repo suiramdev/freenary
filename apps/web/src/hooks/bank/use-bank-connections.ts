@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { institutionKey } from "@/lib/bank/bank-rows";
 import { invalidateBudgetData } from "@/lib/budget/stale-queries";
 import { m } from "@/paraglide/messages.js";
 import { client, orpc } from "@/utils/orpc";
@@ -100,7 +101,7 @@ export const useBankConnections = ({
   });
 
   const handOverToBank = async (bank: BankInstitution) => {
-    setConnecting(bank.id);
+    setConnecting(institutionKey(bank));
     const started = await client.bankConnection
       .startConnection({
         bankCountry: bank.country,

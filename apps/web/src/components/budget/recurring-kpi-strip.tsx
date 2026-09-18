@@ -1,4 +1,5 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
 
 import { formatCurrency } from "@/lib/budget/format-currency";
@@ -16,7 +17,7 @@ interface RecurringKpiStripProps {
 
 const STRIP_LAYOUT = "grid grid-cols-2 gap-4 @min-[30rem]/budget:grid-cols-3";
 
-const CELL_HEIGHT = "h-18";
+const CELL_CONTROL_HEIGHTS = 2.5;
 
 const CELL_KEYS = [
   "monthly",
@@ -45,24 +46,31 @@ const KpiCell = ({
   note?: string;
   tone?: string;
   value: string | null;
-}) => (
-  <div className={cn("flex flex-col gap-1", CELL_HEIGHT)}>
-    {value === null ? (
-      <span className="text-muted-foreground text-xl font-semibold">
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">{m.budget_summary_unavailable()}</span>
-      </span>
-    ) : (
-      <span className={cn("text-xl font-semibold tabular-nums", tone)}>
-        {value}
-      </span>
-    )}
-    <span className="text-muted-foreground text-sm">{label}</span>
-    {note ? (
-      <span className="text-muted-foreground text-xs">{note}</span>
-    ) : null}
-  </div>
-);
+}) => {
+  const { controlHeight } = useSize();
+
+  return (
+    <div
+      className="flex flex-col gap-1"
+      style={{ height: controlHeight * CELL_CONTROL_HEIGHTS }}
+    >
+      {value === null ? (
+        <span className="text-muted-foreground text-xl font-semibold">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">{m.budget_summary_unavailable()}</span>
+        </span>
+      ) : (
+        <span className={cn("text-xl font-semibold tabular-nums", tone)}>
+          {value}
+        </span>
+      )}
+      <span className="text-muted-foreground text-sm">{label}</span>
+      {note ? (
+        <span className="text-muted-foreground text-xs">{note}</span>
+      ) : null}
+    </div>
+  );
+};
 
 export const RecurringKpiStrip = ({
   currency,
@@ -70,12 +78,18 @@ export const RecurringKpiStrip = ({
   isPending,
   summary,
 }: RecurringKpiStripProps) => {
+  const { controlHeight } = useSize();
+
   if (isPending) {
     return (
       <div aria-busy="true" className={STRIP_LAYOUT}>
         <output className="sr-only">{m.budget_recurring_loading()}</output>
         {CELL_KEYS.map((key) => (
-          <Skeleton aria-hidden="true" className={CELL_HEIGHT} key={key} />
+          <Skeleton
+            aria-hidden="true"
+            key={key}
+            style={{ height: controlHeight * CELL_CONTROL_HEIGHTS }}
+          />
         ))}
       </div>
     );

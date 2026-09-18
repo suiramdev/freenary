@@ -1,18 +1,13 @@
 import {
-  categoryGroupAppearance,
-  predefinedCategoryAppearance,
-} from "@freenary/api/lib/categories";
-import {
   TabItem,
   TabPanel,
   Tabs,
   TabsList,
 } from "@freenary/ui/components/tabs";
-import { RiCoinsLine, RiStore2Line } from "@remixicon/react";
+import { RiCoinsLine } from "@remixicon/react";
 
 import { AmountFilterMenu } from "@/components/budget/amount-filter-menu";
 import { CategoryFilterMenu } from "@/components/budget/category-filter-menu";
-import { CategoryIcon } from "@/components/budget/category-icon";
 import {
   ClearFiltersButton,
   ListFilterBar,
@@ -24,11 +19,7 @@ import {
 import { MerchantFilterMenu } from "@/components/budget/merchant-filter-menu";
 import { TransactionRows } from "@/components/budget/transaction-rows";
 import { useHoverIntent } from "@/hooks/shared/use-hover-intent";
-import {
-  EMPTY_CATEGORY_FILTER,
-  toggleCategory,
-  toggleGroup,
-} from "@/lib/budget/category-selection";
+import { EMPTY_CATEGORY_FILTER } from "@/lib/budget/category-selection";
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { TimeRange } from "@/lib/budget/period";
@@ -37,13 +28,9 @@ import type { Transaction } from "@/lib/budget/transaction";
 import {
   activeFilterCount,
   EMPTY_AMOUNT_RANGE,
-  toggleMerchant,
 } from "@/lib/budget/transaction-filters";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
-import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
-
-const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
 
 const amountLabel = (amount: AmountRange): string => {
   const max = formatCurrency(Math.round(amount.max * 100));
@@ -153,60 +140,28 @@ export const TransactionList = ({
         <CategoryFilterMenu filter={filter} onFilterChange={onFilterChange} />
       </ListFilterBar>
 
-      {activeCount > 0 && (
+      {(hasAmountBound || activeCount >= 2) && (
         <ListFilterChips>
-          {filter.groups.map((group) => (
-            <ListFilterChip
-              icon={
-                <CategoryIcon
-                  {...categoryGroupAppearance(group)}
-                  className={CHIP_ICON_CLASS}
+          {(position) => (
+            <>
+              {hasAmountBound && (
+                <ListFilterChip
+                  icon={<RiCoinsLine className="size-3.5" />}
+                  label={amountLabel(amount)}
+                  onRemove={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
+                  position={position(0)}
                 />
-              }
-              key={group}
-              label={categoryGroupLabel(group)}
-              onRemove={() => onFilterChange(toggleGroup(filter, group))}
-            />
-          ))}
-          {filter.categories.map((cat) => (
-            <ListFilterChip
-              icon={
-                <CategoryIcon
-                  {...predefinedCategoryAppearance(cat)}
-                  className={CHIP_ICON_CLASS}
+              )}
+              {activeCount >= 2 && (
+                <ClearFiltersButton
+                  onClear={() => {
+                    onFilterChange(EMPTY_CATEGORY_FILTER);
+                    onMerchantsChange([]);
+                    onAmountChange(EMPTY_AMOUNT_RANGE);
+                  }}
                 />
-              }
-              key={cat}
-              label={categoryLabel(cat)}
-              onRemove={() => onFilterChange(toggleCategory(filter, cat))}
-            />
-          ))}
-          {merchants.map((merchant) => (
-            <ListFilterChip
-              icon={<RiStore2Line />}
-              key={merchant}
-              label={merchant}
-              onRemove={() =>
-                onMerchantsChange(toggleMerchant(merchants, merchant))
-              }
-              truncate={true}
-            />
-          ))}
-          {hasAmountBound && (
-            <ListFilterChip
-              icon={<RiCoinsLine />}
-              label={amountLabel(amount)}
-              onRemove={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
-            />
-          )}
-          {activeCount >= 2 && (
-            <ClearFiltersButton
-              onClear={() => {
-                onFilterChange(EMPTY_CATEGORY_FILTER);
-                onMerchantsChange([]);
-                onAmountChange(EMPTY_AMOUNT_RANGE);
-              }}
-            />
+              )}
+            </>
           )}
         </ListFilterChips>
       )}

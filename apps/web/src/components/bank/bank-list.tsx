@@ -5,11 +5,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
+import { useFluidHover } from "@freenary/ui/hooks/use-fluid-hover";
 import { RiBankLine, RiErrorWarningLine } from "@remixicon/react";
+import { useRef } from "react";
 
 import { BankCard } from "@/components/bank/bank-card";
 import { BankListSkeleton } from "@/components/bank/bank-list-skeleton";
 import type { BankConnection } from "@/hooks/bank/use-bank-connections";
+import { institutionKey } from "@/lib/bank/bank-rows";
 import type { BankRow } from "@/lib/bank/bank-rows";
 import { m } from "@/paraglide/messages.js";
 
@@ -26,6 +31,8 @@ interface BankListProps {
   syncingId: string | null;
 }
 
+const LIST_VIEWPORT_CLASS = "max-h-64 scroll-fade";
+
 export const BankList = ({
   connecting,
   disconnectingId,
@@ -38,14 +45,17 @@ export const BankList = ({
   rows,
   syncingId,
 }: BankListProps) => {
+  const listRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
+
   if (isPending) {
     return (
-      <div aria-busy="true" className="max-h-64 overflow-y-auto">
+      <ScrollArea aria-busy="true" viewportClassName={LIST_VIEWPORT_CLASS}>
         <output className="sr-only">{m.bank_list_loading()}</output>
         <div aria-hidden="true">
           <BankListSkeleton rows={4} />
         </div>
-      </div>
+      </ScrollArea>
     );
   }
 
@@ -83,27 +93,37 @@ export const BankList = ({
   }
 
   return (
-    <ul className="flex max-h-64 flex-col gap-2.5 overflow-y-auto">
-      {rows.map((row) => (
-        <BankCard
-          key={row.id}
-          connecting={connecting === row.institution?.id}
-          disconnecting={disconnectingId === row.connection?.id}
-          onConnect={() => onConnect(row)}
-          onDisconnect={() => {
-            if (row.connection) {
-              onDisconnect(row.connection.id);
-            }
-          }}
-          onSync={() => {
-            if (row.connection) {
-              onSync(row.connection);
-            }
-          }}
-          row={row}
-          syncing={syncingId === row.connection?.id}
-        />
-      ))}
-    </ul>
+    <ScrollArea viewportClassName={LIST_VIEWPORT_CLASS}>
+      <div className="relative" ref={listRef} {...hover.handlers}>
+        <FluidHoverHighlight className="rounded-md" hover={hover} />
+        <ul className="flex flex-col gap-2.5">
+          {rows.map((row, index) => (
+            <BankCard
+              key={row.id}
+              connecting={
+                row.institution !== null &&
+                connecting === institutionKey(row.institution)
+              }
+              disconnecting={disconnectingId === row.connection?.id}
+              hoverIndex={index}
+              onConnect={() => onConnect(row)}
+              onDisconnect={() => {
+                if (row.connection) {
+                  onDisconnect(row.connection.id);
+                }
+              }}
+              onSync={() => {
+                if (row.connection) {
+                  onSync(row.connection);
+                }
+              }}
+              registerHoverItem={hover.registerItem}
+              row={row}
+              syncing={syncingId === row.connection?.id}
+            />
+          ))}
+        </ul>
+      </div>
+    </ScrollArea>
   );
 };

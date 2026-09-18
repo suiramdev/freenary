@@ -42,20 +42,27 @@ const RootDocument = () => (
         disableTransitionOnChange
         enableSystem
       >
-        {/* The app predates the Fluid Functionalism size ladder and was
-            designed around 28px controls, so the compact step is the default;
-            surfaces that want 36px opt in with size="default". */}
         <SizeProvider defaultSize="compact">
           <IconProvider icons={ffIcons}>
             <UiLabelsProvider
               labels={{
+                clear: m.ui_clear(),
                 close: m.ui_close(),
                 loading: m.ui_loading(),
                 more: m.ui_more(),
+                open: m.ui_open(),
+                remove: m.ui_remove(),
                 scrollToEnd: m.ui_scroll_to_end(),
                 scrollToStart: m.ui_scroll_to_start(),
                 sidebar: m.ui_sidebar(),
                 sidebarDescription: m.ui_sidebar_description(),
+                suggestedPrompts: m.ui_suggested_prompts(),
+                thinking: m.ui_thinking(),
+                thinkingWords: [
+                  m.ui_thinking_word_thinking(),
+                  m.ui_thinking_word_reading(),
+                  m.ui_thinking_word_planning(),
+                ],
                 toggleSidebar: m.ui_toggle_sidebar(),
               }}
             >

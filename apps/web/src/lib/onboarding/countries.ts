@@ -233,7 +233,7 @@ const fullySupportedFirstThenLocalName =
 
 const countriesByLocale = new Map<Locale, readonly Country[]>();
 
-const countriesIn = (locale: Locale): readonly Country[] => {
+export const countriesFor = (locale: Locale): readonly Country[] => {
   const cached = countriesByLocale.get(locale);
 
   if (cached) {
@@ -253,18 +253,19 @@ const countriesIn = (locale: Locale): readonly Country[] => {
   return countries;
 };
 
-export const filterCountries = (
-  search: string,
-  locale: Locale
-): readonly Country[] => {
-  const countries = countriesIn(locale);
-  const query = foldForSearch(search.trim());
+export const countryName = (code: string, locale: Locale): string =>
+  countriesFor(locale).find((country) => country.code === code)?.name ?? code;
 
-  return query
-    ? countries.filter(
-        (country) =>
-          foldForSearch(country.name).includes(query) ||
-          country.code.toLowerCase().includes(query)
-      )
-    : countries;
+export const countryMatches = (
+  code: string,
+  name: string,
+  query: string
+): boolean => {
+  const needle = foldForSearch(query.trim());
+
+  return (
+    needle === "" ||
+    foldForSearch(name).includes(needle) ||
+    code.toLowerCase().includes(needle)
+  );
 };

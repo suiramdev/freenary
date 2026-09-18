@@ -1,4 +1,5 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { useSize, useTypeScale } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
 import type { RemixiconComponentType } from "@remixicon/react";
 import {
@@ -87,7 +88,7 @@ const insightLine = (
   return trendLine(insight.trend, percentFormat);
 };
 
-const ROW_HEIGHT = "h-5";
+const LINE_HEIGHT_RATIO = 1.5;
 
 export const RecurringInsights = ({
   currency,
@@ -98,11 +99,18 @@ export const RecurringInsights = ({
   insights: RecurringInsight[];
   isPending: boolean;
 }) => {
+  const { text: textClass } = useSize();
+  const type = useTypeScale();
+
   if (isPending) {
     return (
       <div aria-busy="true">
         <output className="sr-only">{m.budget_recurring_loading()}</output>
-        <Skeleton aria-hidden="true" className={cn("max-w-lg", ROW_HEIGHT)} />
+        <Skeleton
+          aria-hidden="true"
+          className="max-w-lg"
+          style={{ height: Math.round(type.body * LINE_HEIGHT_RATIO) }}
+        />
       </div>
     );
   }
@@ -126,7 +134,10 @@ export const RecurringInsights = ({
 
         return (
           <li
-            className="text-muted-foreground flex items-center gap-1.5 text-sm"
+            className={cn(
+              "text-muted-foreground flex items-center gap-1.5",
+              textClass
+            )}
             key={insight.kind}
           >
             <Icon aria-hidden="true" className="size-4 shrink-0" />

@@ -1,4 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
+import { Spinner } from "@freenary/ui/components/spinner";
 import { Tooltip } from "@freenary/ui/components/tooltip";
 import { RiRefreshLine } from "@remixicon/react";
 
@@ -8,7 +9,7 @@ interface SyncButtonProps {
   isSyncing: boolean;
   label: string;
   onSync: () => void;
-  size?: "icon" | "icon-sm";
+  size?: "icon" | "icon-compact";
 }
 
 export const SyncButton = ({
@@ -26,7 +27,7 @@ export const SyncButton = ({
       type="button"
       variant="ghost"
     >
-      <RiRefreshLine className={isSyncing ? "animate-spin" : undefined} />
+      {isSyncing ? <Spinner /> : <RiRefreshLine />}
     </Button>
   </Tooltip>
 );

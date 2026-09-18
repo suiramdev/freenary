@@ -63,7 +63,7 @@ export const RecurrenceFilterMenu = ({
         }
       >
         {m.budget_filter_recurrence()}
-        {activeCount > 0 && <Badge>{activeCount}</Badge>}
+        {activeCount > 0 && <Badge className="ml-1.5">{activeCount}</Badge>}
       </DropdownTrigger>
       <DropdownContent
         align="end"

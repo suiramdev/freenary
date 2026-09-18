@@ -254,6 +254,7 @@ Protected. Lists the bank connections of the caller and their bank accounts, old
 | --- | --- | --- |
 | `accounts` | array of `{ iban, id, name }` | Oldest first. |
 | `id` | string | Pass it as `connectionId` to `disconnect` or to `budget.syncAccounts`. |
+| `institutionCountry` | string or `null` | The country code of the bank. `null` when the provider gave none. |
 | `institutionId` | string | The bank provider id of the bank. |
 | `institutionName` | string | The bank name. |
 | `lastSyncedAt` | date or `null` | `null` before the first sync. |
@@ -263,13 +264,13 @@ Protected. Lists the bank connections of the caller and their bank accounts, old
 
 ### bankConnection.listInstitutions
 
-Protected. Lists the banks the provider can link in one country.
+Protected. Lists the banks the provider can link in one country or more. The provider answers one country at a time, so the result is the union of the answers. A bank is identified by the pair of `id` and `country`. The same `id` in two countries is two banks here, and a duplicate pair is dropped.
 
 **Input**
 
 | Field | Type | Required | Default | Bounds |
 | --- | --- | --- | --- | --- |
-| `country` | string | no | The `country` column of the caller | A country code the bank provider knows. |
+| `countries` | array of string | no | The `taxCountries` column of the caller | Each entry a country code the bank provider knows. |
 
 **Output**: `{ banks: [...] }`.
 
@@ -637,13 +638,13 @@ Protected. Sets the category of one transaction, and remembers the merchant.
 
 ### onboarding.completeOnboarding
 
-Protected. Stores the country and marks the first-run flow as done.
+Protected. Stores the tax jurisdictions of the caller and marks the first-run flow as done.
 
 **Input**
 
-| Field     | Type   | Required | Bounds                              |
-| --------- | ------ | -------- | ----------------------------------- |
-| `country` | string | yes      | No format check. Any string passes. |
+| Field | Type | Required | Bounds |
+| --- | --- | --- | --- |
+| `taxCountries` | array of string | yes | A minimum of one ISO 3166-1 alpha-2 code, uppercase. |
 
 **Output**
 
@@ -664,7 +665,7 @@ Protected. Reports whether the caller finished the first-run flow.
 | Field | Type | Note |
 | --- | --- | --- |
 | `completed` | boolean | `true` once the account holds a completion date. |
-| `country` | string or `null` | The country the caller picked, `null` before that. |
+| `taxCountries` | array of string | The jurisdictions the caller picked, empty before that. |
 
 **Errors**: none.
 

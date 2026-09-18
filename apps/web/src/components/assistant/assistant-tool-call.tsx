@@ -1,37 +1,28 @@
-import type { AssistantToolName } from "@freenary/api/assistant/tools";
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
-import { Spinner } from "@freenary/ui/components/spinner";
 import {
-  RiBankLine,
-  RiBarChartBoxLine,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@freenary/ui/components/collapsible";
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
+import { Spinner } from "@freenary/ui/components/spinner";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
+import {
   RiCheckboxCircleLine,
   RiCloseCircleLine,
   RiForbidLine,
-  RiLineChartLine,
-  RiPieChartLine,
   RiRefreshLine,
-  RiRepeatLine,
-  RiScalesLine,
-  RiSearchLine,
   RiTimeLine,
   RiToolsLine,
 } from "@remixicon/react";
-import type { RemixiconComponentType } from "@remixicon/react";
 import type { ToolUIPart } from "ai";
 import type { ReactNode } from "react";
 
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
 import type { ToolStatus } from "@/lib/assistant/execution";
 import { formatDuration } from "@/lib/assistant/format-duration";
 import {
-  assistantToolNameOf,
   assistantToolPurpose,
   toolParametersOf,
   toolResultSummary,
@@ -39,6 +30,7 @@ import {
 import { assistantToolLabel } from "@/lib/assistant/tool-labels";
 import type { ExpandAll } from "@/lib/assistant/use-expand-all";
 import { useExpandAll } from "@/lib/assistant/use-expand-all";
+import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 
 interface AssistantToolCallProps {
@@ -49,23 +41,12 @@ interface AssistantToolCallProps {
   onRetry?: () => void;
 }
 
-const TOOL_ICONS = {
-  get_accounts_overview: RiBankLine,
-  get_budget_vs_actual: RiScalesLine,
-  get_cash_flow: RiLineChartLine,
-  get_fixed_vs_variable: RiPieChartLine,
-  get_recurring_expenses: RiRepeatLine,
-  get_spending_by_group: RiBarChartBoxLine,
-  search_transactions: RiSearchLine,
-} satisfies Record<AssistantToolName, RemixiconComponentType>;
+const TRIGGER_PAD = { compact: "p-2.5", default: "p-3" } as const;
+const PANEL_PAD = { compact: "px-3 pb-3", default: "px-4 pb-4" } as const;
+const CODE_PAD = { compact: "p-2.5", default: "p-3" } as const;
 
-const UNKNOWN_TOOL_ICON = RiToolsLine;
-
-export const assistantToolIcon = (part: ToolUIPart): RemixiconComponentType => {
-  const name = assistantToolNameOf(part.type);
-
-  return name ? TOOL_ICONS[name] : UNKNOWN_TOOL_ICON;
-};
+const PAYLOAD_MAX_LINES = 12;
+const LINE_HEIGHT_REM = 1.25;
 
 const STATUS_LABELS = {
   cancelled: m.assistant_tool_state_cancelled,
@@ -76,21 +57,52 @@ const STATUS_LABELS = {
 } satisfies Record<ToolStatus, () => string>;
 
 const STATUS_ICONS = {
-  cancelled: <RiForbidLine className="size-4" />,
-  completed: <RiCheckboxCircleLine className="size-4 text-green-600" />,
-  failed: <RiCloseCircleLine className="text-destructive size-4" />,
-  preparing: <RiTimeLine className="size-4 animate-pulse" />,
-  running: <Spinner className="size-4" />,
+  cancelled: <RiForbidLine className="size-3.5" />,
+  completed: <RiCheckboxCircleLine className="size-3.5 text-green-600" />,
+  failed: <RiCloseCircleLine className="text-destructive size-3.5" />,
+  preparing: <RiTimeLine className="size-3.5 animate-pulse" />,
+  running: <Spinner className="size-3.5" />,
 } satisfies Record<ToolStatus, ReactNode>;
+
+const Payload = ({ code }: { code: string }) => {
+  const size = useSize();
+
+  return (
+    <ScrollArea
+      className="bg-muted/50 w-full overflow-hidden rounded-md border"
+      orientation="both"
+      style={{ maxHeight: `${PAYLOAD_MAX_LINES * LINE_HEIGHT_REM}rem` }}
+      viewportClassName="!h-auto max-h-[inherit]"
+    >
+      <pre
+        className={cn("font-mono leading-5", CODE_PAD[size.variant], size.text)}
+      >
+        <code>{code}</code>
+      </pre>
+    </ScrollArea>
+  );
+};
+
+const Panel = ({
+  children,
+  heading,
+}: {
+  children: ReactNode;
+  heading: string;
+}) => (
+  <div className="flex flex-col gap-2">
+    <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+      {heading}
+    </h4>
+    {children}
+  </div>
+);
 
 const Parameters = ({ input }: { input: ToolUIPart["input"] }) => {
   const parameters = toolParametersOf(input);
 
   return (
-    <div className="flex flex-col gap-2 p-4 pb-0">
-      <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {m.assistant_tool_parameters()}
-      </h4>
+    <Panel heading={m.assistant_tool_parameters()}>
       {parameters.length > 0 ? (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
           {parameters.map((parameter) => (
@@ -105,7 +117,35 @@ const Parameters = ({ input }: { input: ToolUIPart["input"] }) => {
           {m.assistant_tool_no_parameters()}
         </p>
       )}
-    </div>
+    </Panel>
+  );
+};
+
+const Outcome = ({
+  errorText,
+  output,
+}: {
+  errorText: ToolUIPart["errorText"];
+  output: ToolUIPart["output"];
+}) => {
+  if (errorText) {
+    return (
+      <Panel heading={m.assistant_tool_error()}>
+        <p className="text-destructive bg-destructive/10 rounded-md p-3 text-xs">
+          {errorText}
+        </p>
+      </Panel>
+    );
+  }
+
+  if (output === undefined || output === null) {
+    return null;
+  }
+
+  return (
+    <Panel heading={m.assistant_tool_result()}>
+      <Payload code={JSON.stringify(output, null, 2)} />
+    </Panel>
   );
 };
 
@@ -116,58 +156,77 @@ export const AssistantToolCall = ({
   part,
   status,
 }: AssistantToolCallProps) => {
-  const failed = status === "failed";
-  const [open, setOpen] = useExpandAll(expanded, failed);
+  const [open, setOpen] = useExpandAll(expanded, status === "failed");
+  const size = useSize();
 
   const purpose = assistantToolPurpose(part.type);
   const summary = status === "completed" ? toolResultSummary(part) : undefined;
-  const settled = status === "completed" || failed;
+  const settled = status === "completed" || status === "failed";
 
   return (
-    <Tool className="mb-0" onOpenChange={setOpen} open={open}>
-      <ToolHeader
-        badge={
-          <Badge className="gap-1.5 rounded-full text-xs">
-            {STATUS_ICONS[status]}
-            {STATUS_LABELS[status]()}
-            {durationMs !== undefined && (
-              <span className="font-mono tabular-nums">
-                {formatDuration(durationMs)}
-              </span>
-            )}
+    <Collapsible
+      className="w-full rounded-md border"
+      onOpenChange={setOpen}
+      open={open}
+    >
+      <CollapsibleTrigger
+        chevron="trailing"
+        className={cn(
+          "items-center justify-between",
+          size.gap,
+          TRIGGER_PAD[size.variant]
+        )}
+      >
+        <div className={cn("flex items-center", size.gap)}>
+          <RiToolsLine className="text-muted-foreground size-4" />
+          <span className="text-sm font-medium">
+            {assistantToolLabel(part.type)}
+          </span>
+          <Badge className="rounded-full">
+            <span className="inline-flex items-center gap-1.5">
+              {STATUS_ICONS[status]}
+              {STATUS_LABELS[status]()}
+              {durationMs !== undefined && (
+                <span className="font-mono tabular-nums">
+                  {formatDuration(durationMs)}
+                </span>
+              )}
+            </span>
           </Badge>
-        }
-        state={part.state}
-        title={assistantToolLabel(part.type)}
-        type={part.type}
-      />
-      <ToolContent>
-        {purpose && (
-          <p className="text-muted-foreground p-4 pb-0 text-xs">{purpose}</p>
-        )}
-        <Parameters input={part.input} />
-        {part.input !== undefined && (
-          <ToolInput input={part.input} title={m.assistant_tool_raw_input()} />
-        )}
-        {summary && <p className="p-4 pb-0 text-xs">{summary}</p>}
-        {settled && (
-          <ToolOutput
-            errorText={part.errorText}
-            output={failed ? undefined : part.output}
-            title={
-              failed ? m.assistant_tool_error() : m.assistant_tool_result()
-            }
-          />
-        )}
-        {failed && onRetry && (
-          <div className="p-4 pt-0">
-            <Button onClick={onRetry} size="sm" variant="tertiary">
-              <RiRefreshLine className="size-3" />
-              {m.assistant_retry()}
-            </Button>
-          </div>
-        )}
-      </ToolContent>
-    </Tool>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="outline-none">
+        <div className={cn("flex flex-col gap-3", PANEL_PAD[size.variant])}>
+          {purpose && (
+            <p className="text-muted-foreground text-xs">{purpose}</p>
+          )}
+          <Parameters input={part.input} />
+          {part.input !== undefined && (
+            <Panel heading={m.assistant_tool_raw_input()}>
+              <Payload code={JSON.stringify(part.input, null, 2)} />
+            </Panel>
+          )}
+          {summary && <p className="text-xs">{summary}</p>}
+          {settled && (
+            <Outcome
+              errorText={part.errorText}
+              output={status === "failed" ? undefined : part.output}
+            />
+          )}
+          {status === "failed" && onRetry && (
+            <div>
+              <Button
+                leadingIcon={remixIcon(RiRefreshLine)}
+                onClick={onRetry}
+                size="compact"
+                variant="tertiary"
+              >
+                {m.assistant_retry()}
+              </Button>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };

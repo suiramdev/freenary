@@ -1,11 +1,14 @@
 import { Button } from "@freenary/ui/components/button";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { Spinner } from "@freenary/ui/components/spinner";
-import { useMemo, useState } from "react";
+import { useFluidHover } from "@freenary/ui/hooks/use-fluid-hover";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
+import { useMemo, useRef, useState } from "react";
 
 import { SecurityPasskeyNameDialog } from "@/components/settings/security-passkey-name-dialog";
 import { SecurityPasskeyRow } from "@/components/settings/security-passkey-row";
 import { SecurityRowsSkeleton } from "@/components/settings/security-rows-skeleton";
+import { SettingsRowList } from "@/components/settings/settings-row-list";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { usePasskeyActions } from "@/hooks/settings/use-passkey-actions";
 import { useWebAuthnSupport } from "@/hooks/shared/use-webauthn-support";
@@ -19,6 +22,9 @@ export const SecurityPasskeysSection = () => {
     usePasskeyActions();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const isWebAuthnSupported = useWebAuthnSupport();
+  const listRef = useRef<HTMLUListElement>(null);
+  const { control } = useSize();
+  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
 
   const locale = getLocale();
   const formatter = useMemo(
@@ -56,19 +62,21 @@ export const SecurityPasskeysSection = () => {
             {m.settings_passkeys_empty_explanation()}
           </p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
-            {data.map((passkey) => (
+          <SettingsRowList hover={hover} ref={listRef}>
+            {data.map((passkey, index) => (
               <SecurityPasskeyRow
                 formatter={formatter}
+                index={index}
                 isRemoving={removingId === passkey.id}
                 isRenaming={renamingId === passkey.id}
                 key={passkey.id}
                 onRemove={remove}
                 onRename={rename}
                 passkey={passkey}
+                registerItem={hover.registerItem}
               />
             ))}
-          </ul>
+          </SettingsRowList>
         )}
       </>
     );
@@ -76,7 +84,12 @@ export const SecurityPasskeysSection = () => {
 
   const renderAction = () => {
     if (isResolving) {
-      return <Skeleton aria-hidden="true" className="h-8 w-32 rounded-md" />;
+      return (
+        <Skeleton
+          aria-hidden="true"
+          className={cn("w-28 rounded-md", control)}
+        />
+      );
     }
 
     if (isWebAuthnSupported === false) {
@@ -84,8 +97,7 @@ export const SecurityPasskeysSection = () => {
     }
 
     return (
-      <Button disabled={isAdding} onClick={() => setIsAddOpen(true)}>
-        {isAdding && <Spinner data-icon="inline-start" />}
+      <Button loading={isAdding} onClick={() => setIsAddOpen(true)}>
         {m.settings_passkeys_add()}
       </Button>
     );

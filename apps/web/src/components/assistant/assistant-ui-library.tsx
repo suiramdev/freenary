@@ -21,6 +21,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartTooltipCard } from "@/components/shared/chart-tooltip";
 import { formatDecimalCurrency } from "@/lib/budget/format-currency";
 import { CHART_COLOR_VARS } from "@/lib/chart-colors";
 import { getLocale } from "@/paraglide/runtime.js";
@@ -101,7 +102,7 @@ const SeriesTooltip = ({
   }
 
   return (
-    <div className="border-border/50 bg-background grid min-w-32 gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-32">
       {label && <div className="font-medium">{label}</div>}
       {payload.map((item) => {
         const key = String(item.dataKey);
@@ -130,7 +131,7 @@ const SeriesTooltip = ({
           </div>
         );
       })}
-    </div>
+    </ChartTooltipCard>
   );
 };
 
@@ -154,7 +155,7 @@ const SliceTooltip = ({
   const share = total > 0 ? Math.round((slice.value / total) * 100) : 0;
 
   return (
-    <div className="border-border/50 bg-background grid min-w-32 gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-32">
       <div className="flex items-center justify-between gap-3 leading-none">
         <span className="flex items-center gap-1.5">
           <span
@@ -167,7 +168,7 @@ const SliceTooltip = ({
           {formatDecimalCurrency(slice.value, currency)} ({share}%)
         </span>
       </div>
-    </div>
+    </ChartTooltipCard>
   );
 };
 

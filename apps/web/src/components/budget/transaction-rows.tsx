@@ -5,6 +5,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import { useFluidHover } from "@freenary/ui/hooks/use-fluid-hover";
 import { RiReceiptLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -46,6 +48,8 @@ export const TransactionRows = ({
 }) => {
   "use no memo";
   const parentRef = useRef<HTMLDivElement>(null);
+  const hover = useFluidHover(parentRef, { gapClick: false });
+  const { handlers, registerItem, remeasure } = hover;
 
   const locale = getLocale();
   const virtualItems = useMemo(
@@ -63,6 +67,12 @@ export const TransactionRows = ({
   });
 
   const visibleItems = virtualizer.getVirtualItems();
+  const firstVisible = visibleItems.at(0)?.index;
+  const lastVisible = visibleItems.at(-1)?.index;
+
+  useEffect(() => {
+    remeasure();
+  }, [remeasure, firstVisible, lastVisible]);
 
   const loadMoreCheck = useCallback(() => {
     const isShowingSettledPage = !isLoading && !isStale;
@@ -113,10 +123,12 @@ export const TransactionRows = ({
 
   return (
     <div
-      ref={parentRef}
       aria-busy={isLoading || undefined}
-      className="flex-1 overflow-auto"
+      className="relative flex-1 overflow-auto"
+      ref={parentRef}
+      {...handlers}
     >
+      <FluidHoverHighlight className="rounded-lg" hover={hover} />
       <StaleRegion isStale={isStale}>
         <div
           className="relative w-full"
@@ -151,6 +163,7 @@ export const TransactionRows = ({
                 index={virtualRow.index}
                 offset={virtualRow.start}
                 measureRef={virtualizer.measureElement}
+                registerItem={registerItem}
                 onClick={() => onTransactionClick(item.tx)}
               />
             );

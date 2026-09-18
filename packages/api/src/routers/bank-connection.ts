@@ -210,6 +210,7 @@ export const bankConnectionRouter = {
           select: { iban: true, id: true, name: true },
         },
         id: true,
+        institutionCountry: true,
         institutionId: true,
         institutionName: true,
         lastSyncedAt: true,
@@ -222,35 +223,56 @@ export const bankConnectionRouter = {
   }),
 
   listInstitutions: protectedProcedure
-    .input(z.object({ country: z.string().optional() }))
+    .input(z.object({ countries: z.array(z.string()).optional() }))
     .handler(async ({ context, input }) => {
-      let { country } = input;
+      let { countries } = input;
 
-      if (!country) {
+      if (!countries?.length) {
         const user = await prisma.user.findUniqueOrThrow({
-          select: { country: true },
+          select: { taxCountries: true },
           where: { id: context.session.user.id },
         });
-        country = user.country ?? undefined;
+        countries = user.taxCountries;
       }
 
-      if (!country) {
+      if (countries.length === 0) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No country to list banks for",
         });
       }
 
-      const institutions = await getDefaultProvider().listInstitutions(country);
+      const provider = getDefaultProvider();
+      const perCountry = await Promise.all(
+        [...new Set(countries)].map((country) =>
+          provider.listInstitutions(country)
+        )
+      );
 
-      return {
-        banks: institutions.map((inst) => ({
-          bic: inst.bic ?? null,
-          country: inst.country,
-          id: inst.id,
-          logo: inst.logoUrl ?? null,
-          name: inst.name,
-        })),
-      };
+      const seen = new Set<string>();
+      const banks: {
+        bic: string | null;
+        country: string;
+        id: string;
+        logo: string | null;
+        name: string;
+      }[] = [];
+
+      for (const inst of perCountry.flat()) {
+        const key = `${inst.country}:${inst.id}`;
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          banks.push({
+            bic: inst.bic ?? null,
+            country: inst.country,
+            id: inst.id,
+            logo: inst.logoUrl ?? null,
+            name: inst.name,
+          });
+        }
+      }
+
+      return { banks };
     }),
 
   startConnection: protectedProcedure

@@ -152,10 +152,10 @@ A toolbar sits above the list.
 | Search box | Reads `Search transactions…`. It searches the text of a transaction |
 | Sort | A screen reader reads it as `Sort`. The options are `Newest` and `Largest` |
 | `Amount` | A floor, a ceiling, or both |
-| `Company` | A searchable menu over the companies of the period |
-| `Category` | A searchable menu over the 16 groups and their categories |
+| `Company` | A type-to-filter field over the companies of the period |
+| `Category` | A type-to-filter field over the 16 groups and their categories |
 
-Each trigger carries a count badge while it filters.
+`Company` and `Category` each hold what you picked as a chip inside the field. A field with one or more chips carries a `Clear` control that empties it.
 
 #### Amount
 
@@ -165,20 +165,23 @@ A floor above the ceiling reads `The minimum is above the maximum.` Freenary app
 
 #### Company
 
-The menu searches with `Search companies…`. Each row names a company of the period, with the total for it. The most frequent company comes first. Where your bank named no company, Freenary lists the description it cleaned up instead.
+The field reads `Company` while it is empty. Type, and Freenary asks your server for the companies of the period that match. Each row names a company, with the total for it, and the most frequent company comes first. Where your bank named no company, Freenary lists the description it cleaned up instead.
 
 | State                      | What you read                    |
 | -------------------------- | -------------------------------- |
+| The list is on its way     | `Loading companies`              |
 | The search matched nothing | `No companies match your search` |
 | The list failed to load    | `Could not load the companies`   |
 
 #### Category
 
-The menu searches with `Search categories…`, and an empty result reads `No categories match your search`. Each group carries its own checkbox above its categories. Tick a group and Freenary ticks every category inside it, then greys them out: the group already covers them.
+The field reads `Category` while it is empty. A search that matches nothing reads `No categories match your search`. The list holds each group over the categories under it. Filter on a whole group, or on one category.
+
+Pick a group and its categories leave the list. The group already covers them, and its own chip stands for all of them. Drop the group and they come back.
 
 #### Chips and Clear all
 
-Every active filter becomes a badge above the list. A screen reader reads its remove button as `Remove {label} filter`.
+An amount range becomes a badge above the list. A screen reader reads its remove button as `Remove {label} filter`.
 
 `Clear all` appears at two active filters or more, and it clears the categories, the companies and the amount. An amount range counts as **one** filter, whether you set one bound or both.
 
@@ -308,9 +311,9 @@ A toolbar sits above the list, with the same controls the transaction list carri
 | Sort | A screen reader reads it as `Sort`. The options are `Dearest` and `Soonest` |
 | `Cost` | A floor, a ceiling, or both, on what a payment costs a month |
 | `Recurrence` | A menu over the five frequencies and the three confidence levels |
-| `Category` | A searchable menu over the 16 groups and their categories |
+| `Category` | A type-to-filter field over the 16 groups and their categories |
 
-Each trigger carries a count badge while it filters. Every active filter becomes a badge above the list, and `Clear all` appears at two active filters or more. A cost range counts as **one** filter, whether you set one bound or both.
+`Recurrence` carries a count badge while it filters. `Category` holds what you picked as a chip inside the field. A cost range becomes a badge above the list, and `Clear all` appears at two active filters or more. A cost range counts as **one** filter, whether you set one bound or both.
 
 Under the fields of `Cost` sits a hint: `Matches what a payment costs a month, whatever its cadence.` A yearly premium of 240 answers a floor of 20. It does not answer a floor of 240.
 

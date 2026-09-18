@@ -12,7 +12,6 @@ import { RiCpuLine, RiExpandUpDownLine, RiServerLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
-import { PromptInputButton } from "@/components/ai-elements/prompt-input";
 import { browserModelCatalog } from "@/lib/assistant/browser/engine";
 import { browserModelLabel } from "@/lib/assistant/browser/models";
 import { SERVER_MODEL } from "@/lib/assistant/model-choice";
@@ -113,32 +112,37 @@ export const AssistantModelSelector = ({
 
   if (stillDownloading) {
     return (
-      <PromptInputButton disabled>
-        <Spinner className="size-4" />
-        <span className="max-w-40 truncate">
-          {m.assistant_browser_loading({ model: label })}
+      <Button disabled leadingIcon={Spinner} size="compact" variant="ghost">
+        <span className="inline-flex max-w-56 items-center gap-1.5">
+          <span className="min-w-0 truncate">
+            {m.assistant_browser_loading({ model: label })}
+          </span>
+          <span className="shrink-0 tabular-nums">
+            {percent(loadingProgress)}
+          </span>
         </span>
-        <span className="tabular-nums">{percent(loadingProgress)}</span>
-      </PromptInputButton>
+      </Button>
     );
   }
 
+  const modelIcon = remixIcon(
+    selected === SERVER_MODEL ? RiServerLine : RiCpuLine
+  );
+
   return (
     <>
-      <PromptInputButton
+      <Button
         aria-expanded={open}
         aria-haspopup="dialog"
         disabled={disabled}
+        leadingIcon={modelIcon}
         onClick={() => setOpen(true)}
+        size="compact"
+        trailingIcon={remixIcon(RiExpandUpDownLine)}
+        variant="ghost"
       >
-        {serverSelected ? (
-          <RiServerLine className="size-4" />
-        ) : (
-          <RiCpuLine className="size-4" />
-        )}
-        <span className="max-w-40 truncate">{label}</span>
-        <RiExpandUpDownLine className="size-3.5 opacity-60" />
-      </PromptInputButton>
+        <span className="block max-w-40 truncate">{label}</span>
+      </Button>
       <CommandMenuDialog
         className="sm:max-w-lg"
         onOpenChange={setOpen}

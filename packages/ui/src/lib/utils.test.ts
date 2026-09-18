@@ -71,31 +71,6 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
       where: "packages/ui/src/components/sidebar.tsx",
     },
     {
-      args: ["size-4 transition-transform", "rotate-180", "rotate-0"],
-      expected: "size-4 transition-transform rotate-0",
-      where: "apps/web/src/components/ai-elements/reasoning.tsx",
-    },
-    {
-      args: [
-        "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-        "bg-destructive/10 text-destructive",
-        "bg-muted/50 text-foreground",
-      ],
-      expected:
-        "overflow-x-auto rounded-md text-xs [&_table]:w-full bg-muted/50 text-foreground",
-      where: "apps/web/src/components/ai-elements/tool.tsx",
-    },
-    {
-      args: ["size-4 transition-transform", "rotate-180", "rotate-0"],
-      expected: "size-4 transition-transform rotate-0",
-      where: "apps/web/src/components/ai-elements/chain-of-thought.tsx",
-    },
-    {
-      args: ["grid gap-2 overflow-hidden [&>div]:pb-0", "block", "hidden"],
-      expected: "gap-2 overflow-hidden [&>div]:pb-0 hidden",
-      where: "apps/web/src/components/ai-elements/message.tsx",
-    },
-    {
       args: [
         "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors",
         "bg-primary text-primary-foreground ring-primary",

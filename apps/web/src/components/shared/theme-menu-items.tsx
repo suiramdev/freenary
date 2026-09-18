@@ -9,9 +9,7 @@ const THEME_OPTIONS = [
   { getLabel: m.theme_light, value: "light" },
 ] as const;
 
-export const THEME_OPTION_COUNT = THEME_OPTIONS.length;
-
-export const ThemeMenuItems = ({ startIndex = 0 }: { startIndex?: number }) => {
+export const ThemeMenuItems = () => {
   const { setTheme, theme } = useTheme();
 
   return (
@@ -19,7 +17,7 @@ export const ThemeMenuItems = ({ startIndex = 0 }: { startIndex?: number }) => {
       {THEME_OPTIONS.map(({ getLabel, value }, position) => (
         <MenuItem
           checked={theme === value}
-          index={startIndex + position}
+          index={position}
           key={value}
           label={getLabel()}
           onSelect={() => setTheme(value)}
@@ -27,4 +25,11 @@ export const ThemeMenuItems = ({ startIndex = 0 }: { startIndex?: number }) => {
       ))}
     </>
   );
+};
+
+export const useThemeCheckedIndex = () => {
+  const { theme } = useTheme();
+  const index = THEME_OPTIONS.findIndex((option) => option.value === theme);
+
+  return index === -1 ? undefined : index;
 };

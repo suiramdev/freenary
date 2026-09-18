@@ -7,6 +7,10 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@freenary/ui/components/input-addons";
+import { spring } from "@freenary/ui/lib/springs";
+import { surfaceClasses } from "@freenary/ui/lib/surface-classes";
+import { useSurface } from "@freenary/ui/lib/surface-context";
+import { cn } from "@freenary/ui/lib/utils";
 import { RiDeleteBinLine, RiDraggable } from "@remixicon/react";
 import { Reorder, useDragControls } from "motion/react";
 import type { KeyboardEvent } from "react";
@@ -27,12 +31,6 @@ interface BudgetLineRowProps {
   onUpdate: (id: string, patch: Partial<EditorLine>) => void;
 }
 
-const SETTLE_WHERE_DROPPED_TRANSITION = {
-  bounce: 0,
-  duration: 0.3,
-  type: "spring",
-} as const;
-
 export const BudgetLineRow = ({
   categories,
   error,
@@ -44,6 +42,7 @@ export const BudgetLineRow = ({
 }: BudgetLineRowProps) => {
   const handleOnlyDragControls = useDragControls();
   const [isDragging, setIsDragging] = useState(false);
+  const substrate = useSurface();
   const selected = categories.find((entry) => entry.key === line.categoryKey);
   const categoryLabel = selected ? categoryEntryLabel(selected) : "";
   const displayName = line.label.trim() || categoryLabel;
@@ -59,14 +58,14 @@ export const BudgetLineRow = ({
 
   return (
     <Reorder.Item
+      animate={{ scale: isDragging ? 1.01 : 1 }}
       as="div"
-      className="rounded-md transition-[box-shadow,scale] duration-150 ease-out data-[dragging=true]:scale-[1.01] data-[dragging=true]:shadow-md"
-      data-dragging={isDragging ? "true" : undefined}
+      className={cn("rounded-md", isDragging && surfaceClasses(substrate + 2))}
       dragControls={handleOnlyDragControls}
       dragListener={false}
       onDragEnd={() => setIsDragging(false)}
       onDragStart={() => setIsDragging(true)}
-      transition={SETTLE_WHERE_DROPPED_TRANSITION}
+      transition={{ ...spring.slow, scale: spring.fast }}
       value={line}
     >
       <Field data-invalid={Boolean(error)}>
@@ -75,6 +74,7 @@ export const BudgetLineRow = ({
             className="cursor-grab touch-none active:cursor-grabbing"
             onKeyDown={handleKeyDown}
             onPointerDown={(event) => handleOnlyDragControls.start(event)}
+            size="icon-compact"
             variant="ghost"
           >
             <RiDraggable />
@@ -116,7 +116,11 @@ export const BudgetLineRow = ({
             value={line.categoryKey}
           />
 
-          <Button onClick={() => onRemove(line.id)} variant="ghost">
+          <Button
+            onClick={() => onRemove(line.id)}
+            size="icon-compact"
+            variant="ghost"
+          >
             <RiDeleteBinLine />
             <span className="sr-only">
               {displayName

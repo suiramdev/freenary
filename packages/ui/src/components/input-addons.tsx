@@ -64,39 +64,27 @@ function InputGroupAddon({
   );
 }
 
-const inputGroupButtonVariants = cva(
-  "flex items-center gap-2 rounded-md text-xs/relaxed shadow-none",
-  {
-    variants: {
-      size: {
-        xs: "h-5 gap-1 rounded-[calc(var(--radius-sm)-2px)] px-1 [&>svg:not([class*='size-'])]:size-3",
-        sm: "gap-1",
-        "icon-xs": "size-6 p-0 has-[>svg]:p-0",
-        "icon-sm": "size-7 p-0 has-[>svg]:p-0",
-      },
-    },
-    defaultVariants: {
-      size: "xs",
-    },
-  }
-);
-
+/**
+ * An addon control inside an `InputGroup`. It is a `Button` on the shared size
+ * ladder — it adds no height, padding or type of its own, so an icon passed as
+ * the only child is sized by the `icon-*` variants and a labelled button takes
+ * its icon through `leadingIcon` / `trailingIcon`.
+ */
 function InputGroupButton({
   className,
   type = "button",
   variant = "ghost",
-  size = "xs",
+  size = "compact",
   ...props
-}: Omit<React.ComponentProps<typeof Button>, "size" | "type"> &
-  VariantProps<typeof inputGroupButtonVariants> & {
-    type?: "button" | "submit" | "reset";
-  }) {
+}: Omit<React.ComponentProps<typeof Button>, "type"> & {
+  type?: "button" | "submit" | "reset";
+}) {
   return (
     <Button
       type={type}
-      data-size={size}
       variant={variant}
-      className={cn(inputGroupButtonVariants({ size }), className)}
+      size={size}
+      className={cn("shadow-none", className)}
       {...props}
     />
   );

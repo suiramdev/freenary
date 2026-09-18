@@ -4,6 +4,7 @@ import { RiLoaderLine } from "@remixicon/react";
 
 function Spinner({
   className,
+  size,
   ...props
 }: React.ComponentProps<typeof RiLoaderLine>) {
   const labels = useUiLabels();
@@ -13,7 +14,10 @@ function Spinner({
       data-slot="spinner"
       role="status"
       aria-label={labels.loading}
-      className={cn("size-4 animate-spin", className)}
+      size={size}
+      // The 16px default applies only when no size was asked for: an icon slot
+      // passes the ladder's own size, and a class here would outrank it.
+      className={cn(size === undefined && "size-4", "animate-spin", className)}
       {...props}
     />
   );

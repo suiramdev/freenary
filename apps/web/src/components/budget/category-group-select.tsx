@@ -9,7 +9,7 @@ import {
   SelectTrigger,
 } from "@freenary/ui/components/select";
 
-import { CategoryIcon } from "@/components/budget/category-icon";
+import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
 import { categoryGroupLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
@@ -41,11 +41,12 @@ export const CategoryGroupSelect = ({
           {noneLabel}
         </SelectItem>
         {CATEGORY_GROUPS.map((group, position) => (
-          <SelectItem index={position + 1} key={group} value={group}>
-            <CategoryIcon
-              {...categoryGroupAppearance(group)}
-              className="size-5 [&_svg]:size-3"
-            />
+          <SelectItem
+            icon={categoryMenuIcon(categoryGroupAppearance(group))}
+            index={position + 1}
+            key={group}
+            value={group}
+          >
             {categoryGroupLabel(group)}
           </SelectItem>
         ))}

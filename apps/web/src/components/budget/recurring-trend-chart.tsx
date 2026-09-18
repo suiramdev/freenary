@@ -2,6 +2,7 @@ import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { ChartTooltipCard } from "@/components/shared/chart-tooltip";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import { monthKeyLabel } from "@/lib/budget/recurring";
 import type { RecurringMonth } from "@/lib/budget/recurring";
@@ -57,7 +58,7 @@ const TrendTooltip = ({
   }
 
   return (
-    <div className="border-border/50 bg-background grid min-w-40 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+    <ChartTooltipCard className="min-w-40">
       <div className="font-medium">{row.label}</div>
       {STACKED_SERIES_BOTTOM_UP.map((series) => (
         <div className="flex items-center gap-2 leading-none" key={series.key}>
@@ -71,7 +72,7 @@ const TrendTooltip = ({
           </span>
         </div>
       ))}
-    </div>
+    </ChartTooltipCard>
   );
 };
 

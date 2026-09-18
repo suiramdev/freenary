@@ -7,7 +7,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
-import { Spinner } from "@freenary/ui/components/spinner";
 import { RiErrorWarningLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -169,14 +168,13 @@ const SettingsPage = () => {
         </EmptyHeader>
         <EmptyContent>
           <Button
-            disabled={isRetrying}
+            loading={isRetrying}
             onClick={() => {
               void categoriesQuery.refetch();
               void profileQuery.refetch();
             }}
             variant="tertiary"
           >
-            {isRetrying && <Spinner data-icon="inline-start" />}
             {m.settings_retry()}
           </Button>
         </EmptyContent>

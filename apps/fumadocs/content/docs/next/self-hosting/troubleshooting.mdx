@@ -300,12 +300,12 @@ docker compose up -d server
 
 **What you see.** Settings shows the bank section, and the list of banks is empty. No error appears, and the log holds nothing.
 
-**Why.** Freenary read the credentials, so the section renders. The provider then answered with no institution for that country. Three causes give the same empty list:
+**Why.** Freenary read the credentials, so the section renders. The provider then answered with no institution for any jurisdiction of the profile. Three causes give the same empty list:
 
 | Cause | How to tell |
 | --- | --- |
 | The Powens domain activated no connector | The console lists the connectors of the domain as inactive |
-| The country of the profile has no coverage | Another country fills the list |
+| No jurisdiction of the profile has coverage | Another country fills the list |
 | The domain, the client id or the secret is wrong | The console shows other values for the client |
 
 **The fix.** Activate the connectors of the domain in the [Powens console](https://console.powens.com), then reload Settings. The server holds no institution cache, and it asks the provider on every call.

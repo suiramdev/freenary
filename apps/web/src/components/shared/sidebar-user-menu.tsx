@@ -3,6 +3,7 @@ import {
   DropdownLabel,
   DropdownMenu,
   DropdownSeparator,
+  DropdownSubmenu,
   DropdownTrigger,
 } from "@freenary/ui/components/dropdown";
 import { MenuItem } from "@freenary/ui/components/menu-item";
@@ -14,19 +15,21 @@ import {
 } from "@freenary/ui/components/sidebar";
 import {
   RiBookOpenLine,
+  RiContrastLine,
   RiExpandUpDownLine,
   RiLogoutBoxLine,
+  RiTranslate2,
 } from "@remixicon/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import {
-  LOCALE_OPTION_COUNT,
   LocaleMenuItems,
+  localeCheckedIndex,
 } from "@/components/shared/locale-menu-items";
 import {
-  THEME_OPTION_COUNT,
   ThemeMenuItems,
+  useThemeCheckedIndex,
 } from "@/components/shared/theme-menu-items";
 import { UserIdentity } from "@/components/shared/user-identity";
 import { authClient } from "@/lib/auth-client";
@@ -34,15 +37,19 @@ import { docsUrl } from "@/lib/docs";
 import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
 
-const THEME_START = LOCALE_OPTION_COUNT;
-const DOCS_INDEX = THEME_START + THEME_OPTION_COUNT;
-const SIGN_OUT_INDEX = DOCS_INDEX + 1;
+const LOCALE_ROW = 0;
+const THEME_ROW = 1;
+const DOCS_ROW = 2;
+const SIGN_OUT_ROW = 3;
+
+const SUBMENU_CLASS = "w-48 min-w-0";
 
 export const SidebarUserMenu = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isMobile } = useSidebar();
   const { data: session, isPending, refetch } = authClient.useSession();
+  const themeCheckedIndex = useThemeCheckedIndex();
 
   const refetchSessionThenLeaveAndDropCache = async () => {
     await refetch();
@@ -76,7 +83,7 @@ export const SidebarUserMenu = () => {
               isPending={isPending}
               name={session?.user.name}
             />
-            <RiExpandUpDownLine className="ml-auto" />
+            <RiExpandUpDownLine className="ml-auto size-3.5 shrink-0" />
           </DropdownTrigger>
           <DropdownContent
             align="end"
@@ -93,15 +100,44 @@ export const SidebarUserMenu = () => {
               </div>
             </DropdownLabel>
             <DropdownSeparator />
-            <DropdownLabel>{m.locale_switcher_label()}</DropdownLabel>
-            <LocaleMenuItems />
-            <DropdownSeparator />
-            <DropdownLabel>{m.theme_switcher_label()}</DropdownLabel>
-            <ThemeMenuItems startIndex={THEME_START} />
+            <DropdownSubmenu>
+              <MenuItem
+                icon={remixIcon(RiTranslate2)}
+                index={LOCALE_ROW}
+                label={m.locale_switcher_label()}
+                submenu
+              />
+              <DropdownContent
+                align="start"
+                checkedIndex={localeCheckedIndex()}
+                className={SUBMENU_CLASS}
+                side="right"
+              >
+                <DropdownLabel>{m.locale_switcher_label()}</DropdownLabel>
+                <LocaleMenuItems />
+              </DropdownContent>
+            </DropdownSubmenu>
+            <DropdownSubmenu>
+              <MenuItem
+                icon={remixIcon(RiContrastLine)}
+                index={THEME_ROW}
+                label={m.theme_switcher_label()}
+                submenu
+              />
+              <DropdownContent
+                align="start"
+                checkedIndex={themeCheckedIndex}
+                className={SUBMENU_CLASS}
+                side="right"
+              >
+                <DropdownLabel>{m.theme_switcher_label()}</DropdownLabel>
+                <ThemeMenuItems />
+              </DropdownContent>
+            </DropdownSubmenu>
             <DropdownSeparator />
             <MenuItem
               icon={remixIcon(RiBookOpenLine)}
-              index={DOCS_INDEX}
+              index={DOCS_ROW}
               label={m.account_documentation()}
               onSelect={() => {
                 window.open(docsUrl(), "_blank", "noopener,noreferrer");
@@ -109,7 +145,7 @@ export const SidebarUserMenu = () => {
             />
             <MenuItem
               icon={remixIcon(RiLogoutBoxLine)}
-              index={SIGN_OUT_INDEX}
+              index={SIGN_OUT_ROW}
               label={m.account_sign_out()}
               onSelect={handleSignOut}
             />

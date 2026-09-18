@@ -205,13 +205,13 @@ export const createAuth = () => {
 
     user: {
       additionalFields: {
-        country: {
-          required: false,
-          type: "string",
-        },
         onboardingCompletedAt: {
           required: false,
           type: "date",
+        },
+        taxCountries: {
+          required: false,
+          type: "string[]",
         },
       },
     },

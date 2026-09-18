@@ -10,26 +10,32 @@ Home is the assistant. Ask it about your accounts, your spending or your budget.
 
 ## The empty conversation
 
-A fresh conversation holds four things:
+A fresh conversation holds three things:
 
 - The large Freenary mark, with the accessible name `Freenary's assistant`.
 - The heading `Welcome back, {name}`, with your own name.
 - The line `Ask anything about your accounts, spending or budget.`
-- Three suggestion chips.
 
-The chips read `How much did I spend on eating out this year?`, `Where did my money go last month?` and `Which subscriptions am I paying for?` Press one and Freenary sends that question. The chips stay off until a model is ready to answer.
+The questions Freenary suggests sit in the composer, not on the page. See [The composer](#the-composer).
 
 ## The composer
 
 | Control | What it does |
 | --- | --- |
 | Text box | Holds your question. Empty, it reads `Ask about your money…` |
+| Suggested questions | A list under the controls, while the box is empty and the thread is new |
 | Submit | A screen reader reads it as `Send`, or as `Stop` while the answer arrives |
 | Model button | Names the model that answers your next question |
 | `New conversation` | Sets the current thread aside and opens an empty one |
 | Scroll button | Appears in a long thread. A screen reader reads it as `Scroll to the latest message` |
 
 A question holds 8000 characters at most.
+
+### Suggested questions
+
+An empty box on a new thread lists `How much did I spend on eating out this year?`, `Where did my money go last month?` and `Which subscriptions am I paying for?` The list is a listbox named `Suggested questions`.
+
+Press one, or reach it with the down arrow and press Enter, and Freenary fills the box with that question. It does not send it, so you can edit it first. The first character you type closes the list. The list stays off until a model is ready to answer.
 
 ## Two states, and which one you are in
 
@@ -47,7 +53,7 @@ Press the button to open a palette titled `Model`, with the search box `Search m
 
 <Tab value="No model on the instance">
 
-Your operator set none. The button reads `Choose a model`. The text box, the submit button and the chips are all off. They come on when you pick a model for your own browser.
+Your operator set none. The button reads `Choose a model`. The text box, the submit button and the suggested questions are all off. They come on when you pick a model for your own browser.
 
 One line sits above the composer. With WebGPU it reads `Choose a model to start. It downloads once from Hugging Face, runs on your graphics card, and your questions stay in this browser.`
 
@@ -93,7 +99,7 @@ That is a message on your screen, and the names in it are for your operator. You
 
 ## Read an answer
 
-Each answer keeps its steps above the text. The header reads `How the assistant answered`, or `How the assistant is answering` while the answer arrives. `Expand all` and `Collapse all` open and fold every step.
+Each answer keeps its steps above the text. The header reads `How the assistant answered`, or `How the assistant is answering` while the answer arrives. The steps stay open while the answer arrives, and they fold when it is complete. Press the header to read them again. `Expand all` and `Collapse all` open and fold every step.
 
 Each question the assistant puts to your own data is a lookup. Seven exist, and each one names itself:
 
@@ -109,7 +115,7 @@ Each question the assistant puts to your own data is a lookup. Seven exist, and 
 
 A lookup Freenary cannot name reads `Reading your data`.
 
-While the answer arrives, a status line names the work of that moment. It reads `Thinking…`, `Asking again…` on a retry, `Preparing a lookup…`, `Writing the answer…` or `Drawing a chart…`.
+While the answer arrives, an indicator names the work of that moment. It reads `Asking again…` on a retry, `Preparing a lookup…`, `Writing the answer…` or `Drawing a chart…`. With no work to name, it cycles `Thinking`, `Reading` and `Planning`. A screen reader hears the named work, or `Thinking…` while the words cycle.
 
 ### A chart in an answer
 

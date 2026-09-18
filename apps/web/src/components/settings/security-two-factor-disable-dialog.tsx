@@ -7,28 +7,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@freenary/ui/components/alert-dialog";
-import { Button } from "@freenary/ui/components/button";
 import { Field, FieldError, FieldLabel } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
-import { Spinner } from "@freenary/ui/components/spinner";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { useTwoFactorDisable } from "@/hooks/settings/use-two-factor-disable";
 import { m } from "@/paraglide/messages.js";
 
 interface SecurityTwoFactorDisableDialogProps {
   onDisabled: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
 }
 
 export const SecurityTwoFactorDisableDialog = ({
   onDisabled,
+  onOpenChange,
+  open,
 }: SecurityTwoFactorDisableDialogProps) => {
-  const [open, setOpen] = useState(false);
   const { form, passwordError, reset } = useTwoFactorDisable({
     onDisabled,
-    onDone: () => setOpen(false),
+    onDone: () => onOpenChange(false),
   });
 
   useEffect(() => {
@@ -38,17 +38,7 @@ export const SecurityTwoFactorDisableDialog = ({
   }, [open, reset]);
 
   return (
-    <AlertDialog onOpenChange={setOpen} open={open}>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-          />
-        }
-      >
-        {m.settings_2fa_disable()}
-      </AlertDialogTrigger>
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent>
         <form
           onSubmit={(event) => {
@@ -101,12 +91,11 @@ export const SecurityTwoFactorDisableDialog = ({
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <AlertDialogAction
-                  disabled={isSubmitting}
+                  loading={isSubmitting}
                   type="submit"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
                 >
-                  {isSubmitting && <Spinner data-icon="inline-start" />}
                   {m.settings_2fa_disable_confirm()}
                 </AlertDialogAction>
               )}

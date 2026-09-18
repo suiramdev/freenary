@@ -2,6 +2,7 @@ import { Button } from "@freenary/ui/components/button";
 import { Field, FieldGroup } from "@freenary/ui/components/field";
 import { InputGroupButton } from "@freenary/ui/components/input-addons";
 import { Spinner } from "@freenary/ui/components/spinner";
+import { spring } from "@freenary/ui/lib/springs";
 import { RiRefreshLine } from "@remixicon/react";
 import { useForm } from "@tanstack/react-form";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -37,20 +38,9 @@ interface AuthCredentialsStepProps {
 
 const NAME_MIN_LENGTH = 2;
 
-const REVEAL_SPRING = { bounce: 0, duration: 0.3, type: "spring" as const };
-const REVEAL_EASE = [0.23, 1, 0.32, 1] as const;
-
-const revealTransition = {
-  height: REVEAL_SPRING,
-  opacity: { duration: 0.2, ease: REVEAL_EASE },
-};
-const collapseTransition = {
-  height: REVEAL_SPRING,
-  opacity: { duration: 0.12, ease: REVEAL_EASE },
-};
-const reducedTransition = {
+const reducedMotionTransition = {
+  ...spring.moderate,
   height: { duration: 0 },
-  opacity: { duration: 0.15, ease: REVEAL_EASE },
 };
 
 const FOCUS_RING_SAFE_CLIP_CLASS = "-mx-1 overflow-hidden px-1";
@@ -124,7 +114,7 @@ export const AuthCredentialsStep = ({
 
   const renderEmailCheckAdornment = () => {
     if (isChecking) {
-      return <Spinner />;
+      return <Spinner className="size-3.5" />;
     }
 
     if (!isCheckBlocked) {
@@ -134,8 +124,9 @@ export const AuthCredentialsStep = ({
     return (
       <InputGroupButton
         aria-label={m.auth_email_check_retry()}
-        size="icon-xs"
+        className="size-6"
         onClick={handleRetryCheck}
+        size="icon-compact"
       >
         <RiRefreshLine aria-hidden="true" />
       </InputGroupButton>
@@ -192,12 +183,12 @@ export const AuthCredentialsStep = ({
                 height: 0,
                 opacity: 0,
                 transition: prefersReducedMotion
-                  ? reducedTransition
-                  : collapseTransition,
+                  ? reducedMotionTransition
+                  : spring.moderate.exit,
               }}
               initial={{ height: 0, opacity: 0 }}
               transition={
-                prefersReducedMotion ? reducedTransition : revealTransition
+                prefersReducedMotion ? reducedMotionTransition : spring.moderate
               }
             >
               <FieldGroup className={REVEALED_GAP_AND_RING_ROOM_CLASS}>
@@ -241,8 +232,7 @@ export const AuthCredentialsStep = ({
                 </form.Field>
 
                 <Field>
-                  <Button disabled={isSubmitting} type="submit">
-                    {isSubmitting && <Spinner data-icon="inline-start" />}
+                  <Button loading={isSubmitting} type="submit">
                     {isSignUp
                       ? m.auth_sign_up_submit()
                       : m.auth_sign_in_submit()}

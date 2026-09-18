@@ -1,8 +1,4 @@
 import {
-  categoryGroupAppearance,
-  predefinedCategoryAppearance,
-} from "@freenary/api/lib/categories";
-import {
   TabItem,
   TabPanel,
   Tabs,
@@ -12,7 +8,6 @@ import { RiCoinsLine, RiRepeatLine } from "@remixicon/react";
 
 import { AmountFilterMenu } from "@/components/budget/amount-filter-menu";
 import { CategoryFilterMenu } from "@/components/budget/category-filter-menu";
-import { CategoryIcon } from "@/components/budget/category-icon";
 import {
   ClearFiltersButton,
   ListFilterBar,
@@ -23,7 +18,6 @@ import {
 } from "@/components/budget/list-controls";
 import { RecurrenceFilterMenu } from "@/components/budget/recurrence-filter-menu";
 import { RecurringTable } from "@/components/budget/recurring-table";
-import { toggleCategory, toggleGroup } from "@/lib/budget/category-selection";
 import type { CategoryFilter } from "@/lib/budget/category-selection";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import {
@@ -48,7 +42,6 @@ import type {
 import type { RecurringSortMode } from "@/lib/budget/search";
 import { EMPTY_AMOUNT_RANGE } from "@/lib/budget/transaction-filters";
 import type { AmountRange } from "@/lib/budget/transaction-filters";
-import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
 interface RecurringListProps {
@@ -70,8 +63,6 @@ interface RecurringListProps {
   search: string;
   sort: RecurringSortMode;
 }
-
-const CHIP_ICON_CLASS = "size-4 [&_svg]:size-2.5";
 
 const SORT_OPTIONS = [
   { label: m.budget_recurring_sort_cost, value: "cost" },
@@ -123,6 +114,10 @@ export const RecurringList = ({
   const activeCount = recurringFilterCount(filter);
   const hasAmountBound = filter.amount.min > 0 || filter.amount.max > 0;
   const { categories } = filter;
+  const hasStripChip =
+    filter.frequencies.length > 0 ||
+    filter.confidences.length > 0 ||
+    hasAmountBound;
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -159,69 +154,50 @@ export const RecurringList = ({
         />
       </ListFilterBar>
 
-      {activeCount > 0 && (
+      {(hasStripChip || activeCount >= 2) && (
         <ListFilterChips>
-          {categories.groups.map((group) => (
-            <ListFilterChip
-              icon={
-                <CategoryIcon
-                  {...categoryGroupAppearance(group)}
-                  className={CHIP_ICON_CLASS}
+          {(position) => (
+            <>
+              {filter.frequencies.map((frequency, index) => (
+                <ListFilterChip
+                  icon={<RiRepeatLine className="size-3.5" />}
+                  key={frequency}
+                  label={frequencyLabel(frequency)}
+                  onRemove={() =>
+                    onFrequenciesChange(
+                      toggleFrequency(filter.frequencies, frequency)
+                    )
+                  }
+                  position={position(index)}
                 />
-              }
-              key={group}
-              label={categoryGroupLabel(group)}
-              onRemove={() =>
-                onCategoriesChange(toggleGroup(categories, group))
-              }
-            />
-          ))}
-          {categories.categories.map((category) => (
-            <ListFilterChip
-              icon={
-                <CategoryIcon
-                  {...predefinedCategoryAppearance(category)}
-                  className={CHIP_ICON_CLASS}
+              ))}
+              {filter.confidences.map((confidence, index) => (
+                <ListFilterChip
+                  key={confidence}
+                  label={confidenceLabel(confidence)}
+                  onRemove={() =>
+                    onConfidencesChange(
+                      toggleConfidence(filter.confidences, confidence)
+                    )
+                  }
+                  position={position(filter.frequencies.length + index)}
                 />
-              }
-              key={category}
-              label={categoryLabel(category)}
-              onRemove={() =>
-                onCategoriesChange(toggleCategory(categories, category))
-              }
-            />
-          ))}
-          {filter.frequencies.map((frequency) => (
-            <ListFilterChip
-              icon={<RiRepeatLine />}
-              key={frequency}
-              label={frequencyLabel(frequency)}
-              onRemove={() =>
-                onFrequenciesChange(
-                  toggleFrequency(filter.frequencies, frequency)
-                )
-              }
-            />
-          ))}
-          {filter.confidences.map((confidence) => (
-            <ListFilterChip
-              key={confidence}
-              label={confidenceLabel(confidence)}
-              onRemove={() =>
-                onConfidencesChange(
-                  toggleConfidence(filter.confidences, confidence)
-                )
-              }
-            />
-          ))}
-          {hasAmountBound && (
-            <ListFilterChip
-              icon={<RiCoinsLine />}
-              label={amountLabel(filter.amount)}
-              onRemove={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
-            />
+              ))}
+              {hasAmountBound && (
+                <ListFilterChip
+                  icon={<RiCoinsLine className="size-3.5" />}
+                  label={amountLabel(filter.amount)}
+                  onRemove={() => onAmountChange(EMPTY_AMOUNT_RANGE)}
+                  position={position(
+                    filter.frequencies.length + filter.confidences.length
+                  )}
+                />
+              )}
+              {activeCount >= 2 && (
+                <ClearFiltersButton onClear={onClearFilters} />
+              )}
+            </>
           )}
-          {activeCount >= 2 && <ClearFiltersButton onClear={onClearFilters} />}
         </ListFilterChips>
       )}
 

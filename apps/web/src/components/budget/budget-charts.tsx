@@ -19,11 +19,13 @@ import {
   ToggleGroupItem,
 } from "@freenary/ui/components/toggle-group";
 import { Elevated } from "@freenary/ui/lib/elevated";
+import { motion } from "motion/react";
 import type { ComponentProps } from "react";
 
 import { BudgetVsActualChart } from "@/components/budget/budget-vs-actual-chart";
 import { CashFlowChart } from "@/components/budget/cash-flow-chart";
 import { FixedVsVariableChart } from "@/components/budget/fixed-vs-variable-chart";
+import { PRESS_MOTION } from "@/components/budget/list-controls";
 import { SpendingBreakdownChart } from "@/components/budget/spending-breakdown-chart";
 import { StaleRegion } from "@/components/budget/stale-region";
 import type { CashFlowData } from "@/lib/budget/cash-flow-sankey";
@@ -62,8 +64,6 @@ interface BudgetChartsProps {
 }
 
 const CHART_BODY = "h-[280px]";
-
-const PRESS = "transition-transform duration-150 ease-out active:scale-[0.96]";
 
 const ChartSkeleton = ({ label }: { label: string }) => (
   <div aria-busy="true" className="h-full">
@@ -209,10 +209,16 @@ export const BudgetCharts = ({
               value={[view]}
               variant="outline"
             >
-              <ToggleGroupItem className={PRESS} value="flow">
+              <ToggleGroupItem
+                render={<motion.button {...PRESS_MOTION} />}
+                value="flow"
+              >
                 {m.budget_view_flow()}
               </ToggleGroupItem>
-              <ToggleGroupItem className={PRESS} value="categories">
+              <ToggleGroupItem
+                render={<motion.button {...PRESS_MOTION} />}
+                value="categories"
+              >
                 {m.budget_view_categories()}
               </ToggleGroupItem>
             </ToggleGroup>
@@ -238,11 +244,12 @@ export const BudgetCharts = ({
             }
             value={companion}
           >
-            <SelectTrigger
-              aria-label={m.budget_companion_switch_label()}
-              className={PRESS}
-              size="compact"
-            />
+            <motion.div {...PRESS_MOTION} className="flex">
+              <SelectTrigger
+                aria-label={m.budget_companion_switch_label()}
+                size="compact"
+              />
+            </motion.div>
             <SelectContent>
               <SelectGroup>
                 <SelectItem index={0} value="fixed">

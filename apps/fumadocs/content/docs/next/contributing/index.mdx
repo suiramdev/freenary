@@ -137,7 +137,7 @@ Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: O
 
 | File | What it sets |
 | --- | --- |
-| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the `@jliocsar/begone-slop` preset. Loads the plugin through `jsPlugins`. Ignores `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the `@jliocsar/begone-slop` preset. Loads the plugin through `jsPlugins`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
 | `apps/fumadocs/.oxlintrc.json` | Extends the same begone-slop preset through a relative path, because Oxlint resolves `extends` against the config file and refuses a package name. |
 | `oxfmt.config.ts` | Spreads the Ultracite format config. It does not ignore `packages/ui/**`, so Oxfmt formats that package and Oxlint does not lint it. |
 

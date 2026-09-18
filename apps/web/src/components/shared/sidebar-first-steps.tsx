@@ -4,11 +4,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@freenary/ui/components/sidebar";
+import { exitFallbackMs, spring } from "@freenary/ui/lib/springs";
 import { Link, useLocation } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { SidebarFirstStepIcon } from "@/components/shared/sidebar-first-step-icon";
+import {
+  FirstStepIconContext,
+  SidebarFirstStepIcon,
+} from "@/components/shared/sidebar-first-step-icon";
 import { useFirstSteps } from "@/hooks/first-steps/use-first-steps";
 import { FIRST_STEPS } from "@/lib/first-steps";
 import { m } from "@/paraglide/messages.js";
@@ -19,11 +23,14 @@ const HEADING_ID = "first-steps-heading";
 
 const COMPLETION_HOLD_MS = 1400;
 
+const COMPLETION_CLOSE_MS =
+  COMPLETION_HOLD_MS + exitFallbackMs(spring.moderate);
+
 const PANEL_VARIANTS = {
   exit: {
     filter: "blur(4px)",
     opacity: 0,
-    transition: { duration: 0.15, ease: "easeOut" },
+    transition: spring.moderate.exit,
     y: -12,
   },
   hidden: {},
@@ -34,16 +41,16 @@ const ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.2, ease: "easeOut" },
+    transition: spring.moderate,
     y: 0,
   },
 } as const;
 
 const PANEL_MOTION_REDUCED = {
   animate: { opacity: 1 },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: spring.fast.exit },
   initial: { opacity: 0 },
-  transition: { duration: 0.2 },
+  transition: spring.fast,
 } as const;
 
 const PANEL_MOTION_STAGGERED = {
@@ -55,8 +62,54 @@ const PANEL_MOTION_STAGGERED = {
 
 const MotionSidebarMenuItem = motion.create(SidebarMenuItem);
 
-const ROW_TRANSITION_CLASS =
-  "transition-[width,height,padding,scale,color] duration-150 ease-out active:scale-[0.96]";
+const ROW_TAP = { scale: 0.96 };
+
+const FirstStepRow = ({
+  done,
+  hash,
+  reduceMotion,
+  step,
+  variants,
+}: {
+  done: boolean;
+  hash: string;
+  reduceMotion: boolean;
+  step: (typeof FIRST_STEPS)[number];
+  variants: typeof ITEM_VARIANTS | undefined;
+}) => {
+  const iconState = useMemo(
+    () => ({ done, icon: step.icon }),
+    [done, step.icon]
+  );
+
+  return (
+    <MotionSidebarMenuItem
+      transition={spring.fast}
+      variants={variants}
+      whileTap={reduceMotion ? undefined : ROW_TAP}
+    >
+      <FirstStepIconContext.Provider value={iconState}>
+        <SidebarMenuButton
+          className={done ? "text-sidebar-foreground/50" : undefined}
+          icon={SidebarFirstStepIcon}
+          onClick={() => {
+            if (hash === step.hash) {
+              document
+                .querySelector(`#${step.hash}`)
+                ?.scrollIntoView({ block: "start" });
+            }
+          }}
+          render={<Link hash={step.hash} to={step.to} />}
+        >
+          {step.label()}
+          <span className="sr-only">
+            {done ? m.first_steps_state_done() : m.first_steps_state_todo()}
+          </span>
+        </SidebarMenuButton>
+      </FirstStepIconContext.Provider>
+    </MotionSidebarMenuItem>
+  );
+};
 
 const phaseOnceChecklistLoaded = (
   phase: PanelPhase,
@@ -95,18 +148,10 @@ export const SidebarFirstSteps = () => {
       return;
     }
 
-    const timer = setTimeout(() => setPhase("hidden"), COMPLETION_HOLD_MS);
+    const timer = setTimeout(() => setPhase("hidden"), COMPLETION_CLOSE_MS);
 
     return () => clearTimeout(timer);
   }, [phase]);
-
-  const scrollToStepAlreadyNavigatedTo = (stepHash: string) => {
-    if (hash !== stepHash) {
-      return;
-    }
-
-    document.querySelector(`#${stepHash}`)?.scrollIntoView({ block: "start" });
-  };
 
   return (
     <AnimatePresence>
@@ -129,32 +174,16 @@ export const SidebarFirstSteps = () => {
             </SidebarGroupLabel>
           </motion.div>
           <SidebarMenu aria-labelledby={HEADING_ID}>
-            {FIRST_STEPS.map((step) => {
-              const label = step.label();
-              const isStepDone = step.isDone(state);
-
-              return (
-                <MotionSidebarMenuItem key={step.id} variants={itemVariants}>
-                  <SidebarMenuButton
-                    className={
-                      isStepDone
-                        ? `${ROW_TRANSITION_CLASS} text-sidebar-foreground/50`
-                        : ROW_TRANSITION_CLASS
-                    }
-                    onClick={() => scrollToStepAlreadyNavigatedTo(step.hash)}
-                    render={<Link hash={step.hash} to={step.to} />}
-                  >
-                    <SidebarFirstStepIcon done={isStepDone} icon={step.icon} />
-                    <span className="sr-only">
-                      {isStepDone
-                        ? m.first_steps_state_done()
-                        : m.first_steps_state_todo()}
-                    </span>
-                    <span>{label}</span>
-                  </SidebarMenuButton>
-                </MotionSidebarMenuItem>
-              );
-            })}
+            {FIRST_STEPS.map((step) => (
+              <FirstStepRow
+                done={step.isDone(state)}
+                hash={hash}
+                key={step.id}
+                reduceMotion={prefersReducedMotion === true}
+                step={step}
+                variants={itemVariants}
+              />
+            ))}
           </SidebarMenu>
         </motion.div>
       )}

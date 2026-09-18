@@ -7,7 +7,10 @@ import {
 } from "@freenary/ui/components/dropdown";
 import { RiTranslate2 } from "@remixicon/react";
 
-import { LocaleMenuItems } from "@/components/shared/locale-menu-items";
+import {
+  LocaleMenuItems,
+  localeCheckedIndex,
+} from "@/components/shared/locale-menu-items";
 import { LOCALE_LABELS } from "@/lib/i18n";
 import { remixIcon } from "@/lib/remix-icon";
 import { m } from "@/paraglide/messages.js";
@@ -20,7 +23,7 @@ export const LocaleSwitcher = () => (
     >
       {LOCALE_LABELS[getLocale()]}
     </DropdownTrigger>
-    <DropdownContent align="end">
+    <DropdownContent align="end" checkedIndex={localeCheckedIndex()}>
       <DropdownLabel>{m.locale_switcher_label()}</DropdownLabel>
       <LocaleMenuItems />
     </DropdownContent>

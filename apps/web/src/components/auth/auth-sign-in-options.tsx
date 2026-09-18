@@ -1,7 +1,8 @@
 import { Button } from "@freenary/ui/components/button";
 import { FieldSeparator } from "@freenary/ui/components/field";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { Spinner } from "@freenary/ui/components/spinner";
+import { useSize } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
 
 import { useWebAuthnSupport } from "@/hooks/shared/use-webauthn-support";
 import type {
@@ -48,6 +49,7 @@ export const AuthSignInOptions = ({
   pendingProvider,
 }: AuthSignInOptionsProps) => {
   const isWebAuthnSupported = useWebAuthnSupport();
+  const size = useSize();
 
   if (capabilities === undefined && isError) {
     return (
@@ -71,7 +73,10 @@ export const AuthSignInOptions = ({
     return (
       <div aria-busy="true" className="mt-6 flex flex-col gap-2">
         <output className="sr-only">{m.auth_loading_methods()}</output>
-        <Skeleton aria-hidden="true" className="h-8 w-full rounded-md" />
+        <Skeleton
+          aria-hidden="true"
+          className={cn(size.control, "w-full rounded-md")}
+        />
       </div>
     );
   }
@@ -92,12 +97,12 @@ export const AuthSignInOptions = ({
         {hasPasskey && (
           <Button
             disabled={isPasskeyPending || isRedirecting}
+            loading={isPasskeyPending}
             size="lg"
             type="button"
             variant="tertiary"
             onClick={onPasskey}
           >
-            {isPasskeyPending && <Spinner data-icon="inline-start" />}
             {m.auth_passkey_submit()}
           </Button>
         )}
@@ -106,14 +111,12 @@ export const AuthSignInOptions = ({
           <Button
             key={provider.id}
             disabled={isRedirecting || isPasskeyPending}
+            loading={pendingProvider === provider.id}
             size="lg"
             type="button"
             variant="tertiary"
             onClick={() => onProvider(provider.id)}
           >
-            {pendingProvider === provider.id && (
-              <Spinner data-icon="inline-start" />
-            )}
             {providerLabel(provider)}
           </Button>
         ))}

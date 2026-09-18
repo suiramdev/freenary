@@ -2,23 +2,27 @@ import {
   categoryGroupAppearance,
   predefinedCategoryAppearance,
 } from "@freenary/api/lib/categories";
-import { Badge } from "@freenary/ui/components/badge";
-import { Button } from "@freenary/ui/components/button";
+import { CATEGORY_GROUPS, categoriesInGroup } from "@freenary/api/lib/taxonomy";
+import type {
+  CategoryGroup,
+  SpendingCategory,
+} from "@freenary/api/lib/taxonomy";
 import {
-  DropdownContent,
-  DropdownEmpty,
-  DropdownMenu,
-  DropdownSearch,
-  DropdownTrigger,
-} from "@freenary/ui/components/dropdown";
-import { MenuItem } from "@freenary/ui/components/menu-item";
+  Combobox,
+  ComboboxChips,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+} from "@freenary/ui/components/combobox";
 import { RiFilter3Line } from "@remixicon/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
-import { matchCategoryGroups } from "@/lib/budget/category-search";
+import { categoryRowMatches } from "@/lib/budget/category-search";
+import type { CategoryRow } from "@/lib/budget/category-search";
 import {
-  filterCount,
+  EMPTY_CATEGORY_FILTER,
   toggleCategory,
   toggleGroup,
 } from "@/lib/budget/category-selection";
@@ -32,100 +36,121 @@ interface CategoryFilterMenuProps {
   onFilterChange: (filter: CategoryFilter) => void;
 }
 
+const GROUP_PREFIX = "g:";
+const CATEGORY_PREFIX = "c:";
+const groupValue = (group: CategoryGroup) => `${GROUP_PREFIX}${group}`;
+const categoryValue = (category: SpendingCategory) =>
+  `${CATEGORY_PREFIX}${category}`;
+
+const groupOf = (value: string): CategoryGroup =>
+  // SAFETY: only `groupValue` mints a `g:` value, and only from the taxonomy.
+  value.slice(GROUP_PREFIX.length) as CategoryGroup;
+
+const categoryOf = (value: string): SpendingCategory =>
+  // SAFETY: only `categoryValue` mints a `c:` value, and only from the taxonomy.
+  value.slice(CATEGORY_PREFIX.length) as SpendingCategory;
+
 export const CategoryFilterMenu = ({
   filter,
   onFilterChange,
 }: CategoryFilterMenuProps) => {
-  const [query, setQuery] = useState("");
-  const activeCount = filterCount(filter);
+  const items = useMemo<CategoryRow[]>(() => {
+    const rows: CategoryRow[] = [];
 
-  const matchingGroups = useMemo(() => matchCategoryGroups(query), [query]);
+    for (const group of CATEGORY_GROUPS) {
+      const groupName = categoryGroupLabel(group);
 
-  const { checkedIndices, rows } = useMemo(() => {
-    const flat: (
-      | { kind: "group"; group: (typeof matchingGroups)[number]["group"] }
-      | {
-          kind: "category";
-          category: (typeof matchingGroups)[number]["categories"][number];
-          groupActive: boolean;
-        }
-    )[] = [];
-    const checked: number[] = [];
+      rows.push({
+        group: groupName,
+        label: groupName,
+        value: groupValue(group),
+      });
 
-    for (const { categories, group } of matchingGroups) {
-      const isGroupActive = filter.groups.includes(group);
-
-      if (isGroupActive) {
-        checked.push(flat.length);
+      if (filter.groups.includes(group)) {
+        continue;
       }
 
-      flat.push({ group, kind: "group" });
-
-      for (const category of categories) {
-        if (isGroupActive || filter.categories.includes(category)) {
-          checked.push(flat.length);
-        }
-
-        flat.push({ category, groupActive: isGroupActive, kind: "category" });
+      for (const category of categoriesInGroup(group)) {
+        rows.push({
+          group: groupName,
+          label: categoryLabel(category),
+          value: categoryValue(category),
+        });
       }
     }
 
-    return { checkedIndices: checked, rows: flat };
-  }, [matchingGroups, filter]);
+    return rows;
+  }, [filter.groups]);
+
+  const values = useMemo(
+    () => [
+      ...filter.groups.map(groupValue),
+      ...filter.categories.map(categoryValue),
+    ],
+    [filter]
+  );
+
+  const handleChange = (next: string[]) => {
+    if (next.length === 0) {
+      onFilterChange(EMPTY_CATEGORY_FILTER);
+
+      return;
+    }
+
+    const changed =
+      next.find((value) => !values.includes(value)) ??
+      values.find((value) => !next.includes(value));
+
+    if (changed === undefined) {
+      return;
+    }
+
+    onFilterChange(
+      changed.startsWith(GROUP_PREFIX)
+        ? toggleGroup(filter, groupOf(changed))
+        : toggleCategory(filter, categoryOf(changed))
+    );
+  };
 
   return (
-    <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownTrigger
-        render={
-          <Button leadingIcon={remixIcon(RiFilter3Line)} variant="tertiary" />
-        }
-      >
-        {m.budget_filter_category()}
-        {activeCount > 0 && <Badge>{activeCount}</Badge>}
-      </DropdownTrigger>
-      <DropdownContent
-        align="end"
-        checkedIndices={checkedIndices}
-        className="max-h-96 min-w-64 overflow-y-auto"
-      >
-        <DropdownSearch
-          onValueChange={setQuery}
-          placeholder={m.budget_category_search_placeholder()}
-          value={query}
-        />
-        {rows.length === 0 && (
-          <DropdownEmpty>{m.budget_category_search_empty()}</DropdownEmpty>
-        )}
-        {rows.map((row, index) =>
-          row.kind === "group" ? (
-            <MenuItem
-              checked={filter.groups.includes(row.group)}
-              icon={categoryMenuIcon(categoryGroupAppearance(row.group))}
-              index={index}
-              key={row.group}
-              label={categoryGroupLabel(row.group)}
-              onSelect={() => onFilterChange(toggleGroup(filter, row.group))}
-            />
-          ) : (
-            <MenuItem
-              checked={
-                row.groupActive || filter.categories.includes(row.category)
-              }
-              className="ps-8"
-              disabled={row.groupActive}
-              icon={categoryMenuIcon(
-                predefinedCategoryAppearance(row.category)
-              )}
-              index={index}
-              key={row.category}
-              label={categoryLabel(row.category)}
-              onSelect={() =>
-                onFilterChange(toggleCategory(filter, row.category))
-              }
-            />
-          )
-        )}
-      </DropdownContent>
-    </DropdownMenu>
+    <Combobox
+      filter={categoryRowMatches}
+      items={items}
+      multiple
+      onValueChange={handleChange}
+      value={values}
+    >
+      <ComboboxChips
+        className="min-w-52"
+        clearable
+        icon={remixIcon(RiFilter3Line)}
+        placeholder={m.budget_filter_category()}
+      />
+      <ComboboxContent align="start">
+        <ComboboxEmpty>{m.budget_category_search_empty()}</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => {
+            // SAFETY: every row comes from `items`, built above.
+            const row = item as CategoryRow;
+            const isGroup = row.value.startsWith(GROUP_PREFIX);
+
+            return (
+              <ComboboxItem
+                icon={categoryMenuIcon(
+                  isGroup
+                    ? categoryGroupAppearance(groupOf(row.value))
+                    : predefinedCategoryAppearance(categoryOf(row.value))
+                )}
+                value={row.value}
+              >
+                <span className={isGroup ? "font-medium" : "ps-3"}>
+                  {row.label}
+                </span>
+              </ComboboxItem>
+            );
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 };

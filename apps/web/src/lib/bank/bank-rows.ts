@@ -2,6 +2,7 @@ import type {
   BankConnection,
   BankInstitution,
 } from "@/hooks/bank/use-bank-connections";
+import { countryName } from "@/lib/onboarding/countries";
 import { m } from "@/paraglide/messages.js";
 import type { Locale } from "@/paraglide/runtime.js";
 
@@ -13,6 +14,11 @@ export interface BankRow {
   logo: string | null;
   name: string;
 }
+
+export const institutionKey = (institution: {
+  country: string | null;
+  id: string;
+}): string => `${institution.country ?? ""}:${institution.id}`;
 
 const summaryOf = (connection: BankConnection, locale: Locale): string => {
   const accounts = m.bank_account(
@@ -37,16 +43,32 @@ export const buildBankRows = (
   connections: BankConnection[],
   locale: Locale
 ): BankRow[] => {
-  const institutionsById = new Map(banks.map((bank) => [bank.id, bank]));
-  const connectedIds = new Set(
-    connections
-      .map((connection) => connection.institutionId)
-      .filter((id): id is string => id !== null)
+  const institutionsByKey = new Map(
+    banks.map((bank) => [institutionKey(bank), bank])
   );
+  const connectedKeys = new Set(
+    connections.flatMap((connection) =>
+      connection.institutionId === null
+        ? []
+        : [
+            institutionKey({
+              country: connection.institutionCountry,
+              id: connection.institutionId,
+            }),
+          ]
+    )
+  );
+
+  const spansCountries = new Set(banks.map((bank) => bank.country)).size > 1;
 
   const connectedRows = connections.map((connection) => {
     const institution = connection.institutionId
-      ? (institutionsById.get(connection.institutionId) ?? null)
+      ? (institutionsByKey.get(
+          institutionKey({
+            country: connection.institutionCountry,
+            id: connection.institutionId,
+          })
+        ) ?? null)
       : null;
 
     return {
@@ -60,15 +82,20 @@ export const buildBankRows = (
   });
 
   const unconnectedRows = banks
-    .filter((bank) => !connectedIds.has(bank.id))
-    .map((bank) => ({
-      connection: null,
-      description: bank.bic,
-      id: bank.id,
-      institution: bank,
-      logo: bank.logo,
-      name: bank.name,
-    }));
+    .filter((bank) => !connectedKeys.has(institutionKey(bank)))
+    .map((bank) => {
+      const origin = spansCountries ? countryName(bank.country, locale) : null;
+
+      return {
+        connection: null,
+        description:
+          origin && bank.bic ? `${origin} · ${bank.bic}` : (origin ?? bank.bic),
+        id: institutionKey(bank),
+        institution: bank,
+        logo: bank.logo,
+        name: bank.name,
+      };
+    });
 
   return [...connectedRows, ...unconnectedRows];
 };

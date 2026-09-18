@@ -6,12 +6,20 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@freenary/ui/components/item";
+import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
+import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
+import { useCallback, useRef } from "react";
 
 import { CategoryIcon } from "@/components/budget/category-icon";
 import { formatCurrency } from "@/lib/budget/format-currency";
 import type { Transaction } from "@/lib/budget/transaction";
 import { m } from "@/paraglide/messages.js";
+
+export const CATEGORY_MEDIA_BOX = {
+  compact: "size-7 [&_svg]:size-3.5",
+  default: "size-9 [&_svg]:size-4",
+} as const;
 
 export const TransactionRow = ({
   transaction,
@@ -19,6 +27,7 @@ export const TransactionRow = ({
   index,
   offset,
   measureRef,
+  registerItem,
   onClick,
 }: {
   transaction: Transaction;
@@ -26,6 +35,7 @@ export const TransactionRow = ({
   index: number;
   offset: number;
   measureRef: (node: Element | null) => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
   onClick: () => void;
 }) => {
   const amount = formatCurrency(
@@ -33,12 +43,23 @@ export const TransactionRow = ({
     transaction.currency
   );
   const title = transaction.counterpartyName ?? transaction.description;
+  const { variant } = useSize();
+
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
+  const setRow = useCallback(
+    (node: HTMLDivElement | null) => {
+      rowRef.current = node;
+      measureRef(node);
+    },
+    [measureRef]
+  );
 
   return (
     <Item
-      className="hover:bg-muted/50 border-b-border absolute inset-x-0 cursor-pointer text-start"
+      className="border-b-border absolute inset-x-0 cursor-pointer text-start"
       data-index={index}
-      ref={measureRef}
+      ref={setRow}
       render={
         <button
           aria-label={
@@ -50,13 +71,13 @@ export const TransactionRow = ({
         />
       }
       size="sm"
-      style={{ transform: `translateY(${offset}px)` }}
+      style={{ top: offset }}
       onClick={onClick}
     >
       <ItemMedia>
         <CategoryIcon
           {...predefinedCategoryAppearance(transaction.category)}
-          className="size-8 [&_svg]:size-4"
+          className={CATEGORY_MEDIA_BOX[variant]}
         />
       </ItemMedia>
       <ItemContent className="min-w-0">

@@ -3,14 +3,18 @@ import { z } from "zod";
 
 import { protectedProcedure } from "../index";
 
+const isoAlpha2CountryCode = z
+  .string()
+  .regex(/^[A-Z]{2}$/u, "Expected an ISO 3166-1 alpha-2 country code");
+
 export const onboardingRouter = {
   completeOnboarding: protectedProcedure
-    .input(z.object({ country: z.string() }))
+    .input(z.object({ taxCountries: z.array(isoAlpha2CountryCode).min(1) }))
     .handler(async ({ context, input }) => {
       await prisma.user.update({
         data: {
-          country: input.country,
           onboardingCompletedAt: new Date(),
+          taxCountries: input.taxCountries,
         },
         where: { id: context.session.user.id },
       });
@@ -20,13 +24,13 @@ export const onboardingRouter = {
 
   getStatus: protectedProcedure.handler(async ({ context }) => {
     const user = await prisma.user.findUniqueOrThrow({
-      select: { country: true, onboardingCompletedAt: true },
+      select: { onboardingCompletedAt: true, taxCountries: true },
       where: { id: context.session.user.id },
     });
 
     return {
       completed: user.onboardingCompletedAt !== null,
-      country: user.country ?? null,
+      taxCountries: user.taxCountries,
     };
   }),
 };

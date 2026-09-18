@@ -67,7 +67,7 @@ Nothing fails at startup. Every credential is optional, and `BANKING_PROVIDER` f
 | Startup | The API server starts and signs users in as normal |
 | The bank list | The adapter answers with an empty list, so no bank is selectable |
 | Settings | An empty block replaces the bank section |
-| `/onboarding` | The bank step disappears, and the wizard finishes on the country screen |
+| `/onboarding` | The bank step disappears, and the wizard finishes on the tax residency screen |
 
 Settings reads:
 
@@ -177,9 +177,9 @@ Compose recreates the `server` container with the new environment. No image rebu
 
 ### Check that a bank reaches the list
 
-Sign in, open **Settings**, then the bank section. It lists the banks that your domain activated for the country of your profile.
+Sign in, open **Settings**, then the bank section. It lists the banks that your domain activated for each jurisdiction of your profile.
 
-A list that stays empty means the country, the connectors or the credentials. `Bank linking is unavailable` in place of the section means Freenary read no credentials at all.
+A list that stays empty means the jurisdictions, the connectors or the credentials. `Bank linking is unavailable` in place of the section means Freenary read no credentials at all.
 
 </Step>
 

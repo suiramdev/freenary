@@ -3,15 +3,13 @@ import { z } from "zod";
 
 import { isServer } from "@/lib/is-server";
 
-export interface OnboardingState {
-  country: string;
-}
+const onboardingStateSchema = z.object({
+  taxCountries: z.array(z.string()).min(1),
+});
+
+export type OnboardingState = z.infer<typeof onboardingStateSchema>;
 
 const STORAGE_KEY = "freenary:onboarding";
-
-const onboardingStateSchema: z.ZodType<OnboardingState> = z.object({
-  country: z.string(),
-});
 
 const decodeStoredState = Option.liftThrowable((raw: string) =>
   onboardingStateSchema.parse(JSON.parse(raw))

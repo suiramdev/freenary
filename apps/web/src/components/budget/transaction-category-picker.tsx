@@ -20,7 +20,7 @@ export const TransactionCategoryPicker = ({
     <SpendingCategoryPicker onValueChange={onSelect} value={category} />
 
     {isOverridden ? (
-      <Button onClick={onReset} variant="ghost">
+      <Button onClick={onReset} size="icon-compact" variant="ghost">
         <RiResetLeftLine />
         <span className="sr-only">{m.budget_category_reset()}</span>
       </Button>

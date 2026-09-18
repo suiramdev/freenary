@@ -1,21 +1,19 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
+import { CATEGORY_GROUPS, categoriesInGroup } from "@freenary/api/lib/taxonomy";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
-import { Button } from "@freenary/ui/components/button";
 import {
-  DropdownContent,
-  DropdownEmpty,
-  DropdownLabel,
-  DropdownMenu,
-  DropdownSearch,
-  DropdownTrigger,
-} from "@freenary/ui/components/dropdown";
-import { MenuItem } from "@freenary/ui/components/menu-item";
-import { RiExpandUpDownLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@freenary/ui/components/combobox";
+import { useMemo } from "react";
 
 import { categoryMenuIcon } from "@/components/budget/category-menu-icon";
-import { matchCategoryGroups } from "@/lib/budget/category-search";
-import { remixIcon } from "@/lib/remix-icon";
+import { categoryRowMatches } from "@/lib/budget/category-search";
+import type { CategoryRow } from "@/lib/budget/category-search";
 import { categoryGroupLabel, categoryLabel } from "@/lib/taxonomy-labels";
 import { m } from "@/paraglide/messages.js";
 
@@ -28,71 +26,57 @@ export const SpendingCategoryPicker = ({
   onValueChange,
   value,
 }: SpendingCategoryPickerProps) => {
-  const [query, setQuery] = useState("");
-
-  const matches = useMemo(() => matchCategoryGroups(query), [query]);
-
-  const grouped = useMemo(() => {
-    const sections: {
-      categories: (typeof matches)[number]["categories"];
-      group: (typeof matches)[number]["group"];
-      offset: number;
-    }[] = [];
-    let offset = 0;
-
-    for (const { categories, group } of matches) {
-      sections.push({ categories, group, offset });
-      offset += categories.length;
-    }
-
-    return sections;
-  }, [matches]);
-  const checkedIndex = matches
-    .flatMap(({ categories }) => categories)
-    .indexOf(value);
+  const items = useMemo<CategoryRow[]>(
+    () =>
+      CATEGORY_GROUPS.flatMap((group) =>
+        categoriesInGroup(group).map((category) => ({
+          group: categoryGroupLabel(group),
+          label: categoryLabel(category),
+          value: category,
+        }))
+      ),
+    []
+  );
 
   return (
-    <DropdownMenu onOpenChange={() => setQuery("")}>
-      <DropdownTrigger
-        render={
-          <Button
-            trailingIcon={remixIcon(RiExpandUpDownLine)}
-            variant="tertiary"
-          />
+    <Combobox
+      filter={categoryRowMatches}
+      items={items}
+      onValueChange={(next) => {
+        if (next !== "") {
+          // SAFETY: every row's value is a SpendingCategory from the taxonomy.
+          onValueChange(next as SpendingCategory);
         }
-      >
-        {categoryLabel(value)}
-      </DropdownTrigger>
-      <DropdownContent
-        align="start"
-        checkedIndex={checkedIndex === -1 ? undefined : checkedIndex}
-        className="max-h-96 min-w-56 overflow-y-auto"
-      >
-        <DropdownSearch
-          onValueChange={setQuery}
-          placeholder={m.budget_category_search_placeholder()}
-          value={query}
-        />
-        {matches.length === 0 && (
-          <DropdownEmpty>{m.budget_category_search_empty()}</DropdownEmpty>
-        )}
-        {grouped.map(({ categories, group, offset }) => (
-          <div key={group}>
-            <DropdownLabel>{categoryGroupLabel(group)}</DropdownLabel>
-            {categories.map((category, position) => (
-              <MenuItem
-                checked={value === category}
-                className="ps-8"
-                icon={categoryMenuIcon(predefinedCategoryAppearance(category))}
-                index={offset + position}
-                key={category}
-                label={categoryLabel(category)}
-                onSelect={() => onValueChange(category)}
-              />
-            ))}
-          </div>
-        ))}
-      </DropdownContent>
-    </DropdownMenu>
+      }}
+      value={value}
+    >
+      <ComboboxInput placeholder={m.budget_category_search_placeholder()} />
+      <ComboboxContent align="start">
+        <ComboboxEmpty>{m.budget_category_search_empty()}</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => {
+            // SAFETY: every row comes from `items`, built above.
+            const row = item as CategoryRow;
+
+            return (
+              <ComboboxItem
+                icon={categoryMenuIcon(
+                  // SAFETY: as above — the rows come from the taxonomy.
+                  predefinedCategoryAppearance(row.value as SpendingCategory)
+                )}
+                value={row.value}
+              >
+                <span className="flex w-full items-baseline justify-between gap-3">
+                  <span className="truncate">{row.label}</span>
+                  <span className="text-muted-foreground shrink-0 text-[11px]">
+                    {row.group}
+                  </span>
+                </span>
+              </ComboboxItem>
+            );
+          }}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 };

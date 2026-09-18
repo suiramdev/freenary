@@ -49,7 +49,7 @@ Two places supply the URL. `packages/db/prisma.config.ts` hands `process.env.DAT
 
 | Model and table | Key fields | Constraints and notes |
 | --- | --- | --- |
-| `User`, table `user` | `id`, `name`, `email`, `emailVerified` (`false`), `twoFactorEnabled` (`false`), `image?`, `country?`, `onboardingCompletedAt?`, `createdAt`, `updatedAt` | `@@unique([email])`. Ten child relations, each with a cascade delete |
+| `User`, table `user` | `id`, `name`, `email`, `emailVerified` (`false`), `twoFactorEnabled` (`false`), `image?`, `taxCountries String[]`, `onboardingCompletedAt?`, `createdAt`, `updatedAt` | `@@unique([email])`. Ten child relations, each with a cascade delete |
 | `Session`, table `session` | `expiresAt`, `token`, `ipAddress?`, `userAgent?`, `userId` | `@@unique([token])`, `@@index([userId])`, cascade |
 | `Account`, table `account` | `issuer`, `accountId`, `providerId`, `userId`, `accessToken?`, `refreshToken?`, `idToken?`, `accessTokenExpiresAt?`, `refreshTokenExpiresAt?`, `scope?`, `password?` | `@@unique([issuer, accountId], map: "account_issuer_accountId_uidx")`, `@@index([userId])`. The credential and OAuth link table, never a bank account. The password hash sits in `password` |
 | `Verification`, table `verification` | `identifier`, `value`, `expiresAt` | `@@index([identifier])`. No user column and no foreign key |
@@ -265,11 +265,11 @@ where: {
 
 Deletion leans on the foreign-key chain. The `disconnect` procedure deletes the `bank_connection` row, and the accounts, transactions and holdings go with it. The `BudgetLine.category` relation is the one exception. It uses `onDelete: Restrict`, and `deleteCustomCategory` moves each affected line to the group fallback slug first.
 
-Onboarding needs no model. Two nullable columns on `User` hold the whole state: `country` and `onboardingCompletedAt`. `onboarding.getStatus` reports `completed` as `onboardingCompletedAt !== null`.
+Onboarding needs no model. Two columns on `User` hold the whole state: `taxCountries` and `onboardingCompletedAt`. `onboarding.getStatus` reports `completed` as `onboardingCompletedAt !== null`. The list is the tax jurisdictions the first step asked for, and `bankConnection.listInstitutions` reads it as its country scope.
 
 ## Migrations
 
-Seven directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
+Eight directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
 
 | Directory | What it does |
 | --- | --- |
@@ -280,6 +280,7 @@ Seven directories sit under `packages/db/prisma/migrations`, with `migration_loc
 | `20260904120000_derive_budget_line_kind` | Drops the column `budget_line.kind` and the type `BudgetLineKind`, swaps the index, and makes `budget_line.label` nullable |
 | `20260904154129_bank_provider_abstraction` | Creates `BankAccountType`, adds `bank_account.type`, `currency`, `balanceMinor` and `balanceAt`, then creates `bank_provider_user` and `holding` |
 | `20260904193133_assistant_conversations` | Creates `ConversationRole`, then `conversation` and `conversation_message` with their index, unique index and cascades |
+| `20260918120000_user_tax_countries` | Replaces `user.country` with the list `user.taxCountries`, carrying the single answer already on file into it |
 
 ### The loop for a schema change
 

@@ -2,7 +2,7 @@
 
 import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
 import { fontWeights } from "@freenary/ui/lib/font-weight";
-import type { IconComponent } from "@freenary/ui/lib/icon-context";
+import { useIcon, type IconComponent } from "@freenary/ui/lib/icon-context";
 import { shapeMap } from "@freenary/ui/lib/shape-context";
 import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
@@ -50,6 +50,9 @@ export interface MenuItemRenderOptions {
   disabled?: boolean;
   label: string;
   closeOnClick: boolean;
+  /** The row opens a nested menu: the dropdown wraps it in its submenu
+   *  trigger instead of a plain item. */
+  submenu: boolean;
   element: ReactElement;
   children: ReactNode;
 }
@@ -100,6 +103,9 @@ interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   /** Popup-only (inside DropdownContent): whether activating the item closes
    *  the menu. Ignored in the inline Dropdown panel. @default true */
   closeOnClick?: boolean;
+  /** The row opens a nested DropdownSubmenu rather than acting. It carries a
+   *  trailing chevron, and never a checked state. */
+  submenu?: boolean;
 }
 
 const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
@@ -112,6 +118,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       onSelect,
       disabled,
       closeOnClick,
+      submenu,
       className,
       onClick,
       ...props
@@ -139,6 +146,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
     const isActive = activeIndex === index;
     const skipAnimation = !hasMounted.current;
     const sizeClasses = useSize();
+    const SubmenuChevron = useIcon("chevron-right");
 
     const mergeRef = (node: HTMLDivElement | null) => {
       (internalRef as React.MutableRefObject<HTMLDivElement | null>).current =
@@ -208,6 +216,16 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
             {label}
           </span>
         </span>
+        {submenu && (
+          <SubmenuChevron
+            size={sizeClasses.icon}
+            strokeWidth={isActive ? 2 : 1.5}
+            className={cn(
+              "shrink-0 transition-[color,stroke-width] duration-80",
+              isActive ? "text-foreground" : "text-muted-foreground"
+            )}
+          />
+        )}
         <AnimatePresence>
           {checked && (
             <motion.svg
@@ -260,6 +278,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         label,
         // Toggling one of several stays open; picking one of one closes.
         closeOnClick: closeOnClick ?? !multiple,
+        submenu: !!submenu,
         element: (
           <div
             ref={mergeRef}

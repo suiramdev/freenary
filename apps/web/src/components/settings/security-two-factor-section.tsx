@@ -1,6 +1,6 @@
-import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import { Skeleton } from "@freenary/ui/components/skeleton";
+import { Switch } from "@freenary/ui/components/switch";
 import { useState } from "react";
 
 import { SecurityTwoFactorDisableDialog } from "@/components/settings/security-two-factor-disable-dialog";
@@ -22,6 +22,7 @@ export const SecurityTwoFactorSection = ({
   const { data: session, isPending, refetch } = authClient.useSession();
   const [purpose, setPurpose] = useState<TwoFactorPurpose>("enable");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDisableOpen, setIsDisableOpen] = useState(false);
 
   const isEnabled = session?.user.twoFactorEnabled === true;
 
@@ -33,17 +34,16 @@ export const SecurityTwoFactorSection = ({
 
   const renderHeaderAction = () => {
     if (isPending || isAccountsPending) {
-      return <Skeleton aria-hidden="true" className="h-8 w-28 rounded-md" />;
+      return (
+        <div className="flex min-h-7 items-center">
+          <Skeleton aria-hidden="true" className="h-4 w-7 rounded-full" />
+        </div>
+      );
     }
 
-    if (isEnabled) {
-      return (
-        <div className="flex flex-wrap gap-2">
-          <SecurityTwoFactorDisableDialog
-            onDisabled={() => {
-              void refetch();
-            }}
-          />
+    return (
+      <div className="flex min-h-7 items-center gap-2">
+        {isEnabled && (
           <Button
             onClick={() => {
               setPurpose("regenerate");
@@ -53,23 +53,23 @@ export const SecurityTwoFactorSection = ({
           >
             {m.settings_2fa_regenerate()}
           </Button>
-        </div>
-      );
-    }
+        )}
+        <Switch
+          aria-label={m.settings_2fa_title()}
+          checked={isEnabled}
+          disabled={!(isEnabled || hasConfirmedPassword)}
+          onCheckedChange={(next) => {
+            if (next) {
+              setPurpose("enable");
+              setIsDrawerOpen(true);
 
-    if (!hasConfirmedPassword) {
-      return null;
-    }
+              return;
+            }
 
-    return (
-      <Button
-        onClick={() => {
-          setPurpose("enable");
-          setIsDrawerOpen(true);
-        }}
-      >
-        {m.settings_2fa_enable()}
-      </Button>
+            setIsDisableOpen(true);
+          }}
+        />
+      </div>
     );
   };
 
@@ -81,23 +81,13 @@ export const SecurityTwoFactorSection = ({
     >
       <div aria-busy={isPending || undefined} className="flex flex-col gap-2">
         {isPending ? (
-          <div aria-hidden="true" className="flex flex-col gap-2">
-            <Skeleton className="h-5 w-14 rounded-full" />
-            <Skeleton className="h-3.5 w-full max-w-md" />
-          </div>
+          <Skeleton aria-hidden="true" className="h-[1.5em] w-full max-w-md" />
         ) : (
-          <>
-            <Badge className="self-start" variant={isEnabled ? "solid" : "dot"}>
-              {isEnabled
-                ? m.settings_2fa_status_on()
-                : m.settings_2fa_status_off()}
-            </Badge>
-            <p className="text-muted-foreground">
-              {isEnabled
-                ? m.settings_2fa_on_explanation()
-                : m.settings_2fa_off_explanation()}
-            </p>
-          </>
+          <p className="text-muted-foreground">
+            {isEnabled
+              ? m.settings_2fa_on_explanation()
+              : m.settings_2fa_off_explanation()}
+          </p>
         )}
         {isPending && (
           <output className="sr-only">{m.settings_2fa_loading()}</output>
@@ -121,6 +111,14 @@ export const SecurityTwoFactorSection = ({
         onOpenChange={setIsDrawerOpen}
         open={isDrawerOpen}
         purpose={purpose}
+      />
+
+      <SecurityTwoFactorDisableDialog
+        onDisabled={() => {
+          void refetch();
+        }}
+        onOpenChange={setIsDisableOpen}
+        open={isDisableOpen}
       />
     </SettingsSection>
   );

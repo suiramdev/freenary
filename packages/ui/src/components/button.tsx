@@ -2,6 +2,7 @@
 
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import type { IconComponent } from "@freenary/ui/lib/icon-context";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { useShape } from "@freenary/ui/lib/shape-context";
 import { useSizeVariant } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
@@ -17,7 +18,11 @@ import {
 
 const buttonVariants = cva(
   [
-    "group relative isolate inline-flex cursor-pointer items-center justify-center outline-none",
+    // Named group: an unnamed `group` here would also answer an ancestor
+    // `.group` (a hovered message row, a card), lighting every button inside
+    // it at once. `/button` binds the fill, ring and icon weight to this
+    // button alone.
+    "group/button relative isolate inline-flex cursor-pointer items-center justify-center outline-none",
     "transition-colors duration-80",
     "disabled:pointer-events-none disabled:opacity-50",
     "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
@@ -103,32 +108,32 @@ interface ButtonProps
    rather than alpha so the fill and its spread ring never seam. */
 const bgVariants: Record<string, string> = {
   primary:
-    "[--btn-bg:var(--foreground)] group-hover:[--btn-bg:color-mix(in_oklab,var(--foreground)_90%,var(--background))] group-active:[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
+    "[--btn-bg:var(--foreground)] group-hover/button:[--btn-bg:color-mix(in_oklab,var(--foreground)_90%,var(--background))] group-active/button:[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active/button:shadow-[0_0_0_0px_var(--btn-bg)]",
   secondary:
-    "[--btn-bg:var(--accent)] group-hover:[--btn-bg:color-mix(in_oklab,var(--accent)_80%,var(--background))] group-active:[--btn-bg:var(--accent)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
+    "[--btn-bg:var(--accent)] group-hover/button:[--btn-bg:color-mix(in_oklab,var(--accent)_80%,var(--background))] group-active/button:[--btn-bg:var(--accent)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active/button:shadow-[0_0_0_0px_var(--btn-bg)]",
   // The border ring is an outer 1px shadow at rest that hands off to an
   // inset 1px shadow when pressed, so the ring moves inward with the
   // surface. The translucent fill only ever reaches the ring's inner edge
   // (exactly the surface box), so it needs no spread of its own.
   tertiary:
-    "bg-transparent shadow-[0_0_0_1px_var(--border),inset_0_0_0_0px_var(--border)] group-hover:bg-hover group-active:bg-active group-active:shadow-[0_0_0_0px_var(--border),inset_0_0_0_1px_var(--border)]",
+    "bg-transparent shadow-[0_0_0_1px_var(--border),inset_0_0_0_0px_var(--border)] group-hover/button:bg-hover group-active/button:bg-active group-active/button:shadow-[0_0_0_0px_var(--border),inset_0_0_0_1px_var(--border)]",
   // Translucent fill + same-color spread never double up: outer shadows
   // render only outside the surface box.
   ghost:
-    "bg-transparent shadow-[0_0_0_1px_transparent] group-hover:bg-hover group-hover:shadow-[0_0_0_1px_var(--hover)] group-active:bg-active group-active:shadow-[0_0_0_0px_var(--active)]",
+    "bg-transparent shadow-[0_0_0_1px_transparent] group-hover/button:bg-hover group-hover/button:shadow-[0_0_0_1px_var(--hover)] group-active/button:bg-active group-active/button:shadow-[0_0_0_0px_var(--active)]",
 };
 
 /* Forced-active (`active` prop): pressed colors at full size; the
    geometric press-collapse still reacts on top. */
 const activeBgVariants: Record<string, string> = {
   primary:
-    "[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
+    "[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active/button:shadow-[0_0_0_0px_var(--btn-bg)]",
   secondary:
-    "[--btn-bg:var(--accent)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
+    "[--btn-bg:var(--accent)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active/button:shadow-[0_0_0_0px_var(--btn-bg)]",
   tertiary:
-    "bg-active shadow-[0_0_0_1px_var(--border),inset_0_0_0_0px_var(--border)] group-active:shadow-[0_0_0_0px_var(--border),inset_0_0_0_1px_var(--border)]",
+    "bg-active shadow-[0_0_0_1px_var(--border),inset_0_0_0_0px_var(--border)] group-active/button:shadow-[0_0_0_0px_var(--border),inset_0_0_0_1px_var(--border)]",
   ghost:
-    "bg-active shadow-[0_0_0_1px_var(--active)] group-active:shadow-[0_0_0_0px_var(--active)]",
+    "bg-active shadow-[0_0_0_1px_var(--active)] group-active/button:shadow-[0_0_0_0px_var(--active)]",
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -182,6 +187,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // proportionate across sizes.
     const spinnerSizeClass = isCompact ? "h-7 w-7" : "h-9 w-9";
     const shape = useShape();
+    const labels = useUiLabels();
     const bgClass = active
       ? activeBgVariants[variant ?? "primary"]
       : bgVariants[variant ?? "primary"];
@@ -191,11 +197,15 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         <span
           aria-hidden
           className={cn(
-            "absolute inset-px rounded-[inherit] transition-[box-shadow,background-color] [transition-duration:180ms,80ms] [transition-timing-function:cubic-bezier(0.23,1,0.32,1),ease] group-active:[transition-duration:80ms,80ms]",
+            "absolute inset-px rounded-[inherit] transition-[box-shadow,background-color] [transition-duration:180ms,80ms] [transition-timing-function:cubic-bezier(0.23,1,0.32,1),ease] group-active/button:[transition-duration:80ms,80ms]",
             bgClass
           )}
         />
-        <span className="relative inline-flex items-center justify-center gap-[inherit]">
+        {/* The background layer is absolute, so this row is the button's only
+            in-flow item: it spans the width and inherits the justification, or
+            a `justify-*` on a fixed-width button would have nothing to spread.
+            `min-w-0` here and on the label lets a `truncate` label bind. */}
+        <span className="relative inline-flex w-full min-w-0 items-center [justify-content:inherit] gap-[inherit]">
           {loading ? (
             <>
               <span className="flex items-center justify-center gap-[inherit] opacity-0">
@@ -209,9 +219,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
               <span className="absolute inset-0 flex items-center justify-center">
                 <svg
+                  aria-label={labels.loading}
                   className={spinnerSizeClass}
-                  viewBox="0 0 24 24"
                   fill="none"
+                  role="status"
+                  viewBox="0 0 24 24"
                 >
                   <path
                     d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
@@ -229,7 +241,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
             </>
           ) : isIconOnly ? (
-            <span className="[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
+            <span className="[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover/button:[&_svg]:stroke-[2]">
               {label}
             </span>
           ) : (
@@ -238,21 +250,21 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 <LeadingIcon
                   size={iconSize}
                   strokeWidth={1.5}
-                  className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+                  className="transition-[stroke-width] duration-80 group-hover/button:stroke-[2]"
                 />
               )}
               {/* text-box only applies to block containers, so the trim lives
                   on the label span (a blockified flex item), not the flex root.
                   The button's height is fixed (h-*), so this doesn't change
                   layout — it just centers the cap-to-baseline box optically. */}
-              <span className="[text-box:trim-both_cap_alphabetic]">
+              <span className="min-w-0 [text-box:trim-both_cap_alphabetic]">
                 {label}
               </span>
               {TrailingIcon && (
                 <TrailingIcon
                   size={iconSize}
                   strokeWidth={1.5}
-                  className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+                  className="transition-[stroke-width] duration-80 group-hover/button:stroke-[2]"
                 />
               )}
             </>
@@ -292,6 +304,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         // keep the public ref type narrow so consumers see the right type.
         ref={ref as React.Ref<HTMLButtonElement>}
         className={rootClassName}
+        // No `aria-busy`: it would tell a screen reader to defer the spinner's
+        // own `role="status"`, and the flag clears only as that node unmounts.
         disabled={disabled || loading}
         style={style}
         {...props}

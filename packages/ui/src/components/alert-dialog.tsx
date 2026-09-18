@@ -151,10 +151,13 @@ function AlertDialogAction({
   );
 }
 
+/** The dismissive half of the footer pair. It takes no size of its own: the
+ *  confirm button beside it follows the surrounding SizeProvider, and a fixed
+ *  size here would make the two different heights. */
 function AlertDialogCancel({
   className,
   variant = "tertiary",
-  size = "default",
+  size,
   ...props
 }: AlertDialogPrimitive.Close.Props &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
@@ -162,7 +165,7 @@ function AlertDialogCancel({
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-cancel"
       className={cn(className)}
-      render={<Button variant={variant} size={size} />}
+      render={<Button size={size} variant={variant} />}
       {...props}
     />
   );

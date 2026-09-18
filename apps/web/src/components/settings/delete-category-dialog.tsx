@@ -10,7 +10,7 @@ import {
   AlertDialogTrigger,
 } from "@freenary/ui/components/alert-dialog";
 import { Button } from "@freenary/ui/components/button";
-import { Spinner } from "@freenary/ui/components/spinner";
+import { SizeProvider } from "@freenary/ui/lib/size-context";
 import { RiDeleteBinLine } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
@@ -40,33 +40,36 @@ export const DeleteCategoryDialog = ({
 
   return (
     <AlertDialog>
-      <AlertDialogTrigger render={<Button variant="ghost" />}>
+      <AlertDialogTrigger
+        render={<Button size="icon-compact" variant="ghost" />}
+      >
         <RiDeleteBinLine />
         <span className="sr-only">
           {m.settings_category_delete_action({ label })}
         </span>
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {m.settings_category_delete_title({ label })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {deleteImpactDescription}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={isDeleting}
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            onClick={onConfirm}
-          >
-            {isDeleting && <Spinner data-icon="inline-start" />}
-            {m.settings_category_delete_confirm()}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        <SizeProvider size="compact">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {m.settings_category_delete_title({ label })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteImpactDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>
+            <AlertDialogAction
+              className="text-destructive hover:text-destructive"
+              loading={isDeleting}
+              onClick={onConfirm}
+              variant="ghost"
+            >
+              {m.settings_category_delete_confirm()}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </SizeProvider>
       </AlertDialogContent>
     </AlertDialog>
   );

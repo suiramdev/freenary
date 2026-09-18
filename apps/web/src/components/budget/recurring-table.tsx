@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@freenary/ui/components/table";
+import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
 import { RiRepeatLine } from "@remixicon/react";
 
@@ -54,7 +55,7 @@ const MONEY_CELL = "text-end font-mono tabular-nums";
 
 const COLUMN_COUNT = 7;
 
-const ROW_HEIGHT = "h-14";
+const ROW_CONTROL_HEIGHTS = 2;
 
 const SKELETON_ROWS = 6;
 
@@ -85,6 +86,7 @@ const RecurringTableHead = () => (
 );
 
 const ItemRow = ({ asOf, item }: { asOf: Date; item: RecurringItem }) => {
+  const { controlHeight } = useSize();
   const amount = formatCurrency(item.typicalAmountMinor, item.currency);
   const next = new Date(item.nextExpected);
   const daysAway = dayDelta(asOf, next);
@@ -92,7 +94,7 @@ const ItemRow = ({ asOf, item }: { asOf: Date; item: RecurringItem }) => {
     daysAway >= 0 && daysAway <= UPCOMING_HORIZON_DAYS;
 
   return (
-    <TableRow className={ROW_HEIGHT}>
+    <TableRow style={{ height: controlHeight * ROW_CONTROL_HEIGHTS }}>
       <TableCell className="max-w-56">
         <span className="block truncate font-medium">
           {merchantLabel(item)}
@@ -136,17 +138,24 @@ const ItemRow = ({ asOf, item }: { asOf: Date; item: RecurringItem }) => {
   );
 };
 
-const SkeletonRows = () => (
-  <TableBody>
-    {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-      <TableRow className={ROW_HEIGHT} key={index}>
-        <TableCell aria-hidden="true" colSpan={COLUMN_COUNT}>
-          <Skeleton className="h-8 w-full" />
-        </TableCell>
-      </TableRow>
-    ))}
-  </TableBody>
-);
+const SkeletonRows = () => {
+  const { control, controlHeight } = useSize();
+
+  return (
+    <TableBody>
+      {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+        <TableRow
+          key={index}
+          style={{ height: controlHeight * ROW_CONTROL_HEIGHTS }}
+        >
+          <TableCell aria-hidden="true" colSpan={COLUMN_COUNT}>
+            <Skeleton className={cn("w-full", control)} />
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  );
+};
 
 export const RecurringTable = ({
   asOf,
