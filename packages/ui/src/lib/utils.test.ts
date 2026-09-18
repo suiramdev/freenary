@@ -73,42 +73,28 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
     },
     {
       args: [
-        "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors",
+        "flex aspect-square shrink-0 items-center justify-center ring-1",
         "bg-primary text-primary-foreground ring-primary",
         "bg-secondary text-primary ring-primary",
-        "bg-background text-muted-foreground ring-border",
+        "text-muted-foreground ring-border",
       ],
       expected:
-        "flex size-7 shrink-0 items-center justify-center text-xs font-medium ring-1 transition-colors bg-background text-muted-foreground ring-border",
+        "flex aspect-square shrink-0 items-center justify-center ring-1 bg-secondary text-muted-foreground ring-border",
+      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
+    },
+    {
+      args: ["text-foreground", "text-muted-foreground"],
+      expected: "text-muted-foreground",
       where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
     },
     {
       args: [
-        "text-xs font-medium transition-colors",
-        "text-foreground",
-        "text-muted-foreground",
-      ],
-      expected: "text-xs font-medium transition-colors text-muted-foreground",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
-    },
-    {
-      args: [
-        "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
-        "scale-x-100",
-        "scale-x-0",
-      ],
-      expected:
-        "bg-primary block h-px w-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none scale-x-0",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
-    },
-    {
-      args: [
-        "hover:bg-muted/60 flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start transition-transform duration-150 ease-out active:scale-[0.96]",
+        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start",
         "text-foreground",
         "text-muted-foreground",
       ],
       expected:
-        "hover:bg-muted/60 flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start transition-transform duration-150 ease-out active:scale-[0.96] text-muted-foreground",
+        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start text-muted-foreground",
       where: "apps/web/src/components/budget/budget-vs-actual-chart.tsx",
     },
     {
@@ -127,13 +113,13 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
     },
     {
       args: [
-        "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96]",
+        "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px]",
         "hover:text-foreground cursor-pointer",
         "text-foreground",
         "text-muted-foreground",
       ],
       expected:
-        "flex items-center gap-1.5 font-mono text-[11px] transition-transform duration-150 ease-out active:scale-[0.96] hover:text-foreground cursor-pointer text-muted-foreground",
+        "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] hover:text-foreground cursor-pointer text-muted-foreground",
       where: "apps/web/src/components/budget/spending-breakdown-chart.tsx",
     },
     {

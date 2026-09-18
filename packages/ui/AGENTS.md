@@ -48,9 +48,13 @@ The baseline is `mickadesign/fluid-functionalism@e07409c`, vendored 2026-09-10. 
 | --- | --- |
 | `button.tsx` | The Tailwind group is named `group/button`, and every modifier that depends on it is scoped to that name (`group-hover/button:`, `group-active/button:` — 21 of them across the variant table). Upstream's bare `group` also answers a hovered ancestor `.group`, which lights every button inside a hovered row or card. The inner label span gains `w-full min-w-0 [justify-content:inherit]`. The spinner gains `role="status"` and an `aria-label` from the labels seam. |
 | `menu-item.tsx` | Adds a `submenu?: boolean` prop, a `useIcon("chevron-right")` slot and the chevron markup it renders. |
-| `dropdown.tsx` | Adds a `DropdownSubmenu` component, consumed by `apps/web/src/components/shared/sidebar-user-menu.tsx`. |
+| `dropdown.tsx` | Adds a `DropdownSubmenu` component, consumed by `apps/web/src/components/shared/sidebar-user-menu.tsx`. Adds five `isOwnEvent` guards to `DropdownMenu`'s pointer, click and focus handlers; without them a submenu's events reach the parent popup and drive its highlight. |
 | `command-menu.tsx` | Upstream's `text-caption` class becomes an explicit `text-[11px]` / `text-[12px]`; this repo defines no `text-caption` utility. |
 | `card.tsx` | Upstream's `next/link` import becomes a local link shim — this is not a Next app. |
+| `combobox.tsx` | Adds `onQueryChange` and `onOpenChange` props, used by `apps/web/src/components/budget/merchant-filter-menu.tsx`. |
+| `thinking-steps.tsx` | Adds controlled `open` / `onOpenChange` to `ThinkingStepDetailsProps`, used by `apps/web/src/components/assistant/assistant-trace.tsx`. The root `ThinkingStepsProps` carries these upstream; the details-level pair is local. |
+| `input-message.tsx` | Adds `stopLabel` and `queueLabel` props, used by `apps/web/src/components/assistant/assistant-chat.tsx`. |
+| `thinking-indicator.tsx` | Adds a `words?: string[]` prop, so the cycled words come from the labels seam rather than the component. |
 | `button.tsx`, `combobox.tsx`, `input-message.tsx`, `thinking-indicator.tsx`, `sidebar-core.tsx`, `sidebar.tsx`, `card.tsx`, `file-thumbnail.tsx`, `command-menu.tsx` | English strings replaced by the `UiLabels` seam. |
 | Every file | Import paths rewritten from `@/…` to `@freenary/ui/…`, and `framer-motion` imports moved to `motion/react`. |
 

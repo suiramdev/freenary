@@ -352,202 +352,199 @@
   initial-value: 1;
 }
 
-/* @layer components so a utility can still win: unlayered, these outrank
-   every layer, and `[--scroll-fade-size:32px]` could never take effect. */
-@layer components {
-  html.transitioning *,
-  html.transitioning *::before,
-  html.transitioning *::after {
-    transition:
-      border-radius 180ms ease-in-out,
-      background-color 180ms ease-in-out,
-      color 180ms ease-in-out,
-      border-color 180ms ease-in-out,
-      fill 180ms ease-in-out,
-      stroke 180ms ease-in-out !important;
+/* Unlayered on purpose: `shadcn/tailwind.css` ships its own `scroll-fade`
+ utility, and a layered copy would lose to it, leaving the horizontal and
+ vertical fades on different engines. The size default lives in each
+ `var()` fallback rather than a rule, so `[--scroll-fade-size:*]` still
+ wins without a declaration of ours to outrank. */
+html.transitioning *,
+html.transitioning *::before,
+html.transitioning *::after {
+  transition:
+    border-radius 180ms ease-in-out,
+    background-color 180ms ease-in-out,
+    color 180ms ease-in-out,
+    border-color 180ms ease-in-out,
+    fill 180ms ease-in-out,
+    stroke 180ms ease-in-out !important;
+}
+.scroll-fade {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-size, 48px),
+    #000 calc(100% - var(--scroll-fade-size, 48px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-size, 48px),
+    #000 calc(100% - var(--scroll-fade-size, 48px)),
+    transparent 100%
+  );
+}
+.scroll-fade-x {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--scroll-fade-size, 48px),
+    #000 calc(100% - var(--scroll-fade-size, 48px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--scroll-fade-size, 48px),
+    #000 calc(100% - var(--scroll-fade-size, 48px)),
+    transparent 100%
+  );
+}
+
+@supports (timeline-scope: --sf) {
+  .scroll-divider {
+    position: relative;
+    timeline-scope: --sf-scroller;
+    --scroll-divider-size: 48px;
   }
-  .scroll-fade,
-  .scroll-fade-x {
-    --scroll-fade-size: 48px;
+  .scroll-divider .scroll-fade {
+    scroll-timeline-name: --sf-scroller;
   }
+  .scroll-divider::before,
+  .scroll-divider::after {
+    content: "";
+    position: absolute;
+    left: var(--scroll-divider-inset, 0px);
+    right: var(--scroll-divider-inset, 0px);
+    height: 1px;
+    background-color: var(--border);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+  }
+  .scroll-divider::before {
+    top: 0;
+    animation: sf-divider-start both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: 0 var(--scroll-divider-size);
+  }
+  .scroll-divider:first-child::before {
+    content: none;
+  }
+  .scroll-divider::after {
+    bottom: 0;
+    animation: sf-divider-end both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: calc(100% - var(--scroll-divider-size)) 100%;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
   .scroll-fade {
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      transparent 0,
-      #000 var(--scroll-fade-size),
-      #000 calc(100% - var(--scroll-fade-size)),
-      transparent 100%
-    );
     mask-image: linear-gradient(
       to bottom,
-      transparent 0,
-      #000 var(--scroll-fade-size),
-      #000 calc(100% - var(--scroll-fade-size)),
-      transparent 100%
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size, 48px),
+      #000 calc(100% - var(--scroll-fade-size, 48px)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
     );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size, 48px),
+      #000 calc(100% - var(--scroll-fade-size, 48px)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size, 48px));
+    animation-range-end: var(--scroll-fade-size, 48px), 100%;
   }
   .scroll-fade-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent 0,
-      #000 var(--scroll-fade-size),
-      #000 calc(100% - var(--scroll-fade-size)),
-      transparent 100%
-    );
     mask-image: linear-gradient(
       to right,
-      transparent 0,
-      #000 var(--scroll-fade-size),
-      #000 calc(100% - var(--scroll-fade-size)),
-      transparent 100%
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size, 48px),
+      #000 calc(100% - var(--scroll-fade-size, 48px)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
     );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size, 48px),
+      #000 calc(100% - var(--scroll-fade-size, 48px)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size, 48px));
+    animation-range-end: var(--scroll-fade-size, 48px), 100%;
   }
+}
 
-  @supports (timeline-scope: --sf) {
-    .scroll-divider {
-      position: relative;
-      timeline-scope: --sf-scroller;
-      --scroll-divider-size: 48px;
-    }
-    .scroll-divider .scroll-fade {
-      scroll-timeline-name: --sf-scroller;
-    }
-    .scroll-divider::before,
-    .scroll-divider::after {
-      content: "";
-      position: absolute;
-      left: var(--scroll-divider-inset, 0px);
-      right: var(--scroll-divider-inset, 0px);
-      height: 1px;
-      background-color: var(--border);
-      pointer-events: none;
-      z-index: 1;
-      opacity: 0;
-    }
-    .scroll-divider::before {
-      top: 0;
-      animation: sf-divider-start both linear;
-      animation-timeline: --sf-scroller;
-      animation-range: 0 var(--scroll-divider-size);
-    }
-    .scroll-divider:first-child::before {
-      content: none;
-    }
-    .scroll-divider::after {
-      bottom: 0;
-      animation: sf-divider-end both linear;
-      animation-timeline: --sf-scroller;
-      animation-range: calc(100% - var(--scroll-divider-size)) 100%;
-    }
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--overlay) / 0.08) transparent;
   }
-
-  @supports (animation-timeline: scroll()) {
-    .scroll-fade {
-      mask-image: linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, var(--sf-start)) 0,
-        #000 var(--scroll-fade-size),
-        #000 calc(100% - var(--scroll-fade-size)),
-        rgba(0, 0, 0, var(--sf-end)) 100%
-      );
-      -webkit-mask-image: linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, var(--sf-start)) 0,
-        #000 var(--scroll-fade-size),
-        #000 calc(100% - var(--scroll-fade-size)),
-        rgba(0, 0, 0, var(--sf-end)) 100%
-      );
-      animation:
-        sf-reveal-start both linear,
-        sf-reveal-end both linear;
-      animation-timeline: scroll(self), scroll(self);
-      animation-range-start: 0, calc(100% - var(--scroll-fade-size));
-      animation-range-end: var(--scroll-fade-size), 100%;
-    }
-    .scroll-fade-x {
-      mask-image: linear-gradient(
-        to right,
-        rgba(0, 0, 0, var(--sf-start)) 0,
-        #000 var(--scroll-fade-size),
-        #000 calc(100% - var(--scroll-fade-size)),
-        rgba(0, 0, 0, var(--sf-end)) 100%
-      );
-      -webkit-mask-image: linear-gradient(
-        to right,
-        rgba(0, 0, 0, var(--sf-start)) 0,
-        #000 var(--scroll-fade-size),
-        #000 calc(100% - var(--scroll-fade-size)),
-        rgba(0, 0, 0, var(--sf-end)) 100%
-      );
-      animation:
-        sf-reveal-start both linear,
-        sf-reveal-end both linear;
-      animation-timeline: scroll(self inline), scroll(self inline);
-      animation-range-start: 0, calc(100% - var(--scroll-fade-size));
-      animation-range-end: var(--scroll-fade-size), 100%;
-    }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
   }
-
-  @media (pointer: fine) {
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: rgb(var(--overlay) / 0.08) transparent;
-    }
-    ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-corner {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background-color: rgb(var(--overlay) / 0.08);
-      border: 3px solid transparent;
-      background-clip: content-box;
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:vertical {
-      border-left-width: 1px;
-      border-right-width: 5px;
-    }
-    ::-webkit-scrollbar-thumb:horizontal {
-      border-top-width: 1px;
-      border-bottom-width: 5px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background-color: rgb(var(--overlay) / 0.12);
-    }
-    ::-webkit-scrollbar-thumb:active {
-      background-color: rgb(var(--overlay) / 0.16);
-    }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--overlay) / 0.08);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
   }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+  ::-webkit-scrollbar-thumb:vertical {
+    border-left-width: 1px;
+    border-right-width: 5px;
   }
+  ::-webkit-scrollbar-thumb:horizontal {
+    border-top-width: 1px;
+    border-bottom-width: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--overlay) / 0.12);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: rgb(var(--overlay) / 0.16);
+  }
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.shimmer-text {
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    #a3a3a3 0%,
+    #a3a3a3 35%,
+    #525252 50%,
+    #a3a3a3 65%,
+    #a3a3a3 100%
+  );
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+/* The sweep is decorative; the label carries the meaning. */
+@media (prefers-reduced-motion: reduce) {
   .shimmer-text {
-    color: transparent;
-    background: linear-gradient(
-      90deg,
-      #a3a3a3 0%,
-      #a3a3a3 35%,
-      #525252 50%,
-      #a3a3a3 65%,
-      #a3a3a3 100%
-    );
-    background-size: 300% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    animation: shimmer 1.5s ease-in-out infinite;
-  }
-  /* The sweep is decorative; the label carries the meaning. */
-  @media (prefers-reduced-motion: reduce) {
-    .shimmer-text {
-      animation: none;
-    }
+    animation: none;
   }
 }
