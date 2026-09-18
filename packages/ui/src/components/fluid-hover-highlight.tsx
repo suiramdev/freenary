@@ -11,7 +11,7 @@ import {
   AnimatePresence,
   useReducedMotion,
   type Transition,
-} from "framer-motion";
+} from "motion/react";
 
 // ---------------------------------------------------------------------------
 // The one hover highlight every fluid hover list renders: an absolutely

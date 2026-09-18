@@ -12,7 +12,7 @@ import {
 } from "@freenary/ui/lib/size-context";
 import { spring } from "@freenary/ui/lib/springs";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   useRef,
   useState,

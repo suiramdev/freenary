@@ -1,5 +1,20 @@
 "use client";
 
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
+import { fontWeights } from "@freenary/ui/lib/font-weight";
+import { useIcon, type IconComponent } from "@freenary/ui/lib/icon-context";
+import { useUiLabels } from "@freenary/ui/lib/labels";
+import { useShape } from "@freenary/ui/lib/shape-context";
+import {
+  SizeProvider,
+  useSize,
+  type SizeVariant,
+} from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
 import {
   Children,
   cloneElement,
@@ -9,30 +24,11 @@ import {
   useContext,
   useMemo,
   useRef,
+  type ComponentType,
   type HTMLAttributes,
   type ReactElement,
   type ReactNode,
 } from "react";
-// Registry source targets Next.js; this app is TanStack Start, so href
-// navigation renders a plain anchor with the same props.
-const Link = (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-  // eslint-disable-next-line jsx-a11y/anchor-has-content -- content comes via props
-  <a {...props} />
-);
-import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-} from "@freenary/ui/hooks/use-fluid-hover";
-import { fontWeights } from "@freenary/ui/lib/font-weight";
-import { useIcon, type IconComponent } from "@freenary/ui/lib/icon-context";
-import { useShape } from "@freenary/ui/lib/shape-context";
-import {
-  SizeProvider,
-  useSize,
-  type SizeVariant,
-} from "@freenary/ui/lib/size-context";
-import { cn } from "@freenary/ui/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Card is shadcn/ui's compositional card — the same parts and `data-slot`
@@ -93,6 +89,30 @@ const CardContext = createContext<CardContextValue>({
   clickable: false,
   hasImage: false,
 });
+
+// ── Link context ─────────────────────────────────────────
+// The registry source targets Next.js; a plain anchor reloads the document,
+// which is wrong inside a client router. An app hands its own link component
+// in once so every `href` card navigates client-side.
+
+type CardLinkComponent = ComponentType<
+  React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }
+>;
+
+const DocumentLink: CardLinkComponent = (props) => <a {...props} />;
+
+const CardLinkContext = createContext<CardLinkComponent>(DocumentLink);
+
+/** Supplies the component `Card` and `CardButton` render for `href` — pass a
+ *  router's `Link` to keep navigation client-side. Defaults to a plain anchor,
+ *  which loads the document. */
+const CardLinkProvider = ({
+  component,
+  children,
+}: {
+  component: CardLinkComponent;
+  children: ReactNode;
+}) => <CardLinkContext value={component}>{children}</CardLinkContext>;
 
 // ── CardGroup ────────────────────────────────────────────
 
@@ -295,6 +315,8 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const compact = sizeClasses.variant === "compact";
     const group = useContext(CardGroupContext);
     const XIcon = useIcon("x");
+    const labels = useUiLabels();
+    const Link = useContext(CardLinkContext);
 
     const orientation = group?.orientation ?? "card";
     const columns = group?.columns ?? 1;
@@ -508,7 +530,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
             <button
               type="button"
               onClick={onDismiss}
-              aria-label="Dismiss"
+              aria-label={labels.dismiss}
               className={cn(
                 "text-muted-foreground hover:text-foreground absolute top-2 right-2 z-30 flex h-7 w-7 cursor-pointer items-center justify-center transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
                 // Over media the control needs its own ground, or the icon
@@ -970,6 +992,7 @@ function CardButton({
   disabled = false,
 }: CardButtonProps) {
   const shape = useShape();
+  const Link = useContext(CardLinkContext);
   const ArrowRight = useIcon("arrow-right");
   const sizeClasses = useSize();
   const compact = sizeClasses.variant === "compact";
@@ -1051,6 +1074,7 @@ export {
   CardEyebrow,
   CardFeature,
   CardButton,
+  CardLinkProvider,
 };
 export type {
   CardProps,
@@ -1058,4 +1082,5 @@ export type {
   CardLogo,
   CardButtonProps,
   CardButtonVariant,
+  CardLinkComponent,
 };

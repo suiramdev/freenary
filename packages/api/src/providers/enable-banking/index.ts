@@ -1,11 +1,11 @@
 import { Data, Effect } from "effect";
 
+import { BankInstitutionsUnavailable } from "../types";
 import type {
   BankingProvider,
   CompleteConnectionRequest,
   ConnectionRequest,
   FetchTransactionsRequest,
-  ProviderInstitution,
   StartConnectionRequest,
 } from "../types";
 import {
@@ -70,10 +70,13 @@ const fetchTransactions = Effect.fn("enableBanking.fetchTransactions")(
 
 const listInstitutions = Effect.fn("enableBanking.listInstitutions")(
   function* listInstitutions(country: string) {
-    const listed = yield* ebJson(
-      "institutions",
-      EBInstitutionsSchema,
-      `/aspsps?country=${encodeURIComponent(country)}`
+    const listed = yield* Effect.mapError(
+      ebJson(
+        "institutions",
+        EBInstitutionsSchema,
+        `/aspsps?country=${encodeURIComponent(country)}`
+      ),
+      () => new BankInstitutionsUnavailable({ country })
     );
 
     return listed.aspsps.map((aspsp) => ({
@@ -84,8 +87,7 @@ const listInstitutions = Effect.fn("enableBanking.listInstitutions")(
       logoUrl: aspsp.logo ?? undefined,
       name: aspsp.name,
     }));
-  },
-  Effect.orElseSucceed((): ProviderInstitution[] => [])
+  }
 );
 
 const startConnection = Effect.fn("enableBanking.startConnection")(
@@ -117,6 +119,6 @@ export const enableBankingProvider: BankingProvider = {
   fetchTransactions: (request) => Effect.runPromise(fetchTransactions(request)),
   id: "enable-banking",
   isConfigured,
-  listInstitutions: (country) => Effect.runPromise(listInstitutions(country)),
+  listInstitutions,
   startConnection: (request) => Effect.runPromise(startConnection(request)),
 };

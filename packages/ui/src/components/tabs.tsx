@@ -14,7 +14,7 @@ import { spring } from "@freenary/ui/lib/springs";
 import { surfaceClasses } from "@freenary/ui/lib/surface-classes";
 import { useSurface } from "@freenary/ui/lib/surface-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   useRef,
   useState,

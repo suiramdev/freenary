@@ -1,5 +1,6 @@
 "use client";
 
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { useShape } from "@freenary/ui/lib/shape-context";
 import { cn } from "@freenary/ui/lib/utils";
 import { useEffect, useState } from "react";
@@ -55,6 +56,7 @@ interface FileThumbnailProps {
 
 function FileThumbnail({ file, size, className }: FileThumbnailProps) {
   const shape = useShape();
+  const labels = useUiLabels();
   const isImage = file.type.startsWith("image/");
   const isPdf = file.type === "application/pdf";
 
@@ -134,7 +136,7 @@ function FileThumbnail({ file, size, className }: FileThumbnailProps) {
         <div className="absolute inset-0 flex items-center justify-center">
           <div
             className="border-border border-t-muted-foreground h-6 w-6 animate-spin rounded-full border-2"
-            aria-label="Loading preview"
+            aria-label={labels.loadingPreview}
             role="status"
           />
         </div>

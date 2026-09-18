@@ -26,7 +26,7 @@ import {
   motion,
   Reorder,
   useReducedMotion,
-} from "framer-motion";
+} from "motion/react";
 import {
   forwardRef,
   useCallback,
@@ -223,6 +223,7 @@ interface FilePreviewTileProps {
 
 function FilePreviewTile({ file, onRemove, size }: FilePreviewTileProps) {
   const XIcon = useIcon("x");
+  const labels = useUiLabels();
 
   return (
     <motion.div
@@ -240,7 +241,7 @@ function FilePreviewTile({ file, onRemove, size }: FilePreviewTileProps) {
       className="group/tile relative shrink-0 cursor-default"
     >
       <FileThumbnail file={file} size={size} />
-      <Tooltip content="Remove" side="top">
+      <Tooltip content={labels.remove} side="top">
         <button
           type="button"
           onClick={(e) => {
@@ -290,6 +291,7 @@ function QueuedRow({
   const XIcon = useIcon("x");
   const ImageIcon = useIcon("image");
   const compactStep = useSize().variant === "compact";
+  const labels = useUiLabels();
   const fileCount = item.files.length;
   const label =
     item.text || `${fileCount} attachment${fileCount === 1 ? "" : "s"}`;
@@ -345,7 +347,7 @@ function QueuedRow({
       <span className="-my-1 min-w-0 flex-1 truncate py-1 [text-box:trim-both_cap_alphabetic]">
         {label}
       </span>
-      <Tooltip content="Remove" side="top">
+      <Tooltip content={labels.remove} side="top">
         <button
           type="button"
           // Stop the pointer-down from starting a Reorder drag, and the click

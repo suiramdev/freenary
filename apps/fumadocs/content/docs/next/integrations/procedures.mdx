@@ -226,6 +226,7 @@ Protected. Turns the bank provider callback query into a bank connection.
 - `BAD_REQUEST` (400) `Invalid banking provider in connection state`.
 - `BAD_REQUEST` (400) `Bank connection state does not belong to this session`.
 - `BAD_REQUEST` (400) `Bank institution is no longer available`.
+- `SERVICE_UNAVAILABLE` (503) `Could not load banks for this country`.
 - `BAD_REQUEST` (400) `No provider session for this user`.
 
 ### bankConnection.getProviderAvailability
@@ -264,15 +265,15 @@ Protected. Lists the bank connections of the caller and their bank accounts, old
 
 ### bankConnection.listInstitutions
 
-Protected. Lists the banks the provider can link in one country or more. The provider answers one country at a time, so the result is the union of the answers. A bank is identified by the pair of `id` and `country`. The same `id` in two countries is two banks here, and a duplicate pair is dropped.
+Protected. Lists the banks the provider can link in one country or more. The provider answers one country at a time, so the result is the union of the answers. A bank is identified by the pair of `id` and `country`. The same `id` in two countries is two banks here, and a duplicate pair is dropped. A country whose call fails is left out of `banks` and named in `unavailableCountries`.
 
 **Input**
 
 | Field | Type | Required | Default | Bounds |
 | --- | --- | --- | --- | --- |
-| `countries` | array of string | no | The `taxCountries` column of the caller | Each entry a country code the bank provider knows. |
+| `countries` | array of string | no | The `taxCountries` column of the caller | Each entry an uppercase ISO 3166-1 alpha-2 code. A maximum of 10 entries. |
 
-**Output**: `{ banks: [...] }`.
+**Output**: `{ banks: [...], unavailableCountries: [...] }`.
 
 | Field of one bank | Type | Note |
 | --- | --- | --- |
@@ -281,6 +282,8 @@ Protected. Lists the banks the provider can link in one country or more. The pro
 | `id` | string | Pass it as `institutionId` to `startConnection`. |
 | `logo` | string or `null` | A logo URL. |
 | `name` | string | The display name of the bank. |
+
+`unavailableCountries` holds the requested country codes whose provider call failed. A country that returned no bank is absent from it.
 
 **Errors**
 
@@ -294,7 +297,7 @@ Protected. Opens a bank consent session and returns the URL to send the user to.
 
 | Field | Type | Required | Bounds |
 | --- | --- | --- | --- |
-| `bankCountry` | string | yes | Must match the country of the institution. |
+| `bankCountry` | string | yes | An uppercase ISO 3166-1 alpha-2 code. It must match the country of the institution. |
 | `institutionId` | string | yes | An `id` from `listInstitutions`. |
 | `returnTo` | enum | yes | `onboarding` or `settings`. |
 | `state` | string | no | Your own value. It comes back in the callback state. |
@@ -308,6 +311,7 @@ Protected. Opens a bank consent session and returns the URL to send the user to.
 **Errors**
 
 - `BAD_REQUEST` (400) `Unknown bank institution`.
+- `SERVICE_UNAVAILABLE` (503) `Could not load banks for this country`.
 
 <Callout type="warn">
 
@@ -644,7 +648,7 @@ Protected. Stores the tax jurisdictions of the caller and marks the first-run fl
 
 | Field | Type | Required | Bounds |
 | --- | --- | --- | --- |
-| `taxCountries` | array of string | yes | A minimum of one ISO 3166-1 alpha-2 code, uppercase. |
+| `taxCountries` | array of string | yes | A minimum of one ISO 3166-1 alpha-2 code, uppercase. A maximum of 10 entries. |
 
 **Output**
 

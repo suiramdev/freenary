@@ -1,7 +1,7 @@
 "use client";
 
 import { Collapsible } from "@base-ui/react/collapsible";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   useState,
   useEffect,

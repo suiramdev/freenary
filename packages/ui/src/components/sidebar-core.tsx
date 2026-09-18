@@ -4,13 +4,14 @@ import { Button, type ButtonProps } from "@freenary/ui/components/button";
 import { Tooltip } from "@freenary/ui/components/tooltip";
 import { fontWeights } from "@freenary/ui/lib/font-weight";
 import { useIcon } from "@freenary/ui/lib/icon-context";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { useShape } from "@freenary/ui/lib/shape-context";
 import { useSize, useSizeVariant } from "@freenary/ui/lib/size-context";
 import { spring, exitFallbackMs } from "@freenary/ui/lib/springs";
 import { surfaceClasses } from "@freenary/ui/lib/surface-classes";
 import { useSurface, SurfaceProvider } from "@freenary/ui/lib/surface-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import {
   createContext,
   useContext,
@@ -565,6 +566,7 @@ const SidebarShell = forwardRef<HTMLDivElement, SidebarShellProps>(
       cancelPeekTimer,
     } = useSidebar();
     const shape = useShape();
+    const labels = useUiLabels();
     const shellRef = useRef<HTMLDivElement | null>(null);
 
     // Collapsed-peek: the edge strip reveals the sidebar as a floating
@@ -758,7 +760,7 @@ const SidebarShell = forwardRef<HTMLDivElement, SidebarShellProps>(
                 intent delay, click mode on press. */}
             <button
               type="button"
-              aria-label="Peek sidebar"
+              aria-label={labels.peekSidebar}
               aria-expanded={isPeeking}
               className={cn(
                 "group/peek-strip absolute inset-y-0 z-40 w-3 cursor-pointer outline-none",
@@ -949,6 +951,7 @@ const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
       cancelPeekTimer,
     } = useSidebar();
     const shortcutKey = useShortcutKey();
+    const labels = useUiLabels();
     // With hover-peek enabled, the COLLAPSED trigger is a peek affordance
     // too: resting on it floats the rail out exactly like the edge strip —
     // same shared intent timer, so moving from the trigger into the peeked
@@ -972,7 +975,7 @@ const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
                 re-applies it — otherwise the shortcut row would sit taller
                 than a tooltip without a chip. */}
             <span className="[text-box:trim-both_cap_alphabetic]">
-              {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              {collapsed ? labels.expandSidebar : labels.collapseSidebar}
             </span>
             <ShortcutKbd>{shortcutKey}</ShortcutKbd>
           </span>
@@ -983,7 +986,7 @@ const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
           variant="ghost"
           size={size ?? iconSize}
           data-sidebar="trigger"
-          aria-label="Toggle Sidebar"
+          aria-label={labels.toggleSidebar}
           onClick={(event) => {
             onClick?.(event);
             toggleSidebar();
@@ -1035,6 +1038,7 @@ const SidebarRail = forwardRef<HTMLButtonElement, SidebarRailProps>(
     const { toggleSidebar, setOpen, setWidth, side, setIsResizing } =
       useSidebar();
     const shortcutKey = useShortcutKey();
+    const labels = useUiLabels();
     const railRef = useRef<HTMLButtonElement | null>(null);
     const dragRef = useRef<{
       startX: number;
@@ -1147,7 +1151,7 @@ const SidebarRail = forwardRef<HTMLButtonElement, SidebarRailProps>(
           }}
           type="button"
           data-sidebar="rail"
-          aria-label="Resize or collapse sidebar"
+          aria-label={labels.resizeSidebar}
           tabIndex={-1}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

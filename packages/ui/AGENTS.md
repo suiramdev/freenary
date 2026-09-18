@@ -1,18 +1,18 @@
 # `packages/ui` — Shared Design System
 
-shadcn/ui primitives + Tailwind tokens reused by every React app in the monorepo (`apps/web`, and any future React surface). Centralizing them here keeps the dashboard, marketing, and future apps visually coherent.
+Base UI primitives, Fluid Functionalism registry components and Tailwind tokens reused by every React app in the monorepo (`apps/web`, and any future React surface). Centralizing them here keeps the dashboard, marketing, and future apps visually coherent.
 
 ## Layout
 
 ```
 src/
-  components/        # shadcn primitives (button, input, dialog, ...)
+  components/        # Vendored registry primitives (button, dropdown, sidebar, ...)
   hooks/             # Reusable React hooks
   lib/               # cn() and other tiny helpers
     brand-avatar/    # The mark's morph engine — see "The Brand Avatar"
   styles/
     globals.css      # Tailwind v4 layer + design tokens (colors, radii, spacing)
-components.json      # shadcn config for this package
+components.json      # Registry config for this package — the `@fluid` registry and the shadcn CLI
 postcss.config.mjs   # Re-exported as @freenary/ui/postcss.config
 ```
 
@@ -26,16 +26,35 @@ import "@freenary/ui/globals.css";
 
 ## Conventions
 
-- **One copy of every primitive lives here.** If `apps/web` needs a Tooltip, add it here via shadcn rather than inlining it.
-- **Add components with the shadcn CLI targeting this package**, run from repo root:
+- **One copy of every primitive lives here.** If `apps/web` needs a Tooltip, add it here from the registry rather than inlining it.
+- **Add components with the shadcn CLI targeting this package**, run from repo root. Most primitives come from the `@fluid` registry declared in `components.json`:
   ```bash
-  bunx shadcn@latest add <component> -c packages/ui
+  bunx shadcn@latest add @fluid/<component> -c packages/ui
   ```
+  A component that already exists is **overwritten, not merged** — read "Vendored Registry Source" below before you fetch one again.
 - **App-specific composites** (e.g. a project-switcher built from Button + Popover + Avatar) belong in `apps/web/src/components/`, not here.
 - **Design tokens** (colors, radii, font stacks) live in `src/styles/globals.css`. Change them once; every app picks them up.
-- **No app imports allowed.** This package depends on React + radix-ui + Tailwind only — never on `@freenary/api`, `@freenary/db`, or any app workspace.
-- **Never hardcode a user-facing string in a primitive.** Visible text arrives as `children` or a prop from the app. The accessible names for controls with no visible text — "Toggle sidebar", "Loading", "Close" — come from `useUiLabels()` (`src/lib/labels.tsx`), which an app fills via `UiLabelsProvider`; the English defaults there keep the package usable on its own. A new primitive with an `aria-label`, `sr-only` line or `alt` adds a field to `UiLabels` and reads it from the hook, so the app that speaks two languages can translate it. This package never imports Paraglide — the labels context is the seam.
-- **Accessibility is non-negotiable.** Use radix-ui / shadcn primitives' built-in ARIA; follow the React + accessibility rules in the root `CLAUDE.md`.
+- **No app imports allowed.** This package depends on React, Base UI, `motion`, `lucide-react`, `pdfjs-dist` and Tailwind — never on `@freenary/api`, `@freenary/db`, or any app workspace.
+- **Never hardcode a user-facing string in a primitive.** Visible text arrives as `children` or a prop from the app. The accessible names for controls with no visible text — "Toggle sidebar", "Loading", "Close" — come from `useUiLabels()` (`src/lib/labels.tsx`), which an app fills via `UiLabelsProvider`; the English defaults there keep the package usable on its own. It now also carries the sidebar, card, command-menu and file-thumbnail strings, which the registry shipped in English. A new primitive with an `aria-label`, `sr-only` line or `alt` adds a field to `UiLabels` and reads it from the hook, so the app that speaks two languages can translate it. This package never imports Paraglide — the labels context is the seam.
+- **Accessibility is non-negotiable.** Use the Base UI primitives' built-in ARIA that the registry components build on; follow the React + accessibility rules in the root `CLAUDE.md`.
+
+## Vendored Registry Source
+
+`src/components/**` is not authored here. It is fetched from the `@fluid` registry and then **hand-patched**, and a re-fetch overwrites those patches silently: the CLI neither merges nor warns. The inventory below is what has to be re-applied afterwards.
+
+The baseline is `mickadesign/fluid-functionalism@e07409c`, vendored 2026-09-10. Diff against **that commit** — `fluidfunctionalism.com/r/*.json` serves `main` and has drifted away from what is vendored here.
+
+| File | Local patch |
+| --- | --- |
+| `button.tsx` | The Tailwind group is named `group/button`, and every modifier that depends on it is scoped to that name (`group-hover/button:`, `group-active/button:` — 21 of them across the variant table). Upstream's bare `group` also answers a hovered ancestor `.group`, which lights every button inside a hovered row or card. The inner label span gains `w-full min-w-0 [justify-content:inherit]`. The spinner gains `role="status"` and an `aria-label` from the labels seam. |
+| `menu-item.tsx` | Adds a `submenu?: boolean` prop, a `useIcon("chevron-right")` slot and the chevron markup it renders. |
+| `dropdown.tsx` | Adds a `DropdownSubmenu` component, consumed by `apps/web/src/components/shared/sidebar-user-menu.tsx`. |
+| `command-menu.tsx` | Upstream's `text-caption` class becomes an explicit `text-[11px]` / `text-[12px]`; this repo defines no `text-caption` utility. |
+| `card.tsx` | Upstream's `next/link` import becomes a local link shim — this is not a Next app. |
+| `button.tsx`, `combobox.tsx`, `input-message.tsx`, `thinking-indicator.tsx`, `sidebar-core.tsx`, `sidebar.tsx`, `card.tsx`, `file-thumbnail.tsx`, `command-menu.tsx` | English strings replaced by the `UiLabels` seam. |
+| Every file | Import paths rewritten from `@/…` to `@freenary/ui/…`, and `framer-motion` imports moved to `motion/react`. |
+
+`oxlint.config.ts` ignores `packages/ui/**` on purpose, so the no-comments rule does not reach these files and the upstream comments stay: a small diff against upstream is worth more here than house style.
 
 ## The Brand Avatar
 

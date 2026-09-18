@@ -35,6 +35,7 @@ interface OnboardingWizardProps {
   onSignOut: () => void;
   step: number;
   taxCountries: string[];
+  unavailableCountries: string[];
 }
 
 const STEP_LABEL_FNS = [
@@ -81,6 +82,7 @@ export const OnboardingWizard = ({
   onSignOut,
   step,
   taxCountries,
+  unavailableCountries,
 }: OnboardingWizardProps) => {
   const prefersReducedMotion = useReducedMotion();
   const stepMotion: StepMotion = {
@@ -158,6 +160,7 @@ export const OnboardingWizard = ({
                           isCompleting={isCompleting}
                           onBack={onBack}
                           onFinish={onFinish}
+                          unavailableCountries={unavailableCountries}
                         />
                       )}
                     </motion.div>

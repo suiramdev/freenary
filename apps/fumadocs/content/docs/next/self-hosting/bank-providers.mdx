@@ -65,7 +65,7 @@ Nothing fails at startup. Every credential is optional, and `BANKING_PROVIDER` f
 | Surface | What happens |
 | --- | --- |
 | Startup | The API server starts and signs users in as normal |
-| The bank list | The adapter answers with an empty list, so no bank is selectable |
+| The bank list | No screen asks for banks, because the availability check gates every bank surface |
 | Settings | An empty block replaces the bank section |
 | `/onboarding` | The bank step disappears, and the wizard finishes on the tax residency screen |
 
@@ -80,7 +80,7 @@ Freenary withholds that verdict until the check answers. A pending check shows a
 
 <Callout type="warn">
 
-An empty bank list is silent. Freenary swallows a failed institution call, answers with an empty list, and logs nothing. So check the credentials and the provider host by hand.
+A failed institution call is visible. The bank list names each country that Freenary could not load, and it keeps the banks of the other countries. An empty list with no such message means the provider holds no bank for those countries. Check the credentials and the provider host when the message appears.
 
 </Callout>
 

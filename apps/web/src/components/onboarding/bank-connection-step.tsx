@@ -14,6 +14,7 @@ interface BankConnectionStepProps {
   isCompleting: boolean;
   onBack: () => void;
   onFinish: () => void;
+  unavailableCountries: string[];
 }
 
 export const BankConnectionStep = ({
@@ -24,6 +25,7 @@ export const BankConnectionStep = ({
   isCompleting,
   onBack,
   onFinish,
+  unavailableCountries,
 }: BankConnectionStepProps) => {
   const ArrowLeftIcon = useIcon("arrow-left");
 
@@ -38,6 +40,7 @@ export const BankConnectionStep = ({
         isBanksError={isBanksError}
         isBanksPending={isBanksPending}
         returnTo="onboarding"
+        unavailableCountries={unavailableCountries}
       />
       <div className="flex items-center justify-between gap-3">
         <Button

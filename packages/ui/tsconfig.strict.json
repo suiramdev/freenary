@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The repo's own modules keep the base's `noUncheckedIndexedAccess`; only
+    // the vendored registry sources opt out of it (see tsconfig.json).
+    "noUncheckedIndexedAccess": true,
+    "types": ["bun"]
+  },
+  "include": [
+    "src/lib/brand-avatar/**/*.ts",
+    "src/lib/labels.tsx",
+    "src/lib/utils.ts",
+    "src/lib/utils.test.ts"
+  ],
+  "exclude": ["node_modules"]
+}

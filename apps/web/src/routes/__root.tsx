@@ -46,17 +46,25 @@ const RootDocument = () => (
           <IconProvider icons={ffIcons}>
             <UiLabelsProvider
               labels={{
+                breadcrumb: m.ui_breadcrumb(),
                 clear: m.ui_clear(),
                 close: m.ui_close(),
+                collapseSidebar: m.ui_collapse_sidebar(),
+                dismiss: m.ui_dismiss(),
+                expandSidebar: m.ui_expand_sidebar(),
+                filterResults: m.ui_filter_results(),
                 loading: m.ui_loading(),
+                loadingPreview: m.ui_loading_preview(),
                 more: m.ui_more(),
                 open: m.ui_open(),
+                peekSidebar: m.ui_peek_sidebar(),
                 remove: m.ui_remove(),
-                scrollToEnd: m.ui_scroll_to_end(),
-                scrollToStart: m.ui_scroll_to_start(),
+                resizeSidebar: m.ui_resize_sidebar(),
+                run: m.ui_run(),
+                select: m.ui_select(),
                 sidebar: m.ui_sidebar(),
-                sidebarDescription: m.ui_sidebar_description(),
                 suggestedPrompts: m.ui_suggested_prompts(),
+                tabs: m.ui_tabs(),
                 thinking: m.ui_thinking(),
                 thinkingWords: [
                   m.ui_thinking_word_thinking(),

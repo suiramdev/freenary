@@ -21,6 +21,7 @@ import {
   type UseFluidHoverReturn,
 } from "@freenary/ui/hooks/use-fluid-hover";
 import { useIcon, type IconComponent } from "@freenary/ui/lib/icon-context";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { isDisabledRow } from "@freenary/ui/lib/popup";
 import { shapeMap } from "@freenary/ui/lib/shape-context";
 import {
@@ -30,7 +31,7 @@ import {
 } from "@freenary/ui/lib/size-context";
 import { spring } from "@freenary/ui/lib/springs";
 import { cn } from "@freenary/ui/lib/utils";
-import { animate, motion, useReducedMotion } from "framer-motion";
+import { animate, motion, useReducedMotion } from "motion/react";
 import {
   createContext,
   forwardRef,
@@ -978,6 +979,7 @@ const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
     const sizeClasses = useSize();
     const compact = sizeClasses.variant === "compact";
     const { tabsRef, setTabsMounted } = useCommandMenu();
+    const labels = useUiLabels();
     const selectedIndex = Math.max(
       0,
       tabs.findIndex((tab) => tab.value === value)
@@ -1023,7 +1025,7 @@ const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
               const tab = tabs[index];
               if (tab) onValueChange(tab.value);
             }}
-            aria-label="Filter results"
+            aria-label={labels.filterResults}
           >
             {tabs.map((tab, index) => (
               <TabsSubtleItem
@@ -1457,11 +1459,12 @@ const CommandMenuFooter = forwardRef<HTMLDivElement, CommandMenuFooterProps>(
     const { tabsMounted } = useCommandMenu();
     const dialog = useContext(CommandMenuDialogContext);
     const compact = useSize().variant === "compact";
+    const labels = useUiLabels();
     const resolved: readonly CommandMenuHint[] = hints ?? [
-      { label: "Select", keys: ["up", "down"] },
-      { label: "Run", keys: "enter" },
-      ...(tabsMounted ? [{ label: "Tabs", keys: ["left", "right"] }] : []),
-      ...(dialog ? [{ label: "Close", keys: "esc" }] : []),
+      { label: labels.select, keys: ["up", "down"] },
+      { label: labels.run, keys: "enter" },
+      ...(tabsMounted ? [{ label: labels.tabs, keys: ["left", "right"] }] : []),
+      ...(dialog ? [{ label: labels.close, keys: "esc" }] : []),
     ];
     return (
       <div

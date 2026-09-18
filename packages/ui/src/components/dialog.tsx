@@ -9,7 +9,7 @@ import { spring } from "@freenary/ui/lib/springs";
 import { surfaceClasses } from "@freenary/ui/lib/surface-classes";
 import { SurfaceProvider, useSurface } from "@freenary/ui/lib/surface-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import {
   forwardRef,
   isValidElement,

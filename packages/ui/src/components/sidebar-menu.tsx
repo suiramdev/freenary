@@ -20,7 +20,7 @@ import {
 import { spring } from "@freenary/ui/lib/springs";
 import { cn } from "@freenary/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   createContext,
   useContext,

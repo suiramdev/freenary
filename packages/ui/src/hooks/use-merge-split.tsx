@@ -2,7 +2,7 @@
 
 import type { ItemRect } from "@freenary/ui/hooks/use-fluid-hover";
 import { spring } from "@freenary/ui/lib/springs";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // Run the layout effect on the client (where it must fire before paint, so a

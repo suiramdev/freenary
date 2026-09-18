@@ -9,11 +9,12 @@ import {
   type SidebarVariant,
   type SidebarCollapsible,
 } from "@freenary/ui/components/sidebar-core";
+import { useUiLabels } from "@freenary/ui/lib/labels";
 import { spring, exitFallbackMs } from "@freenary/ui/lib/springs";
 import { surfaceClasses } from "@freenary/ui/lib/surface-classes";
 import { useSurface, SurfaceProvider } from "@freenary/ui/lib/surface-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import {
   useCallback,
   useEffect,
@@ -65,6 +66,7 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
   // :focus-visible to script-driven focus so it shows the keyboard ring too.
   const panelRef = useRef<HTMLDivElement | null>(null);
   const substrate = useSurface();
+  const labels = useUiLabels();
   const level = Math.min(substrate + 2, 8);
 
   // The primitive tears its portal down the moment it closes — an outside
@@ -128,7 +130,7 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
         />
 
         <DialogPrimitive.Popup
-          aria-label="Sidebar"
+          aria-label={labels.sidebar}
           initialFocus={panelRef}
           render={(popupProps) => {
             const {

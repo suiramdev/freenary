@@ -5,7 +5,7 @@ import { fontWeights } from "@freenary/ui/lib/font-weight";
 import { useShape } from "@freenary/ui/lib/shape-context";
 import { spring } from "@freenary/ui/lib/springs";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, useMotionValue } from "framer-motion";
+import { motion, useMotionValue } from "motion/react";
 import {
   createContext,
   useContext,

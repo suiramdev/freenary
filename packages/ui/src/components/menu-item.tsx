@@ -6,7 +6,7 @@ import { useIcon, type IconComponent } from "@freenary/ui/lib/icon-context";
 import { shapeMap } from "@freenary/ui/lib/shape-context";
 import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   createContext,
   useContext,

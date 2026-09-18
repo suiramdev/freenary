@@ -1,12 +1,12 @@
 import { Data, Effect, Match } from "effect";
 
+import { BankInstitutionsUnavailable } from "../types";
 import type {
   BankingProvider,
   CompleteConnectionRequest,
   ConnectionRequest,
   FetchHoldingsRequest,
   FetchTransactionsRequest,
-  ProviderInstitution,
   ProviderUserSession,
   StartConnectionRequest,
 } from "../types";
@@ -225,10 +225,13 @@ const fetchTransactions = Effect.fn("powens.fetchTransactions")(
 
 const listInstitutions = Effect.fn("powens.listInstitutions")(
   function* listInstitutions(country: string) {
-    const listed = yield* powensJson(
-      "connectors",
-      PowensConnectorsSchema,
-      `/connectors?country_codes=${encodeURIComponent(country)}`
+    const listed = yield* Effect.mapError(
+      powensJson(
+        "connectors",
+        PowensConnectorsSchema,
+        `/connectors?country_codes=${encodeURIComponent(country)}`
+      ),
+      () => new BankInstitutionsUnavailable({ country })
     );
 
     return (listed.connectors ?? [])
@@ -238,8 +241,7 @@ const listInstitutions = Effect.fn("powens.listInstitutions")(
         id: connector.uuid,
         name: connector.name ?? connector.uuid,
       }));
-  },
-  Effect.orElseSucceed((): ProviderInstitution[] => [])
+  }
 );
 
 const startConnection = Effect.fn("powens.startConnection")(
@@ -280,6 +282,6 @@ export const powensProvider: BankingProvider = {
   fetchTransactions: (request) => Effect.runPromise(fetchTransactions(request)),
   id: "powens",
   isConfigured,
-  listInstitutions: (country) => Effect.runPromise(listInstitutions(country)),
+  listInstitutions,
   startConnection: (request) => Effect.runPromise(startConnection(request)),
 };

@@ -45,6 +45,7 @@ const OnboardingPage = () => {
       onSignOut={wizard.handleSignOut}
       step={wizard.step}
       taxCountries={wizard.taxCountries}
+      unavailableCountries={banksQuery.data?.unavailableCountries ?? []}
     />
   );
 };

@@ -91,6 +91,7 @@ export const BankAccountsSection = () => {
         isBanksError={banksQuery.isError}
         isBanksPending={banksQuery.isPending}
         returnTo="settings"
+        unavailableCountries={banksQuery.data?.unavailableCountries ?? []}
       />
     );
   };

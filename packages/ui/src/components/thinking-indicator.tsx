@@ -4,7 +4,7 @@ import { fontWeights } from "@freenary/ui/lib/font-weight";
 import { useUiLabels } from "@freenary/ui/lib/labels";
 import { useSize, type SizeVariant } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { forwardRef, useState, useEffect, type HTMLAttributes } from "react";
 
 const circleA =
