@@ -104,9 +104,9 @@ Both charts hold a fixed height, so a switch between two views never moves the l
 
 #### Flow
 
-`Flow` is a Sankey diagram with three columns: your income sources, then the category groups, then the categories inside them.
+`Flow` is a Sankey diagram with three columns. They are your income sources, then the three category groups, then the categories inside them.
 
-- Press a group node to filter the list to that whole group.
+- Press a group node to filter the list to every category of that group.
 - Press a category node to filter the list to that one category.
 - An income node answers no press.
 - Income you did not spend forms a grey node labelled `Money left`. It answers no press either.
@@ -115,9 +115,9 @@ With nothing on either side, the card reads `No money moved in this period.`
 
 #### Categories
 
-`Categories` is a ring over the **16 category groups**, not over the 75 categories inside them. Sixteen slices carry more than seventy-five would.
+`Categories` is a ring over the **spending categories** themselves, and not over the three groups above them. Three slices would read as almost nothing.
 
-Press a slice, or its row in the legend, to filter the list to that group. Press the same one again to clear the filter. The slices you did not pick fade. Point at a slice and a tooltip gives the label, the amount and the share as a percentage.
+Press a slice, or its row in the legend, to filter the list to that category. Press the same one again to clear the filter. The slices you did not pick fade. Point at a slice and a tooltip gives the label, the amount and the share as a percentage.
 
 With nothing spent, the card reads `Nothing spent in this period.`
 
@@ -129,15 +129,15 @@ This chart is read-only. It answers no press, and it filters nothing. No categor
 
 #### Budget vs. actual
 
-One row per category group, planned against real, all on one shared scale. The key above the rows reads `Actual` `/` `Planned`.
+One row per category, planned against real, all on one shared scale. The key above the rows reads `Actual` `/` `Planned`. A category with no plan and no spend holds no row.
 
-| A row reads     | It means                                    |
-| --------------- | ------------------------------------------- |
-| `{amount} over` | You spent more than the plan for that group |
-| `{amount} left` | You spent less than the plan for that group |
-| `Unplanned`     | You declared no line in that group          |
+| A row reads     | It means                                       |
+| --------------- | ---------------------------------------------- |
+| `{amount} over` | You spent more than the plan for that category |
+| `{amount} left` | You spent less than the plan for that category |
+| `Unplanned`     | You declared no line on that category          |
 
-Press a row to filter the list to that group.
+Press a row to filter the list to that category.
 
 With no plan at all, the card reads `No spending plan yet.` and offers the button `Set a spending plan`. It opens Settings at the top of the page, so scroll down to `Budgeting profile`. See [Categories and budget lines](/docs/guides/categories#the-budgeting-profile).
 
@@ -153,7 +153,7 @@ A toolbar sits above the list.
 | Sort | A screen reader reads it as `Sort`. The options are `Newest` and `Largest` |
 | `Amount` | A floor, a ceiling, or both |
 | `Company` | A type-to-filter field over the companies of the period |
-| `Category` | A type-to-filter field over the 16 groups and their categories |
+| `Category` | A type-to-filter field over the 3 groups and their categories |
 
 `Company` and `Category` each hold what you picked as a chip inside the field. A field with one or more chips carries a `Clear` control that empties it.
 
@@ -205,7 +205,7 @@ Press a row to open a drawer titled `Transaction details`. It holds `Date`, then
 
 #### Open the category picker
 
-The picker searches the **75** built-in categories, grouped under their category group.
+The picker searches the built-in categories that fit the side of the transaction. A credit offers 10 rows, and a debit offers 20. Each row names the group it sits in.
 
 </Step>
 
@@ -311,7 +311,7 @@ A toolbar sits above the list, with the same controls the transaction list carri
 | Sort | A screen reader reads it as `Sort`. The options are `Dearest` and `Soonest` |
 | `Cost` | A floor, a ceiling, or both, on what a payment costs a month |
 | `Recurrence` | A menu over the five frequencies and the three confidence levels |
-| `Category` | A type-to-filter field over the 16 groups and their categories |
+| `Category` | A type-to-filter field over the 3 groups and their categories |
 
 `Recurrence` carries a count badge while it filters. `Category` holds what you picked as a chip inside the field. Each recurrence you pick becomes a badge above the list. Each confidence you pick becomes one too, and so does a cost range. `Clear all` appears at two active filters or more. A cost range counts as **one** filter, whether you set one bound or both.
 

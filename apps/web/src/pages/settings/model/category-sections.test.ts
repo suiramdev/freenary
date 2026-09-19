@@ -51,8 +51,8 @@ describe("toCategorySections", () => {
   it("puts every predefined category under its own group heading", () => {
     const sections = toCategorySections(listCategories([]), "");
 
-    expect(sections).toHaveLength(16);
-    expect(keysOf(sections)).toHaveLength(75);
+    expect(sections).toHaveLength(3);
+    expect(keysOf(sections)).toHaveLength(27);
 
     for (const section of sections) {
       const { heading } = section;
@@ -69,12 +69,12 @@ describe("toCategorySections", () => {
 
   it("nests a custom category under its group", () => {
     const sections = toCategorySections(
-      listCategories([custom("a", "Garage rent", "housing")]),
+      listCategories([custom("a", "Garage rent", "spending")]),
       ""
     );
-    const housing = sections.find((s) => s.heading?.key === "housing");
+    const spending = sections.find((s) => s.heading?.key === "spending");
 
-    expect(housing?.items.at(-1)?.key).toBe("custom:a");
+    expect(spending?.items.at(-1)?.key).toBe("custom:a");
   });
 
   it("gives each top-level custom category its own unique section", () => {
@@ -93,7 +93,7 @@ describe("toCategorySections", () => {
 
   it("keeps a custom section distinct from a group whose label it copies", () => {
     const sections = toCategorySections(
-      listCategories([custom("a", "Housing", null)]),
+      listCategories([custom("a", "Spending", null)]),
       ""
     );
 
@@ -105,16 +105,16 @@ describe("toCategorySections", () => {
 
     expect(sections.map((s) => s.heading?.label)).toEqual([
       "Income",
-      "Housing",
+      "Spending",
     ]);
-    expect(keysOf(sections)).toEqual(["rental-income", "rent"]);
+    expect(keysOf(sections)).toEqual(["rental-income", "rent-mortgage"]);
   });
 
   it("matches custom categories too, keeping their sections unique", () => {
     const sections = toCategorySections(
       listCategories([
         custom("a", "Zzz solo", null),
-        custom("b", "Zzz nested", "housing"),
+        custom("b", "Zzz nested", "spending"),
       ]),
       "zzz"
     );
@@ -125,9 +125,9 @@ describe("toCategorySections", () => {
 
   it("never drops or duplicates an entry", () => {
     const customs = [
-      custom("a", "Garage", "housing"),
+      custom("a", "Garage", "spending"),
       custom("b", "Hustle", null),
-      custom("c", "Gym", "leisure"),
+      custom("c", "Gym", "investments"),
     ];
     const all = listCategories(customs);
     const rendered = keysOf(toCategorySections(all, ""));

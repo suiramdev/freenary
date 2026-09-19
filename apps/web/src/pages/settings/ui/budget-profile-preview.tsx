@@ -48,7 +48,7 @@ const uncategorisedGroupInCurrentLocale = (): Pick<
 > => ({
   color: "grey",
   isCustom: LABEL_IS_ALREADY_TRANSLATED_COPY,
-  key: "other",
+  key: "spending",
   label: m.settings_category_other(),
 });
 

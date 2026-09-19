@@ -218,10 +218,10 @@ export const TransactionsPage = () => {
       />
 
       <BudgetCharts
-        activeGroups={filter.groups}
+        activeCategories={filter.categories}
         aggregation={aggregation}
         breakdown={{
-          data: breakdownQuery.data?.groups,
+          data: breakdownQuery.data?.categories,
           isError: breakdownQuery.isError,
           isPending: isFilling(breakdownQuery.isLoading),
           isStale: isStaleView(breakdownQuery),

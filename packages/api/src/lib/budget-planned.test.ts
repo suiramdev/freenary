@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { monthSpan, periodMonthCount, plannedByGroup } from "./budget-planned";
-import { CATEGORY_GROUP_OF } from "./taxonomy";
+import {
+  categoryOfCategoryRef,
+  monthSpan,
+  periodMonthCount,
+  plannedByCategory,
+} from "./budget-planned";
+import { CATEGORY_GROUP_FALLBACKS } from "./taxonomy";
 
 const line = (
   amount: number,
@@ -9,51 +14,91 @@ const line = (
   parentSlug: string | null = null
 ) => ({ amount, categorySlug, parentSlug });
 
-describe("plannedByGroup", () => {
-  test("maps a predefined slug to its taxonomy group", () => {
-    const planned = plannedByGroup([line(120_000, "rent")], 1);
+describe("categoryOfCategoryRef", () => {
+  test("keeps a current category as it is", () => {
+    expect(categoryOfCategoryRef(line(0, "groceries"))).toBe("groceries");
+  });
 
-    expect(planned.get(CATEGORY_GROUP_OF.rent)).toBe(120_000);
+  test("resolves a legacy slug to its current category", () => {
+    expect(categoryOfCategoryRef(line(0, "rent"))).toBe("rent-mortgage");
+    expect(categoryOfCategoryRef(line(0, "home-insurance"))).toBe(
+      "bills-utilities"
+    );
+  });
+
+  test("sends a custom category to its parent group's catch-all", () => {
+    expect(categoryOfCategoryRef(line(0, null, "income"))).toBe(
+      CATEGORY_GROUP_FALLBACKS.income
+    );
+    expect(categoryOfCategoryRef(line(0, null, "investments"))).toBe(
+      CATEGORY_GROUP_FALLBACKS.investments
+    );
+    expect(categoryOfCategoryRef(line(0, null, "spending"))).toBe(
+      CATEGORY_GROUP_FALLBACKS.spending
+    );
+  });
+
+  test("sends a custom category under a retired group to spending", () => {
+    expect(categoryOfCategoryRef(line(0, null, "leisure"))).toBe(
+      CATEGORY_GROUP_FALLBACKS.spending
+    );
+  });
+
+  test("falls back to spending for a ref with nothing usable", () => {
+    expect(categoryOfCategoryRef(line(0, null, null))).toBe(
+      CATEGORY_GROUP_FALLBACKS.spending
+    );
+    expect(categoryOfCategoryRef(line(0, "not-a-category", "custom:abc"))).toBe(
+      CATEGORY_GROUP_FALLBACKS.spending
+    );
+  });
+});
+
+describe("plannedByCategory", () => {
+  test("maps a legacy slug to its current category", () => {
+    const planned = plannedByCategory([line(120_000, "rent")], 1);
+
+    expect(planned.get("rent-mortgage")).toBe(120_000);
     expect(planned.size).toBe(1);
   });
 
-  test("maps a custom category to its parent group", () => {
-    const planned = plannedByGroup([line(4500, null, "leisure")], 1);
+  test("maps a custom category to its parent group's catch-all", () => {
+    const planned = plannedByCategory([line(4500, null, "leisure")], 1);
 
-    expect(planned.get("leisure")).toBe(4500);
+    expect(planned.get("uncategorised")).toBe(4500);
   });
 
-  test("falls back to other for a custom category with no usable parent", () => {
-    const planned = plannedByGroup(
-      [line(1000, null, null), line(500, null, "not-a-group")],
+  test("sums several lines landing in the same category", () => {
+    const planned = plannedByCategory(
+      [line(90_000, "rent"), line(1500, "mortgage")],
       1
     );
 
-    expect(planned.get("other")).toBe(1500);
+    expect(planned.get("rent-mortgage")).toBe(91_500);
     expect(planned.size).toBe(1);
   });
 
-  test("sums several lines landing in the same group", () => {
-    const planned = plannedByGroup(
-      [line(90_000, "rent"), line(1500, "home-insurance")],
+  test("keeps two categories of one group apart", () => {
+    const planned = plannedByCategory(
+      [line(90_000, "rent"), line(1500, "water")],
       1
     );
 
-    expect(CATEGORY_GROUP_OF["home-insurance"]).toBe(CATEGORY_GROUP_OF.rent);
-    expect(planned.get(CATEGORY_GROUP_OF.rent)).toBe(91_500);
+    expect(planned.get("rent-mortgage")).toBe(90_000);
+    expect(planned.get("bills-utilities")).toBe(1500);
   });
 
   test("multiplies monthly amounts by the month count", () => {
-    const planned = plannedByGroup(
+    const planned = plannedByCategory(
       [line(2000, "water"), line(3000, "water")],
       3
     );
 
-    expect(planned.get(CATEGORY_GROUP_OF.water)).toBe(15_000);
+    expect(planned.get("bills-utilities")).toBe(15_000);
   });
 
   test("yields an empty map for no lines", () => {
-    expect(plannedByGroup([], 12).size).toBe(0);
+    expect(plannedByCategory([], 12).size).toBe(0);
   });
 });
 

@@ -15,7 +15,7 @@ describe("RecurringExpense", () => {
   it("defines the expected shape", () => {
     const expense: RecurringExpense = {
       amountSpread: 0,
-      category: "energy",
+      category: "bills-utilities",
       confidence: "confirmed",
       currency: "EUR",
       frequency: "monthly",
@@ -57,7 +57,7 @@ const monthlySeries = (
 ): RecurrenceTransaction[] =>
   Array.from({ length: occurrences }, (_, index) => ({
     amount: -1500,
-    category: "energy",
+    category: "bills-utilities",
     counterpartyName: merchantKey,
     currency: "EUR",
     date: new Date(first.getFullYear(), first.getMonth() + index, 5),
@@ -135,7 +135,7 @@ const monthlyAmounts = (
 ): RecurrenceTransaction[] =>
   amounts.map((amount, index) => ({
     amount: -amount,
-    category: "energy",
+    category: "bills-utilities",
     counterpartyName: merchantKey,
     currency: "EUR",
     date: new Date(first.getFullYear(), first.getMonth() + index, 5),
@@ -292,7 +292,7 @@ describe("recurringInWindow classification", () => {
     const [detected] = recurringInWindow(
       postingDaysOfMonth.map((day, index) => ({
         amount: -1500,
-        category: "energy",
+        category: "bills-utilities",
         counterpartyName: "landlord",
         currency: "EUR",
         date: new Date(2025, 9 + index, day),

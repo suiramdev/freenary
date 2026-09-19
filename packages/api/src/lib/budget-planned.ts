@@ -1,9 +1,10 @@
 import {
+  CATEGORY_GROUP_FALLBACKS,
   CATEGORY_GROUP_OF,
-  isCategoryGroup,
+  resolveCategoryGroup,
   resolveCategorySlug,
 } from "./taxonomy";
-import type { CategoryGroup } from "./taxonomy";
+import type { CategoryGroup, SpendingCategory } from "./taxonomy";
 
 export interface CategoryRef {
   categorySlug: string | null;
@@ -14,7 +15,7 @@ export interface PlannedLine extends CategoryRef {
   amount: number;
 }
 
-const GROUP_OUTSIDE_THE_TAXONOMY = "other" satisfies CategoryGroup;
+const GROUP_OUTSIDE_THE_TAXONOMY = "spending" satisfies CategoryGroup;
 
 const AVERAGE_MONTH_MS = 30.436875 * 24 * 60 * 60 * 1000;
 
@@ -25,11 +26,15 @@ export const groupOfCategoryRef = (ref: CategoryRef): CategoryGroup => {
     return CATEGORY_GROUP_OF[slug];
   }
 
-  if (ref.parentSlug && isCategoryGroup(ref.parentSlug)) {
-    return ref.parentSlug;
-  }
+  const parent = ref.parentSlug ? resolveCategoryGroup(ref.parentSlug) : null;
 
-  return GROUP_OUTSIDE_THE_TAXONOMY;
+  return parent ?? GROUP_OUTSIDE_THE_TAXONOMY;
+};
+
+export const categoryOfCategoryRef = (ref: CategoryRef): SpendingCategory => {
+  const slug = ref.categorySlug ? resolveCategorySlug(ref.categorySlug) : null;
+
+  return slug ?? CATEGORY_GROUP_FALLBACKS[groupOfCategoryRef(ref)];
 };
 
 export const monthSpan = (from: Date, to: Date): number =>
@@ -41,16 +46,19 @@ export const periodMonthCount = (from: Date, to: Date, now: Date): number => {
   return monthSpan(from, elapsedEnd);
 };
 
-export const plannedByGroup = (
+export const plannedByCategory = (
   lines: PlannedLine[],
   monthCount: number
-): Map<CategoryGroup, number> => {
-  const planned = new Map<CategoryGroup, number>();
+): Map<SpendingCategory, number> => {
+  const planned = new Map<SpendingCategory, number>();
 
   for (const line of lines) {
-    const group = groupOfCategoryRef(line);
+    const category = categoryOfCategoryRef(line);
 
-    planned.set(group, (planned.get(group) ?? 0) + line.amount * monthCount);
+    planned.set(
+      category,
+      (planned.get(category) ?? 0) + line.amount * monthCount
+    );
   }
 
   return planned;

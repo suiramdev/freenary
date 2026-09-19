@@ -124,6 +124,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
             >
               <TransactionCategoryPicker
                 category={transaction.category}
+                direction={isIncoming ? "incoming" : "outgoing"}
                 isOverridden={isOverridden}
                 onSelect={(category) => updateCategory.mutate(category)}
                 onReset={() => updateCategory.mutate(null)}

@@ -9,9 +9,9 @@ describe("pipelineCategory", () => {
     );
   });
 
-  it("decodes a resolution stored before the hierarchy", () => {
+  it("decodes a resolution stored before the flat set", () => {
     expect(pipelineCategory({ resolvedCategory: "dining" })).toBe(
-      "other-daily-living"
+      "restaurants"
     );
   });
 
@@ -26,14 +26,14 @@ describe("pipelineCategory", () => {
 describe("effectiveCategory", () => {
   it("lets a user override win over the pipeline", () => {
     expect(
-      effectiveCategory({ category: "gifts", resolvedCategory: "groceries" })
-    ).toBe("gifts");
+      effectiveCategory({ category: "people", resolvedCategory: "groceries" })
+    ).toBe("people");
   });
 
   it("decodes a legacy override", () => {
     expect(
       effectiveCategory({ category: "dining", resolvedCategory: "groceries" })
-    ).toBe("other-daily-living");
+    ).toBe("restaurants");
   });
 
   it("falls through to the pipeline when the override is unknown", () => {

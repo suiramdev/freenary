@@ -28,7 +28,7 @@ import type { PlannedLine } from "../lib/budget-planned";
 import {
   monthSpan,
   periodMonthCount,
-  plannedByGroup,
+  plannedByCategory,
 } from "../lib/budget-planned";
 import { budgetLineKindOf } from "../lib/budget-profile";
 import {
@@ -309,27 +309,18 @@ const recurringShareByCategory = (
   return shares;
 };
 
-const outgoingByGroup = async (
+const userOutgoingByCategory = async (
   userId: string,
   aggregation: "average" | "median" | "total",
   from: Date,
   to: Date
-): Promise<Map<CategoryGroup, number>> => {
-  const categoryAmounts = outgoingByCategory(
+): Promise<Map<SpendingCategory, number>> =>
+  outgoingByCategory(
     await outgoingRows(userId, from, to),
     aggregation,
     from,
     to
   );
-  const groupAmounts = new Map<CategoryGroup, number>();
-
-  for (const [category, amount] of categoryAmounts) {
-    const group = CATEGORY_GROUP_OF[category];
-    groupAmounts.set(group, (groupAmounts.get(group) ?? 0) + amount);
-  }
-
-  return groupAmounts;
-};
 
 const outgoingBudgetLines = (lines: BudgetLineRow[]): PlannedLine[] =>
   lines
@@ -749,7 +740,7 @@ export const budgetRouter = {
       const userId = context.session.user.id;
       const { aggregation, from, to } = input;
 
-      const [lines, actualByGroup] = await Promise.all([
+      const [lines, actualByCategory] = await Promise.all([
         prisma.budgetLine.findMany({
           select: {
             amount: true,
@@ -758,23 +749,23 @@ export const budgetRouter = {
           },
           where: { userId },
         }),
-        outgoingByGroup(userId, aggregation, from, to),
+        userOutgoingByCategory(userId, aggregation, from, to),
       ]);
 
       const outgoings = outgoingBudgetLines(lines);
       const planScaleMonths =
         aggregation === "total" ? periodMonthCount(from, to, new Date()) : 1;
-      const planned = plannedByGroup(outgoings, planScaleMonths);
-      const groups = CATEGORY_GROUPS.map((group) => ({
-        actual: actualByGroup.get(group) ?? 0,
-        group,
-        planned: planned.get(group) ?? 0,
+      const planned = plannedByCategory(outgoings, planScaleMonths);
+      const categories = SPENDING_CATEGORIES.map((category) => ({
+        actual: actualByCategory.get(category) ?? 0,
+        category,
+        planned: planned.get(category) ?? 0,
       }))
         .filter((row) => row.planned > 0 || row.actual > 0)
         .toSorted((a, b) => b.planned - a.planned || b.actual - a.actual);
 
       return {
-        groups,
+        categories,
         hasPlan: outgoings.length > 0,
       };
     }),
@@ -1158,21 +1149,21 @@ export const budgetRouter = {
       })
     )
     .handler(async ({ context, input }) => {
-      const groupAmounts = await outgoingByGroup(
+      const categoryAmounts = await userOutgoingByCategory(
         context.session.user.id,
         input.aggregation,
         input.from,
         input.to
       );
 
-      const groups = [...groupAmounts.entries()]
-        .map(([group, amount]) => ({
+      const categories = [...categoryAmounts.entries()]
+        .map(([category, amount]) => ({
           amount,
-          group,
+          category,
         }))
         .toSorted((a, b) => b.amount - a.amount);
 
-      return { groups };
+      return { categories };
     }),
 
   getSyncStatus: protectedProcedure.handler(({ context }) =>

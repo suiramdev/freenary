@@ -8,14 +8,14 @@ describe("categoryFromMcc", () => {
     expect(categoryFromMcc("5411")).toBe("groceries");
   });
 
-  it("splits the issuer-assigned 3xxx block at its real boundaries", () => {
+  it("reads the whole issuer-assigned 3xxx block as one category", () => {
     const byMcc = {
-      "3000": "flights",
-      "3299": "flights",
-      "3300": "other-travel",
-      "3499": "other-travel",
-      "3500": "accommodation",
-      "3999": "accommodation",
+      "3000": "transport-travel",
+      "3299": "transport-travel",
+      "3300": "transport-travel",
+      "3499": "transport-travel",
+      "3500": "transport-travel",
+      "3999": "transport-travel",
     } as const satisfies Record<string, SpendingCategory>;
 
     for (const [mcc, expected] of Object.entries(byMcc)) {

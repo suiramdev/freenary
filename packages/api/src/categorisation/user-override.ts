@@ -2,6 +2,7 @@ import prisma from "@freenary/db";
 import type { Prisma } from "@freenary/db";
 import { Option } from "effect";
 
+import { resolveCategorySlug } from "../lib/taxonomy";
 import type { SpendingCategory } from "../lib/taxonomy";
 
 type TransactionClient = Prisma.TransactionClient;
@@ -21,11 +22,13 @@ export const lookupUserOverride = async (
 
   return Option.match(stored, {
     onNone: () => null,
-    onSome: (override) => ({
-      // SAFETY: category column only stores validated SpendingCategory values
-      category: override.category as SpendingCategory,
-      merchantName: override.merchantName,
-    }),
+    onSome: (override) => {
+      const category = resolveCategorySlug(override.category);
+
+      return category === null
+        ? null
+        : { category, merchantName: override.merchantName };
+    },
   });
 };
 

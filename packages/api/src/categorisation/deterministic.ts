@@ -1,5 +1,5 @@
 import { categoryFromMcc } from "../lib/mcc-categories";
-import { CATEGORY_GROUP_OF } from "../lib/taxonomy";
+import { categoryDirection } from "../lib/taxonomy";
 import type { SpendingCategory } from "../lib/taxonomy";
 import type { KeywordTables } from "./keywords";
 import { keywordsFor, matchKeyword } from "./keywords";
@@ -18,24 +18,22 @@ export interface DeterministicResult {
 const MCC_CONFIDENCE = 0.8;
 const RULE_CONFIDENCE = 0.75;
 
-const readsAsRefund = (
+export const readsAsRefund = (
   category: SpendingCategory,
   amountMinor: OutgoingNegativeMinorUnits
-): boolean => amountMinor > 0 && CATEGORY_GROUP_OF[category] !== "income";
+): boolean => amountMinor > 0 && categoryDirection(category) === "out";
 
-const acceptInDirection = (
+const accepted = (
   category: SpendingCategory | null,
-  amountMinor: OutgoingNegativeMinorUnits
+  amountMinor: OutgoingNegativeMinorUnits,
+  confidence: number,
+  stage: ResolutionStage
 ): DeterministicResult | null => {
-  if (!category) {
+  if (!category || readsAsRefund(category, amountMinor)) {
     return null;
   }
 
-  if (readsAsRefund(category, amountMinor)) {
-    return null;
-  }
-
-  return { category, confidence: RULE_CONFIDENCE, stage: "rules" };
+  return { category, confidence, stage };
 };
 
 const ruleHit = (
@@ -43,7 +41,9 @@ const ruleHit = (
   text: string | undefined,
   amountMinor: OutgoingNegativeMinorUnits
 ): DeterministicResult | null =>
-  text ? acceptInDirection(matchKeyword(table, text), amountMinor) : null;
+  text
+    ? accepted(matchKeyword(table, text), amountMinor, RULE_CONFIDENCE, "rules")
+    : null;
 
 export const deterministicCategory = (
   input: CategoriseInput
@@ -51,11 +51,16 @@ export const deterministicCategory = (
   const { amountMinor, bankTransactionCode, country, merchantCategoryCode } =
     input;
   const byMcc = merchantCategoryCode
-    ? categoryFromMcc(merchantCategoryCode)
+    ? accepted(
+        categoryFromMcc(merchantCategoryCode),
+        amountMinor,
+        MCC_CONFIDENCE,
+        "mcc"
+      )
     : null;
 
   if (byMcc) {
-    return { category: byMcc, confidence: MCC_CONFIDENCE, stage: "mcc" };
+    return byMcc;
   }
 
   return ruleHit(

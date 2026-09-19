@@ -20,6 +20,7 @@ import {
   CATEGORY_GROUPS,
   CATEGORY_ICON_NAMES,
   isCategoryGroup,
+  resolveCategoryGroup,
 } from "../lib/taxonomy";
 import type { CategoryColor, CategoryIconName } from "../lib/taxonomy";
 
@@ -56,7 +57,7 @@ const toCategoryEntry = (custom: {
   isGroup: custom.parentSlug === null,
   key: customCategoryKey(custom.id),
   label: custom.label,
-  parentKey: custom.parentSlug,
+  parentKey: custom.parentSlug ? resolveCategoryGroup(custom.parentSlug) : null,
   usageCount: custom._count.budgetLines,
 });
 
@@ -167,6 +168,7 @@ export const settingsRouter = {
     });
 
     const categories: CategoryEntry[] = [];
+    const customEntries = customs.map(toCategoryEntry);
 
     for (const {
       categories: predefined,
@@ -174,18 +176,14 @@ export const settingsRouter = {
     } of predefinedCategoryGroups()) {
       categories.push(group, ...predefined);
 
-      for (const custom of customs) {
-        if (custom.parentSlug === group.key) {
-          categories.push(toCategoryEntry(custom));
+      for (const custom of customEntries) {
+        if (custom.parentKey === group.key) {
+          categories.push(custom);
         }
       }
     }
 
-    const userOwnedGroups = customs.filter(
-      (custom) => custom.parentSlug === null
-    );
-
-    categories.push(...userOwnedGroups.map(toCategoryEntry));
+    categories.push(...customEntries.filter((custom) => custom.isGroup));
 
     return { categories };
   }),

@@ -1,7 +1,7 @@
 import prisma from "@freenary/db";
 import { Option } from "effect";
 
-import type { Iso4217Currency, ResolutionStage } from "./types";
+import type { Iso4217Currency } from "./types";
 
 interface TransferCandidate {
   accountId: string;
@@ -10,10 +10,6 @@ interface TransferCandidate {
   date: Date;
   id: string;
 }
-
-const TRANSFER_CATEGORY = "internal-transfer";
-const TRANSFER_STAGE: ResolutionStage = "internal-transfer";
-const TRANSFER_CONFIDENCE = 0.95;
 
 const PAIR_DATE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
@@ -107,12 +103,7 @@ const matchInternal = async (userId: string): Promise<number> => {
   }
 
   const { count } = await prisma.transaction.updateMany({
-    data: {
-      isInternalTransfer: true,
-      resolutionConfidence: TRANSFER_CONFIDENCE,
-      resolutionStage: TRANSFER_STAGE,
-      resolvedCategory: TRANSFER_CATEGORY,
-    },
+    data: { isInternalTransfer: true },
     where: { id: { in: [...paired] } },
   });
 

@@ -1,6 +1,6 @@
 ---
 title: Categories and budget lines
-description: The fixed category groups, the categories you add yourself, and the monthly plan Freenary calls your budgeting profile.
+description: The three flow sections, the 27 fixed categories, the ones you add yourself, and the monthly plan Freenary calls your budgeting profile.
 icon: Tags
 ---
 
@@ -8,40 +8,86 @@ Every transaction sits in one category, and every category sits in one group. On
 
 ## The fixed vocabulary
 
-Freenary ships **16 category groups** and **75 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.`
+Freenary ships **3 category groups** and **27 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.`
 
-The groups follow the flow of money, from income to outgoings. Each one holds a catch-all category for a movement Freenary places in the group but in no exact category.
+A group is a section of the flow of money, and not a topic. `Income` is what arrives. `Savings & investment` and `Spending` are the two ways it leaves.
 
-| #   | Group           | Catch-all category   |
-| --- | --------------- | -------------------- |
-| 1   | `Income`        | `Other income`       |
-| 2   | `Investments`   | `Other investment`   |
-| 3   | `Housing`       | `Other housing`      |
-| 4   | `Utilities`     | `Other utilities`    |
-| 5   | `Daily living`  | `Other daily living` |
-| 6   | `Transport`     | `Other transport`    |
-| 7   | `Travel`        | `Other travel`       |
-| 8   | `Leisure`       | `Other leisure`      |
-| 9   | `Shopping`      | `Other shopping`     |
-| 10  | `Subscriptions` | `Other subscription` |
-| 11  | `Health`        | `Other health`       |
-| 12  | `Education`     | `Other education`    |
-| 13  | `Financial`     | `Other financial`    |
-| 14  | `Taxes`         | `Other taxes`        |
-| 15  | `Transfers`     | `Other transfer`     |
-| 16  | `Other`         | `Uncategorised`      |
+| Group | What it holds | Categories | Catch-all category |
+| --- | --- | --- | --- |
+| `Income` | Money that arrives | 7 | `Other income` |
+| `Savings & investment` | Money you put aside | 4 | `Savings` |
+| `Spending` | Money you consume | 16 | `Other` |
 
-A built-in category takes the colour and the icon of its group. It carries none of its own.
+A category carries a colour and an icon of its own. Two categories of one group therefore never look the same.
+
+### The 7 income categories
+
+| Category | It covers |
+| --- | --- |
+| `Salary & wages` | Pay from an employer |
+| `Self-employment & business income` | What your own activity brings in |
+| `Investment income` | Interest, dividends and gains you are paid |
+| `Rental income` | Rent a tenant pays you |
+| `Benefits & pension` | A benefit, an allowance or a pension |
+| `Refunds & reimbursements` | Money sent back to you |
+| `Other income` | Money in that fits none of the six above |
+
+### The 4 savings and investment categories
+
+| Category | It covers |
+| --- | --- |
+| `Savings` | Money moved to a savings account |
+| `Investments` | Shares, funds and securities you buy |
+| `Retirement & long-term savings` | A pension plan, and a life-insurance savings contract |
+| `Crypto` | A purchase on a crypto platform |
+
+### The 16 spending categories
+
+| Category | It covers |
+| --- | --- |
+| `Groceries` | Food shops and household supplies |
+| `Restaurants & going out` | Restaurants, bars, cafés and takeaway |
+| `Rent & mortgage` | Your rent, or the loan on your home |
+| `Bills & utilities` | Energy, water, telecom, home upkeep and home insurance |
+| `Car & fuel` | Fuel, upkeep, parking, tolls and car insurance |
+| `Transport & travel` | Public transport, taxis, flights and hotels |
+| `Shopping` | Clothes, electronics, furniture, gifts and pets |
+| `Entertainment & leisure` | Culture, sport and hobbies |
+| `Subscriptions` | A charge that repeats under a contract |
+| `Health & medical` | Doctors, pharmacy and personal care |
+| `Family & education` | Childcare, school and courses |
+| `Taxes` | A tax or a duty you owe |
+| `Loans & bank fees` | Loan repayments and what your bank charges |
+| `People` | Money you send to, or take from, a person you know |
+| `Cash withdrawal` | Cash out of a machine or over a counter |
+| `Other` | Anything Freenary places nowhere else |
+
+Insurance holds no category of its own, because one word covers three different needs. Car insurance falls under `Car & fuel`. Home, health and liability insurance fall under `Bills & utilities`. A life-insurance savings contract falls under `Retirement & long-term savings`.
+
+<Callout type="info">
+
+A movement between two of your own accounts is not a category. Freenary matches the pair, marks both as an internal transfer, and keeps the category each one already carried. Read [Budget](/docs/guides/budget).
+
+</Callout>
+
+### Which categories a transaction offers
+
+A category belongs to one side of the flow, and the picker reads the sign of the transaction.
+
+- On money in, it offers the 7 income categories, over `People`, `Cash withdrawal` and `Other`. That is 10 rows.
+- On money out, it offers the 4 savings categories and the 16 spending ones. That is 20 rows.
+
+So `Salary & wages` never appears on a card payment, and `Groceries` never appears on a credit. The three rows in both lists are the ones that run both ways. You lend a friend money and you get money back, and cash leaves a machine or returns to the counter.
 
 ### Where to read the list
 
 Open Settings, group `Budgeting`, section `Categories`. Every group starts closed, with a badge that counts what is inside it. Open one to read its categories.
 
-A built-in category carries the badge `Built-in` and offers no action. The [Budget](/docs/guides/budget) category filter and the category picker of the transaction drawer list the same 75.
+A built-in category carries the badge `Built-in` and offers no action. The [Budget](/docs/guides/budget) category filter lists the same 27.
 
 ## Custom categories
 
-A custom category is one you add. Unlike a built-in one, it holds a colour and an icon you pick yourself.
+A custom category is one you add. Like a built-in one, it holds a colour and an icon, and you pick both yourself.
 
 Press `New category` in the header of the section. The drawer holds four fields.
 
@@ -49,16 +95,16 @@ Press `New category` in the header of the section. The drawer holds four fields.
 | --- | --- |
 | `Name` | 1 to 40 characters. Unique among your own categories, and letter case plays no part in that check |
 | `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red` |
-| `Icon` | One of 18 icons, in a grid |
-| `Nested under` | One of the 16 groups, or `No parent` |
+| `Icon` | One of 28 icons, in a grid |
+| `Nested under` | One of the 3 groups, or `No parent` |
 
-The 18 icons are `Airplane`, `Arrows`, `Bank`, `Car`, `Coins`, `Dots`, `Film slate`, `First aid kit` and `Fork and knife`. The rest are `Graduation cap`, `House`, `Lightning bolt`, `Safe`, `Receipt`, `Repeat`, `Shield with check`, `Shopping bag` and `Storefront`.
+The first ten icons are `Airplane`, `Arrows`, `Bank`, `Bitcoin`, `Briefcase`, `Car`, `Cash`, `Pie chart`, `Coins` and `Dots`. The next ten are `Film slate`, `First aid kit`, `Fork and knife`, `Graduation cap`, `House`, `Key`, `Lightning bolt`, `Safe`, `Plant` and `Receipt`. The last eight are `Refund`, `Repeat`, `Shield with check`, `Shopping bag`, `Shopping cart`, `Storefront`, `Trend line` and `People`.
 
 A new category starts blue, with the `Dots` icon, and with no parent. Press `Create category` to save it, or `Cancel` to drop it. You read `Category created`.
 
 <Callout type="warn">
 
-A custom category serves budget lines alone. The transaction picker offers the built-in 75 and none of your own. You cannot file a transaction under a custom category. See [Budget](/docs/guides/budget#fix-a-category).
+A custom category serves budget lines alone. The transaction picker offers the built-in 27 and none of your own. You cannot file a transaction under a custom category. See [Budget](/docs/guides/budget#fix-a-category).
 
 </Callout>
 
@@ -79,7 +125,7 @@ A custom category with `No parent` stands on its own row in the list, not as a g
 
 The dialog reads `Delete {label}?`. Under it sits one of two lines:
 
-- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Uncategorised` when the category has no parent.
+- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Other` when the category has no parent.
 - `No budget line uses {label}.`
 
 Press `Delete category` to confirm, or `Cancel` to leave. You read `Category deleted`, or `Category deleted — {count} budget line(s) moved to {fallback}`.
@@ -111,7 +157,7 @@ Your profile holds **200** lines at most.
 
 <Callout type="info">
 
-The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Investments` counts as an investment. Every other group, and every custom category with `No parent`, counts as an outgoing.
+The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Savings & investment` counts as an investment. Every category in `Spending`, and every custom category with `No parent`, counts as an outgoing.
 
 </Callout>
 
@@ -122,7 +168,7 @@ The category of a line decides which side of the flow it falls on, and you never
 - Drag a line by its handle to reorder it. The handle answers the up and down arrow keys too.
 - Press the button at the end of a row to remove it.
 
-Above the editor, Freenary draws your plan as a live flow diagram. It runs from your revenues through the category groups to each planned line. It follows what you type. With nothing declared it reads `No budget yet`, over `Add a line below and the flow appears here as you type.`
+Above the editor, Freenary draws your plan as a live flow diagram. It runs from your revenues through the three groups to each planned line. It follows what you type. With nothing declared it reads `No budget yet`, over `Add a line below and the flow appears here as you type.`
 
 A summary sits with it: `Revenues:`, then `Allocated:`, then a third figure. That third label flips with its sign. It reads `Money left:` at zero and above, and `Over-allocated:` below it.
 
@@ -143,7 +189,7 @@ Your browser warns you before you leave the page with unsaved changes. Save the 
 
 ## What the plan turns on
 
-One budget line or more ticks `Set up your budget` in the sidebar checklist. It also turns on the `Budget vs. actual` chart on Budget. That chart measures each category group against the amount you planned.
+One budget line or more ticks `Set up your budget` in the sidebar checklist. It also turns on the `Budget vs. actual` chart on Budget. That chart measures each category against the amount you planned for it.
 
 <Cards>
   <Card

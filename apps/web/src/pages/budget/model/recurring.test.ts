@@ -14,7 +14,7 @@ import type { RecurringData, RecurringItem, RecurringMonth } from "./recurring";
 
 const item = (overrides: Partial<RecurringItem> = {}): RecurringItem => ({
   amountSpread: 0,
-  category: "streaming",
+  category: "subscriptions",
   confidence: "confirmed",
   currency: "EUR",
   frequency: "monthly",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import type { SpendingCategory } from "../lib/taxonomy";
-import { deterministicCategory } from "./deterministic";
+import { deterministicCategory, readsAsRefund } from "./deterministic";
 import type { CategoriseInput } from "./types";
 
 const input = (overrides: Partial<CategoriseInput>): CategoriseInput => ({
@@ -42,7 +42,7 @@ describe("deterministicCategory", () => {
       input({ bankTransactionCode: "PRLV LOYER", country: "FR" })
     );
 
-    expect(result?.category).toBe("rent");
+    expect(result?.category).toBe("rent-mortgage");
     expect(result?.stage).toBe("rules");
   });
 
@@ -60,11 +60,10 @@ describe("deterministicCategory", () => {
 
   it("still matches the inflected forms banks actually write", () => {
     const cases: [string, SpendingCategory, string | null][] = [
-      ["PRLV IMPOTS", "other-taxes", "FR"],
-      ["VIREMENT LOYERS", "rent", "FR"],
+      ["PRLV IMPOTS", "taxes", "FR"],
+      ["VIREMENT LOYERS", "rent-mortgage", "FR"],
       ["VIREMENT SALAIRES", "salary", "FR"],
-      ["PRLV ASSURANCES", "other-insurance", "FR"],
-      ["SKATTEVERKET", "other-taxes", null],
+      ["SKATTEVERKET", "taxes", null],
     ];
 
     for (const [bankTransactionCode, category, country] of cases) {
@@ -79,9 +78,30 @@ describe("deterministicCategory", () => {
   it("anchors non-ASCII keywords too", () => {
     expect(
       deterministicCategory(
-        input({ bankTransactionCode: "ÖVERFÖRING", country: "SE" })
+        input({ amountMinor: 250_000, bankTransactionCode: "LÖNER" })
       )?.category
-    ).toBe("other-transfer");
+    ).toBe("salary");
+  });
+
+  it("names no category for a word that only says money moved", () => {
+    const wordsThatNameNoCategory = [
+      "VIREMENT",
+      "ÖVERFÖRING",
+      "transfer",
+      "PRLV ASSURANCES",
+      "FÖRSÄKRING",
+    ];
+
+    for (const bankTransactionCode of wordsThatNameNoCategory) {
+      expect(
+        deterministicCategory(input({ bankTransactionCode, country: "FR" }))
+      ).toBeNull();
+      expect(
+        deterministicCategory(
+          input({ amountMinor: 250_000, bankTransactionCode, country: "FR" })
+        )
+      ).toBeNull();
+    }
   });
 
   it("rejects an expense keyword on a credit — that is a refund", () => {
@@ -96,6 +116,27 @@ describe("deterministicCategory", () => {
     ).toBeNull();
   });
 
+  it("rejects a merchant category code on a credit — that is a refund", () => {
+    expect(
+      deterministicCategory(
+        input({ amountMinor: 1500, merchantCategoryCode: "5411" })
+      )
+    ).toBeNull();
+  });
+
+  it("falls through to the bank code when the merchant category code reads as a refund", () => {
+    const result = deterministicCategory(
+      input({
+        amountMinor: 250_000,
+        bankTransactionCode: "VIREMENT SALAIRE",
+        country: "FR",
+        merchantCategoryCode: "5411",
+      })
+    );
+
+    expect(result?.category).toBe("salary");
+  });
+
   it("accepts an income keyword on a credit", () => {
     const result = deterministicCategory(
       input({
@@ -107,16 +148,29 @@ describe("deterministicCategory", () => {
 
     expect(result?.category).toBe("salary");
   });
+});
 
-  it("refuses a provider's own transaction type read as a bank code on a credit", () => {
-    expect(
-      deterministicCategory(
-        input({
-          amountMinor: 250_000,
-          bankTransactionCode: "transfer",
-          country: "FR",
-        })
-      )
-    ).toBeNull();
+describe("readsAsRefund", () => {
+  const CREDIT_MINOR = 1500;
+  const DEBIT_MINOR = -1500;
+
+  it("reads a credit on an outgoing-only category as a refund", () => {
+    expect(readsAsRefund("groceries", CREDIT_MINOR)).toBe(true);
+    expect(readsAsRefund("savings", CREDIT_MINOR)).toBe(true);
+  });
+
+  it("leaves a both-direction category alone on a credit", () => {
+    expect(readsAsRefund("people", CREDIT_MINOR)).toBe(false);
+    expect(readsAsRefund("cash-withdrawal", CREDIT_MINOR)).toBe(false);
+    expect(readsAsRefund("uncategorised", CREDIT_MINOR)).toBe(false);
+  });
+
+  it("leaves an incoming category alone on a credit", () => {
+    expect(readsAsRefund("salary", CREDIT_MINOR)).toBe(false);
+  });
+
+  it("never fires on a debit", () => {
+    expect(readsAsRefund("groceries", DEBIT_MINOR)).toBe(false);
+    expect(readsAsRefund("salary", DEBIT_MINOR)).toBe(false);
   });
 });

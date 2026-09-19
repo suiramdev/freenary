@@ -44,8 +44,8 @@ type ToolInput = z.infer<typeof toolInputSchema>;
 
 const toolOutputSchema = z.looseObject({
   accounts: z.array(z.unknown()).optional(),
+  categories: z.array(z.unknown()).optional(),
   expenses: z.array(z.unknown()).optional(),
-  groups: z.array(z.unknown()).optional(),
   periods: z.array(z.unknown()).optional(),
   transactions: z.array(z.unknown()).optional(),
 });
@@ -72,8 +72,8 @@ const SORT_LABELS = {
 
 const ROW_COUNT_MESSAGES = {
   accounts: m.assistant_result_accounts,
+  categories: m.assistant_result_categories,
   expenses: m.assistant_result_recurring,
-  groups: m.assistant_result_groups,
   periods: m.assistant_result_periods,
   transactions: m.assistant_result_transactions,
 } satisfies Record<keyof ToolOutput, (inputs: { count: number }) => string>;
@@ -81,15 +81,15 @@ const ROW_COUNT_MESSAGES = {
 const RESULT_SUMMARIES = {
   get_accounts_overview: ({ accounts }: ToolOutput) =>
     accounts && ROW_COUNT_MESSAGES.accounts({ count: accounts.length }),
-  get_budget_vs_actual: ({ groups }: ToolOutput) =>
-    groups && ROW_COUNT_MESSAGES.groups({ count: groups.length }),
+  get_budget_vs_actual: ({ categories }: ToolOutput) =>
+    categories && ROW_COUNT_MESSAGES.categories({ count: categories.length }),
   get_cash_flow: ({ periods }: ToolOutput) =>
     periods && ROW_COUNT_MESSAGES.periods({ count: periods.length }),
   get_fixed_vs_variable: () => m.assistant_result_figures(),
   get_recurring_expenses: ({ expenses }: ToolOutput) =>
     expenses && ROW_COUNT_MESSAGES.expenses({ count: expenses.length }),
-  get_spending_by_group: ({ groups }: ToolOutput) =>
-    groups && ROW_COUNT_MESSAGES.groups({ count: groups.length }),
+  get_spending_by_group: ({ categories }: ToolOutput) =>
+    categories && ROW_COUNT_MESSAGES.categories({ count: categories.length }),
   search_transactions: ({ transactions }: ToolOutput) =>
     transactions &&
     ROW_COUNT_MESSAGES.transactions({ count: transactions.length }),

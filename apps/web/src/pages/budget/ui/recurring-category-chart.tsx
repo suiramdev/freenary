@@ -1,7 +1,4 @@
-import {
-  CATEGORY_GROUP_COLORS,
-  CATEGORY_GROUP_OF,
-} from "@freenary/api/lib/taxonomy";
+import { categoryColor } from "@freenary/api/lib/taxonomy";
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
 
 import { categoryLabel } from "@/entities/category";
@@ -51,9 +48,7 @@ export const RecurringCategoryChart = ({
                 className="absolute inset-y-0 start-0 rounded-full"
                 style={{
                   backgroundColor:
-                    CHART_COLOR_VARS[
-                      CATEGORY_GROUP_COLORS[CATEGORY_GROUP_OF[row.category]]
-                    ],
+                    CHART_COLOR_VARS[categoryColor(row.category)],
                   width: `${(row.monthlyMinor / sharedScaleMinor) * 100}%`,
                 }}
               />

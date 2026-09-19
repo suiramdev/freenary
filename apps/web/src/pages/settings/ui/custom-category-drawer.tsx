@@ -174,7 +174,7 @@ export const CustomCategoryDrawer = ({
                     <form.Subscribe selector={(state) => state.values.color}>
                       {(color) => (
                         <ToggleGroup
-                          className="grid grid-cols-9"
+                          className="grid grid-cols-7"
                           value={[field.state.value]}
                           onValueChange={([next]) => {
                             const name = CATEGORY_ICON_NAMES.find(
