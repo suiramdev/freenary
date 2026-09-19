@@ -22,7 +22,7 @@ export default defineConfig({
     "packages/ui/**",
     "apps/web/src/paraglide/**",
   ],
-  jsPlugins: ["@jliocsar/begone-slop"],
+  jsPlugins: ["@jliocsar/begone-slop", "@shadcn/lint"],
   overrides: [
     {
       files: ["**/*.test.ts", "**/*.test.tsx"],
@@ -50,5 +50,10 @@ export default defineConfig({
       "error",
       { allowedFilenames: ["index.ts"], routeDirectoryNames: ["src"] },
     ],
+  },
+  settings: {
+    shadcn: {
+      componentImports: ["^@/shared/ui(/|$)"],
+    },
   },
 });
