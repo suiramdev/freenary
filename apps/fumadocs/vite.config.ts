@@ -17,6 +17,13 @@ export default defineConfig({
       prerender: {
         enabled: true,
       },
+      router: {
+        entry: "./app/router/router.tsx",
+        routesDirectory: "app/routes",
+      },
+      start: {
+        entry: "./app/start.ts",
+      },
     }),
     react(),
     nitro({

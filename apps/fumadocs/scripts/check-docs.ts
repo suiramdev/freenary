@@ -4,9 +4,9 @@ import { join, relative } from "node:path";
 
 import { icons } from "lucide-react";
 
-import { getMDXComponents } from "../src/components/mdx";
-import { gitConfig, repoBlobUrl } from "../src/lib/shared";
-import { isVersionId, NEXT_VERSION } from "../src/lib/versions";
+import { gitConfig, repoBlobUrl } from "../src/shared/config/site";
+import { isVersionId, NEXT_VERSION } from "../src/shared/lib/versions";
+import { getMDXComponents } from "../src/shared/ui/mdx";
 import {
   type DocPage,
   lineAt,
@@ -207,7 +207,7 @@ const checkComponents = (
         page.relativePath,
         lineAt(page.raw, component.index),
         "component",
-        `\`${component.name}\` is not registered in src/components/mdx.tsx, so it renders nothing.`
+        `\`${component.name}\` is not registered in src/shared/ui/mdx.tsx, so it renders nothing.`
       );
     }
   }

@@ -37,6 +37,7 @@
     "build:data": "turbo run build:data -F @freenary/api --",
     "check-types": "turbo run check-types",
     "docs:check": "turbo run docs:check",
+    "check:fsd": "turbo run lint:fsd",
     "dev:web": "turbo run dev -F web --",
     "dev:server": "turbo run dev -F server --",
     "db:push": "turbo run db:push -F @freenary/db --",

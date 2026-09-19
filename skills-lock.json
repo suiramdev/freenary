@@ -27,6 +27,12 @@
       "skillPath": "elysia/SKILL.md",
       "computedHash": "55268e69a2c766ed67e56a0db57544f60cc52dba0c7f024a974baf965e525e1b"
     },
+    "feature-sliced-design": {
+      "source": "feature-sliced/skills",
+      "sourceType": "github",
+      "skillPath": "feature-sliced-design/SKILL.md",
+      "computedHash": "ee5a0a74e2c5715c9b4573fbc2c64a72db5c6bd51415ad0734dab47ced77edcd"
+    },
     "prisma-cli": {
       "source": "prisma/skills",
       "sourceType": "github",

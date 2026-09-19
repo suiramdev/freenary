@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: The ten workspaces and their dependencies, the path of one request, the other server routes, and the build graph.
+description: The ten workspaces and their dependencies, the layers of the two frontend apps, the path of one request, and the build graph.
 icon: Layers
 ---
 
@@ -30,16 +30,58 @@ Two entries in that table surprise a reader:
 
 `packages/config` holds exactly two files, its manifest and `tsconfig.base.json`. It carries no lint, format, Tailwind or Vite preset.
 
+## Feature-Sliced Design
+
+`apps/web/src` and `apps/fumadocs/src` are each a Feature-Sliced Design root. The method orders an application, never a library, so no package under `packages/` is a root.
+
+Five layers stack in one order. A module imports from a layer strictly under its own, never sideways and never up. Nothing imports from `app/`, because `app/` is the application itself.
+
+| Layer | `apps/web` | `apps/fumadocs` |
+| --- | --- | --- |
+| `app/` | The file routes, the router, the signed-in shell, the root server function, the stylesheet | The file routes, the router, the assistant handler, the middlewares, the stylesheet |
+| `pages/` | One slice per screen: `analysis`, `brand-avatar`, `budget`, `callback`, `goals`, `home`, `login`, `onboarding`, `portfolio`, `settings` | `home` and `docs` |
+| `features/` | `auth-gate` and `bank-connection` | none |
+| `entities/` | `category`, the spending taxonomy | none |
+| `shared/` | `api`, `auth`, `config`, `i18n`, `lib`, `ui` | `config`, `content`, `lib`, `ui` |
+
+Three import forms cover every case:
+
+| Form | Example | Rule |
+| --- | --- | --- |
+| A slice | `import { RecurringPage } from "@/pages/budget";` | The slice `index.ts` alone, never a deeper path |
+| A shared segment | `import { isServer } from "@/shared/lib/is-server";` | `@/shared/api`, `@/shared/auth`, `@/shared/config` and `@/shared/i18n` per segment. `@/shared/ui` and `@/shared/lib` per module or folder |
+| Inside one slice | `import { getViewer } from "../api/get-viewer";` | Relative. The same rule holds inside `app/` and inside `shared/` |
+
+A segment name states a purpose, so `components`, `hooks`, `utils`, `types`, `helpers`, `providers`, `schemas` and `assets` all fail. A slice carries at least one segment folder and exactly one `index.ts`. `shared` carries no `index.ts` of its own, and `app/` carries no `ui/` segment.
+
+Extraction is earned. Code starts in the page that uses it. It moves down a layer when three conditions hold: a second consumer, one responsibility, and an independent reason to change. That is why `features/` holds two slices and `entities/` holds one.
+
+Four paths sit outside every layer, because a framework or a generator owns them: `apps/web/src/server.ts`, `apps/web/src/routeTree.gen.ts`, `apps/web/src/paraglide/` and `apps/fumadocs/src/routeTree.gen.ts`.
+
+### The gate
+
+```bash
+bun run check:fsd
+```
+
+That root script is `turbo run lint:fsd`, and each of the two apps declares `lint:fsd` as `steiger src --fail-on-warnings`. CI runs it as the `Architecture` step, before the documentation step and the build step.
+
+<Callout type="warn">
+
+Steiger reads `steiger.config.ts` only when the app directory is the working directory. A run from the repository root reads no config and falls back to the steiger defaults. So use the root script, which Turborepo runs inside each app, or enter the app directory first.
+
+</Callout>
+
 ## The path of one request
 
 The worked example is one click: a reader picks a category on a transaction row. Eleven hops carry it to a PostgreSQL row.
 
 | # | Hop | File | Detail |
 | --- | --- | --- | --- |
-| 1 | The click runs a mutation | `apps/web/src/hooks/budget/use-transaction-category.ts` | `mutationFn` calls `client.budget.updateTransactionCategory({ category, transactionId })`. The cache is patched first and rolled back on error |
-| 2 | The oRPC client serialises the call | `apps/web/src/utils/orpc.ts` | One `RPCLink` at `${getServerUrl()}/rpc`, with `fetch` forced to `credentials: "include"`. Queries default to `staleTime: 60 * 1000`, and a failed query raises a retry toast |
-| 3 | The API origin resolves | `apps/web/src/lib/server-url.ts` | On the server `SERVER_URL` wins, then the public URL, then `VITE_SERVER_URL`, then the three Vercel values, then `http://localhost:3000`. In the browser the inline script value wins |
-| 4 | An inline script wrote that value | `apps/web/src/routes/__root.tsx` | The `head()` of the root route emits the script before any module script, so the browser learns the origin from the container it talks to |
+| 1 | The click runs a mutation | `apps/web/src/pages/budget/model/use-transaction-category.ts` | `mutationFn` calls `client.budget.updateTransactionCategory({ category, transactionId })`. The cache is patched first and rolled back on error |
+| 2 | The oRPC client serialises the call | `apps/web/src/shared/api/orpc.ts` | One `RPCLink` at `${getServerUrl()}/rpc`, with `fetch` forced to `credentials: "include"`. Queries default to `staleTime: 60 * 1000`, and a failed query raises a retry toast |
+| 3 | The API origin resolves | `apps/web/src/shared/config/server-url.ts` | On the server `SERVER_URL` wins, then the public URL, then `VITE_SERVER_URL`, then the three Vercel values, then `http://localhost:3000`. In the browser the inline script value wins |
+| 4 | An inline script wrote that value | `apps/web/src/app/routes/__root.tsx` | The `head()` of the root route emits the script before any module script, so the browser learns the origin from the container it talks to |
 | 5 | Elysia receives the request | `apps/server/src/index.ts` | `.all("/rpc*", …, { parse: "none" })`, so Elysia never reads the body. CORS admits one origin with credentials, and `evlog()` plus a `.derive` already attached the wide event and the identified user |
 | 6 | The request context is built | `packages/api/src/context.ts` | `auth.api.getSession({ headers })`, then the three fields `{ auth: null, headers, session }` |
 | 7 | `RPCHandler` matches and runs the middleware | `packages/api/src/index.ts` | `protectedProcedure` throws `ORPCError("UNAUTHORIZED")` when `context.session?.user` is absent |
@@ -50,7 +92,7 @@ The worked example is one click: a reader picks a category on a transaction row.
 
 The response goes back through `recordStatus` in `apps/server/src/index.ts`. It copies the real status onto `set.status`, so the wide event stays honest. A request that matched no procedure under `/rpc` answers `new Response("Not Found", { status: 404 })`.
 
-A server-rendered page takes a shorter path with no click. The entry in `apps/web/src/server.ts` wraps TanStack Start with `paraglideMiddleware`, then appends `Vary: Accept-Language, Cookie`. The `beforeLoad` of the root route calls `getViewer()` on the server alone. That server function forwards the cookie header of the request into `client.auth.viewer`. Each request also builds its own router and query client, in `apps/web/src/router.tsx`.
+A server-rendered page takes a shorter path with no click. The entry in `apps/web/src/server.ts` wraps TanStack Start with `paraglideMiddleware`, then appends `Vary: Accept-Language, Cookie`. The `beforeLoad` of the root route calls `getViewer()` on the server alone. That server function forwards the cookie header of the request into `client.auth.viewer`. Each request also builds its own router and query client, in `apps/web/src/app/router/router.tsx`.
 
 ## The other server routes
 
@@ -72,7 +114,7 @@ Three boundaries hold the code apart. Each package states its own rule beside it
 
 **`packages/api` imports the data and identity packages only.** Its dependencies are `@freenary/auth`, `@freenary/db` and `@freenary/env`. It must not import `@freenary/ui`, `apps/web` or a compiled message module. The `elysia` package is a development dependency for one type in `packages/api/src/context.ts`. A framework change therefore stops at that file.
 
-**`apps/web` imports the router type, never the implementation.** `apps/web/src/utils/orpc.ts` imports `AppRouter` as a type and calls each procedure over HTTP.
+**`apps/web` imports the router type, never the implementation.** `apps/web/src/shared/api/orpc.ts` imports `AppRouter` as a type and calls each procedure over HTTP.
 
 **A response carries slugs and enum members, never display strings.** The web app holds the translations and the API server holds none. So the API sends a stable key, and the web app maps that key to a message. Text from the user, the bank or the bank provider is data, and it passes through as it arrives. Interface strings live in `apps/web/messages/en.json` and `apps/web/messages/fr.json`, and both catalogs change in one commit.
 
@@ -88,7 +130,8 @@ Three boundaries hold the code apart. Each package states its own rule beside it
 | `build:data` | nothing | **no** | The merchant data artifacts. `@freenary/api` declares it |
 | `lint` | `^lint` | yes | Only `apps/fumadocs` declares the script |
 | `check-types` | `^check-types` | yes | Only `apps/server` and `@freenary/ui` declare the script |
-| `docs:check` | nothing | yes | Only `apps/fumadocs` declares it. `inputs`: `content/**`, `scripts/**`, `src/components/mdx.tsx` |
+| `docs:check` | nothing | yes | Only `apps/fumadocs` declares it. `inputs`: `content/**`, `scripts/**`, `src/shared/ui/mdx.tsx`, `src/shared/lib/versions.ts` |
+| `lint:fsd` | nothing | yes | `apps/web` and `apps/fumadocs` both declare it. `inputs`: `src/**`, `steiger.config.ts`, `tsconfig.json` |
 | `dev` | nothing | no | `persistent: true`. `web`, `server` and `fumadocs` declare it |
 | `db:push`, `db:generate`, `db:migrate` | nothing | no | `interactive: true`. `@freenary/db` declares them |
 | `db:studio` | nothing | no | `persistent: true` |

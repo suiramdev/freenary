@@ -19,7 +19,7 @@ Neither one alone is enough. [What each gate catches](#what-each-gate-catches) g
 
 ## Where it lives and how to run it
 
-`apps/fumadocs` holds the site. It runs Fumadocs on TanStack Start. `fumadocs-mdx` compiles the MDX files under `apps/fumadocs/content/docs/`, and `apps/fumadocs/src/lib/source.ts` loads them. The base route is `/docs`, from `apps/fumadocs/src/lib/shared.ts`.
+`apps/fumadocs` holds the site. It runs Fumadocs on TanStack Start. `fumadocs-mdx` compiles the MDX files under `apps/fumadocs/content/docs/`, and `apps/fumadocs/src/shared/content/source.ts` loads them. The base route is `/docs`, from `apps/fumadocs/src/shared/config/site.ts`.
 
 ```bash
 cd apps/fumadocs
@@ -100,7 +100,7 @@ Five rules hold that split together.
 
 ## Frontmatter
 
-The schema in `src/lib/source.ts` needs three fields. A page without one of them fails the build, and the message names the file and the field.
+The schema in `src/shared/content/source.ts` needs three fields. A page without one of them fails the build, and the message names the file and the field.
 
 | Field | Type | Required |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ A count of `1` means the name resolves. A count of `0` means the icon renders no
 
 ## Components
 
-`apps/fumadocs/src/components/mdx.tsx` is the whole registry. It spreads the Fumadocs defaults and adds ten more components. A tag outside the list below renders nothing, and the build stays green. `docs:check` reads the registry, so it fails on the tag.
+`apps/fumadocs/src/shared/ui/mdx.tsx` is the whole registry. It spreads the Fumadocs defaults and adds ten more components. A tag outside the list below renders nothing, and the build stays green. `docs:check` reads the registry, so it fails on the tag.
 
 | Component | Notes |
 | --- | --- |
@@ -196,7 +196,7 @@ An internal link is an absolute site path with no extension. The base route is `
 | Target | Write |
 | --- | --- |
 | A page inside a folder | `/docs/self-hosting/configuration` |
-| A heading on that page | `/docs/contributing/architecture#build-and-cache` |
+| A heading on that page | `/docs/contributing/architecture#boundaries` |
 | The index page of a folder | `/docs/self-hosting`, for the file `self-hosting/index.mdx` |
 
 `docs:check` resolves every link and every `#anchor` against the real page tree, so a dead link fails the gate.

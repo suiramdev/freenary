@@ -49,6 +49,7 @@ Run the same checks that CI runs, in this order:
 ```bash
 bun run check         # Oxlint + Oxfmt
 bun run check-types   # TypeScript
+bun run check:fsd     # Feature-Sliced Design layers and public APIs
 bun run docs:check    # documentation gate
 bun run build         # every app
 ```
@@ -58,6 +59,8 @@ Most lint/format issues are auto-fixable with `bun run fix`.
 CI runs one more job that no root script covers: it parses both Compose files with `docker compose config --quiet`, and it asserts that `docker-compose.yml` still refuses an empty `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Reproduce it before you change either file.
 
 CI runs no tests, and there is no root `test` script. Run the test files your change touches by hand with `bun test <path>`.
+
+`apps/web` and `apps/fumadocs` follow [Feature-Sliced Design](https://fsd.how): a module imports only from a lower layer, a slice is entered through its `index.ts`, and code starts in the page that uses it rather than in a speculative `features/` or `entities/` slice. `bun run check:fsd` is that rule set, and CI runs it as the **Architecture** step. The layout and the import forms are in the [repository guide](../AGENTS.md#frontend-architecture-feature-sliced-design).
 
 If your change affects UI, verify it in the browser, including light and dark mode.
 

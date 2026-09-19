@@ -12,7 +12,8 @@
     "types:check": "tsc --noEmit",
     "docs:check": "bun scripts/check-docs.ts",
     "docs:snapshot": "bun scripts/snapshot-version.ts",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "lint:fsd": "steiger src --fail-on-warnings"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.65",
@@ -38,6 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@feature-sliced/steiger-plugin": "^0.7.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/hast": "^3.0.5",
     "@types/mdx": "^2.0.14",
@@ -47,6 +49,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "nitro": "3.0.260610-beta",
     "oxlint": "^1.78.0",
+    "steiger": "^0.6.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vite": "^8.2.1"
