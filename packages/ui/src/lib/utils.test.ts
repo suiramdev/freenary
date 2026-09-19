@@ -6,6 +6,9 @@ import { cn } from "./utils";
 // merge something away, paired with the output clsx + tailwind-merge 3.6.0
 // produced before `cn` replaced them. A `cn` release that restyles one fails
 // here; CI has no test job, so this is the local gate.
+// A call site that picks a branch with a ternary contributes one row per
+// branch: flattening both into one call pins a merge that never happens, and
+// then a release that correctly groups the two branches fails for no reason.
 const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
   [
     {
@@ -80,12 +83,12 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
       ],
       expected:
         "flex aspect-square shrink-0 items-center justify-center ring-1 bg-secondary text-muted-foreground ring-border",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
+      where: "apps/web/src/pages/onboarding/ui/onboarding-stepper.tsx",
     },
     {
       args: ["text-foreground", "text-muted-foreground"],
       expected: "text-muted-foreground",
-      where: "apps/web/src/components/onboarding/onboarding-stepper.tsx",
+      where: "apps/web/src/pages/onboarding/ui/onboarding-stepper.tsx",
     },
     {
       args: [
@@ -95,7 +98,7 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
       ],
       expected:
         "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start text-muted-foreground",
-      where: "apps/web/src/components/budget/budget-vs-actual-chart.tsx",
+      where: "apps/web/src/pages/budget/ui/budget-vs-actual-chart.tsx",
     },
     {
       args: [
@@ -104,12 +107,12 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
         "text-muted-foreground",
       ],
       expected: "shrink-0 text-[10px] text-muted-foreground",
-      where: "apps/web/src/components/budget/budget-vs-actual-chart.tsx",
+      where: "apps/web/src/pages/budget/ui/budget-vs-actual-chart.tsx",
     },
     {
       args: ["font-medium tabular-nums", "text-success", "text-destructive"],
       expected: "font-medium tabular-nums text-destructive",
-      where: "apps/web/src/components/budget/transaction-row.tsx",
+      where: "apps/web/src/pages/budget/ui/transaction-row.tsx",
     },
     {
       args: [
@@ -120,7 +123,7 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
       ],
       expected:
         "flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] hover:text-foreground cursor-pointer text-muted-foreground",
-      where: "apps/web/src/components/budget/spending-breakdown-chart.tsx",
+      where: "apps/web/src/pages/budget/ui/spending-breakdown-chart.tsx",
     },
     {
       args: [
@@ -129,7 +132,7 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
         "text-foreground",
       ],
       expected: "text-2xl font-semibold tabular-nums text-foreground",
-      where: "apps/web/src/components/budget/transaction-detail-drawer.tsx",
+      where: "apps/web/src/pages/budget/ui/transaction-detail-drawer.tsx",
     },
     {
       args: [
@@ -137,7 +140,7 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
         "text-fd-primary",
       ],
       expected: "mb-1 text-sm font-medium text-fd-primary",
-      where: "apps/fumadocs/src/components/ai/search.tsx",
+      where: "apps/fumadocs/src/shared/ui/ai-search.tsx",
     },
     {
       args: [
@@ -145,11 +148,21 @@ const MERGED_CALL_SITES: { args: string[]; expected: string; where: string }[] =
         "max-lg:fixed max-lg:inset-x-2 max-lg:inset-y-4 max-lg:rounded-2xl max-lg:border max-lg:shadow-xl",
         "lg:sticky lg:top-0 lg:ms-auto lg:h-dvh lg:border-s lg:in-[#nd-docs-layout]:[grid-area:toc] lg:in-[#nd-notebook-layout]:col-start-5 lg:in-[#nd-notebook-layout]:row-span-full",
         "animate-fd-dialog-in lg:animate-[ask-ai-open_200ms]",
+      ],
+      expected:
+        "bg-fd-card text-fd-card-foreground z-30 overflow-hidden [--ai-chat-width:400px] 2xl:[--ai-chat-width:460px] max-lg:fixed max-lg:inset-x-2 max-lg:inset-y-4 max-lg:rounded-2xl max-lg:border max-lg:shadow-xl lg:sticky lg:top-0 lg:ms-auto lg:h-dvh lg:border-s lg:in-[#nd-docs-layout]:[grid-area:toc] lg:in-[#nd-notebook-layout]:col-start-5 lg:in-[#nd-notebook-layout]:row-span-full animate-fd-dialog-in lg:animate-[ask-ai-open_200ms]",
+      where: "apps/fumadocs/src/shared/ui/ai-search.tsx",
+    },
+    {
+      args: [
+        "bg-fd-card text-fd-card-foreground z-30 overflow-hidden [--ai-chat-width:400px] 2xl:[--ai-chat-width:460px]",
+        "max-lg:fixed max-lg:inset-x-2 max-lg:inset-y-4 max-lg:rounded-2xl max-lg:border max-lg:shadow-xl",
+        "lg:sticky lg:top-0 lg:ms-auto lg:h-dvh lg:border-s lg:in-[#nd-docs-layout]:[grid-area:toc] lg:in-[#nd-notebook-layout]:col-start-5 lg:in-[#nd-notebook-layout]:row-span-full",
         "animate-fd-dialog-out lg:animate-[ask-ai-close_200ms]",
       ],
       expected:
-        "bg-fd-card text-fd-card-foreground z-30 overflow-hidden [--ai-chat-width:400px] 2xl:[--ai-chat-width:460px] max-lg:fixed max-lg:inset-x-2 max-lg:inset-y-4 max-lg:rounded-2xl max-lg:border max-lg:shadow-xl lg:sticky lg:top-0 lg:ms-auto lg:h-dvh lg:border-s lg:in-[#nd-docs-layout]:[grid-area:toc] lg:in-[#nd-notebook-layout]:col-start-5 lg:in-[#nd-notebook-layout]:row-span-full animate-fd-dialog-in animate-fd-dialog-out lg:animate-[ask-ai-close_200ms]",
-      where: "apps/fumadocs/src/components/ai/search.tsx",
+        "bg-fd-card text-fd-card-foreground z-30 overflow-hidden [--ai-chat-width:400px] 2xl:[--ai-chat-width:460px] max-lg:fixed max-lg:inset-x-2 max-lg:inset-y-4 max-lg:rounded-2xl max-lg:border max-lg:shadow-xl lg:sticky lg:top-0 lg:ms-auto lg:h-dvh lg:border-s lg:in-[#nd-docs-layout]:[grid-area:toc] lg:in-[#nd-notebook-layout]:col-start-5 lg:in-[#nd-notebook-layout]:row-span-full animate-fd-dialog-out lg:animate-[ask-ai-close_200ms]",
+      where: "apps/fumadocs/src/shared/ui/ai-search.tsx",
     },
   ];
 
