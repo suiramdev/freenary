@@ -39,7 +39,6 @@ const GITHUB_REMOTE_SLUG = /github\.com[:/](?<slug>[^/]+\/[^/]+?)(?:\.git)?$/u;
 const PACKAGE_DIR = path.resolve(import.meta.dirname, "..");
 const DATA_DIR = path.resolve(PACKAGE_DIR, "data");
 const EXPECTED_ARTIFACT = path.resolve(DATA_DIR, "merchants.jsonl.gz");
-const WEIGHTS_ARTIFACT = path.resolve(DATA_DIR, "model-weights.json");
 
 const noticeFor = (reason: DownloadFailure): string =>
   Match.value(reason).pipe(
@@ -166,8 +165,6 @@ const findDataRelease = Effect.fnUntraced(function* findDataRelease(
 });
 
 const downloadLatestData = Effect.fnUntraced(function* downloadLatestData() {
-  yield* Effect.promise(() => rm(WEIGHTS_ARTIFACT, { force: true }));
-
   const { asset, headers, tagName } = yield* findDataRelease(resolveRepo());
 
   console.log(`Downloading ${ASSET_NAME} from ${tagName}…`);

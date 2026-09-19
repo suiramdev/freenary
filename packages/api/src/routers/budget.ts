@@ -4,6 +4,8 @@ import { ORPCError } from "@orpc/server";
 import { Data, Effect, Match } from "effect";
 import { z } from "zod";
 
+import { transactionClassifier } from "../categorisation/classifier/registry";
+import { prismaClassificationStore } from "../categorisation/classifier/store";
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
 import type { TransactionChannel } from "../categorisation/normalise/types";
 import type { RecurringMonthTotals } from "../categorisation/recurrence";
@@ -29,7 +31,6 @@ import {
   plannedByGroup,
 } from "../lib/budget-planned";
 import { budgetLineKindOf } from "../lib/budget-profile";
-import { deriveCategory, effectiveCategory } from "../lib/mcc-categories";
 import {
   CATEGORY_GROUP_OF,
   CATEGORY_GROUPS,
@@ -37,16 +38,17 @@ import {
   categoriesInGroup,
 } from "../lib/taxonomy";
 import type { CategoryGroup, SpendingCategory } from "../lib/taxonomy";
+import {
+  effectiveCategory,
+  pipelineCategory,
+} from "../lib/transaction-category";
 import { getProvider } from "../providers/registry";
 import { amountBoundsCondition } from "./transaction-amount-bounds";
 
 interface OutgoingRow {
   amount: number;
-  bankTransactionCode: string | null;
   category: string | null;
-  counterpartyName: string | null;
   date: Date;
-  merchantCategoryCode: string | null;
   merchantKey: string | null;
   resolvedCategory: string | null;
 }
@@ -249,11 +251,8 @@ const outgoingRows = (
   prisma.transaction.findMany({
     select: {
       amount: true,
-      bankTransactionCode: true,
       category: true,
-      counterpartyName: true,
       date: true,
-      merchantCategoryCode: true,
       merchantKey: true,
       resolvedCategory: true,
     },
@@ -408,6 +407,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
       channel: true,
       counterpartyName: true,
       creditorAccountIban: true,
+      currency: true,
       id: true,
       merchantCategoryCode: true,
       merchantKey: true,
@@ -435,7 +435,6 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
       tx.creditorAccountIban && merchantKey === tx.creditorAccountIban;
 
     inputs.push({
-      allowCloudInference: false,
       amountMinor: tx.amount,
       bankTransactionCode: tx.bankTransactionCode,
       // SAFETY: channel column stores validated TransactionChannel values or null
@@ -443,6 +442,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
       counterpartyName: tx.counterpartyName,
       country: tx.account.connection.institutionCountry,
       creditorIban: tx.creditorAccountIban,
+      currency: tx.currency,
       merchantCategoryCode: tx.merchantCategoryCode,
       merchantKey,
       normalisedDescriptor: tx.normalisedDescriptor ?? "",
@@ -467,7 +467,11 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
     ),
   ];
 
-  const results = await categoriseBatch(inputs, dictionaryCountries);
+  const results = await categoriseBatch(inputs, {
+    classifier: transactionClassifier,
+    countries: dictionaryCountries,
+    store: prismaClassificationStore,
+  });
   const resolutions = inputs.flatMap<TransactionResolution>((input, index) => {
     const result = results[index];
 
@@ -923,11 +927,9 @@ export const budgetRouter = {
       const transactions = await prisma.transaction.findMany({
         select: {
           amount: true,
-          bankTransactionCode: true,
           category: true,
           counterpartyName: true,
           date: true,
-          merchantCategoryCode: true,
           resolvedCategory: true,
         },
         where: {
@@ -1230,14 +1232,12 @@ export const budgetRouter = {
             : [{ date: "desc" }, { id: "desc" }],
         select: {
           amount: true,
-          bankTransactionCode: true,
           category: true,
           counterpartyName: true,
           currency: true,
           date: true,
           description: true,
           id: true,
-          merchantCategoryCode: true,
           resolvedCategory: true,
         },
         take: limit + 1,
@@ -1280,7 +1280,7 @@ export const budgetRouter = {
           counterpartyName: t.counterpartyName,
           currency: t.currency,
           date: t.date.toISOString(),
-          derivedCategory: deriveCategory(t),
+          derivedCategory: pipelineCategory(t),
           description: t.description,
           id: t.id,
         })),
@@ -1360,12 +1360,9 @@ export const budgetRouter = {
 
       const tx = await prisma.transaction.findFirst({
         select: {
-          amount: true,
-          bankTransactionCode: true,
           category: true,
           counterpartyName: true,
           id: true,
-          merchantCategoryCode: true,
           merchantKey: true,
           resolvedCategory: true,
         },
@@ -1433,11 +1430,7 @@ export const budgetRouter = {
 
       const updated = await prisma.transaction.findUniqueOrThrow({
         select: {
-          amount: true,
-          bankTransactionCode: true,
           category: true,
-          counterpartyName: true,
-          merchantCategoryCode: true,
           resolvedCategory: true,
         },
         where: { id: input.transactionId },
@@ -1446,7 +1439,7 @@ export const budgetRouter = {
       return {
         additionalUpdated,
         category: effectiveCategory(updated),
-        derivedCategory: deriveCategory(updated),
+        derivedCategory: pipelineCategory(updated),
       };
     }),
 };

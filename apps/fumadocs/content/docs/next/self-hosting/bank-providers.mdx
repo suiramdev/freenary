@@ -282,12 +282,11 @@ Freenary names a merchant from a prebuilt dictionary before it falls back to car
 
 **What the weekly workflow publishes.** A GitHub Actions workflow runs each Monday at 03:00 UTC, and on demand. It builds the dictionary and attaches one asset, `merchant-data.tar.gz`, to a release tagged `data-<date>`.
 
-| Member of the tarball       | When it is there              |
-| --------------------------- | ----------------------------- |
-| `data/merchants.jsonl.gz`   | always                        |
-| `data/place-tokens.json`    | always                        |
-| `data/wikidata-brands.json` | when the build produced it    |
-| `data/model-weights.json`   | when the training gate passed |
+| Member of the tarball       | When it is there           |
+| --------------------------- | -------------------------- |
+| `data/merchants.jsonl.gz`   | always                     |
+| `data/place-tokens.json`    | always                     |
+| `data/wikidata-brands.json` | when the build produced it |
 
 **How an instance uses it.** The server image downloads the newest `data-` release at build time and unpacks it into the image. At run time the API server streams `data/merchants.jsonl.gz` line by line and matches a merchant key against it.
 

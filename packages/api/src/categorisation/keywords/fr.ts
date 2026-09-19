@@ -14,11 +14,6 @@ export const bankCodeKeywords: readonly [RegExp, SpendingCategory][] = [
   [wholeTokenPattern("virements?"), "other-transfer"],
 ];
 
-export const counterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
-  [wholeTokenPattern("sci|hlm|opac|bailleurs?"), "rent"],
-  [wholeTokenPattern("pharmacies?"), "pharmacy"],
-];
-
 export const merchantQualifiers: readonly string[] = [
   "abonnement",
   "electricite",

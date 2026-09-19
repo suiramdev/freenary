@@ -4,14 +4,6 @@ import path from "node:path";
 import { Data, Duration, Effect, Match, Option, Schedule } from "effect";
 
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
-import { fetchSireneBatch } from "./lib/sirene-client";
-import type { SireneSearchResponse } from "./lib/sirene-client";
-
-interface SireneResult {
-  nafCode: string;
-  denomination: string;
-  tradeName: string | null;
-}
 
 interface WikidataBrand {
   aliases: string[];
@@ -19,7 +11,6 @@ interface WikidataBrand {
   domains: string[];
   id: string;
   label: string;
-  sirene?: SireneResult;
 }
 
 interface SparqlResults {
@@ -62,8 +53,6 @@ const RETRY_BASE_MS = 5000;
 const RETRY_DELAY_FACTOR = 2;
 
 const CURATED_WIKIDATA_BATCH_SIZE = 10;
-const CURATED_SIRENE_BUDGET_MS = 120_000;
-const CURATED_SIRENE_PROGRESS_EVERY = 20;
 
 const ALIAS_BATCH_SIZE = 400;
 const ALIAS_BATCH_PROGRESS_EVERY = 10;
@@ -214,67 +203,6 @@ const runQuery = (
       })
     )
   );
-
-const parseSireneResult = (
-  data: SireneSearchResponse,
-  name: string
-): SireneResult | null => {
-  const [topResult] = data.results;
-
-  if (!topResult) {
-    return null;
-  }
-
-  const [establishment] = topResult.matching_etablissements;
-
-  if (!establishment?.activite_principale) {
-    return null;
-  }
-
-  return {
-    denomination: topResult.nom_complet ?? topResult.nom_raison_sociale ?? name,
-    nafCode: establishment.activite_principale,
-    tradeName: establishment.nom_commercial ?? null,
-  };
-};
-
-const fetchSireneForCuratedMerchants = Effect.fnUntraced(
-  function* fetchSireneForCuratedMerchants() {
-    const names = CURATED_MERCHANTS.map((merchant) => merchant.name);
-    console.log(
-      `Phase 0: querying SIRENE for ${names.length} curated merchants…`
-    );
-
-    const outcome = yield* Effect.promise(() =>
-      fetchSireneBatch(names, parseSireneResult, {
-        budgetMs: CURATED_SIRENE_BUDGET_MS,
-        onProgress: (done, total) => {
-          if (done % CURATED_SIRENE_PROGRESS_EVERY === 0 || done === total) {
-            console.log(`  ${done}/${total} queried`);
-          }
-        },
-      })
-    );
-
-    const sireneByName = new Map<string, SireneResult>();
-
-    for (const { query, data } of outcome.results) {
-      if (data) {
-        sireneByName.set(query, data);
-      }
-    }
-
-    console.log(`  ${sireneByName.size}/${names.length} matched`);
-
-    if (outcome.stop !== "complete") {
-      console.log(
-        `  Warning: SIRENE lookup stopped early (${outcome.stop}); ${outcome.skipped} names unqueried, ${outcome.failed} requests failed`
-      );
-    }
-
-    return sireneByName;
-  }
-);
 
 const fetchEntitiesByType = Effect.fnUntraced(function* fetchEntitiesByType(
   typeQid: string,
@@ -519,22 +447,14 @@ const collectAliases = Effect.fnUntraced(function* collectAliases(
 
 const assembleBrands = (
   merged: Map<string, EntityEntry>,
-  allAliases: Map<string, string[]>,
-  sireneByName: Map<string, SireneResult>
+  allAliases: Map<string, string[]>
 ): WikidataBrand[] => {
-  const sireneByLowerLabel = new Map<string, SireneResult>();
-
-  for (const [name, sirene] of sireneByName) {
-    sireneByLowerLabel.set(name.toLowerCase(), sirene);
-  }
-
   const brands: WikidataBrand[] = [];
 
   for (const [qid, entry] of merged) {
     const entityAliases = allAliases.get(qid) ?? [];
-    const sirene = sireneByLowerLabel.get(entry.label.toLowerCase());
 
-    const brand: WikidataBrand = {
+    brands.push({
       aliases: entityAliases
         .filter((alias) => alias !== entry.label)
         .toSorted(),
@@ -542,24 +462,13 @@ const assembleBrands = (
       domains: [...entry.domains].toSorted(),
       id: qid,
       label: entry.label,
-    };
-
-    if (sirene) {
-      brand.sirene = sirene;
-    }
-
-    brands.push(brand);
+    });
   }
 
   return brands.toSorted((left, right) => left.id.localeCompare(right.id));
 };
 
 const fetchWikidataBrands = Effect.fnUntraced(function* fetchWikidataBrands() {
-  const sireneByName = yield* fetchSireneForCuratedMerchants();
-  console.log(
-    `\nPhase 0 complete: ${sireneByName.size}/${CURATED_MERCHANTS.length} curated merchants matched in SIRENE`
-  );
-
   const merged = new Map<string, EntityEntry>();
   yield* mergeEntitiesByType(merged);
 
@@ -569,7 +478,7 @@ const fetchWikidataBrands = Effect.fnUntraced(function* fetchWikidataBrands() {
   );
 
   const allAliases = yield* collectAliases([...merged.keys()]);
-  const sorted = assembleBrands(merged, allAliases, sireneByName);
+  const sorted = assembleBrands(merged, allAliases);
 
   yield* Effect.promise(() =>
     writeFile(OUTPUT_PATH, JSON.stringify(sorted, null, 2), "utf-8")

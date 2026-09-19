@@ -185,9 +185,18 @@ The assistant calls one OpenAI-compatible endpoint. [Assistant](/docs/self-hosti
 
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
+| `TRANSACTION_CLASSIFIER` | unset | Names the classifier that categorises a merchant no rule, no dictionary entry and no correction knows. The one value is `jev`, which asks TypeSafe. | Unset calls no model, and such a transaction stays uncategorised. Any other value stops the start. |
+| `TYPESAFE_API_KEY` | unset | The TypeSafe API key. | With `TRANSACTION_CLASSIFIER=jev` and no key the start stops with `TRANSACTION_CLASSIFIER=jev requires TYPESAFE_API_KEY to be set.` |
+| `TYPESAFE_MODEL` | `jev-latest` | The TypeSafe model id or alias. It is part of the cache key, so changing it asks every merchant again. | The default follows the newest model. Pin a version to freeze the answers. |
 | `DICTIONARY_PUBLIC_KEY` | unset | An Ed25519 public key in PEM form. A non-empty value turns signature checks of the merchant dictionary on. | Unset loads the dictionary with no check. A set key with no signature file makes the loader refuse the dictionary, and it warns `Dictionary signature missing:`. |
 
-No schema declares this variable. The code reads it straight from `process.env`.
+No schema declares `DICTIONARY_PUBLIC_KEY`. The code reads it straight from `process.env`.
+
+A classifier request carries ten fields:
+
+`normalisedDescriptor`, `merchantKey`, `counterpartyName`, `merchantCategoryCode`, `direction`, `amountBucket`, `currency`, `country`, `channel` and `path`.
+
+It carries no exact amount, no date, no IBAN, no account and no user. A transfer or a direct debit sends no `merchantKey`, because on that path the key is the creditor account number. The `merchant_classification` table stores each answer by merchant signature. That table is shared by every account on the instance, so one merchant is asked about once.
 
 <Callout type="warn">
 

@@ -151,7 +151,6 @@ Each application builds to its own output:
 
 - **`ci.yml` caches nothing.** It declares no `actions/cache` step and no Turbo remote cache.
 - **`images.yml` caches each image layer set per application and per platform**, with `cache-from: type=gha,scope=<app>-<platform>` and `cache-to: type=gha,mode=max`.
-- **`generate-data.yml` caches the SIRENE lookups.** The restore and the save are two separate steps, so a cancelled run still publishes what it fetched.
 - **`build` declares no dependency on `build:data`.** The server image orders the two by hand. It passes the build argument `GITHUB_REPOSITORY` and the BuildKit secret `GITHUB_TOKEN`, which never lands in the image.
 
 `build:data` is `bun scripts/download-data.ts || bun run build:data:generate`. The download takes the newest release whose tag starts with `data-`. The fallback rebuilds every artifact from the upstream sources, which costs many minutes and much network. [Transaction categorisation](/docs/contributing/categorisation) covers both paths.

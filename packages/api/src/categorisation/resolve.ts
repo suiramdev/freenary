@@ -1,6 +1,15 @@
-import { Option } from "effect";
+import { Data, Effect, Match, Option } from "effect";
 
 import type { SpendingCategory } from "../lib/taxonomy";
+import { isSpendingCategory } from "../lib/taxonomy";
+import { classificationInputFrom } from "./classifier/payload";
+import { classificationSignature } from "./classifier/signature";
+import type { ClassificationStore } from "./classifier/store";
+import type {
+  ClassificationInput,
+  ClassificationPrediction,
+  TransactionClassifier,
+} from "./classifier/types";
 import { deterministicCategory } from "./deterministic";
 import {
   loadDictionary,
@@ -8,20 +17,60 @@ import {
   unloadDictionary,
 } from "./dictionary";
 import { keywordsFor } from "./keywords";
-import {
-  loadModel,
-  MODEL_ACCEPT_THRESHOLD,
-  predict,
-  unloadModel,
-} from "./model";
 import type { TransactionChannel } from "./normalise/types";
 import type {
   CategoriseInput,
   DictionaryEntry,
   Iso3166Alpha2Country,
   ResolutionResult,
+  ResolutionStage,
 } from "./types";
 import { lookupUserOverride } from "./user-override";
+
+type ClassificationCallReason =
+  | { readonly kind: "threw"; readonly detail: string }
+  | { readonly kind: "timeout"; readonly afterMs: number }
+  | { readonly kind: "unusable-answer"; readonly detail: string };
+
+class ClassificationCallFailed extends Data.TaggedError(
+  "ClassificationCallFailed"
+)<{
+  readonly provider: string;
+  readonly reason: ClassificationCallReason;
+}> {
+  override get message(): string {
+    const { provider } = this;
+
+    return Match.value(this.reason).pipe(
+      Match.discriminatorsExhaustive("kind")({
+        threw: ({ detail }) =>
+          `classifier ${provider} failed for one merchant: ${detail}`,
+        timeout: ({ afterMs }) =>
+          `classifier ${provider} answered nothing within ${afterMs}ms for one merchant`,
+        "unusable-answer": ({ detail }) =>
+          `classifier ${provider} answered outside the contract: ${detail}`,
+      })
+    );
+  }
+}
+
+interface PendingGroup {
+  payload: ClassificationInput;
+  indices: number[];
+}
+
+interface ClassificationPhase {
+  classifier: TransactionClassifier;
+  store: ClassificationStore;
+  timeoutMs: number;
+}
+
+export interface CategoriseBatchOptions {
+  countries: Iso3166Alpha2Country[] | undefined;
+  classifier: TransactionClassifier | null;
+  store: ClassificationStore;
+  timeoutMs?: number;
+}
 
 const CHANNEL_CATEGORY = {
   atm: "cash-withdrawal",
@@ -167,26 +216,6 @@ const fromDeterministicRules = (
   };
 };
 
-const fromLocalClassifier = async (
-  input: CategoriseInput
-): Promise<ResolutionResult | null> => {
-  const prediction = await predict(input.normalisedDescriptor, input.country);
-
-  if (!prediction || prediction.confidence < MODEL_ACCEPT_THRESHOLD) {
-    return null;
-  }
-
-  return {
-    band:
-      prediction.confidence >= AUTO_BAND_MIN_CONFIDENCE ? "auto" : "suggest",
-    category: prediction.category,
-    confidence: prediction.confidence,
-    intermediaryName: null,
-    merchantName: null,
-    stage: "model",
-  };
-};
-
 const categoriseInternal = async (
   input: CategoriseInput
 ): Promise<ResolutionResult> => {
@@ -210,13 +239,7 @@ const categoriseInternal = async (
     }
   }
 
-  const byRules = fromDeterministicRules(input);
-
-  if (byRules) {
-    return byRules;
-  }
-
-  return (await fromLocalClassifier(input)) ?? UNKNOWN_RESULT;
+  return fromDeterministicRules(input) ?? UNKNOWN_RESULT;
 };
 
 export const categoriseTransaction = async (
@@ -240,20 +263,246 @@ const categoriseInOrder = async (
   return results;
 };
 
-const releaseBatchResources = (): void => {
-  unloadDictionary();
-  unloadModel();
+const CLASSIFIER_CONCURRENCY = 4;
+const CLASSIFIER_TIMEOUT_MS = 15_000;
+const ABSTENTION_RETRY_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
+
+const groupPending = (
+  transactions: CategoriseInput[],
+  results: ResolutionResult[],
+  classifier: TransactionClassifier
+): Map<string, PendingGroup> => {
+  const groups = new Map<string, PendingGroup>();
+
+  for (const [index, result] of results.entries()) {
+    if (result.stage !== "none") {
+      continue;
+    }
+
+    const transaction = transactions[index];
+    const payload = transaction ? classificationInputFrom(transaction) : null;
+
+    if (!payload) {
+      continue;
+    }
+
+    const signature = classificationSignature(classifier, payload);
+    const existing = groups.get(signature);
+
+    if (existing) {
+      existing.indices.push(index);
+    } else {
+      groups.set(signature, { indices: [index], payload });
+    }
+  }
+
+  return groups;
+};
+
+const applyModelResult = (
+  results: ResolutionResult[],
+  indices: number[],
+  category: SpendingCategory,
+  confidence: number,
+  stage: ResolutionStage
+): void => {
+  const result: ResolutionResult = {
+    band: confidence >= AUTO_BAND_MIN_CONFIDENCE ? "auto" : "suggest",
+    category,
+    confidence,
+    intermediaryName: null,
+    merchantName: null,
+    stage,
+  };
+
+  for (const index of indices) {
+    results[index] = result;
+  }
+};
+
+const acceptedPrediction = (
+  prediction: ClassificationPrediction,
+  provider: string
+): Effect.Effect<ClassificationPrediction, ClassificationCallFailed> => {
+  const { category, confidence } = prediction;
+
+  if (!isSpendingCategory(category)) {
+    return Effect.fail(
+      new ClassificationCallFailed({
+        provider,
+        reason: {
+          detail: `unknown category ${category}`,
+          kind: "unusable-answer",
+        },
+      })
+    );
+  }
+
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    return Effect.fail(
+      new ClassificationCallFailed({
+        provider,
+        reason: {
+          detail: `confidence ${confidence} is outside 0..1`,
+          kind: "unusable-answer",
+        },
+      })
+    );
+  }
+
+  return Effect.succeed(prediction);
+};
+
+const askClassifier = Effect.fnUntraced(function* askClassifier(
+  phase: ClassificationPhase,
+  payload: ClassificationInput
+) {
+  const { provider } = phase.classifier;
+  const prediction = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new ClassificationCallFailed({
+        provider,
+        reason: { detail: String(cause), kind: "threw" },
+      }),
+    try: () => phase.classifier.classify(payload),
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: phase.timeoutMs,
+      orElse: () =>
+        Effect.fail(
+          new ClassificationCallFailed({
+            provider,
+            reason: { afterMs: phase.timeoutMs, kind: "timeout" },
+          })
+        ),
+    })
+  );
+
+  return prediction ? yield* acceptedPrediction(prediction, provider) : null;
+});
+
+const resolveSignature = Effect.fnUntraced(function* resolveSignature(
+  phase: ClassificationPhase,
+  results: ResolutionResult[],
+  signature: string,
+  group: PendingGroup
+) {
+  const cached = yield* Effect.promise(() => phase.store.find(signature));
+
+  if (cached?.category) {
+    applyModelResult(
+      results,
+      group.indices,
+      cached.category,
+      cached.confidence ?? 0,
+      "cached-model"
+    );
+
+    return;
+  }
+
+  const abstainedRecently =
+    cached !== null &&
+    Date.now() - cached.classifiedAt.getTime() < ABSTENTION_RETRY_AFTER_MS;
+
+  if (abstainedRecently) {
+    return;
+  }
+
+  const prediction = yield* askClassifier(phase, group.payload).pipe(
+    Effect.match({
+      onFailure: (failure: ClassificationCallFailed) => {
+        console.warn(`[categorisation] ${failure.message}`);
+
+        return Option.none<ClassificationPrediction | null>();
+      },
+      onSuccess: Option.some,
+    })
+  );
+
+  if (Option.isNone(prediction)) {
+    return;
+  }
+
+  const answer = prediction.value;
+
+  yield* Effect.promise(() =>
+    phase.store.save(signature, {
+      answeredBy: answer?.answeredBy ?? null,
+      category: answer?.category ?? null,
+      classifier: phase.classifier,
+      confidence: answer?.confidence ?? null,
+    })
+  );
+
+  if (answer) {
+    applyModelResult(
+      results,
+      group.indices,
+      answer.category,
+      answer.confidence,
+      "model"
+    );
+  }
+});
+
+const classifyPending = Effect.fnUntraced(function* classifyPending(
+  phase: ClassificationPhase,
+  transactions: CategoriseInput[],
+  results: ResolutionResult[]
+) {
+  const groups = groupPending(transactions, results, phase.classifier);
+
+  yield* Effect.forEach(
+    [...groups],
+    ([signature, group]) => resolveSignature(phase, results, signature, group),
+    { concurrency: CLASSIFIER_CONCURRENCY }
+  ).pipe(
+    Effect.catchCause((cause) => {
+      console.warn(
+        `[categorisation] classifier ${phase.classifier.provider} phase abandoned: ${cause}`
+      );
+
+      return Effect.void;
+    })
+  );
+});
+
+const categoriseAll = async (
+  transactions: CategoriseInput[],
+  options: CategoriseBatchOptions
+): Promise<ResolutionResult[]> => {
+  const results = await categoriseInOrder(transactions);
+  const { classifier } = options;
+
+  if (!classifier) {
+    return results;
+  }
+
+  await Effect.runPromise(
+    classifyPending(
+      {
+        classifier,
+        store: options.store,
+        timeoutMs: options.timeoutMs ?? CLASSIFIER_TIMEOUT_MS,
+      },
+      transactions,
+      results
+    )
+  );
+
+  return results;
 };
 
 export const categoriseBatch = async (
   transactions: CategoriseInput[],
-  countries: Iso3166Alpha2Country[] | undefined
+  options: CategoriseBatchOptions
 ): Promise<ResolutionResult[]> => {
   if (transactions.length === 0) {
     return [];
   }
 
-  await Promise.all([loadDictionary(countries), loadModel()]);
+  await loadDictionary(options.countries);
 
-  return await categoriseInOrder(transactions).finally(releaseBatchResources);
+  return await categoriseAll(transactions, options).finally(unloadDictionary);
 };

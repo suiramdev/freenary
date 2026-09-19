@@ -12,7 +12,7 @@ interface TransferCandidate {
 }
 
 const TRANSFER_CATEGORY = "internal-transfer";
-const TRANSFER_STAGE: ResolutionStage = "channel";
+const TRANSFER_STAGE: ResolutionStage = "internal-transfer";
 const TRANSFER_CONFIDENCE = 0.95;
 
 const PAIR_DATE_TOLERANCE_MS = 24 * 60 * 60 * 1000;

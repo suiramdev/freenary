@@ -17,12 +17,13 @@ export type TransactionPath = "iban" | "card";
 
 export type ResolutionStage =
   | "channel"
+  | "internal-transfer"
   | "user-override"
   | "dictionary"
   | "mcc"
   | "rules"
+  | "cached-model"
   | "model"
-  | "cloud"
   | "none";
 
 export type ResolutionBand = "auto" | "suggest" | "unknown";
@@ -49,7 +50,7 @@ export interface CategoriseInput {
   counterpartyName?: string | null;
   merchantCategoryCode?: Iso18245MerchantCategoryCode | null;
   amountMinor: OutgoingNegativeMinorUnits;
-  allowCloudInference?: boolean;
+  currency: Iso4217Currency;
 }
 
 export interface MerchantKeyInput {
