@@ -1,0 +1,23 @@
+import { createFileRoute, notFound } from "@tanstack/react-router";
+
+import { getLLMText, source } from "@/shared/content";
+import { decodeMarkdownUrl } from "@/shared/lib/markdown-url";
+
+export const Route = createFileRoute("/docs/{$}.md")({
+  server: {
+    handlers: {
+      GET: async ({ params }) => {
+        const slugs = decodeMarkdownUrl(params._splat?.split("/") ?? []);
+        const page = source.getPage(slugs);
+
+        if (!page) throw notFound();
+
+        return new Response(await getLLMText(page), {
+          headers: {
+            "Content-Type": "text/markdown",
+          },
+        });
+      },
+    },
+  },
+});

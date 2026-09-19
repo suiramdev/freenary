@@ -6,7 +6,7 @@ The public documentation website.
 
 - **Fumadocs** (`fumadocs-core`, `fumadocs-mdx`, `fumadocs-ui` aliased to `@fumadocs/base-ui`) — page tree, MDX pipeline, local search, and the theme's components.
 - **TanStack Start** on **Vite** — same toolchain as `apps/web`, with SSR plus build-time prerendering. Nitro preset `vercel`; there is no Dockerfile for this app, and `docker-compose.yml` has no `docs` service.
-- **Tailwind v4** via `@tailwindcss/vite`. `src/styles/app.css` imports `tailwindcss`, then Fumadocs' `neutral` and `preset` stylesheets. It does **not** import `@freenary/ui/globals.css`, so the docs palette is Fumadocs' own and does not follow `apps/web`.
+- **Tailwind v4** via `@tailwindcss/vite`. `src/app/styles/app.css` imports `tailwindcss`, then Fumadocs' `neutral` and `preset` stylesheets. It does **not** import `@freenary/ui/globals.css`, so the docs palette is Fumadocs' own and does not follow `apps/web`.
 - `bun run dev` serves on port **4000**, hardcoded in the `dev` script. `DOCS_PORT` is set by `docker-compose.dev.yml` and read by nothing; `DOCS_HOST` is only an OrbStack domain label.
 
 ## Layout
@@ -16,19 +16,28 @@ content/docs/
   meta.json         # the version list, and the dropdown order
   next/             # MDX pages for the unreleased code — the folder you edit
   <X.Y>/            # one frozen copy per release, written by the snapshot script
-src/
-  lib/
-    source.ts       # Fumadocs loader (content dir, page tree, LLM text, version list)
-    versions.ts     # version ids, ordering, and the link resolver
-    shared.ts       # App name, docs base route, repo coordinates, .md URL codec
-    layout.shared.tsx  # Nav/GitHub options shared by every layout
-  routes/           # TanStack Router file routes
-  components/       # MDX component map, markdown renderer, AI search, not-found
-  styles/app.css
+src/                # a Feature-Sliced Design root
+  app/
+    routes/         # TanStack Router file routes, plus the api and llms endpoints
+    router/router.tsx
+    api/chat.ts     # the Ask AI handler
+    start.ts        # versionMiddleware, then llmMiddleware
+    styles/app.css
+  pages/
+    home/           # the landing page
+    docs/           # ui/documentation-page.tsx, api/load-doc.ts
+  shared/
+    ui/             # mdx.tsx (the MDX component map), markdown.tsx, ai-search.tsx, button.tsx, not-found.tsx
+    lib/            # versions.ts (version ids, ordering, link resolver), markdown-url.ts (.md URL codec), cn.ts
+    config/         # site.ts (app name, docs base route, repo coordinates), layout-options.ts (nav and GitHub options)
+    content/        # source.ts (content dir, page tree, LLM text, version list)
+  routeTree.gen.ts  # generated, outside every layer
 scripts/
   check-docs.ts     # the gate
   snapshot-version.ts  # freezes `next` as a release folder
 ```
+
+`src/` obeys Feature-Sliced Design, and `bun run lint:fsd` (steiger) is the gate. Three layers stack, `shared < pages < app`, and a module imports from a strictly lower layer alone. A slice is reached through its `index.ts` — `@/pages/docs` — and `shared` per segment (`@/shared/config`, `@/shared/content`) or per module for `ui` and `lib` (`@/shared/ui/mdx`, `@/shared/lib/versions`). Inside one slice, and inside `app/`, an import is relative. Steiger reads `steiger.config.ts` only when this directory is the working directory, so run the script from here or through the root `bun run check:fsd`. A segment name states a purpose: `components`, `hooks`, `utils` and `types` all fail.
 
 ## Versions
 
@@ -36,12 +45,12 @@ Every page is served under a version segment: `/docs/next/quickstart`, `/docs/1.
 
 - **Author in `content/docs/next`.** A change edits that folder alone. `content/docs/<X.Y>` is frozen: only a correction to that release touches it.
 - **A folder under `content/docs` is a version.** Its `meta.json` carries `"root": true` and a `title` equal to the folder name. `root: true` is what scopes the sidebar to one version and makes Fumadocs render the version dropdown (`getLayoutTabs`, `TreeContextProvider`). `docs:check` fails a folder that breaks either rule.
-- **A docs link never names a version.** Pages write `/docs/guides/budget`; the `a` and `Card` wrappers in `src/components/mdx.tsx` prepend the version of the page being read, and `getLLMText` does the same for the `.md` output. `docs:check` fails an authored link that names a version.
+- **A docs link never names a version.** Pages write `/docs/guides/budget`; the `a` and `Card` wrappers in `src/shared/ui/mdx.tsx` prepend the version of the page being read, and `getLLMText` does the same for the `.md` output. `docs:check` fails an authored link that names a version.
 - **A repository link names the branch, and the snapshot pins it.** Pages write `https://github.com/suiramdev/freenary/blob/main/…`; the snapshot rewrites each one to `blob/v<X.Y.Z>/` in the copy, because that link cannot resolve at render time. `docs:check` fails a `blob/main` link inside a frozen version.
-- **`/docs/*` with no version redirects** (307) to the newest release. `versionMiddleware` in `src/start.ts` owns it, and it runs before `llmMiddleware`. The newest release is `stableVersion()` in `src/lib/source.ts`: the highest `X.Y` folder, or `next` while no release exists.
+- **`/docs/*` with no version redirects** (307) to the newest release. `versionMiddleware` in `src/app/start.ts` owns it, and it runs before `llmMiddleware`. The newest release is `stableVersion()` in `src/shared/content/source.ts`: the highest `X.Y` folder, or `next` while no release exists.
 - **The language rules apply to `next` alone**; the structure rules apply to every version. `check-docs.ts` skips `checkHeadings`, `checkPhrases` and `checkSentences` outside `next`.
-- **A release snapshots itself.** The `tag` job of `.github/workflows/release.yml` runs `scripts/snapshot-version.ts <X.Y.Z>` and commits the folder before it tags; the script derives the `X.Y` folder from the release version and pins repository links to `v<X.Y.Z>`. By hand: `bun run docs:snapshot 1.2.0`. Every import the script makes resolves to a source file or a node built-in, never to a package, so it runs in a checkout with no `node_modules` — keep `src/lib/versions.ts` and `src/lib/shared.ts` dependency-free. It stages the copy outside `content/docs` and rewrites the root `meta.json` on every run, so a repeat run finishes an interrupted one; a pre-release snapshots nothing.
-- **Search, the AI panel and the LLM endpoints are scoped.** `/api/search` tags each record with its version and the default dialog passes `defaultTag` — the version of the pathname, or the newest release off the docs tree, from the root loader in `src/routes/__root.tsx`. `/api/chat` builds one index per version and honours the request body's version only when `listVersions()` holds it. `/llms.txt` and `/llms-full.txt` serve the newest release alone.
+- **A release snapshots itself.** The `tag` job of `.github/workflows/release.yml` runs `scripts/snapshot-version.ts <X.Y.Z>` and commits the folder before it tags; the script derives the `X.Y` folder from the release version and pins repository links to `v<X.Y.Z>`. By hand: `bun run docs:snapshot 1.2.0`. Every import the script makes resolves to a source file or a node built-in, never to a package, so it runs in a checkout with no `node_modules` — it imports `src/shared/lib/versions.ts` and `src/shared/config/site.ts`, so keep both dependency-free. It stages the copy outside `content/docs` and rewrites the root `meta.json` on every run, so a repeat run finishes an interrupted one; a pre-release snapshots nothing.
+- **Search, the AI panel and the LLM endpoints are scoped.** `/api/search` tags each record with its version and the default dialog passes `defaultTag` — the version of the pathname, or the newest release off the docs tree, from the root loader in `src/app/routes/__root.tsx`. `/api/chat` builds one index per version and honours the request body's version only when `listVersions()` holds it. `/llms.txt` and `/llms-full.txt` serve the newest release alone.
 
 ## Content structure
 
@@ -102,7 +111,7 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 | A frontmatter field outside title/description/icon/full | Passes | Fails |
 | An unknown code-fence language | Fails | Fails |
 | An `icon` that is not in lucide's `icons` record | Passes, renders nothing | Fails |
-| A component `src/components/mdx.tsx` does not register | Passes, renders nothing | Fails |
+| A component `src/shared/ui/mdx.tsx` does not register | Passes, renders nothing | Fails |
 | An internal link or `#anchor` that resolves to nothing | Passes | Fails |
 | A page missing from its folder's `meta.json` | Passes | Fails |
 | A link that names a version | Passes | Fails |
@@ -118,17 +127,17 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 ## Conventions
 
 - Add a page by dropping an `.mdx` file in `content/docs/next/`; the sidebar and search index pick it up. Order and grouping come from `meta.json` files in that tree — a new page must be added to its folder's `pages` array or it lands at the bottom, unordered. Nested folders each with their own `meta.json` are supported.
-- The frontmatter schema in `src/lib/source.ts` needs `title`, `description` and `icon`. A page without one of the three fails the build with the file name and the field. `full` is the only other field it accepts.
-- `icon` is resolved by the `lucideIconsPlugin` in `src/lib/source.ts` against **lucide's `icons` record**, which holds canonical PascalCase names only. A deprecated alias such as `AlertCircle` is a top-level `lucide-react` export but is absent from that record, so it renders nothing and only warns in the console. `docs:check` fails on it; to check one name by hand:
+- The frontmatter schema in `src/shared/content/source.ts` needs `title`, `description` and `icon`. A page without one of the three fails the build with the file name and the field. `full` is the only other field it accepts.
+- `icon` is resolved by the `lucideIconsPlugin` in `src/shared/content/source.ts` against **lucide's `icons` record**, which holds canonical PascalCase names only. A deprecated alias such as `AlertCircle` is a top-level `lucide-react` export but is absent from that record, so it renders nothing and only warns in the console. `docs:check` fails on it; to check one name by hand:
   ```bash
   grep -c "as CircleAlert }" node_modules/lucide-react/dist/esm/icons/index.mjs
   ```
-- MDX may use only what `src/components/mdx.tsx` registers: Fumadocs' defaults (`Card`, `Cards`, `Callout`, `CalloutContainer`, `CalloutTitle`, `CalloutDescription`, the `CodeBlockTabs*` family, and the `pre`/`a`/`img`/`h1`-`h6`/`table` overrides) plus the components that file adds explicitly — `Accordion`, `Accordions`, `File`, `Files`, `Folder`, `Step`, `Steps`, `Tab`, `Tabs`, `TypeTable`. Anything else fails to render, the build stays green, and `docs:check` fails.
+- MDX may use only what `src/shared/ui/mdx.tsx` registers: Fumadocs' defaults (`Card`, `Cards`, `Callout`, `CalloutContainer`, `CalloutTitle`, `CalloutDescription`, the `CodeBlockTabs*` family, and the `pre`/`a`/`img`/`h1`-`h6`/`table` overrides) plus the components that file adds explicitly — `Accordion`, `Accordions`, `File`, `Files`, `Folder`, `Step`, `Steps`, `Tab`, `Tabs`, `TypeTable`. Anything else fails to render, the build stays green, and `docs:check` fails.
 - Code fences always name a **Shiki** language. `env` is not one — use `dotenv`. An unknown language fails the build, not just the page. The ids this site uses are the list in `scripts/docs-rules.ts`.
 - Internal links are absolute site paths with no extension and no version (`/docs/guides/budget`). A folder's index page is the folder path itself (`/docs/self-hosting`). The rendered link carries the version of the page it sits on.
-- Routes derive from the docs base route in `src/lib/shared.ts`. Change it there, not inline, so the `.md` and `llms.txt` endpoints stay consistent.
+- Routes derive from the docs base route in `src/shared/config/site.ts`. Change it there, not inline, so the `.md` and `llms.txt` endpoints stay consistent.
 - Filenames are `kebab-case`; components are arrow functions assigned to a `const`, declared **before** the `Route` that references them (see the root `AGENTS.md`).
-- `types:check` is this app's TypeScript script. The root `bun run check-types` runs `turbo run check-types` and therefore skips it — run `bun run types:check` here after a change to `src/`.
+- `types:check` is this app's TypeScript script. The root `bun run check-types` runs `turbo run check-types` and therefore skips it — run `bun run types:check` here after a change to `src/`. Run `bun run lint:fsd` here too: it is the Feature-Sliced Design gate, and CI runs it as the `Architecture` step.
 
 ## Endpoints beyond the pages
 
@@ -144,6 +153,6 @@ An agent that writes or rewrites documentation runs these five steps in order. S
 | `/docs/<slug>.md` | 404 | 200 `text/markdown` |
 | `/docs/<slug>` + `Accept: text/markdown` | 307 → `.md`, which 404s | 200 `text/html`, no redirect |
 
-The `{$}.md` route does not register under `vite dev` (upstream TanStack Start dev-router limitation), so `llmMiddleware` in `src/start.ts` redirects Markdown-preferring requests into a 404. In production the `.md` routes work, but the middleware never runs for a page URL — Nitro serves the prerendered HTML first. Don't document negotiation as working.
+The `{$}.md` route does not register under `vite dev` (upstream TanStack Start dev-router limitation), so `llmMiddleware` in `src/app/start.ts` redirects Markdown-preferring requests into a 404. In production the `.md` routes work, but the middleware never runs for a page URL — Nitro serves the prerendered HTML first. Don't document negotiation as working.
 
 That redirect also emits an `http://` `Location` behind a TLS proxy, because it rebuilds the URL from `request.url`. Unfixed; it only matters if negotiation is ever revived.

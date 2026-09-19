@@ -145,7 +145,7 @@ BANKING_PROVIDER: z
 
 ### Register the callback URL at the provider
 
-**No new web route.** `apps/web/src/routes/callback/$provider.tsx` is one dynamic route that serves every provider. It renders with `ssr: false`, because the exchange needs the session cookie. No route on the API server answers under `/callback`.
+**No new web route.** `apps/web/src/app/routes/callback/$provider.tsx` is one dynamic route that serves every provider. It renders with `ssr: false`, because the exchange needs the session cookie. No route on the API server answers under `/callback`.
 
 Register the join of `CORS_ORIGIN` and your `callbackPath` at the provider as an allowed redirect URL. For the path `/callback/my-bank` and the origin `https://money.example.com`, that is `https://money.example.com/callback/my-bank`.
 

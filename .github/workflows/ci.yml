@@ -28,6 +28,12 @@ jobs:
       - name: Type check
         run: bun run check-types
 
+      # The layer, slice and public-API rules of Feature-Sliced Design in
+      # `apps/web` and `apps/fumadocs`. Nothing else catches an import that
+      # reaches up a layer or past a slice's index.
+      - name: Architecture
+        run: bun run check:fsd
+
       # The build catches a missing title and an unknown fence language. This
       # catches the icons, components, links, navigation and language rules it
       # does not.

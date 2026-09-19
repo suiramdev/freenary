@@ -16,7 +16,12 @@ export default defineConfig({
       strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        entry: "./app/router/router.tsx",
+        routesDirectory: "app/routes",
+      },
+    }),
     nitro({ preset: "bun" }),
     viteReact(),
   ],

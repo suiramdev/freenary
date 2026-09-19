@@ -2,12 +2,12 @@
 import { cp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { gitConfig, repoBlobUrl } from "../src/lib/shared";
+import { gitConfig, repoBlobUrl } from "../src/shared/config/site";
 import {
   compareVersionIds,
   NEXT_VERSION,
   releaseFolder,
-} from "../src/lib/versions";
+} from "../src/shared/lib/versions";
 
 type NavMeta = {
   pages?: string[];

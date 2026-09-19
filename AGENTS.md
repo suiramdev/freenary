@@ -29,6 +29,34 @@ The production stack is `docker-compose.yml` (`bun run docker:up`, which is `doc
 
 Full walkthrough: [Local development stack](apps/fumadocs/content/docs/next/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/next/self-hosting/index.mdx).
 
+## Frontend Architecture: Feature-Sliced Design
+
+`apps/web` and `apps/fumadocs` are each a [Feature-Sliced Design](https://fsd.how) root: `src/` holds layers, nothing else. The packages are not — FSD is for applications, and `@freenary/ui`, `@freenary/api` and the rest are libraries the apps consume.
+
+```txt
+src/app/        the application: routing, the router, the signed-in shell, global styles
+src/pages/      one slice per screen; a page owns its composition, queries and handlers
+src/features/   a user interaction two or more pages share (auth-gate, bank-connection)
+src/entities/   a domain model two or more pages share (category)
+src/shared/     infrastructure with no business rule: ui, lib, api, auth, config, i18n
+```
+
+Four rules carry the whole thing, and [Steiger](https://github.com/feature-sliced/steiger) enforces them:
+
+- **A module imports only from a layer strictly below it.** `shared < entities < features < pages < app`. Nothing imports from `app`.
+- **A slice is entered through its `index.ts`.** `@/pages/budget`, `@/features/bank-connection`, `@/entities/category` — never a path inside one. `shared` is entered per segment: `@/shared/api`, `@/shared/auth`, `@/shared/config`, `@/shared/i18n`, and per module for `@/shared/ui/<x>` and `@/shared/lib/<x>`.
+- **Inside a slice, imports are relative**; across slices they use the alias. Both mistakes fail the gate.
+- **Extraction is earned, never anticipated.** New code starts in the page that uses it. It moves down a layer when a second consumer exists, the responsibility is focused, and it has a reason to change of its own — which is why `features/` holds two slices and `entities/` one.
+
+Segment names say what code is _for_, not what it _is_: `ui`, `model`, `api`, `lib`, `config`. A `components/`, `hooks/`, `utils/` or `types/` folder inside a slice is a lint error, and so is a `ui` segment in `app`.
+
+```bash
+bun run check:fsd                       # both apps, through turbo
+cd apps/web && bun run lint:fsd         # one app; steiger reads steiger.config.ts
+```
+
+Run it from the app directory or through the script: steiger finds `steiger.config.ts` only when that file's directory is the working directory, and silently falls back to its own defaults otherwise. CI runs the gate as the **Architecture** step. Generated and framework files sit outside every layer — `src/routeTree.gen.ts`, `src/paraglide/` and `src/server.ts` in `apps/web` — and the Vite config points TanStack Start at `src/app/routes`.
+
 ## Documentation: Ship It With the Change
 
 [`apps/fumadocs`](apps/fumadocs) is the public documentation site. It is **part of the change, never a follow-up** — a PR that alters documented behavior and leaves the docs stale is incomplete, and reviewers should treat it as such.
@@ -77,7 +105,7 @@ cd apps/fumadocs && bun run build
 | Missing or malformed frontmatter, or no `description` or `icon` | Fails | Fails |
 | Unknown code-fence language | Fails | Fails |
 | Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing | Fails |
-| MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing | Fails |
+| MDX component not registered in `src/shared/ui/mdx.tsx` | **Passes** — renders nothing | Fails |
 | Dead internal link or `#anchor` | **Passes** | Fails |
 | Page missing from its folder's `meta.json` | **Passes** | Fails |
 | A shell command or an env var inside `guides/` | **Passes** | Fails |

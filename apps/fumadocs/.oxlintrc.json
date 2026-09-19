@@ -3,6 +3,12 @@
   "extends": ["../../node_modules/@jliocsar/begone-slop/preset.json"],
   "jsPlugins": ["@jliocsar/begone-slop"],
   "plugins": ["typescript", "react", "import"],
+  "rules": {
+    "begone-slop/no-reexport-only-modules": [
+      "error",
+      { "allowedFilenames": ["index.ts"], "routeDirectoryNames": ["src"] }
+    ]
+  },
   "categories": {},
   "env": {
     "builtin": true

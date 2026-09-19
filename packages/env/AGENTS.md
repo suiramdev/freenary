@@ -17,4 +17,4 @@ src/
 - Every env var must have a Zod schema. Use `.min(1)` for required strings, `.url()` for URLs, `.default(...)` for optional values.
 - `skipValidation` is controlled by `SKIP_ENV_VALIDATION` — useful for build steps that don't need runtime env.
 - When adding a new variable: add the Zod schema here, document it in the root `.env.example`, and add it to the `x-app-env` anchor in `docker-compose.dev.yml` so the dev stack passes it through. The production `docker-compose.yml` gives the server every line of the root `.env` through `env_file`, so it needs no edit unless the value affects container networking.
-- `PUBLIC_SERVER_URL` and `SERVER_URL` are the exception: `apps/web/src/lib/server-url.ts` reads them raw from `process.env` at request time, outside any schema here.
+- `PUBLIC_SERVER_URL` and `SERVER_URL` are the exception: `apps/web/src/shared/config/server-url.ts` reads them raw from `process.env` at request time, outside any schema here.

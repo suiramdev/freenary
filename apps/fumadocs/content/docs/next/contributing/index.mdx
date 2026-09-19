@@ -72,12 +72,13 @@ One line separates them. The containerised path runs every part in Docker, behin
 
 `.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
 
-The `ci` job runs five commands. Run the same five before you open a pull request:
+The `ci` job runs six commands. Run the same six before you open a pull request:
 
 ```bash
 bun install --frozen-lockfile
 bun run check
 bun run check-types
+bun run check:fsd
 bun run docs:check
 bun run build
 ```
@@ -87,8 +88,9 @@ bun run build
 | 1 | _(unnamed)_ | `bun install --frozen-lockfile` | The lockfile matches the manifests |
 | 2 | Lint & format | `bun run check` | `ultracite check` over the whole repository |
 | 3 | Type check | `bun run check-types` | `turbo run check-types` |
-| 4 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
-| 5 | Build | `bun run build` | `turbo run build`, which builds the three applications |
+| 4 | Architecture | `bun run check:fsd` | `turbo run lint:fsd`, the Feature-Sliced Design rules of `apps/web` and `apps/fumadocs` |
+| 5 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
+| 6 | Build | `bun run build` | `turbo run build`, which builds the three applications |
 
 The `compose` job needs no Bun and no install. It checks three things:
 
@@ -113,12 +115,12 @@ bun test scripts/dev-identity.test.ts
 bun test packages/api/src
 ```
 
-The repository holds 48 test files outside `node_modules`, each named `*.test.ts` or `*.test.tsx`:
+The repository holds 50 test files outside `node_modules`, each named `*.test.ts` or `*.test.tsx`:
 
 | Location         | Test files |
 | ---------------- | ---------- |
 | `packages/api`   | 28         |
-| `apps/web/src`   | 15         |
+| `apps/web/src`   | 17         |
 | `packages/ui`    | 2          |
 | `packages/auth`  | 1          |
 | `packages/email` | 1          |
@@ -250,7 +252,7 @@ Each workspace states its own rules next to its code:
 <Card
   title="Architecture"
   href="/docs/contributing/architecture"
-  description="The workspaces, the path of one request, and the build graph."
+  description="The workspaces, the frontend layers, the path of one request, and the build graph."
 />
 
 <Card

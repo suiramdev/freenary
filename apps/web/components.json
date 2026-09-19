@@ -12,7 +12,7 @@
   },
   "iconLibrary": "remixicon",
   "aliases": {
-    "components": "@/components",
+    "components": "@/shared/ui",
     "utils": "@freenary/ui/lib/utils",
     "ui": "@freenary/ui/components",
     "lib": "@freenary/ui/lib",
