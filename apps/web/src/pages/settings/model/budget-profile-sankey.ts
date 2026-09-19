@@ -2,6 +2,7 @@ import type { BudgetLineKind } from "@freenary/api/lib/budget-profile";
 import type { CategoryColor } from "@freenary/api/lib/taxonomy";
 
 import { m } from "@/paraglide/messages.js";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { apportion } from "@/shared/lib/sankey";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/shared/lib/sankey";
 
@@ -64,7 +65,7 @@ export const toBudgetProfileSankey = (
   for (const [groupKey, group] of groupsInAppearanceOrder) {
     const groupId = `group:${groupKey}`;
     groupNodes.push({
-      color: group.color,
+      color: CHART_COLOR_VARS[group.color],
       id: groupId,
       label: group.label,
       value: group.value,
@@ -73,7 +74,7 @@ export const toBudgetProfileSankey = (
     for (const line of group.lines) {
       const lineId = `line:${line.id}`;
       lineNodes.push({
-        color: group.color,
+        color: CHART_COLOR_VARS[group.color],
         id: lineId,
         label: line.label,
         value: line.amount,
@@ -86,7 +87,7 @@ export const toBudgetProfileSankey = (
 
   if (moneyLeft > 0) {
     groupNodes.push({
-      color: "grey",
+      color: CHART_COLOR_VARS.grey,
       id: MONEY_LEFT_ID,
       label: m.settings_budget_money_left(),
       value: moneyLeft,
@@ -101,7 +102,7 @@ export const toBudgetProfileSankey = (
   return {
     columns: [
       revenues.map((line) => ({
-        color: line.groupColor,
+        color: CHART_COLOR_VARS[line.groupColor],
         id: `revenue:${line.id}`,
         label: line.label,
         value: line.amount,

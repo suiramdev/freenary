@@ -4,7 +4,7 @@ import { computeSankeyLayout, LABEL_INSET, LABEL_MIN_H } from "./layout";
 import type { SankeyLayout, SankeyNode } from "./layout";
 
 const node = (id: string, value: number): SankeyNode => ({
-  color: "blue",
+  color: "var(--chart-blue)",
   id,
   label: id,
   value,

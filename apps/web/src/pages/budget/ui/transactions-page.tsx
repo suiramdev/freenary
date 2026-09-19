@@ -194,7 +194,6 @@ export const TransactionsPage = () => {
 
       <PeriodNavigator
         aggregation={aggregation}
-        from={from}
         to={to}
         range={range}
         firstMonth={firstMonth}

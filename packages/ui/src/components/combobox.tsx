@@ -58,10 +58,16 @@ import {
 //
 // Items are data: pass `items` to the root and render rows from the
 // ComboboxList function child. String items are their own value and label;
-// object items carry `{ value, label }` plus anything else you need.
+// object items carry `{ value, label }` plus anything else you need. An
+// object item may also carry `prefix` — a flag, an avatar, a swatch — which
+// this layer renders inside the chip ahead of the label, decoratively: the
+// chip's accessible name stays the plain label, and the list rows are the
+// consumer's own markup, so they draw it themselves.
 // ---------------------------------------------------------------------------
 
-type ComboboxItemData = string | { value: string; label: string };
+type ComboboxItemData =
+  | string
+  | { value: string; label: string; prefix?: ReactNode };
 
 function itemValue(item: ComboboxItemData): string {
   return typeof item === "string" ? item : item.value;
@@ -69,6 +75,10 @@ function itemValue(item: ComboboxItemData): string {
 
 function itemLabel(item: ComboboxItemData): string {
   return typeof item === "string" ? item : item.label;
+}
+
+function itemPrefix(item: ComboboxItemData): ReactNode {
+  return typeof item === "string" ? null : item.prefix;
 }
 
 // The create row is one more item in the list the primitive filters and
@@ -689,6 +699,7 @@ const ComboboxChips = forwardRef<HTMLInputElement, ComboboxChipsProps>(
                   <AnimatePresence initial={false} mode="popLayout">
                     {(selected ?? []).map((item) => {
                       const label = itemLabel(item);
+                      const prefix = itemPrefix(item);
                       return (
                         <motion.span
                           key={itemValue(item)}
@@ -715,6 +726,11 @@ const ComboboxChips = forwardRef<HTMLInputElement, ComboboxChipsProps>(
                               compact ? "h-5 text-[11px]" : "h-6 text-[12px]"
                             )}
                           >
+                            {prefix != null && (
+                              <span aria-hidden="true" className="shrink-0">
+                                {prefix}
+                              </span>
+                            )}
                             <span className="truncate">{label}</span>
                             <ComboboxPrimitive.ChipRemove
                               aria-label={`${labels.remove} ${label}`}

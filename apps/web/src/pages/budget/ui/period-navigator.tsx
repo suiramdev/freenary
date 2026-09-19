@@ -31,6 +31,8 @@ import { useHoverIntent } from "../lib/use-hover-intent";
 import {
   AGGREGATION_MODES,
   aggregationLabel,
+  computeDateRange,
+  formatMonthYear,
   formatPeriodLabel,
   isMultiMonth,
   rangeMonths,
@@ -39,6 +41,38 @@ import {
 import type { AggregationMode, TimeRange } from "../model/period";
 
 const YEAR_PAGE_SIZE = 12;
+
+const MONTHS_IN_A_YEAR = 12;
+
+const PeriodLabelHoldingTheWidestMonthOfTheYear = ({
+  anchorMonth,
+  anchorYear,
+  range,
+}: {
+  anchorMonth: number;
+  anchorYear: number;
+  range: TimeRange;
+}) => {
+  const locale = getLocale();
+  const span = computeDateRange(anchorYear, anchorMonth, range);
+
+  return (
+    <span className="grid justify-items-center">
+      <span className="col-start-1 row-start-1">
+        {formatPeriodLabel(span.from, span.to, range, locale)}
+      </span>
+      {Array.from({ length: MONTHS_IN_A_YEAR }, (_, month) => (
+        <span
+          aria-hidden="true"
+          className="invisible col-start-1 row-start-1"
+          key={month}
+        >
+          {formatMonthYear(new Date(anchorYear, month, 1), locale)}
+        </span>
+      ))}
+    </span>
+  );
+};
 
 const YearCell = ({
   index,
@@ -142,7 +176,6 @@ const PeriodYearPicker = ({
 
 export const PeriodNavigator = ({
   aggregation,
-  from,
   to,
   range,
   firstMonth,
@@ -154,7 +187,6 @@ export const PeriodNavigator = ({
   onMonthIntent,
 }: {
   aggregation: AggregationMode;
-  from: Date;
   to: Date;
   range: TimeRange;
   firstMonth?: Date;
@@ -204,7 +236,11 @@ export const PeriodNavigator = ({
         </Button>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger render={<Button variant="ghost" />}>
-            {formatPeriodLabel(from, to, range, getLocale())}
+            <PeriodLabelHoldingTheWidestMonthOfTheYear
+              anchorMonth={anchorMonth}
+              anchorYear={anchorYear}
+              range={range}
+            />
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="center">
             {range === "1Y" ? (

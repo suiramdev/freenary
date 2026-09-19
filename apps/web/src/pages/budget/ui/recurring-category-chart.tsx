@@ -1,9 +1,8 @@
-import { categoryColor } from "@freenary/api/lib/taxonomy";
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
 
 import { categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
-import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { categoryChartColor } from "@/shared/lib/chart-colors";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
 import type { RecurringCategoryRow } from "../model/recurring";
@@ -47,8 +46,7 @@ export const RecurringCategoryChart = ({
               <span
                 className="absolute inset-y-0 start-0 rounded-full"
                 style={{
-                  backgroundColor:
-                    CHART_COLOR_VARS[categoryColor(row.category)],
+                  backgroundColor: categoryChartColor(row.category),
                   width: `${(row.monthlyMinor / sharedScaleMinor) * 100}%`,
                 }}
               />

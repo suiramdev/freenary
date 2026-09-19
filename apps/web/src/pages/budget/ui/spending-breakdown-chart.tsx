@@ -1,4 +1,3 @@
-import { categoryColor } from "@freenary/api/lib/taxonomy";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
@@ -18,7 +17,7 @@ import type { PieSectorDataItem } from "recharts";
 import type { CategorySelection } from "@/entities/category";
 import { categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
-import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { categoryChartColor } from "@/shared/lib/chart-colors";
 import { formatCurrency } from "@/shared/lib/format-currency";
 import { ChartTooltipCard } from "@/shared/ui/chart-tooltip";
 
@@ -41,7 +40,7 @@ const buildConfigKeyedByCategorySlug = (data: CategoryData[]): ChartConfig => {
 
   for (const entry of data) {
     config[entry.category] = {
-      color: CHART_COLOR_VARS[categoryColor(entry.category)],
+      color: categoryChartColor(entry.category),
       label: categoryLabel(entry.category),
     };
   }

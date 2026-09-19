@@ -1,7 +1,5 @@
-import type { CategoryColor } from "@freenary/api/lib/taxonomy";
-
 export interface SankeyNode {
-  color: CategoryColor;
+  color: string;
   id: string;
   label: string;
   value: number;
@@ -19,7 +17,7 @@ export interface SankeyFlow {
 }
 
 export interface NodeRect {
-  color: CategoryColor;
+  color: string;
   column: number;
   h: number;
   id: SankeyNode["id"];
@@ -32,7 +30,7 @@ export interface NodeRect {
 }
 
 export interface LinkBand {
-  color: CategoryColor;
+  color: string;
   id: string;
   sourceId: SankeyNode["id"];
   sx: number;

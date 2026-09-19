@@ -1,6 +1,5 @@
 import {
   CATEGORY_GROUP_COLORS,
-  categoryColor,
   isCategoryGroup,
   isSpendingCategory,
 } from "@freenary/api/lib/taxonomy";
@@ -13,6 +12,10 @@ import type {
 import { categoryGroupLabel, categoryLabel } from "@/entities/category";
 import type { CategorySelection } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
+import {
+  categoryChartColor,
+  CHART_COLOR_VARS,
+} from "@/shared/lib/chart-colors";
 import { apportion } from "@/shared/lib/sankey";
 import type { SankeyFlow, SankeyLink, SankeyNode } from "@/shared/lib/sankey";
 
@@ -106,7 +109,7 @@ export const toCashFlowSankey = ({
   for (const group of groups) {
     const id = groupNodeId(group.group);
     groupNodes.push({
-      color: CATEGORY_GROUP_COLORS[group.group],
+      color: CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[group.group]],
       id,
       label: categoryGroupLabel(group.group),
       value: group.value,
@@ -114,7 +117,7 @@ export const toCashFlowSankey = ({
 
     for (const category of group.categories) {
       categoryNodesInGroupOrder.push({
-        color: categoryColor(category.category),
+        color: categoryChartColor(category.category),
         id: categoryNodeId(category.category),
         label: categoryLabel(category.category),
         value: category.value,
@@ -129,7 +132,7 @@ export const toCashFlowSankey = ({
 
   if (moneyLeft > 0) {
     groupNodes.push({
-      color: "grey",
+      color: CHART_COLOR_VARS.grey,
       id: MONEY_LEFT_ID,
       label: m.budget_money_left(),
       value: moneyLeft,
@@ -144,7 +147,7 @@ export const toCashFlowSankey = ({
   return {
     columns: [
       incomeNodes.map((node) => ({
-        color: incomeColorOfCounterpartyName(node.name),
+        color: CHART_COLOR_VARS[incomeColorOfCounterpartyName(node.name)],
         id: incomeNodeId(node.name),
         label: node.name,
         value: node.value,
