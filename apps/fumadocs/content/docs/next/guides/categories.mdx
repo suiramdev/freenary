@@ -8,7 +8,7 @@ Every transaction sits in one category, and every category sits in one group. On
 
 ## The fixed vocabulary
 
-Freenary ships **3 category groups** and **27 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.`
+Freenary ships **3 category groups** and **27 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. A category takes the color of its group. Your own categories can be renamed, nested under a group, reordered or removed.`
 
 A group is a section of the flow of money, and not a topic. `Income` is what arrives. `Savings & investment` and `Spending` are the two ways it leaves.
 
@@ -87,16 +87,18 @@ A built-in category carries the badge `Built-in` and offers no action. The [Budg
 
 ## Custom categories
 
-A custom category is one you add. It holds a colour and an icon, and you pick both yourself.
+A custom category is one you add. It holds an icon that you pick, and a colour that follows the same rule as a built-in one.
 
 Press `New category` in the header of the section. The drawer holds four fields.
 
 | Field | Rule |
 | --- | --- |
 | `Name` | 1 to 40 characters. Unique among your own categories, and letter case plays no part in that check |
-| `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red` |
-| `Icon` | One of 28 icons, in a grid |
 | `Nested under` | One of the 3 groups, or `No parent` |
+| `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red`. The field shows only while `Nested under` is `No parent` |
+| `Icon` | One of 28 icons, in a grid |
+
+A category that you nest under a group takes the colour of that group. The 27 built-in ones do the same. The colour tells you if money comes in, is put aside, or goes out. A category inside a group therefore cannot show a different colour. A category with `No parent` is a group of its own. A group holds its own colour, so you pick it.
 
 The first ten icons are `Airplane`, `Arrows`, `Bank`, `Bitcoin`, `Briefcase`, `Car`, `Cash`, `Pie chart`, `Coins` and `Dots`. The next ten are `Film slate`, `First aid kit`, `Fork and knife`, `Graduation cap`, `House`, `Key`, `Lightning bolt`, `Safe`, `Plant` and `Receipt`. The last eight are `Refund`, `Repeat`, `Shield with check`, `Shopping bag`, `Shopping cart`, `Storefront`, `Trend line` and `People`.
 
@@ -115,7 +117,7 @@ Each custom row offers four actions. A screen reader reads them as `Edit {label}
 | Action | What it does |
 | --- | --- |
 | Edit | Re-opens the drawer. `Save changes` writes it, and you read `Category updated` |
-| Re-parent | The `Nested under` field moves the category to another group, or out of every group |
+| Re-parent | The `Nested under` field moves the category to another group, or out of every group. The colour follows the new group, and the `Color` field comes back when you move the category out of every group |
 | Reorder | Up and down move it inside its group |
 | Delete | Removes it, and moves its budget lines |
 

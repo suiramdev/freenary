@@ -805,7 +805,7 @@
   "settings_budgeting_save_success": "Profil budgétaire enregistré",
   "settings_budgeting_title": "Profil budgétaire",
   "settings_cancel": "Annuler",
-  "settings_categories_description": "Les catégories sont regroupées et les groupes sont fixes. Vos propres catégories peuvent être renommées, recolorées, rattachées à un groupe, réordonnées ou supprimées.",
+  "settings_categories_description": "Les catégories sont regroupées et les groupes sont fixes. Une catégorie prend la couleur de son groupe. Vos propres catégories peuvent être renommées, rattachées à un groupe, réordonnées ou supprimées.",
   "settings_categories_loading": "Chargement de vos catégories",
   "settings_categories_title": "Catégories",
   "settings_category_built_in": "Intégrée",

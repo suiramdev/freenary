@@ -336,6 +336,9 @@ export const isSpendingCategory = (value: string): value is SpendingCategory =>
 export const isCategoryGroup = (value: string): value is CategoryGroup =>
   Object.hasOwn(CATEGORY_GROUP_LABELS, value);
 
+export const isCategoryColor = (value: string): value is CategoryColor =>
+  CATEGORY_COLOR_VALUES.some((color) => color === value);
+
 export const categoriesInGroup = (
   group: CategoryGroup
 ): readonly SpendingCategory[] => CATEGORIES_BY_GROUP[group];

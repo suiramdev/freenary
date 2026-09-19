@@ -30,6 +30,7 @@ import {
 } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 
+import { editedOf } from "../model/category-sections";
 import { useCustomCategoryActions } from "../model/use-custom-category-actions";
 import type { EditedCustomCategory } from "../model/use-custom-category-form";
 import { CATEGORY_CHIP_BOX, CategoryRow } from "./category-row";
@@ -60,15 +61,6 @@ const SKELETON_GROUPS = 3;
 const LIST_SIZE: SizeVariant = "default";
 
 const CHILDREN_GUIDE_UNDER_THE_GROUP_ICON = "border-border ml-[45px] border-l";
-
-const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
-  color: entry.color,
-  icon: entry.icon,
-  id: entry.key.split(":")[1] ?? "",
-  label: entry.label,
-  // SAFETY: parentKey on a custom entry is always a CategoryGroup slug
-  parentSlug: entry.parentKey as EditedCustomCategory["parentSlug"],
-});
 
 const catchAllCategoryLabelOf = (groupKey: string) =>
   isCategoryGroup(groupKey)
