@@ -140,6 +140,8 @@ export const SPENDING_CATEGORIES = [
 
 export type SpendingCategory = (typeof SPENDING_CATEGORIES)[number];
 
+export const TAXONOMY_VERSION = 1;
+
 export const CATEGORY_GROUP_LABELS = {
   "daily-living": "Daily living",
   education: "Education",

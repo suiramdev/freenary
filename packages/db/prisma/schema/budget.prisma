@@ -232,3 +232,48 @@ model MerchantOverride {
   @@index([userId])
   @@map("merchant_override")
 }
+
+/// A category a configured classifier answered for one merchant signature.
+/// Shared by every user: the signature is a hash and the row holds no key,
+/// descriptor, user or account. `category` null records an explicit abstention.
+model MerchantClassification {
+  signature       String   @id
+  provider        String
+  model           String
+  taxonomyVersion Int
+  category        String?
+  confidence      Float?
+  answeredBy      String?
+  classifiedAt    DateTime @default(now())
+
+  @@map("merchant_classification")
+}
+
+/// The bank synchronisation a user has in flight, so a second request — another
+/// tab, a reload, the next poll — reads its progress instead of starting its
+/// own. One row per user, rewritten at each run. A row whose `updatedAt` stopped
+/// moving is abandoned: the process that owned it died, and the next sync claims it.
+model SyncRun {
+  userId               String    @id
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phase                SyncPhase
+  /// Accounts the providers reported for this run, known once a connection answers.
+  accountsTotal        Int       @default(0)
+  accountsDone         Int       @default(0)
+  /// Transactions written so far, new and updated alike.
+  transactionsImported Int       @default(0)
+  /// Transactions the categorisation phase has to resolve, known when it starts.
+  categorisedTotal     Int       @default(0)
+  categorised          Int       @default(0)
+  startedAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  finishedAt           DateTime?
+
+  @@map("sync_run")
+}
+
+enum SyncPhase {
+  IMPORTING
+  CATEGORISING
+  FINISHED
+}

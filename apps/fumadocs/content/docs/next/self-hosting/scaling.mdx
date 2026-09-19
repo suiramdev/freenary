@@ -28,14 +28,13 @@ A second replica therefore reads the same sessions and counts into the same limi
 
 ## The in-process state that exists
 
-The API server keeps two module-global caches. Both hold read-only data that comes from the image:
+The API server keeps one module-global cache. It holds read-only data that comes from the image:
 
 | Cache                   | Source file in the image               |
 | ----------------------- | -------------------------------------- |
 | The merchant dictionary | `packages/api/data/merchants.jsonl.gz` |
-| The classifier weights  | `packages/api/data/model-weights.json` |
 
-A second replica duplicates that memory. It cannot diverge from the first, because both load the same files from the same image. Each replica releases the dictionary when its reference count reaches zero.
+A second replica duplicates that memory. It cannot diverge from the first, because both load the same file from the same image. Each replica releases the dictionary when its reference count reaches zero.
 
 Nothing else on the request path is mutable. The API server builds a fresh context for each request, and the auth middleware keeps nothing between calls.
 

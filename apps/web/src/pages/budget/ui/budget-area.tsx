@@ -7,10 +7,13 @@ import { SyncButton } from "@/shared/ui/sync-button";
 
 import { useAccountSync } from "../model/use-account-sync";
 import { NoBankAccount } from "./no-bank-account";
+import { SyncProgressBanner } from "./sync-progress-banner";
 
 export const BudgetArea = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
-  const { isSyncing, resync } = useAccountSync(accountsQuery.data?.hasAccounts);
+  const { isSyncing, progress, resync } = useAccountSync(
+    accountsQuery.data?.hasAccounts
+  );
 
   const isAccountGateUndecided = accountsQuery.isPending;
 
@@ -31,6 +34,7 @@ export const BudgetArea = () => {
           onSync={resync}
         />
       </div>
+      <SyncProgressBanner progress={progress} />
       <Outlet />
     </div>
   );

@@ -59,7 +59,7 @@ Two places supply the URL. `packages/db/prisma.config.ts` hands `process.env.DAT
 
 ## Bank connections, accounts and transactions
 
-`budget.prisma` holds six models. The chain is one line: user, then bank connection, then bank account, then transaction or holding.
+`budget.prisma` holds eight models. The chain is one line: user, then bank connection, then bank account, then transaction or holding.
 
 | Model and table | Key fields | Constraints and notes |
 | --- | --- | --- |
@@ -69,6 +69,8 @@ Two places supply the URL. `packages/db/prisma.config.ts` hands `process.env.DAT
 | `Holding`, table `holding` | `providerHoldingId`, `label`, `code?`, `codeType?`, `quantity Decimal @db.Decimal(24, 8)`, `unitCost?` and `unitValue? @db.Decimal(24, 6)`, `valuationMinor Int`, `unrealisedGainMinor Int?`, `currency`, `valuedAt?` | `@@unique([accountId, providerHoldingId])`, `@@index([accountId])`, cascade. A snapshot of the last sync, not a history |
 | `Transaction`, table `transaction` | The field groups below | `@@unique([accountId, providerTransactionId])`, `@@index([accountId, date])`, `@@index([accountId, amount])`, `@@index([merchantKey])`, cascade |
 | `MerchantOverride`, table `merchant_override` | `merchantKey`, `category`, `merchantName?` | `@@unique([userId, merchantKey])`, `@@index([userId])`, cascade. One user choice for one merchant key |
+| `MerchantClassification`, table `merchant_classification` | `signature` (the primary key), `provider`, `model`, `taxonomyVersion`, `category?`, `confidence?`, `answeredBy?`, `classifiedAt` | No user column and no relation. One row per merchant signature, shared by every account on the instance. A null `category` records an abstention |
+| `SyncRun`, table `sync_run` | `userId` (the primary key), `phase SyncPhase`, `accountsTotal`, `accountsDone`, `transactionsImported`, `categorisedTotal`, `categorised`, `startedAt`, `updatedAt`, `finishedAt?` | Cascade. One row per user, rewritten at each sync. `budget.getSyncStatus` reads it, and `budget.syncAccounts` claims it before it starts |
 
 ### The `Transaction` columns
 
@@ -202,7 +204,7 @@ Four writers touch the derived columns of a transaction.
 | Writer | Columns it writes |
 | --- | --- |
 | Sync, through `upsertTransaction` | Every raw provider column, plus `channel`, `intermediaryName`, `merchantKey`, `normalisedDescriptor`, `transactionPath`. On create it also sets `category: null` and `categoryOverride: false` |
-| `matchInternalTransfers` | `isInternalTransfer`, `resolvedCategory`, `resolutionStage`, `resolutionConfidence` |
+| `matchInternalTransfers` | `isInternalTransfer`, `resolvedCategory`, `resolutionStage` (the value `internal-transfer`), `resolutionConfidence` |
 | `categoriseUncategorised` | `intermediaryName`, `resolvedCategory`, `resolutionStage`, `resolutionConfidence` |
 | `updateTransactionCategory` | `category` and `categoryOverride` on the row, the `MerchantOverride` row, and `category` on the siblings that share the merchant key |
 

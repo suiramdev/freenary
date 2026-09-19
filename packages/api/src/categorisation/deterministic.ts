@@ -48,14 +48,8 @@ const ruleHit = (
 export const deterministicCategory = (
   input: CategoriseInput
 ): DeterministicResult | null => {
-  const {
-    amountMinor,
-    bankTransactionCode,
-    counterpartyName,
-    country,
-    merchantCategoryCode,
-    normalisedDescriptor,
-  } = input;
+  const { amountMinor, bankTransactionCode, country, merchantCategoryCode } =
+    input;
   const byMcc = merchantCategoryCode
     ? categoryFromMcc(merchantCategoryCode)
     : null;
@@ -64,15 +58,9 @@ export const deterministicCategory = (
     return { category: byMcc, confidence: MCC_CONFIDENCE, stage: "mcc" };
   }
 
-  const tables = keywordsFor(country);
-  const bankCode = bankTransactionCode?.toLowerCase();
-  const payee = counterpartyName?.toLowerCase();
-  const descriptor = normalisedDescriptor?.toLowerCase();
-
-  return (
-    ruleHit(tables.bankCode, bankCode, amountMinor) ??
-    ruleHit(tables.counterparty, payee, amountMinor) ??
-    ruleHit(tables.counterparty, descriptor, amountMinor) ??
-    ruleHit(tables.bankCode, descriptor, amountMinor)
+  return ruleHit(
+    keywordsFor(country).bankCode,
+    bankTransactionCode?.toLowerCase(),
+    amountMinor
   );
 };

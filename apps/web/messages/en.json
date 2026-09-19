@@ -583,6 +583,27 @@
   "budget_summary_unavailable": "Unavailable",
   "budget_sync_error": "Failed to sync transactions",
   "budget_sync_now": "Sync transactions",
+  "budget_sync_progress_accounts": "Account {done} of {total}",
+  "budget_sync_progress_categorised": "{done} of {total}",
+  "budget_sync_progress_categorising": "Sorting transactions into categories",
+  "budget_sync_progress_hint_categorising": "Categories fill in as they are decided. You can keep using the page.",
+  "budget_sync_progress_hint_importing": "Transactions appear as they arrive. You can keep using the page.",
+  "budget_sync_progress_importing": "Importing transactions from your banks",
+  "budget_sync_progress_starting": "Connecting to your banks",
+  "budget_sync_progress_transactions": [
+    {
+      "declarations": [
+        "input count",
+        "input formatted",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} transaction so far",
+        "countPlural=other": "{formatted} transactions so far"
+      }
+    }
+  ],
   "budget_sync_retry": "Retry",
   "budget_sync_running": "Syncing…",
   "budget_sync_success": "Transactions are up to date",

@@ -8,13 +8,11 @@ type KeywordRule = readonly [RegExp, SpendingCategory];
 
 interface KeywordModule {
   readonly bankCodeKeywords: readonly KeywordRule[];
-  readonly counterpartyKeywords: readonly KeywordRule[];
   readonly merchantQualifiers: readonly string[];
 }
 
 export interface KeywordTables {
   readonly bankCode: readonly KeywordRule[];
-  readonly counterparty: readonly KeywordRule[];
   readonly merchantQualifiers: ReadonlySet<string>;
 }
 
@@ -22,17 +20,12 @@ const registry = {
   FR: fr,
 } satisfies Record<SupportedCountry, KeywordModule>;
 
-const countryModules = SUPPORTED_COUNTRIES.map((code) => registry[code]);
-
 const layerCountryOverDefaults = (
   country: KeywordModule | null
 ): KeywordTables => ({
   bankCode: country
     ? [...country.bankCodeKeywords, ...defaults.bankCodeKeywords]
     : defaults.bankCodeKeywords,
-  counterparty: country
-    ? [...country.counterpartyKeywords, ...defaults.counterpartyKeywords]
-    : defaults.counterpartyKeywords,
   merchantQualifiers: new Set([
     ...(country?.merchantQualifiers ?? []),
     ...defaults.merchantQualifiers,
@@ -48,22 +41,9 @@ const TABLES_BY_COUNTRY: Record<string, KeywordTables> = Object.fromEntries(
   ])
 );
 
-const defaultsFirstThenEveryCountry = (
-  select: (layer: KeywordModule) => readonly KeywordRule[]
-): readonly KeywordRule[] => [
-  ...select(defaults),
-  ...countryModules.flatMap(select),
-];
-
 export const keywordsFor = (country: string | null = null): KeywordTables =>
   (country ? TABLES_BY_COUNTRY[country.toUpperCase()] : undefined) ??
   DEFAULTS_ONLY_TABLES;
-
-export const allBankCodeKeywords: readonly KeywordRule[] =
-  defaultsFirstThenEveryCountry((layer) => layer.bankCodeKeywords);
-
-export const allCounterpartyKeywords: readonly KeywordRule[] =
-  defaultsFirstThenEveryCountry((layer) => layer.counterpartyKeywords);
 
 export const matchKeyword = (
   table: readonly KeywordRule[],

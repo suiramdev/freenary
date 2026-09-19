@@ -1,26 +1,8 @@
-import {
-  allBankCodeKeywords,
-  allCounterpartyKeywords,
-  matchKeyword,
-} from "../categorisation/keywords";
-import { CATEGORY_GROUP_OF, resolveCategorySlug } from "./taxonomy";
 import type { SpendingCategory } from "./taxonomy";
 
 interface MccRange {
   first: number;
   last: number;
-}
-
-interface CategorySignals {
-  amount: number;
-  bankTransactionCode?: string | null;
-  counterpartyName?: string | null;
-  merchantCategoryCode?: string | null;
-  resolvedCategory?: string | null;
-}
-
-interface OverridableCategorySignals extends CategorySignals {
-  category?: string | null;
 }
 
 const MCC_TO_CATEGORY = {
@@ -275,59 +257,4 @@ export const categoryFromMcc = (code: string): SpendingCategory | null => {
 
   // SAFETY: code is always a string key from the EB API; the assertion narrows for const lookup
   return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? null;
-};
-
-const keywordMatch = (
-  table: Parameters<typeof matchKeyword>[0],
-  text: string | null | undefined
-): SpendingCategory | null => {
-  const lowered = text?.toLowerCase();
-
-  return lowered ? matchKeyword(table, lowered) : null;
-};
-
-const incomeFromBankCode = (
-  bankTransactionCode: string | null | undefined
-): SpendingCategory => {
-  const named = keywordMatch(allBankCodeKeywords, bankTransactionCode);
-
-  return named && CATEGORY_GROUP_OF[named] === "income"
-    ? named
-    : "other-income";
-};
-
-export const deriveCategory = (tx: CategorySignals): SpendingCategory => {
-  const alreadyResolved = tx.resolvedCategory
-    ? resolveCategorySlug(tx.resolvedCategory)
-    : null;
-
-  if (alreadyResolved) {
-    return alreadyResolved;
-  }
-
-  const byMcc = tx.merchantCategoryCode
-    ? categoryFromMcc(tx.merchantCategoryCode)
-    : null;
-
-  if (byMcc) {
-    return byMcc;
-  }
-
-  if (tx.amount > 0) {
-    return incomeFromBankCode(tx.bankTransactionCode);
-  }
-
-  return (
-    keywordMatch(allBankCodeKeywords, tx.bankTransactionCode) ??
-    keywordMatch(allCounterpartyKeywords, tx.counterpartyName) ??
-    "uncategorised"
-  );
-};
-
-export const effectiveCategory = (
-  tx: OverridableCategorySignals
-): SpendingCategory => {
-  const override = tx.category ? resolveCategorySlug(tx.category) : null;
-
-  return override ?? deriveCategory(tx);
 };

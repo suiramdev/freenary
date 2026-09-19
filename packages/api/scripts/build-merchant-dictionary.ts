@@ -16,12 +16,9 @@ import { Data, Effect, Match, Option } from "effect";
 import { mergeCountryScopes } from "../src/categorisation/merchant-scope";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { resolveNsiCountries } from "../src/categorisation/nsi/location-scope";
-import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { categoryPriority } from "./lib/category-priority";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
-import { fetchSireneBatch } from "./lib/sirene-client";
-import type { SireneSearchResponse } from "./lib/sirene-client";
 import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
 
 interface NsiLocationSet {
@@ -69,11 +66,6 @@ interface WikidataBrand {
   domains: string[];
   id: string;
   label: string;
-  sirene?: {
-    nafCode: string;
-    denomination: string;
-    tradeName: string | null;
-  };
 }
 
 type DictionaryFailure =
@@ -88,7 +80,6 @@ type DictionaryFailure =
       readonly statusText: string;
     }
   | { readonly kind: "signingFailed"; readonly cause: unknown }
-  | { readonly kind: "sireneEnrichmentFailed"; readonly cause: unknown }
   | {
       readonly kind: "tarFailed";
       readonly member: string;
@@ -120,10 +111,6 @@ const PRIVATE_KEY_PATH = path.resolve(
   "../data/dictionary.key"
 );
 
-const SIRENE_BUDGET_MS = 15 * 60 * 1000;
-const MIN_SIRENE_QUERY_LENGTH = 3;
-const SIRENE_PROGRESS_EVERY = 50;
-
 const MIN_SINGLE_TOKEN_LENGTH = 3;
 const MAX_GZIP_LEVEL = 9;
 const BYTES_PER_MEGABYTE = 1024 * 1024;
@@ -136,19 +123,6 @@ const NON_SLUG_CHARACTERS = /[^a-z0-9]+/gu;
 const SLUG_EDGE_DASHES = /^-|-$/gu;
 const TRANSIENT_MESSAGE =
   /fetch|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|AbortError|network/u;
-
-const STRUCTURAL_NAF_CLASSES = {
-  "64.20": true,
-  "64.30": true,
-  "66.30": true,
-  "68.20": true,
-  "70.10": true,
-} as const satisfies Record<string, true>;
-
-const WEAK_NSI_CATEGORIES = {
-  "other-shopping": true,
-  uncategorised: true,
-} as const satisfies Record<string, true>;
 
 const isEntirelyPlaceName = (_normalisedName: string): boolean => false;
 
@@ -166,7 +140,6 @@ const noticeFor = (reason: DictionaryFailure): string =>
       nsiTarballRejected: ({ status, statusText }) =>
         `Failed to fetch NSI tarball: ${status} ${statusText}`,
       signingFailed: ({ cause }) => describe(cause),
-      sireneEnrichmentFailed: ({ cause }) => describe(cause),
       tarFailed: ({ member, exitCode, stderr }) =>
         `tar extraction of ${member} failed (exit ${exitCode}): ${stderr}`,
       unexpected: ({ cause }) => describe(cause),
@@ -184,7 +157,6 @@ const isTransient = (reason: DictionaryFailure): boolean =>
       nsiRequestFailed: () => true,
       nsiTarballRejected: () => true,
       signingFailed: () => false,
-      sireneEnrichmentFailed: () => false,
       tarFailed: () => false,
       unexpected: ({ cause }) =>
         cause instanceof TypeError ||
@@ -648,142 +620,6 @@ const mergeWikidataBrands = (
   return { wikidataMatched, wikidataNew };
 };
 
-const namesOverlap = (resultName: string, queryName: string): boolean =>
-  resultName.includes(queryName) || queryName.includes(resultName);
-
-const parseNafCode = (
-  data: SireneSearchResponse,
-  queryName: string
-): string | null => {
-  const [firstResult] = data.results;
-
-  if (!firstResult) {
-    return null;
-  }
-
-  const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
-
-  if (!namesOverlap(resultName, queryName.toLowerCase().trim())) {
-    return null;
-  }
-
-  const nafCode = firstResult.matching_etablissements[0]?.activite_principale;
-
-  if (!nafCode) {
-    return null;
-  }
-
-  if (Object.hasOwn(STRUCTURAL_NAF_CLASSES, nafCode.slice(0, 5))) {
-    return null;
-  }
-
-  return nafCode;
-};
-
-const isFrenchLinked = (merchant: DictionaryMerchant): boolean =>
-  merchant.countries.includes("FR") ||
-  merchant.domains.some((domain) => domain.endsWith(".fr"));
-
-const deservesSireneLookup = (merchant: DictionaryMerchant): boolean => {
-  if (merchant.name.length < MIN_SIRENE_QUERY_LENGTH) {
-    return false;
-  }
-
-  if (!isFrenchLinked(merchant)) {
-    return false;
-  }
-
-  if (merchant.category === null) {
-    return true;
-  }
-
-  return (
-    merchant.source === "nsi" &&
-    Object.hasOwn(WEAK_NSI_CATEGORIES, merchant.category)
-  );
-};
-
-const enrichWithSirene = Effect.fnUntraced(function* enrichWithSirene(
-  merchants: DictionaryMerchant[]
-) {
-  const candidates = merchants.filter(deservesSireneLookup);
-
-  if (candidates.length === 0) {
-    return 0;
-  }
-
-  console.log(
-    `SIRENE: ${candidates.length} French-linked candidates to enrich`
-  );
-
-  const byName = new Map<string, DictionaryMerchant[]>();
-
-  for (const candidate of candidates) {
-    const existing = byName.get(candidate.name);
-
-    if (existing) {
-      existing.push(candidate);
-    } else {
-      byName.set(candidate.name, [candidate]);
-    }
-  }
-
-  const uniqueNames = [...byName.keys()];
-
-  const outcome = yield* Effect.tryPromise({
-    catch: (cause) =>
-      new DictionaryBuildFailed({
-        reason: { cause, kind: "sireneEnrichmentFailed" },
-      }),
-    try: () =>
-      fetchSireneBatch(uniqueNames, parseNafCode, {
-        budgetMs: SIRENE_BUDGET_MS,
-        onProgress: (done, total) => {
-          if (done % SIRENE_PROGRESS_EVERY === 0 || done === total) {
-            console.log(`SIRENE: processed ${done}/${total}`);
-          }
-        },
-      }),
-  });
-
-  let enriched = 0;
-
-  for (const { query, data: nafCode } of outcome.results) {
-    if (nafCode === null) {
-      continue;
-    }
-
-    const category = mapNafToCategory(nafCode);
-
-    if (category === null || category === "uncategorised") {
-      continue;
-    }
-
-    const merchantsForName = byName.get(query);
-
-    if (!merchantsForName) {
-      continue;
-    }
-
-    for (const merchant of merchantsForName) {
-      merchant.category = category;
-      enriched += 1;
-    }
-  }
-
-  console.log(
-    `SIRENE: ${enriched} merchants enriched (${outcome.cached} from cache, ${outcome.failed} requests failed)`
-  );
-
-  if (outcome.stop !== "complete") {
-    console.log(
-      `SIRENE: stopped early (${outcome.stop}) with ${outcome.skipped} names unqueried — the disk cache carries them into the next run`
-    );
-  }
-
-  return enriched;
-});
-
 const mergeCuratedSupplement = (
   nsiMerchants: DictionaryMerchant[],
   wikidataBrands: WikidataBrand[]
@@ -1103,23 +939,6 @@ const buildMerchantDictionary = Effect.fnUntraced(
           );
 
           return { brands: [], wikidataMatched: 0, wikidataNew: 0 };
-        })
-      )
-    );
-
-    yield* enrichWithSirene(nsiMerchants).pipe(
-      Effect.flatMap((sireneEnriched) =>
-        Effect.sync(() => {
-          console.log(
-            `SIRENE enrichment: ${sireneEnriched} merchants categorised`
-          );
-        })
-      ),
-      Effect.catchTag("DictionaryBuildFailed", ({ reason }) =>
-        Effect.sync(() => {
-          console.log(
-            `Warning: SIRENE enrichment failed, continuing without it: ${noticeFor(reason)}`
-          );
         })
       )
     );

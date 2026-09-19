@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
+import type { SpendingCategory } from "../lib/taxonomy";
 import { deterministicCategory } from "./deterministic";
 import type { CategoriseInput } from "./types";
 
 const input = (overrides: Partial<CategoriseInput>): CategoriseInput => ({
   amountMinor: -1500,
   channel: "card",
+  currency: "EUR",
   merchantKey: "unknown-merchant-xyz-abc",
   normalisedDescriptor: "unknown merchant xyz abc",
   path: "card",
@@ -19,9 +21,13 @@ describe("deterministicCategory", () => {
     expect(deterministicCategory(input({}))).toBeNull();
   });
 
-  it("prefers the merchant category code over the keyword tables", () => {
+  it("prefers the merchant category code over the bank code table", () => {
     const result = deterministicCategory(
-      input({ merchantCategoryCode: "5411", normalisedDescriptor: "netflix" })
+      input({
+        bankTransactionCode: "PRLV LOYER",
+        country: "FR",
+        merchantCategoryCode: "5411",
+      })
     );
 
     expect(result).toEqual({
@@ -40,56 +46,20 @@ describe("deterministicCategory", () => {
     expect(result?.stage).toBe("rules");
   });
 
-  it("prefers the counterparty name over the descriptor", () => {
-    const result = deterministicCategory(
-      input({
-        counterpartyName: "PHARMACIE DU CENTRE",
-        country: "FR",
-        normalisedDescriptor: "netflix",
-      })
-    );
-
-    expect(result?.category).toBe("pharmacy");
-  });
-
-  it("still reads the descriptor when the counterparty name matches nothing", () => {
-    const result = deterministicCategory(
-      input({
-        counterpartyName: "ZZZ UNKNOWN LTD",
-        normalisedDescriptor: "netflix com",
-      })
-    );
-
-    expect(result?.category).toBe("streaming");
-  });
-
-  it("falls back to the descriptor when no counterparty name is reported", () => {
-    const result = deterministicCategory(
-      input({ normalisedDescriptor: "netflix com" })
-    );
-
-    expect(result?.category).toBe("streaming");
-  });
-
-  it("does not fire on a brand name buried inside another word", () => {
-    const descriptorsHidingAShortBrandInsideAWord = [
-      "american express",
-      "american airlines",
-      "medical center",
-      "clinique medicale",
-      "cooperative agricole",
-      "boltons pub",
-    ];
-
-    for (const descriptor of descriptorsHidingAShortBrandInsideAWord) {
-      expect(
-        deterministicCategory(input({ normalisedDescriptor: descriptor }))
-      ).toBeNull();
-    }
+  it("reads no semantics out of the descriptor or the counterparty", () => {
+    expect(
+      deterministicCategory(
+        input({
+          counterpartyName: "PHARMACIE DU CENTRE",
+          country: "FR",
+          normalisedDescriptor: "netflix com",
+        })
+      )
+    ).toBeNull();
   });
 
   it("still matches the inflected forms banks actually write", () => {
-    const cases: [string, string, string | null][] = [
+    const cases: [string, SpendingCategory, string | null][] = [
       ["PRLV IMPOTS", "other-taxes", "FR"],
       ["VIREMENT LOYERS", "rent", "FR"],
       ["VIREMENT SALAIRES", "salary", "FR"],
@@ -112,32 +82,16 @@ describe("deterministicCategory", () => {
         input({ bankTransactionCode: "ÖVERFÖRING", country: "SE" })
       )?.category
     ).toBe("other-transfer");
-    expect(
-      deterministicCategory(input({ normalisedDescriptor: "apotek hjartat" }))
-        ?.category
-    ).toBe("pharmacy");
-  });
-
-  it("leaves a country's own vocabulary alone outside that country", () => {
-    expect(
-      deterministicCategory(
-        input({ country: "DE", normalisedDescriptor: "pharmacie du centre" })
-      )
-    ).toBeNull();
-  });
-
-  it("keeps the default layer for an unsupported country", () => {
-    const result = deterministicCategory(
-      input({ country: "DE", normalisedDescriptor: "netflix com" })
-    );
-
-    expect(result?.category).toBe("streaming");
   });
 
   it("rejects an expense keyword on a credit — that is a refund", () => {
     expect(
       deterministicCategory(
-        input({ amountMinor: 1500, normalisedDescriptor: "netflix com" })
+        input({
+          amountMinor: 1500,
+          bankTransactionCode: "PRLV LOYER",
+          country: "FR",
+        })
       )
     ).toBeNull();
   });
@@ -154,24 +108,15 @@ describe("deterministicCategory", () => {
     expect(result?.category).toBe("salary");
   });
 
-  it("reads a provider's own transaction type as a bank code the direction check refuses, then falls back to the descriptor", () => {
-    const result = deterministicCategory(
-      input({
-        amountMinor: 250_000,
-        bankTransactionCode: "transfer",
-        country: "FR",
-        normalisedDescriptor: "salaire",
-      })
-    );
-
-    expect(result?.category).toBe("salary");
-  });
-
-  it("reads rent wording from the descriptor", () => {
+  it("refuses a provider's own transaction type read as a bank code on a credit", () => {
     expect(
       deterministicCategory(
-        input({ country: "FR", normalisedDescriptor: "loyer mensuel" })
-      )?.category
-    ).toBe("rent");
+        input({
+          amountMinor: 250_000,
+          bankTransactionCode: "transfer",
+          country: "FR",
+        })
+      )
+    ).toBeNull();
   });
 });

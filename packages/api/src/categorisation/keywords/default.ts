@@ -20,22 +20,3 @@ export const merchantQualifiers: readonly string[] = [
   "mobile",
   "telecom",
 ];
-
-export const counterpartyKeywords: readonly [RegExp, SpendingCategory][] = [
-  [wholeTokenPattern("uber|lyft|bolt|taxis?|cabify"), "taxi"],
-  [wholeTokenPattern("netflix|spotify|disney|hbo|youtube"), "streaming"],
-  [wholeTokenPattern("apple\\.com|google play"), "software"],
-  [wholeTokenPattern("amazon|ebay"), "other-shopping"],
-  [wholeTokenPattern("zalando|asos|h&m|zara"), "clothing"],
-  [wholeTokenPattern("mcdonalds?|burger king|subway|dominos?"), "takeaway"],
-  [wholeTokenPattern("starbucks"), "bars-cafes"],
-  [
-    wholeTokenPattern(
-      "lidl|aldi|ica|coop|carrefour|tesco|walmart|target|albert heijn|migros"
-    ),
-    "groceries",
-  ],
-  [wholeTokenPattern("booking\\.com|airbnb|expedia"), "accommodation"],
-  [wholeTokenPattern("ryanair|easyjet|klm|lufthansa"), "flights"],
-  [wholeTokenPattern("apotek(?:et)?|pharmacy|apotheke"), "pharmacy"],
-];

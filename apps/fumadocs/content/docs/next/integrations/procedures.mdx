@@ -1,10 +1,10 @@
 ---
 title: Procedure reference
-description: All 36 procedures of the Freenary router, with their access rule, their input bounds, their output shape and their errors.
+description: All 37 procedures of the Freenary router, with their access rule, their input bounds, their output shape and their errors.
 icon: ListTree
 ---
 
-All 36 procedures, grouped by router. [API](/docs/integrations/api) holds the base URL, the transports and the sign-in steps.
+All 37 procedures, grouped by router. [API](/docs/integrations/api) holds the base URL, the transports and the sign-in steps.
 
 ## How to read this page
 
@@ -531,6 +531,31 @@ Protected. Sums money out per category group.
 
 **Errors**: none.
 
+### budget.getSyncStatus
+
+Protected. Reports the sync the caller has in flight, and `null` when none runs.
+
+**Input**: none.
+
+**Output**: `null`, or one object.
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `accountsDone` | number | Accounts read so far. |
+| `categorised` | number | Transactions the phase has decided so far, filed or left uncategorised. |
+| `categorisedTotal` | number | Transactions the phase has to decide. `0` until it starts. |
+| `phase` | enum | `importing` or `categorising`. |
+| `startedAt` | date | When the run claimed the user. |
+| `transactionsImported` | number | Transactions written so far, new and updated alike. |
+
+**Errors**: none.
+
+<Callout type="info">
+
+The counters move at most once a second. A run that stops writing for five minutes reads as `null` again. Poll this procedure while a sync runs: it answers from one row and takes no provider call.
+
+</Callout>
+
 ### budget.getTransactions
 
 Protected. The one paged procedure. Returns transactions in a date range, with the range totals.
@@ -575,15 +600,16 @@ Protected. The one paged procedure. Returns transactions in a date range, with t
 
 ### budget.recategorise
 
-Protected. Drops the pipeline verdicts and runs the pipeline again.
+Protected. Drops the pipeline verdicts and runs the pipeline again. It claims the sync run of the caller first, so it refuses while a sync runs.
 
 **Input**: none.
 
 **Output**
 
-| Field         | Type   | Note                           |
-| ------------- | ------ | ------------------------------ |
-| `categorised` | number | Transactions the run resolved. |
+| Field         | Type    | Note                                             |
+| ------------- | ------- | ------------------------------------------------ |
+| `categorised` | number  | Transactions the run resolved. `0` when refused. |
+| `started`     | boolean | `false` when another run already holds the user. |
 
 **Errors**: none.
 
@@ -604,6 +630,7 @@ Protected. Pulls fresh data from the bank provider, then categorises what is new
 | --- | --- | --- |
 | `categorised` | number | Transactions the run resolved. |
 | `error` | string or `undefined` | Provider failures, joined together. |
+| `started` | boolean | `false` when another run already holds the user. Nothing ran. |
 | `success` | boolean | `false` when at least one connection failed. |
 | `warning` | string or `undefined` | A categorisation failure. |
 
@@ -612,6 +639,8 @@ Protected. Pulls fresh data from the bank provider, then categorises what is new
 <Callout type="warn">
 
 This procedure returns HTTP 200 even when every connection failed. Read the `success` field, and not the status code.
+
+One sync runs per account holder. A second call while one runs answers `started: false` and touches nothing; follow `budget.getSyncStatus` instead of calling again. A run that writes nothing for five minutes counts as abandoned, and the next call claims it.
 
 </Callout>
 

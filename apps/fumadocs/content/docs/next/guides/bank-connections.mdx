@@ -97,6 +97,19 @@ Nothing refreshes your data at night. A sync runs in one of three cases:
 
 Budget reports the result: `Transactions are up to date`, or `Up to date · {count} transaction(s) categorised` when it filed some. A failure reads `Failed to sync transactions` and offers `Retry`. A single row reports `{institution} re-synced`.
 
+### Watch a sync run
+
+Budget shows a panel above the page while a sync runs. It names the step, counts what it did, and holds a bar:
+
+| Step | The panel reads | The bar |
+| --- | --- | --- |
+| Freenary reaches your banks | `Importing transactions from your banks`, then `Connecting to your banks`, `Account {n} of {total}`, or `{count} transactions so far` | Travels, because the total is not known yet |
+| Freenary files what arrived | `Sorting transactions into categories`, and `{done} of {total}` | Fills to that share |
+
+**Transactions appear while the sync runs.** The list, the totals and the charts refresh at every hundred transactions. A first sync thus fills the page in steps, not at the end. Transactions and Recurring show placeholder rows until the first ones arrive.
+
+The panel leaves when the sync ends. `Sync transactions` stays unavailable while it runs, in this tab and in every other one. One sync runs at a time. A sync that stops without a word, after a server restart for example, releases the panel after five minutes.
+
 <Callout type="warn">
 
 A transaction older than 90 days never arrives. No control widens the window.

@@ -10,6 +10,7 @@ import type {
   ProviderUserSession,
 } from "../providers/types";
 import { isInvestmentAccountType } from "../providers/types";
+import type { SyncReporter } from "./sync-progress";
 
 interface SyncAccount {
   id: string;
@@ -38,6 +39,7 @@ interface SyncWindow {
 interface ConnectionSyncContext {
   connection: ConnectionWithAccounts;
   provider: BankingProvider;
+  reporter: SyncReporter;
   user: ProviderUserSession | null;
   window: SyncWindow;
 }
@@ -189,11 +191,14 @@ const upsertTransaction = async (
 const upsertTransactionsInSeries = async (
   accountId: string,
   transactions: readonly ProviderTransaction[],
-  connection: ConnectionWithAccounts
+  connection: ConnectionWithAccounts,
+  reporter: SyncReporter
 ): Promise<void> => {
   for (const tx of transactions) {
     // eslint-disable-next-line no-await-in-loop -- sequential to avoid unique constraint races
     await upsertTransaction(accountId, tx, connection);
+    // eslint-disable-next-line no-await-in-loop -- the reporter writes at most once a second; the rest resolve immediately
+    await reporter.transactionsImported(1);
   }
 };
 
@@ -312,7 +317,7 @@ const syncWindow = (
 };
 
 const importAccount = async (context: AccountSyncContext): Promise<void> => {
-  const { account, connection, provider, user, window } = context;
+  const { account, connection, provider, reporter, user, window } = context;
 
   const transactions = await provider.fetchTransactions({
     dateFrom: window.dateFrom,
@@ -322,7 +327,12 @@ const importAccount = async (context: AccountSyncContext): Promise<void> => {
     user,
   });
 
-  await upsertTransactionsInSeries(account.id, transactions, connection);
+  await upsertTransactionsInSeries(
+    account.id,
+    transactions,
+    connection,
+    reporter
+  );
 
   const { fetchHoldings } = provider;
 
@@ -348,7 +358,12 @@ const importAccountsInSeries = (
       Effect.tryPromise({
         catch: accountFailure(account),
         try: () => importAccount({ ...context, account }),
-      }).pipe(Effect.catchTag("BankSyncFailed", recordFailure(errors))),
+      }).pipe(
+        Effect.catchTag("BankSyncFailed", recordFailure(errors)),
+        Effect.flatMap(() =>
+          Effect.promise(() => context.reporter.accountFinished())
+        )
+      ),
     { discard: true }
   );
 
@@ -356,6 +371,7 @@ const connectionSteps = Effect.fnUntraced(function* connectionSteps(
   connection: ConnectionWithAccounts,
   errors: string[],
   user: ProviderUserSession | null,
+  reporter: SyncReporter,
   reReadFullWindow: boolean
 ) {
   const failed = connectionFailure(connection);
@@ -372,8 +388,10 @@ const connectionSteps = Effect.fnUntraced(function* connectionSteps(
     try: () => refreshProviderAccounts(provider, connection, user),
   });
 
+  yield* Effect.promise(() => reporter.accountsDiscovered(accounts.length));
+
   yield* importAccountsInSeries(
-    { connection, provider, user, window },
+    { connection, provider, reporter, user, window },
     accounts,
     errors
   );
@@ -392,10 +410,11 @@ export const syncConnection = async (
   connection: ConnectionWithAccounts,
   errors: string[],
   user: ProviderUserSession | null,
+  reporter: SyncReporter,
   force = false
 ): Promise<void> => {
   await Effect.runPromise(
-    connectionSteps(connection, errors, user, force).pipe(
+    connectionSteps(connection, errors, user, reporter, force).pipe(
       Effect.catchTag("BankSyncFailed", recordFailure(errors))
     )
   );

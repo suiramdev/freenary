@@ -122,6 +122,12 @@ export const env = createEnv({
       .default(false)
       .describe("Implicit TLS (port 465). Leave off for STARTTLS on 587."),
     SMTP_USER: z.string().optional(),
+    TRANSACTION_CLASSIFIER: z
+      .enum(["jev"])
+      .optional()
+      .describe(
+        "Which classifier resolves merchants no deterministic stage knows. Unset means no model is called and such transactions stay uncategorised."
+      ),
     TRUSTED_PROXIES: z
       .string()
       .optional()
@@ -145,6 +151,13 @@ export const env = createEnv({
       )
       .describe(
         "Reverse-proxy addresses or CIDR ranges in front of this server, e.g. 10.0.0.0/24,192.0.2.10. Rate limits key on the caller's address, and without this list Better Auth counts every caller into one shared bucket. An entry it cannot parse has the same effect, so a typo is refused here at startup."
+      ),
+    TYPESAFE_API_KEY: z.string().optional(),
+    TYPESAFE_MODEL: z
+      .string()
+      .default("jev-latest")
+      .describe(
+        "TypeSafe model id or alias sent as `model`; part of the classification cache key."
       ),
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

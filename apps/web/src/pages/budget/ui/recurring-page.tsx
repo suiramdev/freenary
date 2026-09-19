@@ -22,6 +22,7 @@ import { groupRecurringItems } from "../model/recurring-filters";
 import { BUDGET_SEARCH_DEFAULTS } from "../model/search";
 import type { AmountRange } from "../model/transaction-filters";
 import { useRecurringView } from "../model/use-recurring-view";
+import { useSyncProgress } from "../model/use-sync-progress";
 import { RecurringCharts } from "./recurring-charts";
 import { RecurringInsights } from "./recurring-insights";
 import { RecurringKpiStrip } from "./recurring-kpi-strip";
@@ -41,7 +42,13 @@ export const RecurringPage = () => {
   const recurringQuery = useQuery(orpc.budget.getRecurring.queryOptions());
   const { data } = recurringQuery;
   const { isError } = recurringQuery;
-  const isPending = recurringQuery.isLoading;
+  const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
+  const syncProgress = useSyncProgress();
+  const isAwaitingFirstData =
+    syncProgress !== null &&
+    accountsQuery.isSuccess &&
+    accountsQuery.data.firstTransactionDate === null;
+  const isPending = recurringQuery.isLoading || isAwaitingFirstData;
 
   const asOf = useMemo(() => (data ? new Date(data.asOf) : new Date()), [data]);
 
@@ -97,7 +104,7 @@ export const RecurringPage = () => {
 
   const currency = data?.currency ?? "EUR";
 
-  if (data !== undefined && data.items.length === 0) {
+  if (data !== undefined && data.items.length === 0 && !isAwaitingFirstData) {
     return (
       <div className="flex flex-1 flex-col gap-6">
         <p className="text-muted-foreground text-xs">
