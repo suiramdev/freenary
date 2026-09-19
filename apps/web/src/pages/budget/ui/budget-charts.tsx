@@ -1,4 +1,4 @@
-import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import {
   Card,
   CardAction,
@@ -39,7 +39,7 @@ import { StaleRegion } from "./stale-region";
 type BreakdownData = ComponentProps<typeof SpendingBreakdownChart>["data"];
 type PlannedData = Pick<
   ComponentProps<typeof BudgetVsActualChart>,
-  "groups" | "hasPlan"
+  "categories" | "hasPlan"
 >;
 type FixedData = ComponentProps<typeof FixedVsVariableChart>;
 
@@ -51,7 +51,7 @@ interface ChartQuery<T> {
 }
 
 interface BudgetChartsProps {
-  activeGroups: CategoryGroup[];
+  activeCategories: SpendingCategory[];
   aggregation: AggregationMode;
   breakdown: ChartQuery<BreakdownData>;
   cashFlow: ChartQuery<CashFlowData>;
@@ -122,13 +122,13 @@ const PrimaryChartBody = ({
 };
 
 const CompanionChartBody = ({
-  activeGroups,
+  activeCategories,
   fixedVsVariable,
   onSelect,
   planned,
   view,
 }: {
-  activeGroups: CategoryGroup[];
+  activeCategories: SpendingCategory[];
   fixedVsVariable: ChartQuery<FixedData>;
   onSelect: (selection: CategorySelection) => void;
   planned: ChartQuery<PlannedData>;
@@ -161,7 +161,7 @@ const CompanionChartBody = ({
   return (
     <StaleRegion className="h-full" isStale={planned.isStale}>
       <BudgetVsActualChart
-        activeGroups={activeGroups}
+        activeCategories={activeCategories}
         {...planned.data}
         onSelect={onSelect}
       />
@@ -170,7 +170,7 @@ const CompanionChartBody = ({
 };
 
 export const BudgetCharts = ({
-  activeGroups,
+  activeCategories,
   aggregation,
   breakdown,
   cashFlow,
@@ -263,7 +263,7 @@ export const BudgetCharts = ({
         </CardHeader>
         <CardContent className={CHART_BODY}>
           <CompanionChartBody
-            activeGroups={activeGroups}
+            activeCategories={activeCategories}
             fixedVsVariable={fixedVsVariable}
             onSelect={onSelect}
             planned={planned}

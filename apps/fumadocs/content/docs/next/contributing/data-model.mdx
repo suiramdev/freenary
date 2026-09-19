@@ -108,7 +108,7 @@ The sync path writes `balanceMinor`, `balanceAt` and every `Holding` row, and no
 
 | Model and table | Key fields | Constraints and notes |
 | --- | --- | --- |
-| `CustomCategory`, table `custom_category` | `label String @db.Citext`, `color`, `icon`, `parentSlug?`, `sortOrder @default(0)` | `@@unique([userId, label])`, `@@index([userId, parentSlug, sortOrder])`, cascade. `color` comes from `CATEGORY_COLOR_VALUES` and `icon` from `CATEGORY_ICON_NAMES` |
+| `CustomCategory`, table `custom_category` | `label String @db.Citext`, `color`, `icon`, `parentSlug?`, `sortOrder @default(0)` | `@@unique([userId, label])`, `@@index([userId, parentSlug, sortOrder])`, cascade. `color` comes from `CATEGORY_COLOR_VALUES`, `icon` from `CATEGORY_ICON_NAMES`, and `parentSlug` from the three `CATEGORY_GROUPS` |
 | `BudgetLine`, table `budget_line` | `label?`, `amount Int` positive minor units, `categorySlug?`, `categoryId?`, `sortOrder @default(0)` | `@@index([userId, sortOrder])`, `@@index([categoryId])`. The `user` relation cascades and the `category` relation uses `onDelete: Restrict` |
 
 The budget lines of a user **are** the budget profile. No separate profile row exists. A line names a category and an amount. Its place in the flow comes from the group of that category, through `budgetLineKindOf`. The schema stores no kind column.
@@ -183,7 +183,7 @@ The last column is `isInvestmentAccountType`, a TypeScript lookup in `packages/a
 
 ### The dropped enum
 
-`BudgetLineKind` was a fourth type with the values `REVENUE`, `INVESTMENT` and `OUTGOING`. The migration `20260904120000_derive_budget_line_kind` dropped the type together with the column `budget_line.kind`. The three names survive as a TypeScript union, and `budgetLineKindOf` derives the value from the group of a category.
+`BudgetLineKind` was a fourth type with the values `REVENUE`, `INVESTMENT` and `OUTGOING`. The migration `20260904120000_derive_budget_line_kind` dropped the type together with the column `budget_line.kind`. The three names survive as a TypeScript union, and `budgetLineKindOf` derives the value from the group of a category. One group maps to each name: `income` to `REVENUE`, `investments` to `INVESTMENT` and `spending` to `OUTGOING`.
 
 ### Free-text vocabularies
 
@@ -204,7 +204,7 @@ Four writers touch the derived columns of a transaction.
 | Writer | Columns it writes |
 | --- | --- |
 | Sync, through `upsertTransaction` | Every raw provider column, plus `channel`, `intermediaryName`, `merchantKey`, `normalisedDescriptor`, `transactionPath`. On create it also sets `category: null` and `categoryOverride: false` |
-| `matchInternalTransfers` | `isInternalTransfer`, `resolvedCategory`, `resolutionStage` (the value `internal-transfer`), `resolutionConfidence` |
+| `matchInternalTransfers` | `isInternalTransfer`, and nothing else. A paired leg keeps the category the pipeline resolved for it |
 | `categoriseUncategorised` | `intermediaryName`, `resolvedCategory`, `resolutionStage`, `resolutionConfidence` |
 | `updateTransactionCategory` | `category` and `categoryOverride` on the row, the `MerchantOverride` row, and `category` on the siblings that share the merchant key |
 
@@ -271,7 +271,7 @@ Onboarding needs no model. Two columns on `User` hold the whole state: `taxCount
 
 ## Migrations
 
-Eight directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
+Ten directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
 
 | Directory | What it does |
 | --- | --- |
@@ -283,6 +283,8 @@ Eight directories sit under `packages/db/prisma/migrations`, with `migration_loc
 | `20260904154129_bank_provider_abstraction` | Creates `BankAccountType`, adds `bank_account.type`, `currency`, `balanceMinor` and `balanceAt`, then creates `bank_provider_user` and `holding` |
 | `20260904193133_assistant_conversations` | Creates `ConversationRole`, then `conversation` and `conversation_message` with their index, unique index and cascades |
 | `20260918120000_user_tax_countries` | Replaces `user.country` with the list `user.taxCountries`, carrying the single answer already on file into it |
+| `20260919120000_merchant_classification` | Creates `merchant_classification`, the instance-wide cache of classifier answers keyed by signature |
+| `20260920090000_sync_run` | Creates `SyncPhase`, then `sync_run` with its index and cascade |
 
 ### The loop for a schema change
 

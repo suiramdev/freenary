@@ -54,7 +54,7 @@ interface CategoryGroupHeaderProps {
   registerItem: (index: number, element: HTMLElement | null) => void;
 }
 
-const SKELETON_GROUPS = 16;
+const SKELETON_GROUPS = 3;
 
 const LIST_SIZE: SizeVariant = "default";
 

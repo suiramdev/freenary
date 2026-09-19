@@ -1,6 +1,7 @@
 import {
   CATEGORY_GROUPS,
   SPENDING_CATEGORIES,
+  TRANSACTION_DIRECTIONS,
 } from "@freenary/api/lib/taxonomy";
 import { z } from "zod";
 
@@ -31,7 +32,6 @@ export const RECURRING_COMPANION_VIEWS = [
   "frequency",
   "split",
 ] as const;
-export const TRANSACTION_DIRECTIONS = ["outgoing", "incoming"] as const;
 export const SORT_MODES = ["date", "amount"] as const;
 export const RECURRING_SORT_MODES = ["next", "cost"] as const;
 

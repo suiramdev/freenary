@@ -14,8 +14,8 @@ describe("budgetSearchSchema", () => {
     expect(budgetSearchSchema.parse({ cat: "groceries" })).toEqual({
       cat: ["groceries"],
     });
-    expect(budgetSearchSchema.parse({ grp: "housing" })).toEqual({
-      grp: ["housing"],
+    expect(budgetSearchSchema.parse({ grp: "spending" })).toEqual({
+      grp: ["spending"],
     });
   });
 
@@ -71,7 +71,7 @@ describe("nextBudgetSearch", () => {
   it("empties both category fields when the filter is cleared", () => {
     expect(
       nextBudgetSearch(
-        { cat: ["groceries"], grp: ["housing"] },
+        { cat: ["groceries"], grp: ["spending"] },
         { cat: [], grp: [] }
       )
     ).toEqual({});

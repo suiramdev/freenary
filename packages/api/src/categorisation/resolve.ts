@@ -77,7 +77,7 @@ export interface CategoriseBatchOptions {
 const CHANNEL_CATEGORY = {
   atm: "cash-withdrawal",
   cheque: "uncategorised",
-  fee: "bank-fees",
+  fee: "loans-bank-fees",
 } as const satisfies Partial<Record<TransactionChannel, SpendingCategory>>;
 
 const UNKNOWN_RESULT: ResolutionResult = {

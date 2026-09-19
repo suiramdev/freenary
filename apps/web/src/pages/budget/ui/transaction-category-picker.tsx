@@ -1,4 +1,7 @@
-import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
+import type {
+  SpendingCategory,
+  TransactionDirection,
+} from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import { RiResetLeftLine } from "@remixicon/react";
 
@@ -8,17 +11,23 @@ import { SpendingCategoryPicker } from "./spending-category-picker";
 
 export const TransactionCategoryPicker = ({
   category,
+  direction,
   isOverridden,
   onSelect,
   onReset,
 }: {
   category: SpendingCategory;
+  direction: TransactionDirection;
   isOverridden: boolean;
   onSelect: (category: SpendingCategory) => void;
   onReset: () => void;
 }) => (
   <div className="flex items-center gap-1">
-    <SpendingCategoryPicker onValueChange={onSelect} value={category} />
+    <SpendingCategoryPicker
+      direction={direction}
+      onValueChange={onSelect}
+      value={category}
+    />
 
     {isOverridden ? (
       <Button onClick={onReset} size="icon-compact" variant="ghost">

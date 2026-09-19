@@ -1,6 +1,12 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
-import { categoriesInGroup, CATEGORY_GROUPS } from "@freenary/api/lib/taxonomy";
-import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
+import {
+  categoriesForDirection,
+  CATEGORY_GROUP_OF,
+} from "@freenary/api/lib/taxonomy";
+import type {
+  SpendingCategory,
+  TransactionDirection,
+} from "@freenary/api/lib/taxonomy";
 import {
   Combobox,
   ComboboxContent,
@@ -21,24 +27,24 @@ import type { CategoryRow } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 
 interface SpendingCategoryPickerProps {
+  direction: TransactionDirection;
   onValueChange: (value: SpendingCategory) => void;
   value: SpendingCategory;
 }
 
 export const SpendingCategoryPicker = ({
+  direction,
   onValueChange,
   value,
 }: SpendingCategoryPickerProps) => {
   const items = useMemo<CategoryRow[]>(
     () =>
-      CATEGORY_GROUPS.flatMap((group) =>
-        categoriesInGroup(group).map((category) => ({
-          group: categoryGroupLabel(group),
-          label: categoryLabel(category),
-          value: category,
-        }))
-      ),
-    []
+      categoriesForDirection(direction).map((category) => ({
+        group: categoryGroupLabel(CATEGORY_GROUP_OF[category]),
+        label: categoryLabel(category),
+        value: category,
+      })),
+    [direction]
   );
 
   return (

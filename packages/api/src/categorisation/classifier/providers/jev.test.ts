@@ -72,8 +72,8 @@ describe("createJevClassifier", () => {
       { apiKey: "k", model: "jev-latest" },
       answering(
         {
-          group: choice("utilities", 0.9),
-          "leaf:utilities": choice("energy", 0.8),
+          group: choice("spending", 0.9),
+          "leaf:spending": choice("bills-utilities", 0.8),
         },
         calls
       )
@@ -98,14 +98,14 @@ describe("createJevClassifier", () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
       answering({
-        group: choice("utilities", 0.9),
-        "leaf:utilities": choice("energy", 0.8),
+        group: choice("spending", 0.9),
+        "leaf:spending": choice("bills-utilities", 0.8),
       })
     );
 
     expect(await classifier.classify(payload)).toEqual({
       answeredBy: ANSWERED_BY,
-      category: "energy",
+      category: "bills-utilities",
       confidence: 0.9 * 0.8,
     });
   });
@@ -114,8 +114,8 @@ describe("createJevClassifier", () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
       answering({
-        group: choice("utilities", 0.6),
-        "leaf:utilities": choice("energy", 0.6),
+        group: choice("spending", 0.6),
+        "leaf:spending": choice("bills-utilities", 0.6),
       })
     );
 
@@ -135,8 +135,8 @@ describe("createJevClassifier", () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
       answering({
-        group: choice("utilities", 0.9),
-        "leaf:utilities": choice("groceries", 0.9),
+        group: choice("spending", 0.9),
+        "leaf:spending": choice("salary", 0.9),
       })
     );
 

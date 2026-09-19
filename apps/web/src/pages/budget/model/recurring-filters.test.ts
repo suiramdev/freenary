@@ -9,7 +9,7 @@ import type { RecurringFilter } from "./recurring-filters";
 
 const item = (overrides: Partial<RecurringItem> = {}): RecurringItem => ({
   amountSpread: 0,
-  category: "streaming",
+  category: "subscriptions",
   confidence: "confirmed",
   currency: "EUR",
   frequency: "monthly",
@@ -35,17 +35,17 @@ const keys = (items: RecurringItem[]) =>
 describe("narrowing the recurring list", () => {
   it("reads a ticked group as every category in it", () => {
     const items = [
-      item({ category: "rent", merchantKey: "landlord" }),
-      item({ category: "streaming", merchantKey: "netflix" }),
+      item({ category: "savings", merchantKey: "savings-plan" }),
+      item({ category: "subscriptions", merchantKey: "netflix" }),
     ];
 
     const groups = groupRecurringItems(
       items,
-      filter({ categories: { categories: [], groups: ["housing"] } }),
+      filter({ categories: { categories: [], groups: ["investments"] } }),
       "cost"
     );
 
-    expect(keys(groups.fixed.items)).toEqual(["landlord"]);
+    expect(keys(groups.fixed.items)).toEqual(["savings-plan"]);
   });
 
   it("matches the bank's own key when it named no company", () => {

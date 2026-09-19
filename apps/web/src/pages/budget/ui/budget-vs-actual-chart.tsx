@@ -1,5 +1,5 @@
-import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
-import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
+import { categoryColor } from "@freenary/api/lib/taxonomy";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
@@ -13,22 +13,22 @@ import { motion } from "motion/react";
 import { useRef } from "react";
 
 import type { CategorySelection } from "@/entities/category";
-import { categoryGroupLabel } from "@/entities/category";
+import { categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
 import { PRESS_MOTION } from "./list-controls";
 
-interface PlannedGroup {
+interface PlannedCategory {
   actual: number;
-  group: CategoryGroup;
+  category: SpendingCategory;
   planned: number;
 }
 
 interface BudgetVsActualChartProps {
-  activeGroups: CategoryGroup[];
-  groups: PlannedGroup[];
+  activeCategories: SpendingCategory[];
+  categories: PlannedCategory[];
   hasPlan: boolean;
   onSelect: (selection: CategorySelection) => void;
 }
@@ -62,15 +62,15 @@ const PlannedRow = ({
   registerItem,
   scale,
 }: {
-  entry: PlannedGroup;
+  entry: PlannedCategory;
   index: number;
   isSelected: boolean;
   onSelect: (selection: CategorySelection) => void;
   registerItem: (index: number, element: HTMLElement | null) => void;
   scale: number;
 }) => {
-  const hasPlanForGroup = entry.planned > 0;
-  const isOverPlan = hasPlanForGroup && entry.actual > entry.planned;
+  const hasPlanForCategory = entry.planned > 0;
+  const isOverPlan = hasPlanForCategory && entry.actual > entry.planned;
   const rowRef = useRef<HTMLButtonElement>(null);
 
   useRegisterFluidHoverItem(registerItem, index, rowRef);
@@ -83,12 +83,12 @@ const PlannedRow = ({
         "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start",
         isSelected ? "text-foreground" : "text-muted-foreground"
       )}
-      onClick={() => onSelect({ group: entry.group, kind: "group" })}
+      onClick={() => onSelect({ category: entry.category, kind: "category" })}
       ref={rowRef}
       type="button"
     >
       <span className="flex items-baseline gap-2 text-xs">
-        <span className="truncate">{categoryGroupLabel(entry.group)}</span>
+        <span className="truncate">{categoryLabel(entry.category)}</span>
         <span
           className={cn(
             "shrink-0 text-[10px]",
@@ -99,18 +99,18 @@ const PlannedRow = ({
             m.budget_planned_over({
               amount: formatCurrency(entry.actual - entry.planned),
             })}
-          {hasPlanForGroup &&
+          {hasPlanForCategory &&
             !isOverPlan &&
             m.budget_planned_under({
               amount: formatCurrency(entry.planned - entry.actual),
             })}
-          {!hasPlanForGroup && m.budget_planned_unplanned()}
+          {!hasPlanForCategory && m.budget_planned_unplanned()}
         </span>
         <span className="ms-auto shrink-0 font-mono text-[11px] tabular-nums">
           <span className={isOverPlan ? "text-destructive" : "text-foreground"}>
             {formatCurrency(entry.actual)}
           </span>
-          {hasPlanForGroup && (
+          {hasPlanForCategory && (
             <span className="text-muted-foreground">
               {" / "}
               {formatCurrency(entry.planned)}
@@ -122,7 +122,7 @@ const PlannedRow = ({
         actualColor={
           isOverPlan
             ? "var(--destructive)"
-            : CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[entry.group]]
+            : CHART_COLOR_VARS[categoryColor(entry.category)]
         }
         actualShare={entry.actual / scale}
         plannedShare={entry.planned / scale}
@@ -132,8 +132,8 @@ const PlannedRow = ({
 };
 
 export const BudgetVsActualChart = ({
-  activeGroups,
-  groups,
+  activeCategories,
+  categories,
   hasPlan,
   onSelect,
 }: BudgetVsActualChartProps) => {
@@ -155,7 +155,7 @@ export const BudgetVsActualChart = ({
     );
   }
 
-  if (groups.length === 0) {
+  if (categories.length === 0) {
     return (
       <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
         {m.budget_breakdown_empty()}
@@ -164,7 +164,7 @@ export const BudgetVsActualChart = ({
   }
 
   const sharedScale = Math.max(
-    ...groups.map((entry) => Math.max(entry.planned, entry.actual))
+    ...categories.map((entry) => Math.max(entry.planned, entry.actual))
   );
 
   return (
@@ -182,12 +182,12 @@ export const BudgetVsActualChart = ({
           {...hover.handlers}
         >
           <FluidHoverHighlight className="rounded-lg" hover={hover} />
-          {groups.map((entry, index) => (
-            <li key={entry.group}>
+          {categories.map((entry, index) => (
+            <li key={entry.category}>
               <PlannedRow
                 entry={entry}
                 index={index}
-                isSelected={activeGroups.includes(entry.group)}
+                isSelected={activeCategories.includes(entry.category)}
                 onSelect={onSelect}
                 registerItem={hover.registerItem}
                 scale={sharedScale}

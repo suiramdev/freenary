@@ -1,5 +1,5 @@
-import { CATEGORY_GROUP_COLORS } from "@freenary/api/lib/taxonomy";
-import type { CategoryGroup } from "@freenary/api/lib/taxonomy";
+import { categoryColor } from "@freenary/api/lib/taxonomy";
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
 import type { ChartConfig } from "@freenary/ui/components/chart";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
@@ -16,7 +16,7 @@ import { Cell, Pie, PieChart } from "recharts";
 import type { PieSectorDataItem } from "recharts";
 
 import type { CategorySelection } from "@/entities/category";
-import { categoryGroupLabel } from "@/entities/category";
+import { categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { formatCurrency } from "@/shared/lib/format-currency";
@@ -24,25 +24,25 @@ import { ChartTooltipCard } from "@/shared/ui/chart-tooltip";
 
 import { PRESS_MOTION } from "./list-controls";
 
-interface GroupData {
+interface CategoryData {
   amount: number;
-  group: CategoryGroup;
+  category: SpendingCategory;
 }
 
 interface SpendingBreakdownChartProps {
-  data: GroupData[];
+  data: CategoryData[];
   onSelect?: (selection: CategorySelection | null) => void;
 }
 
 const UNSELECTED_OPACITY = 0.3;
 
-const buildConfigKeyedByGroupSlug = (data: GroupData[]): ChartConfig => {
+const buildConfigKeyedByCategorySlug = (data: CategoryData[]): ChartConfig => {
   const config: ChartConfig = {};
 
   for (const entry of data) {
-    config[entry.group] = {
-      color: CHART_COLOR_VARS[CATEGORY_GROUP_COLORS[entry.group]],
-      label: categoryGroupLabel(entry.group),
+    config[entry.category] = {
+      color: CHART_COLOR_VARS[categoryColor(entry.category)],
+      label: categoryLabel(entry.category),
     };
   }
 
@@ -57,7 +57,7 @@ const SpendingBreakdownTooltip = ({
 }: {
   active?: boolean;
   config: ChartConfig;
-  payload?: { payload?: GroupData }[];
+  payload?: { payload?: CategoryData }[];
   total: number;
 }) => {
   const slice = active ? payload?.[0]?.payload : undefined;
@@ -74,10 +74,10 @@ const SpendingBreakdownTooltip = ({
         <span className="flex items-center gap-1.5">
           <span
             className="size-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: config[slice.group]?.color }}
+            style={{ backgroundColor: config[slice.category]?.color }}
           />
           <span className="text-muted-foreground">
-            {config[slice.group]?.label ?? slice.group}
+            {config[slice.category]?.label ?? slice.category}
           </span>
         </span>
         <span className="text-foreground font-mono font-medium tabular-nums">
@@ -138,22 +138,21 @@ export const SpendingBreakdownChart = ({
   data,
   onSelect,
 }: SpendingBreakdownChartProps) => {
-  const config = buildConfigKeyedByGroupSlug(data);
-  const [selectedGroup, setSelectedGroup] = useState<CategoryGroup | null>(
-    null
-  );
+  const config = buildConfigKeyedByCategorySlug(data);
+  const [selectedCategory, setSelectedCategory] =
+    useState<SpendingCategory | null>(null);
   const legendRef = useRef<HTMLUListElement>(null);
   const legendHover = useFluidHover(legendRef, { axis: "xy" });
 
   const total = data.reduce((sum, entry) => sum + entry.amount, 0);
 
-  const toggleGroup = useCallback(
-    (group: CategoryGroup) => {
-      const next = selectedGroup === group ? null : group;
-      setSelectedGroup(next);
-      onSelect?.(next === null ? null : { group: next, kind: "group" });
+  const toggleCategory = useCallback(
+    (category: SpendingCategory) => {
+      const next = selectedCategory === category ? null : category;
+      setSelectedCategory(next);
+      onSelect?.(next === null ? null : { category: next, kind: "category" });
     },
-    [onSelect, selectedGroup]
+    [onSelect, selectedCategory]
   );
 
   const selectSlice = useCallback(
@@ -161,10 +160,10 @@ export const SpendingBreakdownChart = ({
       const entry = data[index];
 
       if (entry) {
-        toggleGroup(entry.group);
+        toggleCategory(entry.category);
       }
     },
-    [data, toggleGroup]
+    [data, toggleCategory]
   );
 
   if (data.length === 0) {
@@ -189,7 +188,7 @@ export const SpendingBreakdownChart = ({
             data={data}
             isAnimationActive={false}
             dataKey="amount"
-            nameKey="group"
+            nameKey="category"
             innerRadius="55%"
             outerRadius="100%"
             className={onSelect ? "cursor-pointer" : undefined}
@@ -197,10 +196,11 @@ export const SpendingBreakdownChart = ({
           >
             {data.map((entry) => (
               <Cell
-                key={entry.group}
-                fill={config[entry.group]?.color}
+                key={entry.category}
+                fill={config[entry.category]?.color}
                 fillOpacity={
-                  selectedGroup !== null && selectedGroup !== entry.group
+                  selectedCategory !== null &&
+                  selectedCategory !== entry.category
                     ? UNSELECTED_OPACITY
                     : 1
                 }
@@ -223,12 +223,12 @@ export const SpendingBreakdownChart = ({
           {data.map((d, index) => (
             <LegendChip
               amount={d.amount}
-              color={config[d.group]?.color}
+              color={config[d.category]?.color}
               index={index}
-              isSelected={selectedGroup === d.group}
-              key={d.group}
-              label={config[d.group]?.label ?? d.group}
-              onToggle={onSelect ? () => toggleGroup(d.group) : undefined}
+              isSelected={selectedCategory === d.category}
+              key={d.category}
+              label={config[d.category]?.label ?? d.category}
+              onToggle={onSelect ? () => toggleCategory(d.category) : undefined}
               registerItem={legendHover.registerItem}
             />
           ))}

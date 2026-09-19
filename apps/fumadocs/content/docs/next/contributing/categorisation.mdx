@@ -66,7 +66,7 @@ One constant table of three entries.
 | -------- | ----------------- |
 | `atm`    | `cash-withdrawal` |
 | `cheque` | `uncategorised`   |
-| `fee`    | `bank-fees`       |
+| `fee`    | `loans-bank-fees` |
 
 The channel value seeds from the ISO 20022 family code. A verb prefix overwrites it only when it is still `unknown`.
 
@@ -94,11 +94,16 @@ The default qualifier layer is `internet`, `mobile` and `telecom`. The French la
 
 ### Stage 4 — the deterministic layer
 
-**4a, the merchant category code.** Three ranges answer first: `3000-3299` gives `flights`, `3300-3499` gives `other-travel`, and `3500-3999` gives `accommodation`. A flat table of 221 keys answers after them. The stage runs no direction check. A code on a credit therefore lands in the category of the merchant, as a refund.
+**4a, the merchant category code.** One range answers first: the whole issuer-assigned block from `FIRST_ISSUER_ASSIGNED_TRAVEL_MCC` to `LAST_ISSUER_ASSIGNED_TRAVEL_MCC`, which is `3000-3999`, gives `transport-travel`. Airlines, car rental and lodging share one category now, so the three old sub-ranges collapsed into it. A flat table of 221 keys answers after it, over 13 distinct categories. The stage runs no direction check. A code on a credit therefore lands in the category of the merchant, as a refund.
 
 **4b, the bank code rules.** One lookup: the bank transaction code of the provider, lower-cased, against the `bankCode` table. Every candidate passes `acceptInDirection`, which rejects a non-income category on a positive amount. The tables concatenate the country layer before the default layer once, at module load. Only `FR` is registered: `default.ts` holds 6 rows and `fr.ts` holds 5. Each pattern is wrapped in lookarounds by `wholeTokenPattern`, so it matches whole tokens only.
 
-Neither the normalised descriptor nor the counterparty name is read here. The dictionary matches a merchant name as a whole merchant. The classifier reads the payment. A regular expression over free text does neither.
+1. The bank code against the `bankCode` table.
+2. The counterparty name against the `counterparty` table.
+3. The normalised descriptor against the `counterparty` table.
+4. The normalised descriptor against the `bankCode` table.
+
+Every candidate passes `acceptInDirection()`. It rejects a category whose direction is `out` on a positive amount, and it accepts everything else. A category with direction `in` or `both` therefore passes on either sign, and the guard fires on a credit alone. The tables concatenate the country layer before the default layer once, at module load. Only `FR` is registered: `default.ts` holds 9 rows and `fr.ts` holds 5. Each pattern is wrapped in lookarounds by `tokens()`, so it matches whole tokens only.
 
 </Step>
 
@@ -124,7 +129,7 @@ This stage runs for the whole batch at once, and only when `TRANSACTION_CLASSIFI
 
 | Pass | File | What it writes |
 | --- | --- | --- |
-| Internal transfers | `internal-transfer.ts` | Pairs an outgoing and an incoming transaction of equal absolute amount and the same currency, on two accounts of one user, inside 24 hours. It then sets `isInternalTransfer: true`, `resolvedCategory: "internal-transfer"`, `resolutionStage: "internal-transfer"` and `resolutionConfidence: 0.95` |
+| Internal transfers | `internal-transfer.ts` | Pairs an outgoing and an incoming transaction of equal absolute amount and the same currency, on two accounts of one user, inside 24 hours. It then sets `isInternalTransfer: true` and nothing else. A movement between the user's own accounts is a transaction type, and no category names it |
 | Recurrence | `recurrence.ts` | Nothing. It groups outgoing transactions by merchant key. It then reads a cadence, a recurrence type, a confidence level and a month-by-month split. The file holds no write, and each request recomputes the answer. [Recurrence detection](#recurrence-detection) holds the rules |
 
 The internal-transfer pass includes rows that already carry a category, and it returns `0` on any throw.
@@ -257,21 +262,27 @@ The third total is the fallback. A transaction with no `merchantKey`, or one tha
 
 | Thing | Symbol | Count |
 | --- | --- | --- |
-| Category groups, in flow order | `CATEGORY_GROUPS` | 16 |
-| Category slugs, income included | `SPENDING_CATEGORIES` | 75 |
+| Category groups, in flow order | `CATEGORY_GROUPS` | 3 |
+| Category slugs, income included | `SPENDING_CATEGORIES` | 27 |
 | Category to group | `CATEGORY_GROUP_OF` | exhaustive |
-| Group colours | `CATEGORY_COLOR_VALUES` | 7 |
-| Group icons | `CATEGORY_ICON_NAMES` | 18 |
-| Group fallbacks | `CATEGORY_GROUP_FALLBACKS` | one `other-*` slug per group |
-| Legacy slugs | `LEGACY_CATEGORY_SLUGS` | 17 pre-hierarchy spellings |
+| Category to direction | `CATEGORY_DIRECTION_OF` | exhaustive |
+| Category colours | `CATEGORY_COLOR_VALUES` | 7 |
+| Category icons | `CATEGORY_ICON_NAMES` | 28 |
+| Group fallbacks | `CATEGORY_GROUP_FALLBACKS` | one catch-all category per group |
+| Legacy slugs | `LEGACY_CATEGORY_SLUGS` | 70 old and pre-hierarchy spellings |
+| Legacy groups | `LEGACY_CATEGORY_GROUPS` | 14 old group names, all onto `spending` |
 
-The 16 groups are `income`, `investments`, `housing`, `utilities`, `daily-living`, `transport`, `travel` and `leisure`. The rest are `shopping`, `subscriptions`, `health`, `education`, `financial`, `taxes`, `transfers` and `other`.
+The 3 groups are `income`, `investments` and `spending`. They are sections of the flow of money, and not topics. `income` is what arrives. The other two are the two ways it leaves. `income` holds 7 categories, `investments` holds 4, and `spending` holds 16.
 
-**The hierarchy holds exactly two levels.** A group holds leaves and a leaf holds nothing. A colour and an icon belong to the group, so `categoryColor` and `categoryIcon` resolve through it.
+**The set is flat.** A group holds categories and a category holds nothing. A colour and an icon belong to the category itself. So `categoryColor` and `categoryIcon` are plain lookups in `CATEGORY_COLORS` and `CATEGORY_ICONS`. Two categories of one group therefore never render alike.
 
-**A signal maps to the most precise category it supports, and no further.** A merchant category code for a supermarket gives `groceries`. A bank code that proves housing alone gives `other-housing`, the group fallback. The pipeline invents no precision the signal does not carry.
+**Each category names one direction.** `CATEGORY_DIRECTION_OF` holds `in`, `out` or `both`, and `categoriesForDirection` reads it. That gives 10 categories on an incoming transaction, and 20 on an outgoing one. `people`, `cash-withdrawal` and `uncategorised` are the three that carry `both`. The pickers of the web app offer that list, and no procedure checks a direction against an amount.
 
-`LEGACY_CATEGORY_SLUGS` decodes a pre-hierarchy spelling, so a stored row and an old artifact still resolve. A reader cannot add or rename a predefined category. The array `SPENDING_CATEGORIES` is `as const`, and both the update procedure and the transaction filter accept its enum alone. Custom categories exist for budget lines, under the key space `custom:<id>`. [Categories](/docs/guides/categories) is the reader view.
+**A signal maps to the most precise category it supports, and no further.** A merchant category code for a supermarket gives `groceries`. A signal that proves the group alone gives that group's catch-all. Those are `other-income` for `income`, `savings` for `investments` and `uncategorised` for `spending`. The fallback ladder is those three entries, and nothing else. The pipeline invents no precision the signal does not carry.
+
+`LEGACY_CATEGORY_SLUGS` decodes the two-level spelling and the flat one before it. A stored row and an old artifact therefore still resolve. `LEGACY_CATEGORY_GROUPS` does the same for a group name, and every topic group lands on `spending`.
+
+A reader cannot add or rename a predefined category. The array `SPENDING_CATEGORIES` is `as const`, and both the update procedure and the transaction filter accept its enum alone. Custom categories exist for budget lines, under the key space `custom:<id>`. [Categories](/docs/guides/categories) is the reader view.
 
 ## User corrections
 
@@ -389,7 +400,7 @@ A store failure never fails the batch. A classifier failure never fails a transa
 
 `providers/jev.ts` calls the TypeSafe evaluation endpoint `https://api.typesafe.ai/v1/systemone` with `fetch`, and asks every question in one request. The questions are built once, at module load, from the taxonomy itself:
 
-- `group`, a choice over the 16 category groups plus `unknown`. Each one is described by its label and the labels of its leaves.
+- `group`, a choice over the three category groups plus `unknown`. Each one is described by its label and the labels of its leaves.
 - `leaf:<group>`, one choice per group over that group's leaves.
 
 TypeSafe answers every question in parallel, so the leaf answer of the chosen group is already in the response. The provider multiplies the two probabilities, and a joint probability below `JEV_ACCEPT_PROBABILITY`, which is `0.5`, is an abstention. So is the `unknown` group, and so is a `uncategorised` leaf. A leaf outside the chosen group is a contract failure: it is logged and refused.
@@ -442,7 +453,7 @@ The table reads the bank transaction code of the provider and nothing else. A ru
 
 ### Map to the right precision
 
-Map to the most precise category the signal supports. Use the group fallback when the signal proves the group alone.
+Map to the most precise category the signal supports. Where the signal proves the group alone, use that group's catch-all: `other-income`, `savings` or `uncategorised`. A signal that cannot even place the group belongs in no table.
 
 </Step>
 
@@ -464,7 +475,7 @@ Run the test file next to the one you changed with `bun test <path>`, then call 
 
 ### Extend the taxonomy
 
-Add the slug to `SPENDING_CATEGORIES` inside its group block, then to `CATEGORY_GROUP_OF` and `CATEGORY_LABELS`.
+Add the slug to its group's array in `CATEGORIES_BY_GROUP`, which is what builds `SPENDING_CATEGORIES`. Then add it to `CATEGORY_GROUP_OF`, `CATEGORY_LABELS`, `CATEGORY_DIRECTION_OF`, `CATEGORY_COLORS` and `CATEGORY_ICONS`. Each of those five is a `satisfies Record<SpendingCategory, …>`. A missed one is a TypeScript error, not a blank in the interface.
 
 </Step>
 
@@ -486,9 +497,9 @@ Add the entry to `CATEGORY_MESSAGES` in `apps/web/src/entities/category/model/ta
 
 <Step>
 
-### Migrate only for a retirement
+### Retire a slug through the decoder
 
-A new slug needs no migration. A retired slug needs an entry in `LEGACY_CATEGORY_SLUGS` and a data migration over `transaction.category`, `transaction.resolvedCategory`, `merchant_override.category` and `budget_line.categorySlug`. The migration `20260831120000_category_hierarchy` is the worked example.
+A new slug needs no more than the tables above. A retired slug needs an entry in `LEGACY_CATEGORY_SLUGS`, and a retired group needs one in `LEGACY_CATEGORY_GROUPS`. `resolveCategorySlug` and `resolveCategoryGroup` then decode a stored row and a prebuilt merchant dictionary that still spells the old name. Five columns hold a slug: `transaction.category`, `transaction.resolvedCategory`, `merchant_override.category`, `budget_line.categorySlug` and `custom_category.parentSlug`. No data migration rewrites them, because every read passes through the decoder.
 
 </Step>
 

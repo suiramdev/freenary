@@ -4,15 +4,15 @@
 
 1. **Name Suggestion Index (NSI)** — the OSM brand/operator index, providing ~9,800 consumer-facing merchants with mapped categories.
 2. **Wikidata brands** — ~51k commercial entities with official websites (P856), providing aliases and domain coverage that NSI misses.
-3. **Curated supplement** — a list of 54 merchant names and categories covering sectors NSI structurally under-covers. Aliases and domains for curated merchants are resolved at build time from the Wikidata artifact, not hard-coded.
+3. **Curated supplement** — a list of 47 merchant names and categories covering sectors NSI structurally under-covers. Aliases and domains for curated merchants are resolved at build time from the Wikidata artifact, not hard-coded.
 
-Each line is a `DictionaryMerchant` object with a pre-normalised name, mapped `SpendingCategory` (or `null` for Wikidata-only entries), and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
+Each line is a `DictionaryMerchant` object with a pre-normalised name, a mapped `SpendingCategory` — one of the 27 slugs in `src/lib/taxonomy.ts`, or `null` for Wikidata-only entries, and optional aliases and domains. The `source` field distinguishes provenance: `"nsi"`, `"wikidata"`, or `"curated"`.
 
 `countries` holds the ISO 3166-1 alpha-2 codes the merchant is scoped to — NSI geographic scope, or Wikidata `P17` — and is empty for a worldwide brand rather than absent from everywhere. Consumers filter on it in memory; there are no per-country files, because the unscoped worldwide tail every country needs would have to be duplicated into each one.
 
 ## Why three sources?
 
-NSI indexes OSM points of interest — retail shops, restaurants, fuel stations — so utilities, telecoms, rail operators, insurers, and subscription services are sparse or absent. These are precisely the SEPA direct-debit merchants that matter most for a budgeting product (EDF, Orange, SNCF, Netflix, AXA, etc.). The curated supplement fills those gaps. Curated entries take precedence over NSI and Wikidata entries with the same normalised name.
+NSI indexes OSM points of interest — retail shops, restaurants, fuel stations — so utilities, telecoms, rail operators and subscription services are sparse or absent. These are precisely the SEPA direct-debit merchants that matter most for a budgeting product (EDF, Orange, SNCF, Netflix, AXA, etc.). The curated supplement fills those gaps. Curated entries take precedence over NSI and Wikidata entries with the same normalised name.
 
 Wikidata broadens brand coverage to online-only and service businesses that lack OSM presence. When a Wikidata brand matches an existing NSI entry by normalised name, its aliases and domains are merged in. Unmatched Wikidata brands are added as new entries only if they carry at least one domain (evidence of being a real commercial entity). Because Wikidata has no OSM tags, these entries stay at `category: null` and serve name matching only.
 

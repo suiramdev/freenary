@@ -63,20 +63,20 @@ export const assistantTools = (api: AppRouterClient) =>
 
     get_budget_vs_actual: tool({
       description:
-        "Compare the user's declared monthly budget with what they actually spent, per category group.",
+        "Compare the user's declared monthly budget with what they actually spent, per category.",
       execute: async ({ aggregation: mode, from, to }) => {
-        const { groups, hasPlan } = await api.budget.getBudgetVsActual({
+        const { categories, hasPlan } = await api.budget.getBudgetVsActual({
           aggregation: mode,
           ...inclusiveDayRange(from, to),
         });
 
         return {
-          currency: "EUR",
-          groups: groups.map(({ actual, group, planned }) => ({
+          categories: categories.map(({ actual, category, planned }) => ({
             actual: decimalAmount(actual),
-            group,
+            category,
             planned: decimalAmount(planned),
           })),
+          currency: "EUR",
           hasPlan,
         };
       },
@@ -139,19 +139,19 @@ export const assistantTools = (api: AppRouterClient) =>
 
     get_spending_by_group: tool({
       description:
-        "Outgoing totals per category group for a period. The cheapest way to answer 'where did my money go'.",
+        "Outgoing totals per category for a period. The cheapest way to answer 'where did my money go'.",
       execute: async ({ aggregation: mode, from, to }) => {
-        const { groups } = await api.budget.getSpendingBreakdown({
+        const { categories } = await api.budget.getSpendingBreakdown({
           aggregation: mode,
           ...inclusiveDayRange(from, to),
         });
 
         return {
-          currency: "EUR",
-          groups: groups.map(({ amount, group }) => ({
-            group,
+          categories: categories.map(({ amount, category }) => ({
+            category,
             total: decimalAmount(amount),
           })),
+          currency: "EUR",
         };
       },
       inputSchema: z.object({ aggregation, ...period }),

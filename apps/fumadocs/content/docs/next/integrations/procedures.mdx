@@ -340,7 +340,7 @@ Protected. Lists the bank accounts of the caller and the date bounds of their tr
 
 ### budget.getBudgetVsActual
 
-Protected. Compares the planned amount per category group with the real spend.
+Protected. Compares the planned amount per spending category with the real spend.
 
 **Input**
 
@@ -354,7 +354,7 @@ Protected. Compares the planned amount per category group with the real spend.
 
 | Field | Type | Note |
 | --- | --- | --- |
-| `groups` | array of `{ actual, group, planned }` | `group` is a [category group](#category-groups). Largest planned amount first. |
+| `categories` | array of `{ actual, category, planned }` | `category` is a [spending category](#spending-categories). A row lands here when the plan or the spend is not zero. Largest planned amount first, then largest actual. |
 | `hasPlan` | boolean | `false` when the caller saved no outgoing budget line. |
 
 **Errors**: none.
@@ -513,7 +513,7 @@ Protected. Returns the nodes of the income-to-category flow.
 
 ### budget.getSpendingBreakdown
 
-Protected. Sums money out per category group.
+Protected. Sums money out per spending category.
 
 **Input**
 
@@ -525,9 +525,9 @@ Protected. Sums money out per category group.
 
 **Output**
 
-| Field    | Type                         | Note                  |
-| -------- | ---------------------------- | --------------------- |
-| `groups` | array of `{ amount, group }` | Largest amount first. |
+| Field        | Type                            | Note                  |
+| ------------ | ------------------------------- | --------------------- |
+| `categories` | array of `{ amount, category }` | Largest amount first. |
 
 **Errors**: none.
 
@@ -566,11 +566,11 @@ Protected. The one paged procedure. Returns transactions in a date range, with t
 | --- | --- | --- | --- | --- |
 | `amountMax` | number | no | — | An integer of 0 or more, in minor units. It reads the absolute amount. |
 | `amountMin` | number | no | — | An integer of 0 or more, in minor units. It reads the absolute amount. |
-| `categories` | array of enum | no | — | Items from the 75 [spending categories](#spending-categories). |
+| `categories` | array of enum | no | — | Items from the 27 [spending categories](#spending-categories). |
 | `cursor` | string | no | — | A `nextCursor` from an earlier call. |
 | `direction` | enum | no | — | `incoming` or `outgoing`. |
 | `from` | date | yes | — | The range includes this date. |
-| `groups` | array of enum | no | — | Items from the 16 [category groups](#category-groups). |
+| `groups` | array of enum | no | — | Items from the 3 [category groups](#category-groups). The server adds every category of a named group. |
 | `limit` | number | no | `50` | 1 to 100. |
 | `merchants` | array of string | no | — | Company names as `budget.getMerchants` returns them. |
 | `search` | string | no | — | A case-insensitive substring of the description or the counterparty name. |
@@ -652,7 +652,7 @@ Protected. Sets the category of one transaction, and remembers the merchant.
 
 | Field | Type | Required | Bounds |
 | --- | --- | --- | --- |
-| `category` | enum or `null` | yes | One of the 75 [spending categories](#spending-categories). `null` clears the override. |
+| `category` | enum or `null` | yes | One of the 27 [spending categories](#spending-categories). `null` clears the override. |
 | `transactionId` | string | yes | Must belong to the caller. |
 
 **Output**
@@ -713,9 +713,9 @@ Protected. Creates one custom category for the caller.
 | Field | Type | Required | Bounds |
 | --- | --- | --- | --- |
 | `color` | enum | yes | One of the 7 [category colours](#category-colours). |
-| `icon` | enum | yes | One of the 18 [category icons](#category-icons). |
+| `icon` | enum | yes | One of the 28 [category icons](#category-icons). |
 | `label` | string | yes | Trimmed, 1 to 40 characters. |
-| `parentSlug` | enum or `null` | yes | One of the 16 [category groups](#category-groups). `null` makes a top-level category. |
+| `parentSlug` | enum or `null` | yes | One of the 3 [category groups](#category-groups). `null` makes a top-level category. |
 
 **Output**
 
@@ -776,7 +776,7 @@ Protected. Returns the whole category tree the caller can pick from.
 | Field of one entry | Type | Note |
 | --- | --- | --- |
 | `color` | string | One of the 7 [category colours](#category-colours). |
-| `icon` | string | One of the 18 [category icons](#category-icons). |
+| `icon` | string | One of the 28 [category icons](#category-icons). |
 | `isAssignable` | boolean | `false` for a built-in group header. |
 | `isCustom` | boolean | `true` for a category of the caller. |
 | `isGroup` | boolean | `true` for a group header, and for a top-level custom category. |
@@ -849,10 +849,10 @@ Protected. Rewrites one custom category.
 | Field | Type | Required | Bounds |
 | --- | --- | --- | --- |
 | `color` | enum | yes | One of the 7 [category colours](#category-colours). |
-| `icon` | enum | yes | One of the 18 [category icons](#category-icons). |
+| `icon` | enum | yes | One of the 28 [category icons](#category-icons). |
 | `id` | string | yes | Must belong to the caller. |
 | `label` | string | yes | Trimmed, 1 to 40 characters. |
-| `parentSlug` | enum or `null` | yes | One of the 16 [category groups](#category-groups), or `null`. |
+| `parentSlug` | enum or `null` | yes | One of the 3 [category groups](#category-groups), or `null`. |
 
 **Output**
 
@@ -871,125 +871,47 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 
 ### Category groups
 
-16 values, in this order:
+3 values, in flow order:
 
 ```json
-[
-  "income",
-  "investments",
-  "housing",
-  "utilities",
-  "daily-living",
-  "transport",
-  "travel",
-  "leisure",
-  "shopping",
-  "subscriptions",
-  "health",
-  "education",
-  "financial",
-  "taxes",
-  "transfers",
-  "other"
-]
+["income", "investments", "spending"]
 ```
 
 ### Spending categories
 
-75 values. The comment marks the group each block belongs to.
+27 values. The comment marks the group each block belongs to. Each category also carries one direction, which [Transaction categorisation](/docs/contributing/categorisation#the-taxonomy) states.
 
 ```jsonc
 [
   // income
   "salary",
   "self-employment",
-  "benefits",
   "investment-income",
   "rental-income",
+  "benefits",
   "refunds",
   "other-income",
   // investments
   "savings",
   "securities",
   "retirement",
-  "life-insurance",
   "crypto",
-  "other-investment",
-  // housing
-  "rent",
-  "mortgage",
-  "home-charges",
-  "home-maintenance",
-  "home-insurance",
-  "other-housing",
-  // utilities
-  "energy",
-  "water",
-  "telecom",
-  "other-utilities",
-  // daily-living
+  // spending
   "groceries",
   "restaurants",
-  "takeaway",
-  "bars-cafes",
-  "personal-care",
-  "household-supplies",
-  "pets",
-  "childcare",
-  "other-daily-living",
-  // transport
-  "fuel",
-  "public-transport",
-  "taxi",
-  "vehicle-maintenance",
-  "vehicle-insurance",
-  "parking-tolls",
-  "other-transport",
-  // travel
-  "flights",
-  "accommodation",
-  "other-travel",
-  // leisure
-  "culture",
-  "sports",
-  "hobbies",
-  "other-leisure",
-  // shopping
-  "clothing",
-  "electronics",
-  "furniture",
-  "gifts",
-  "other-shopping",
-  // subscriptions
-  "streaming",
-  "software",
-  "memberships",
-  "other-subscription",
-  // health
-  "medical",
-  "pharmacy",
-  "health-insurance",
-  "other-health",
-  // education
-  "tuition",
-  "courses",
-  "other-education",
-  // financial
-  "bank-fees",
-  "loan-repayment",
-  "other-insurance",
-  "child-support",
-  "other-financial",
-  // taxes
-  "income-tax",
-  "property-tax",
-  "other-taxes",
-  // transfers
-  "internal-transfer",
+  "rent-mortgage",
+  "bills-utilities",
+  "car-fuel",
+  "transport-travel",
+  "shopping",
+  "entertainment",
+  "subscriptions",
+  "health",
+  "family-education",
+  "taxes",
+  "loans-bank-fees",
+  "people",
   "cash-withdrawal",
-  "other-transfer",
-  // other
-  "donations",
   "uncategorised",
 ]
 ```
@@ -1004,14 +926,18 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
 
 ### Category icons
 
-18 values:
+28 values:
 
 ```json
 [
   "AirplaneIcon",
   "ArrowsLeftRightIcon",
   "BankIcon",
+  "BitcoinIcon",
+  "BriefcaseIcon",
   "CarIcon",
+  "CashIcon",
+  "ChartPieIcon",
   "CoinsIcon",
   "DotsThreeIcon",
   "FilmSlateIcon",
@@ -1019,13 +945,19 @@ These are the literal values the input schemas accept. [Categories](/docs/guides
   "ForkKnifeIcon",
   "GraduationCapIcon",
   "HouseIcon",
+  "KeyIcon",
   "LightningIcon",
   "PiggyBankIcon",
+  "PlantIcon",
   "ReceiptIcon",
+  "RefundIcon",
   "RepeatIcon",
   "ShieldCheckIcon",
   "ShoppingBagIcon",
-  "StorefrontIcon"
+  "ShoppingCartIcon",
+  "StorefrontIcon",
+  "TrendUpIcon",
+  "UsersIcon"
 ]
 ```
 

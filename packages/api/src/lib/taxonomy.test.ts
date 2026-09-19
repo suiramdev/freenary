@@ -1,22 +1,25 @@
 import { describe, expect, it } from "bun:test";
-import fs from "node:fs";
-import path from "node:path";
 
 import {
   CATEGORY_COLOR_VALUES,
+  CATEGORY_DIRECTION_OF,
   CATEGORY_GROUP_FALLBACKS,
   CATEGORY_GROUP_LABELS,
   CATEGORY_GROUP_OF,
   CATEGORY_GROUPS,
   CATEGORY_ICON_NAMES,
   CATEGORY_LABELS,
+  LEGACY_CATEGORY_GROUPS,
   LEGACY_CATEGORY_SLUGS,
   SPENDING_CATEGORIES,
+  categoriesForDirection,
   categoriesInGroup,
   categoryColor,
+  categoryDirection,
   categoryIcon,
   isCategoryGroup,
   isSpendingCategory,
+  resolveCategoryGroup,
   resolveCategorySlug,
 } from "./taxonomy";
 import type { CategoryGroup } from "./taxonomy";
@@ -150,56 +153,66 @@ describe("resolveCategorySlug", () => {
   });
 });
 
-describe("category hierarchy migration", () => {
-  const migrationSql = fs.readFileSync(
-    path.resolve(
-      import.meta.dirname,
-      "../../../db/prisma/migrations/20260831120000_category_hierarchy/migration.sql"
-    ),
-    "utf-8"
-  );
-
-  const mappingInsertOnwards = migrationSql.slice(
-    migrationSql.indexOf('INSERT INTO "category_slug_migration"')
-  );
-  const mappingTuples = mappingInsertOnwards.slice(
-    0,
-    mappingInsertOnwards.indexOf(";")
-  );
-  const mappingRow =
-    /\('(?<legacy>[\w-]+)', '(?<category>[\w-]+)', '(?<group>[\w-]+)'\)/gu;
-
-  const rows = [...mappingTuples.matchAll(mappingRow)].map((match) => {
-    const { category, group, legacy } = match.groups ?? {};
-
-    if (
-      !(
-        legacy &&
-        category &&
-        group &&
-        isSpendingCategory(category) &&
-        isCategoryGroup(group)
-      )
-    ) {
-      throw new Error(`Migration maps to an unknown slug: ${match[0]}`);
+describe("resolveCategoryGroup", () => {
+  it("returns every current group unchanged", () => {
+    for (const group of CATEGORY_GROUPS) {
+      expect(resolveCategoryGroup(group)).toBe(group);
     }
-
-    return { category, group, legacy };
   });
 
-  it("maps each legacy slug exactly as LEGACY_CATEGORY_SLUGS does", () => {
-    expect(rows.map((row) => row.legacy).toSorted()).toEqual(
-      Object.keys(LEGACY_CATEGORY_SLUGS).toSorted()
+  it("maps every retired group to a current one", () => {
+    for (const [legacy, current] of Object.entries(LEGACY_CATEGORY_GROUPS)) {
+      expect(resolveCategoryGroup(legacy)).toBe(current);
+      expect(isCategoryGroup(current)).toBe(true);
+    }
+  });
+
+  it("returns null for a value that names no group", () => {
+    expect(resolveCategoryGroup("")).toBeNull();
+    expect(resolveCategoryGroup("custom:abc123")).toBeNull();
+    expect(resolveCategoryGroup("groceries")).toBeNull();
+  });
+});
+
+describe("categoriesForDirection", () => {
+  const incoming = categoriesForDirection("incoming");
+  const outgoing = categoriesForDirection("outgoing");
+
+  it("offers only current categories", () => {
+    for (const category of [...incoming, ...outgoing]) {
+      expect(SPENDING_CATEGORIES).toContain(category);
+    }
+  });
+
+  it("offers every both-way category in both directions", () => {
+    const bothWays = SPENDING_CATEGORIES.filter(
+      (category) => categoryDirection(category) === "both"
     );
 
-    for (const row of rows) {
-      expect(resolveCategorySlug(row.legacy)).toBe(row.category);
+    expect(bothWays.length).toBeGreaterThan(0);
+
+    for (const category of bothWays) {
+      expect(incoming).toContain(category);
+      expect(outgoing).toContain(category);
     }
   });
 
-  it("reparents custom categories onto the new category's group", () => {
-    for (const row of rows) {
-      expect(CATEGORY_GROUP_OF[row.category]).toBe(row.group);
+  it("keeps the one-way categories to their own direction", () => {
+    for (const category of SPENDING_CATEGORIES) {
+      const direction = CATEGORY_DIRECTION_OF[category];
+
+      if (direction === "both") {
+        continue;
+      }
+
+      expect(incoming.includes(category)).toBe(direction === "in");
+      expect(outgoing.includes(category)).toBe(direction === "out");
     }
+  });
+
+  it("covers the whole set across the two directions", () => {
+    expect(new Set([...incoming, ...outgoing]).size).toBe(
+      SPENDING_CATEGORIES.length
+    );
   });
 });

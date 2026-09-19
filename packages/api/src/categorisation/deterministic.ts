@@ -1,5 +1,5 @@
 import { categoryFromMcc } from "../lib/mcc-categories";
-import { CATEGORY_GROUP_OF } from "../lib/taxonomy";
+import { categoryDirection } from "../lib/taxonomy";
 import type { SpendingCategory } from "../lib/taxonomy";
 import type { KeywordTables } from "./keywords";
 import { keywordsFor, matchKeyword } from "./keywords";
@@ -18,10 +18,10 @@ export interface DeterministicResult {
 const MCC_CONFIDENCE = 0.8;
 const RULE_CONFIDENCE = 0.75;
 
-const readsAsRefund = (
+export const readsAsRefund = (
   category: SpendingCategory,
   amountMinor: OutgoingNegativeMinorUnits
-): boolean => amountMinor > 0 && CATEGORY_GROUP_OF[category] !== "income";
+): boolean => amountMinor > 0 && categoryDirection(category) === "out";
 
 const acceptInDirection = (
   category: SpendingCategory | null,

@@ -26,15 +26,23 @@ describe("categoryRowMatches", () => {
   });
 
   it("keeps every category of a group whose own name matches", () => {
-    expect(matching("utilities")).toEqual([...categoriesInGroup("utilities")]);
+    expect(matching("income")).toEqual([...categoriesInGroup("income")]);
   });
 
   it("keeps only the matching categories of a group named otherwise", () => {
     expect(matching("groceries")).toEqual(["groceries"]);
   });
 
-  it("matches an accented label typed without its accents", () => {
-    expect(matching("cafes")).toEqual(["bars-cafes"]);
+  it("matches a label and a group name typed without their accents", () => {
+    const accentedRow = {
+      group: "Épargne et placements",
+      label: "Retraite et épargne long terme",
+      value: "retirement",
+    };
+
+    expect(categoryRowMatches(accentedRow, "epargne long")).toBe(true);
+    expect(categoryRowMatches(accentedRow, "epargne et placements")).toBe(true);
+    expect(categoryRowMatches(accentedRow, "courses")).toBe(false);
   });
 
   it("returns nothing when no label matches", () => {
