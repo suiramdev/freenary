@@ -391,19 +391,18 @@ A merchant that no rule, no dictionary entry and no correction knows reaches the
 | Grouping | Every pending transaction with the same signature becomes one group, so one merchant costs one question whatever the amounts |
 | Cache | `MerchantClassification` answers first. A stored category applies at stage `cached-model`. A stored abstention is honoured for 30 days, then asked again |
 | Call | Bounded to 4 in flight, each with a 15-second timeout |
-| Validation | The answer must be a slug of the taxonomy with a confidence inside `0..1`. Anything else is refused, logged and cached nowhere |
+| Validation | The answer must be a slug of the taxonomy, with a confidence inside `0..1`, and the direction of the transaction must permit it. Anything else is refused, logged and cached nowhere |
 | Store | An accepted category and an explicit abstention are written. A failure, a timeout and a refused answer are not |
 
 A store failure never fails the batch. A classifier failure never fails a transaction: the deterministic result stands, and the row stays uncategorised.
 
 ### The jev provider
 
-`providers/jev.ts` calls the TypeSafe evaluation endpoint `https://api.typesafe.ai/v1/systemone` with `fetch`, and asks every question in one request. The questions are built once, at module load, from the taxonomy itself:
+`providers/jev.ts` calls the TypeSafe evaluation endpoint `https://api.typesafe.ai/v1/systemone` with `fetch`. It asks one question: which category describes this transaction. The two question sets, one for each direction, are built at module load from `categoriesForDirection`. A credit is offered the ten categories a credit can take, and a debit the twenty a debit can take. The model never sees an option that the picker refuses.
 
-- `group`, a choice over the three category groups plus `unknown`. Each one is described by its label and the labels of its leaves.
-- `leaf:<group>`, one choice per group over that group's leaves.
+Each option carries a sentence that describes the situation it covers, held in `CATEGORY_CRITERIA` beside the question. A label alone is not a rubric: `Other` and `People` say nothing on their own.
 
-TypeSafe answers every question in parallel, so the leaf answer of the chosen group is already in the response. The provider multiplies the two probabilities, and a joint probability below `JEV_ACCEPT_PROBABILITY`, which is `0.5`, is an abstention. So is the `unknown` group, and so is a `uncategorised` leaf. A leaf outside the chosen group is a contract failure: it is logged and refused.
+The provider thresholds the `confidence` of the answer at `JEV_ACCEPT_CONFIDENCE`, which is `0.5`. TypeSafe documents that value as the statistic to threshold on. Confidence measures how concentrated the distribution is, so it stays comparable when the taxonomy changes shape. A raw probability for one option falls as options are added, and a product of two of them falls twice. An answer below the bar is an abstention, and so is `uncategorised`. A category that the direction does not permit is a contract failure: the provider logs it and refuses it.
 
 `TYPESAFE_MODEL` defaults to the moving alias `jev-latest`. The cache key holds the configured string, so moving the alias keeps the stored answers. The `answeredBy` column records the versioned id that answered. Pin `TYPESAFE_MODEL` to a version to freeze both.
 

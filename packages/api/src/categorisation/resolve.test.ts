@@ -159,6 +159,26 @@ describe("categoriseTransaction", () => {
       expect(result.stage).toBe("none");
     });
   });
+
+  describe("direction invariant", () => {
+    it("refuses an outgoing-only dictionary hit on a credit", async () => {
+      const result = await categoriseTransaction({
+        ...baseInput,
+        amountMinor: 4200,
+      });
+
+      expect(result.category).toBeNull();
+    });
+
+    it("keeps that same merchant on a debit", async () => {
+      const result = await categoriseTransaction(baseInput);
+
+      expect(result).toMatchObject({
+        category: "groceries",
+        stage: "dictionary",
+      });
+    });
+  });
 });
 
 const scriptedClassifier = (
@@ -275,6 +295,35 @@ describe("categoriseBatch", () => {
         confidence: 0.9,
       },
     ]);
+  });
+
+  it("refuses a prediction the transaction's direction cannot take", async () => {
+    const classifier = scriptedClassifier(() =>
+      Promise.resolve({ category: "groceries" as const, confidence: 0.9 })
+    );
+    const store = memoryStore();
+
+    const [result] = await categoriseBatch(
+      [{ ...unresolved, amountMinor: 4200 }],
+      { classifier, countries: undefined, store }
+    );
+
+    expect(result?.category).toBeNull();
+    expect(store.rows.size).toBe(0);
+  });
+
+  it("accepts a both-direction prediction on a credit", async () => {
+    const classifier = scriptedClassifier(() =>
+      Promise.resolve({ category: "people" as const, confidence: 0.9 })
+    );
+    const store = memoryStore();
+
+    const [result] = await categoriseBatch(
+      [{ ...unresolved, amountMinor: 4200 }],
+      { classifier, countries: undefined, store }
+    );
+
+    expect(result?.category).toBe("people");
   });
 
   it("asks once per merchant identity, whatever the amounts", async () => {

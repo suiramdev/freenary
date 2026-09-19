@@ -23,19 +23,17 @@ export const readsAsRefund = (
   amountMinor: OutgoingNegativeMinorUnits
 ): boolean => amountMinor > 0 && categoryDirection(category) === "out";
 
-const acceptInDirection = (
+const accepted = (
   category: SpendingCategory | null,
-  amountMinor: OutgoingNegativeMinorUnits
+  amountMinor: OutgoingNegativeMinorUnits,
+  confidence: number,
+  stage: ResolutionStage
 ): DeterministicResult | null => {
-  if (!category) {
+  if (!category || readsAsRefund(category, amountMinor)) {
     return null;
   }
 
-  if (readsAsRefund(category, amountMinor)) {
-    return null;
-  }
-
-  return { category, confidence: RULE_CONFIDENCE, stage: "rules" };
+  return { category, confidence, stage };
 };
 
 const ruleHit = (
@@ -43,7 +41,9 @@ const ruleHit = (
   text: string | undefined,
   amountMinor: OutgoingNegativeMinorUnits
 ): DeterministicResult | null =>
-  text ? acceptInDirection(matchKeyword(table, text), amountMinor) : null;
+  text
+    ? accepted(matchKeyword(table, text), amountMinor, RULE_CONFIDENCE, "rules")
+    : null;
 
 export const deterministicCategory = (
   input: CategoriseInput
@@ -51,11 +51,16 @@ export const deterministicCategory = (
   const { amountMinor, bankTransactionCode, country, merchantCategoryCode } =
     input;
   const byMcc = merchantCategoryCode
-    ? categoryFromMcc(merchantCategoryCode)
+    ? accepted(
+        categoryFromMcc(merchantCategoryCode),
+        amountMinor,
+        MCC_CONFIDENCE,
+        "mcc"
+      )
     : null;
 
   if (byMcc) {
-    return { category: byMcc, confidence: MCC_CONFIDENCE, stage: "mcc" };
+    return byMcc;
   }
 
   return ruleHit(

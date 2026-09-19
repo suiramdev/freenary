@@ -116,6 +116,27 @@ describe("deterministicCategory", () => {
     ).toBeNull();
   });
 
+  it("rejects a merchant category code on a credit — that is a refund", () => {
+    expect(
+      deterministicCategory(
+        input({ amountMinor: 1500, merchantCategoryCode: "5411" })
+      )
+    ).toBeNull();
+  });
+
+  it("falls through to the bank code when the merchant category code reads as a refund", () => {
+    const result = deterministicCategory(
+      input({
+        amountMinor: 250_000,
+        bankTransactionCode: "VIREMENT SALAIRE",
+        country: "FR",
+        merchantCategoryCode: "5411",
+      })
+    );
+
+    expect(result?.category).toBe("salary");
+  });
+
   it("accepts an income keyword on a credit", () => {
     const result = deterministicCategory(
       input({

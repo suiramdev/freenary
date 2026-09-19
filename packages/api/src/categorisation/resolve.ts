@@ -1,7 +1,7 @@
 import { Data, Effect, Match, Option } from "effect";
 
 import type { SpendingCategory } from "../lib/taxonomy";
-import { isSpendingCategory } from "../lib/taxonomy";
+import { categoryDirection, isSpendingCategory } from "../lib/taxonomy";
 import { classificationInputFrom } from "./classifier/payload";
 import { classificationSignature } from "./classifier/signature";
 import type { ClassificationStore } from "./classifier/store";
@@ -10,7 +10,7 @@ import type {
   ClassificationPrediction,
   TransactionClassifier,
 } from "./classifier/types";
-import { deterministicCategory } from "./deterministic";
+import { deterministicCategory, readsAsRefund } from "./deterministic";
 import {
   loadDictionary,
   lookupDictionary,
@@ -218,23 +218,37 @@ const fromDeterministicRules = (
   };
 };
 
+const inDirection = (
+  result: ResolutionResult | null,
+  amountMinor: CategoriseInput["amountMinor"]
+): ResolutionResult | null =>
+  result?.category && readsAsRefund(result.category, amountMinor)
+    ? null
+    : result;
+
 const categoriseInternal = async (
   input: CategoriseInput
 ): Promise<ResolutionResult> => {
-  const byChannel = fromChannel(input);
+  const byChannel = inDirection(fromChannel(input), input.amountMinor);
 
   if (byChannel) {
     return byChannel;
   }
 
   if (input.merchantKey.length > 0) {
-    const byOverride = await fromUserOverride(input);
+    const byOverride = inDirection(
+      await fromUserOverride(input),
+      input.amountMinor
+    );
 
     if (byOverride) {
       return byOverride;
     }
 
-    const byDictionary = await fromDictionary(input);
+    const byDictionary = inDirection(
+      await fromDictionary(input),
+      input.amountMinor
+    );
 
     if (byDictionary) {
       return byDictionary;
@@ -324,9 +338,20 @@ const applyModelResult = (
   }
 };
 
+const contradictsDirection = (
+  category: SpendingCategory,
+  direction: ClassificationInput["direction"]
+): boolean => {
+  const allowed = categoryDirection(category);
+  const wanted = direction === "credit" ? "in" : "out";
+
+  return allowed !== "both" && allowed !== wanted;
+};
+
 const acceptedPrediction = (
   prediction: ClassificationPrediction,
-  provider: string
+  provider: string,
+  direction: ClassificationInput["direction"]
 ): Effect.Effect<ClassificationPrediction, ClassificationCallFailed> => {
   const { category, confidence } = prediction;
 
@@ -348,6 +373,18 @@ const acceptedPrediction = (
         provider,
         reason: {
           detail: `confidence ${confidence} is outside 0..1`,
+          kind: "unusable-answer",
+        },
+      })
+    );
+  }
+
+  if (contradictsDirection(category, direction)) {
+    return Effect.fail(
+      new ClassificationCallFailed({
+        provider,
+        reason: {
+          detail: `category ${category} cannot describe a ${direction}`,
           kind: "unusable-answer",
         },
       })
@@ -382,7 +419,9 @@ const askClassifier = Effect.fnUntraced(function* askClassifier(
     })
   );
 
-  return prediction ? yield* acceptedPrediction(prediction, provider) : null;
+  return prediction
+    ? yield* acceptedPrediction(prediction, provider, payload.direction)
+    : null;
 });
 
 const resolveSignature = Effect.fnUntraced(function* resolveSignature(

@@ -1,13 +1,8 @@
 import { Data, Effect, Match, Schema } from "effect";
 
-import type { CategoryGroup } from "../../../lib/taxonomy";
+import type { SpendingCategory } from "../../../lib/taxonomy";
 import {
-  categoriesInGroup,
-  CATEGORY_GROUP_LABELS,
-  CATEGORY_GROUP_OF,
-  CATEGORY_GROUPS,
-  CATEGORY_LABELS,
-  isCategoryGroup,
+  categoriesForDirection,
   isSpendingCategory,
 } from "../../../lib/taxonomy";
 import type {
@@ -30,7 +25,7 @@ type JevClassificationReason =
       readonly body: string;
     }
   | { readonly kind: "undecodable"; readonly detail: string }
-  | { readonly kind: "unknown-category"; readonly value: string };
+  | { readonly kind: "unoffered-category"; readonly value: string };
 
 export class JevClassificationFailed extends Data.TaggedError(
   "JevClassificationFailed"
@@ -44,8 +39,8 @@ export class JevClassificationFailed extends Data.TaggedError(
           `TypeSafe refused the classification: ${status} ${body}`,
         undecodable: ({ detail }) =>
           `TypeSafe answered outside the documented shape: ${detail}`,
-        "unknown-category": ({ value }) =>
-          `TypeSafe answered with a category this taxonomy does not hold: ${value}`,
+        "unoffered-category": ({ value }) =>
+          `TypeSafe answered with a category this transaction cannot take: ${value}`,
         unreachable: ({ detail }) => `TypeSafe is unreachable: ${detail}`,
       })
     );
@@ -54,45 +49,79 @@ export class JevClassificationFailed extends Data.TaggedError(
 
 const JEV_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
 const JEV_REQUEST_TIMEOUT_MS = 10_000;
-const JEV_ACCEPT_PROBABILITY = 0.5;
-const UNKNOWN_GROUP = "unknown";
-const GROUP_QUESTION_ID = "group";
+const JEV_ACCEPT_CONFIDENCE = 0.5;
+const CATEGORY_QUESTION_ID = "category";
 
-const leafQuestionId = (group: CategoryGroup): string => `leaf:${group}`;
+const CATEGORY_CRITERIA = {
+  benefits:
+    "A benefit, allowance, pension or other payment from a state body or a pension fund",
+  "bills-utilities":
+    "Electricity, gas, water, heating, waste, internet, mobile or landline telephone",
+  "car-fuel":
+    "Fuel, charging, parking, tolls, servicing, repair or anything else a private vehicle costs",
+  "cash-withdrawal": "Cash taken from or paid into an account",
+  crypto: "The purchase of a cryptocurrency or a payment to a crypto exchange",
+  entertainment:
+    "Cinema, concerts, sport, games, hobbies, books and other leisure, but not a recurring subscription",
+  "family-education":
+    "Childcare, school, university, tuition, child support and other family costs",
+  groceries: "Food and household shopping from a shop or a supermarket",
+  health:
+    "A doctor, a dentist, a hospital, a pharmacy, an optician or a health insurance premium",
+  "investment-income":
+    "A dividend, an interest payment, a coupon or the proceeds of a sale of an investment",
+  "loans-bank-fees":
+    "A loan repayment, credit interest, an account fee, a card fee or another bank charge",
+  "other-income": "Money received that no other income category describes",
+  people:
+    "Money sent to or received from a private individual, such as a friend or a relative",
+  refunds:
+    "A refund, a reimbursement, a returned payment or an insurance claim settlement",
+  "rent-mortgage":
+    "Rent, a mortgage instalment, a service charge or property tax on a home",
+  "rental-income": "Rent received from a property that the account holder lets",
+  restaurants:
+    "A restaurant, a cafe, a bar, a takeaway or a food delivery service",
+  retirement:
+    "A payment into a pension plan or another long-term retirement product",
+  salary: "Pay from an employer, including wages, a bonus and expenses repaid",
+  savings:
+    "A transfer into a savings account or another product held to keep money",
+  securities:
+    "The purchase of shares, bonds, funds or another market security, and a payment to a broker",
+  "self-employment":
+    "Money a customer or a client pays for work the account holder did",
+  shopping:
+    "Clothes, electronics, furniture, gifts and other goods that are not food",
+  subscriptions:
+    "A recurring charge for a service, such as streaming, software or a membership",
+  taxes: "Income tax, a social contribution or another payment to a tax office",
+  "transport-travel":
+    "A train, a bus, a plane, a taxi, a hotel or another journey away from home",
+  uncategorised:
+    "The text does not say what was bought or paid, and no other category fits with reasonable certainty",
+} as const satisfies Record<SpendingCategory, string>;
 
-const GROUP_CRITERIA = {
-  ...Object.fromEntries(
-    CATEGORY_GROUPS.map((group) => [
-      group,
-      `${CATEGORY_GROUP_LABELS[group]}: ${categoriesInGroup(group)
-        .map((leaf) => CATEGORY_LABELS[leaf])
-        .join(", ")}`,
-    ])
-  ),
-  [UNKNOWN_GROUP]:
-    "The text does not say what was bought or paid, and no group fits with reasonable certainty",
-};
-
-const JEV_QUESTIONS = {
-  [GROUP_QUESTION_ID]: {
-    criteria: GROUP_CRITERIA,
+const questionsFor = (offered: readonly SpendingCategory[]) => ({
+  [CATEGORY_QUESTION_ID]: {
+    criteria: Object.fromEntries(
+      offered.map((category) => [category, CATEGORY_CRITERIA[category]])
+    ) satisfies Record<string, string>,
     instructions:
-      "Which spending group best describes this bank transaction? Read the descriptor, merchant and counterparty together with the payment facts: direction, amount bucket, channel and merchant category code.",
+      "Which category best describes this bank transaction? Read the descriptor, merchant and counterparty together with the payment facts: amount bucket, channel and merchant category code. The options already match the direction of the transaction.",
     type: "choice",
   },
-  ...Object.fromEntries(
-    CATEGORY_GROUPS.map((group) => [
-      leafQuestionId(group),
-      {
-        criteria: Object.fromEntries(
-          categoriesInGroup(group).map((leaf) => [leaf, CATEGORY_LABELS[leaf]])
-        ),
-        instructions: `Within the ${CATEGORY_GROUP_LABELS[group]} group, which category fits this transaction?`,
-        type: "choice",
-      },
-    ])
-  ),
-};
+});
+
+const OFFERED_BY_DIRECTION = {
+  credit: categoriesForDirection("incoming"),
+  debit: categoriesForDirection("outgoing"),
+} as const;
+
+const QUESTIONS_BY_DIRECTION = {
+  credit: questionsFor(OFFERED_BY_DIRECTION.credit),
+  debit: questionsFor(OFFERED_BY_DIRECTION.debit),
+} as const;
 
 const ChoiceAnswerSchema = Schema.Struct({
   choice: Schema.String,
@@ -122,7 +151,7 @@ const readAnswers = Effect.fnUntraced(function* readAnswers(
       transport(JEV_ENDPOINT, {
         body: JSON.stringify({
           model: settings.model,
-          questions: JEV_QUESTIONS,
+          questions: QUESTIONS_BY_DIRECTION[input.direction],
           state: input,
         }),
         headers: {
@@ -167,54 +196,41 @@ const readAnswers = Effect.fnUntraced(function* readAnswers(
 });
 
 const readPrediction = Effect.fnUntraced(function* readPrediction(
-  answered: JevResponse
+  answered: JevResponse,
+  direction: ClassificationInput["direction"]
 ) {
-  const groupAnswer = answered.answers[GROUP_QUESTION_ID];
+  const answer = answered.answers[CATEGORY_QUESTION_ID];
 
-  if (!groupAnswer) {
+  if (!answer) {
     return yield* new JevClassificationFailed({
-      reason: { detail: "no group answer", kind: "undecodable" },
+      reason: { detail: "no category answer", kind: "undecodable" },
     });
   }
 
-  const group = groupAnswer.choice;
+  const category = answer.choice;
 
-  if (group === UNKNOWN_GROUP || !isCategoryGroup(group)) {
-    return null;
-  }
-
-  const leafAnswer = answered.answers[leafQuestionId(group)];
-
-  if (!leafAnswer) {
+  if (
+    !isSpendingCategory(category) ||
+    !OFFERED_BY_DIRECTION[direction].includes(category)
+  ) {
     return yield* new JevClassificationFailed({
-      reason: {
-        detail: `no answer for ${leafQuestionId(group)}`,
-        kind: "undecodable",
-      },
+      reason: { kind: "unoffered-category", value: category },
     });
   }
 
-  const leaf = leafAnswer.choice;
-
-  if (!isSpendingCategory(leaf) || CATEGORY_GROUP_OF[leaf] !== group) {
-    return yield* new JevClassificationFailed({
-      reason: { kind: "unknown-category", value: leaf },
-    });
-  }
-
-  if (leaf === "uncategorised") {
+  if (category === "uncategorised") {
     return null;
   }
 
-  const confidence =
-    (groupAnswer.probabilities[group] ?? 0) *
-    (leafAnswer.probabilities[leaf] ?? 0);
-
-  if (confidence < JEV_ACCEPT_PROBABILITY) {
+  if (answer.confidence < JEV_ACCEPT_CONFIDENCE) {
     return null;
   }
 
-  return { answeredBy: answered.model, category: leaf, confidence };
+  return {
+    answeredBy: answered.model,
+    category,
+    confidence: answer.confidence,
+  };
 });
 
 const classifyWith = (
@@ -224,7 +240,7 @@ const classifyWith = (
 ): Promise<ClassificationPrediction | null> =>
   Effect.runPromise(
     readAnswers(settings, transport, input).pipe(
-      Effect.flatMap(readPrediction),
+      Effect.flatMap((answered) => readPrediction(answered, input.direction)),
       Effect.match({
         onFailure: (failure: JevClassificationFailed) => {
           console.warn(`[categorisation] jev: ${failure.message}`);

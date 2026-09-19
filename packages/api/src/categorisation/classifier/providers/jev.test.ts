@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { CATEGORY_GROUPS } from "../../../lib/taxonomy";
+import { categoriesForDirection } from "../../../lib/taxonomy";
 import type { ClassificationInput, ClassifierTransport } from "../types";
 import { createJevClassifier } from "./jev";
 
@@ -15,7 +15,10 @@ interface RecordedCall {
   authorization: string | null;
   body: {
     model: string;
-    questions: Record<string, { type: string }>;
+    questions: Record<
+      string,
+      { type: string; criteria: Record<string, string> }
+    >;
     state: ClassificationInput;
   };
   url: string;
@@ -36,10 +39,10 @@ const payload: ClassificationInput = {
 
 const ANSWERED_BY = "jev-1.13.0";
 
-const choice = (picked: string, probability: number): ChoiceAnswer => ({
+const choice = (picked: string, confidence: number): ChoiceAnswer => ({
   choice: picked,
-  confidence: probability,
-  probabilities: { [picked]: probability },
+  confidence,
+  probabilities: { [picked]: confidence },
   type: "choice",
 });
 
@@ -66,17 +69,11 @@ const refusing =
     Promise.resolve(new Response("rate limited", { status }));
 
 describe("createJevClassifier", () => {
-  it("asks one group question and one leaf question per group over the payload", async () => {
+  it("asks one question over the payload, offering only what the direction allows", async () => {
     const calls: RecordedCall[] = [];
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
-      answering(
-        {
-          group: choice("spending", 0.9),
-          "leaf:spending": choice("bills-utilities", 0.8),
-        },
-        calls
-      )
+      answering({ category: choice("bills-utilities", 0.8) }, calls)
     );
 
     await classifier.classify(payload);
@@ -87,57 +84,98 @@ describe("createJevClassifier", () => {
     expect(call?.authorization).toBe("Bearer k");
     expect(call?.body.model).toBe("jev-latest");
     expect(call?.body.state).toEqual(payload);
-    expect(call?.body.questions.group?.type).toBe("choice");
+    expect(Object.keys(call?.body.questions ?? {})).toEqual(["category"]);
+    expect(call?.body.questions.category?.type).toBe("choice");
+    expect(Object.keys(call?.body.questions.category?.criteria ?? {})).toEqual([
+      ...categoriesForDirection("outgoing"),
+    ]);
+  });
 
-    for (const group of CATEGORY_GROUPS) {
-      expect(call?.body.questions[`leaf:${group}`]?.type).toBe("choice");
+  it("offers the incoming categories on a credit", async () => {
+    const calls: RecordedCall[] = [];
+    const classifier = createJevClassifier(
+      { apiKey: "k", model: "jev-latest" },
+      answering({ category: choice("salary", 0.8) }, calls)
+    );
+
+    await classifier.classify({ ...payload, direction: "credit" });
+
+    expect(
+      Object.keys(calls[0]?.body.questions.category?.criteria ?? {})
+    ).toEqual([...categoriesForDirection("incoming")]);
+  });
+
+  it("describes every offered category rather than naming it", async () => {
+    const calls: RecordedCall[] = [];
+    const classifier = createJevClassifier(
+      { apiKey: "k", model: "jev-latest" },
+      answering({ category: choice("bills-utilities", 0.8) }, calls)
+    );
+
+    await classifier.classify(payload);
+
+    for (const rubric of Object.values(
+      calls[0]?.body.questions.category?.criteria ?? {}
+    )) {
+      expect(rubric.split(" ").length).toBeGreaterThan(3);
     }
   });
 
-  it("multiplies the group and leaf probabilities into its confidence", async () => {
+  it("reports the answer's own confidence", async () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
-      answering({
-        group: choice("spending", 0.9),
-        "leaf:spending": choice("bills-utilities", 0.8),
-      })
+      answering({ category: choice("bills-utilities", 0.8) })
     );
 
     expect(await classifier.classify(payload)).toEqual({
       answeredBy: ANSWERED_BY,
       category: "bills-utilities",
-      confidence: 0.9 * 0.8,
+      confidence: 0.8,
     });
   });
 
-  it("abstains when the joint probability is below the acceptance bar", async () => {
+  it("abstains when the answer is below the acceptance bar", async () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
-      answering({
-        group: choice("spending", 0.6),
-        "leaf:spending": choice("bills-utilities", 0.6),
-      })
+      answering({ category: choice("bills-utilities", 0.4) })
     );
 
     expect(await classifier.classify(payload)).toBeNull();
   });
 
-  it("abstains when the model says it cannot tell", async () => {
+  it("abstains when the model says no category fits", async () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
-      answering({ group: choice("unknown", 0.95) })
+      answering({ category: choice("uncategorised", 0.95) })
     );
 
     expect(await classifier.classify(payload)).toBeNull();
   });
 
-  it("abstains on a leaf that does not belong to the chosen group", async () => {
+  it("abstains on a category the direction does not allow", async () => {
     const classifier = createJevClassifier(
       { apiKey: "k", model: "jev-latest" },
-      answering({
-        group: choice("spending", 0.9),
-        "leaf:spending": choice("salary", 0.9),
-      })
+      answering({ category: choice("groceries", 0.95) })
+    );
+
+    expect(
+      await classifier.classify({ ...payload, direction: "credit" })
+    ).toBeNull();
+  });
+
+  it("abstains on a category this taxonomy does not hold", async () => {
+    const classifier = createJevClassifier(
+      { apiKey: "k", model: "jev-latest" },
+      answering({ category: choice("household-supplies", 0.95) })
+    );
+
+    expect(await classifier.classify(payload)).toBeNull();
+  });
+
+  it("abstains when the answer is missing", async () => {
+    const classifier = createJevClassifier(
+      { apiKey: "k", model: "jev-latest" },
+      answering({})
     );
 
     expect(await classifier.classify(payload)).toBeNull();
