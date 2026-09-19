@@ -61,6 +61,7 @@ interface PendingGroup {
 
 interface ClassificationPhase {
   classifier: TransactionClassifier;
+  onSignatureSettled: () => Promise<void>;
   store: ClassificationStore;
   timeoutMs: number;
 }
@@ -68,6 +69,7 @@ interface ClassificationPhase {
 export interface CategoriseBatchOptions {
   countries: Iso3166Alpha2Country[] | undefined;
   classifier: TransactionClassifier | null;
+  onSignatureSettled?: () => Promise<void>;
   store: ClassificationStore;
   timeoutMs?: number;
 }
@@ -267,6 +269,8 @@ const CLASSIFIER_CONCURRENCY = 4;
 const CLASSIFIER_TIMEOUT_MS = 15_000;
 const ABSTENTION_RETRY_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
+const noProgress = (): Promise<void> => Promise.resolve();
+
 const groupPending = (
   transactions: CategoriseInput[],
   results: ResolutionResult[],
@@ -455,7 +459,10 @@ const classifyPending = Effect.fnUntraced(function* classifyPending(
 
   yield* Effect.forEach(
     [...groups],
-    ([signature, group]) => resolveSignature(phase, results, signature, group),
+    ([signature, group]) =>
+      resolveSignature(phase, results, signature, group).pipe(
+        Effect.flatMap(() => Effect.promise(phase.onSignatureSettled))
+      ),
     { concurrency: CLASSIFIER_CONCURRENCY }
   ).pipe(
     Effect.catchCause((cause) => {
@@ -483,6 +490,7 @@ const categoriseAll = async (
     classifyPending(
       {
         classifier,
+        onSignatureSettled: options.onSignatureSettled ?? noProgress,
         store: options.store,
         timeoutMs: options.timeoutMs ?? CLASSIFIER_TIMEOUT_MS,
       },

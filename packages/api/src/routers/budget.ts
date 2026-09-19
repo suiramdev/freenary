@@ -32,6 +32,12 @@ import {
 } from "../lib/budget-planned";
 import { budgetLineKindOf } from "../lib/budget-profile";
 import {
+  claimSyncRun,
+  createSyncReporter,
+  readSyncProgress,
+} from "../lib/sync-progress";
+import type { SyncReporter } from "../lib/sync-progress";
+import {
   CATEGORY_GROUP_OF,
   CATEGORY_GROUPS,
   SPENDING_CATEGORIES,
@@ -378,18 +384,25 @@ const pipelineFailureMessage = (failure: BudgetPipelineFailed): string => {
 };
 
 const writeResolutions = (
-  resolutions: TransactionResolution[]
+  resolutions: TransactionResolution[],
+  reporter: SyncReporter
 ): Effect.Effect<number> =>
   Effect.forEach(
     resolutions,
     ({ data, transactionId }) =>
       Effect.tryPromise(() =>
         prisma.transaction.update({ data, where: { id: transactionId } })
-      ).pipe(Effect.match({ onFailure: () => 0, onSuccess: () => 1 })),
+      ).pipe(
+        Effect.match({ onFailure: () => 0, onSuccess: () => 1 }),
+        Effect.tap(() => Effect.promise(() => reporter.categorised(1)))
+      ),
     { concurrency: 1 }
   ).pipe(Effect.map((written) => written.reduce((sum, one) => sum + one, 0)));
 
-const categoriseUncategorised = async (userId: string): Promise<number> => {
+const categoriseUncategorised = async (
+  userId: string,
+  reporter: SyncReporter
+): Promise<number> => {
   const uncategorised = await prisma.transaction.findMany({
     select: {
       account: {
@@ -422,6 +435,8 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
       resolvedCategory: null,
     },
   });
+
+  await reporter.categorisingStarted(uncategorised.length);
 
   if (uncategorised.length === 0) {
     return 0;
@@ -470,6 +485,7 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
   const results = await categoriseBatch(inputs, {
     classifier: transactionClassifier,
     countries: dictionaryCountries,
+    onSignatureSettled: reporter.heartbeat,
     store: prismaClassificationStore,
   });
   const resolutions = inputs.flatMap<TransactionResolution>((input, index) => {
@@ -492,7 +508,9 @@ const categoriseUncategorised = async (userId: string): Promise<number> => {
     ];
   });
 
-  return await Effect.runPromise(writeResolutions(resolutions));
+  await reporter.categorised(inputs.length - resolutions.length);
+
+  return await Effect.runPromise(writeResolutions(resolutions, reporter));
 };
 
 const calendarMonthKey = (date: Date) =>
@@ -574,6 +592,7 @@ const syncEveryConnection = (
   connections: Parameters<typeof syncConnection>[0][],
   errors: string[],
   userId: string,
+  reporter: SyncReporter,
   force: boolean
 ): Effect.Effect<void> =>
   Effect.forEach(
@@ -594,7 +613,13 @@ const syncEveryConnection = (
             getProvider(connection.provider)
           );
 
-          await syncConnection(connection, errors, providerUser, force);
+          await syncConnection(
+            connection,
+            errors,
+            providerUser,
+            reporter,
+            force
+          );
         },
       }).pipe(
         Effect.catchTag("BudgetPipelineFailed", (failure) => {
@@ -609,6 +634,7 @@ const syncEveryConnection = (
 const categoriseAfterSync = (
   userId: string,
   connectionId: string | undefined,
+  reporter: SyncReporter,
   force: boolean
 ): Effect.Effect<{ categorised: number; warning: string | undefined }> =>
   Effect.tryPromise({
@@ -619,7 +645,7 @@ const categoriseAfterSync = (
         await clearResolutions({ connectionId, userId });
       }
 
-      return await categoriseUncategorised(userId);
+      return await categoriseUncategorised(userId, reporter);
     },
   }).pipe(
     Effect.map((categorised) => ({ categorised, warning: undefined })),
@@ -630,6 +656,49 @@ const categoriseAfterSync = (
       })
     )
   );
+
+const runSyncAccounts = Effect.fnUntraced(function* runSyncAccounts(
+  userId: string,
+  connectionId: string | undefined,
+  force: boolean,
+  reporter: SyncReporter
+) {
+  const errors: string[] = [];
+  const where: Prisma.BankConnectionWhereInput = { status: "ACTIVE", userId };
+
+  if (connectionId) {
+    where.id = connectionId;
+  }
+
+  const connections = yield* Effect.promise(() =>
+    prisma.bankConnection.findMany({
+      include: {
+        accounts: {
+          select: { id: true, providerAccountId: true, type: true },
+        },
+      },
+      where,
+    })
+  );
+
+  yield* syncEveryConnection(connections, errors, userId, reporter, force);
+  yield* Effect.promise(() => matchInternalTransfers(userId));
+
+  const { categorised, warning } = yield* categoriseAfterSync(
+    userId,
+    connectionId,
+    reporter,
+    force
+  );
+
+  return {
+    categorised,
+    error: errors.length > 0 ? errors.join("; ") : undefined,
+    started: true,
+    success: errors.length === 0,
+    warning,
+  };
+});
 
 export const budgetRouter = {
   getAccounts: protectedProcedure.handler(async ({ context }) => {
@@ -1106,6 +1175,10 @@ export const budgetRouter = {
       return { groups };
     }),
 
+  getSyncStatus: protectedProcedure.handler(({ context }) =>
+    readSyncProgress(context.session.user.id)
+  ),
+
   getTransactions: protectedProcedure
     .input(
       z.object({
@@ -1289,12 +1362,22 @@ export const budgetRouter = {
 
   recategorise: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;
+    const claimedAt = await claimSyncRun(userId, "CATEGORISING");
 
-    await clearResolutions({ userId });
+    if (claimedAt === null) {
+      return { categorised: 0, started: false };
+    }
 
-    const categorised = await categoriseUncategorised(userId);
+    const reporter = createSyncReporter(userId, "CATEGORISING", claimedAt);
+    const categorised = await Effect.runPromise(
+      Effect.promise(async () => {
+        await clearResolutions({ userId });
 
-    return { categorised };
+        return await categoriseUncategorised(userId, reporter);
+      }).pipe(Effect.ensuring(Effect.promise(() => reporter.finished())))
+    );
+
+    return { categorised, started: true };
   }),
 
   syncAccounts: protectedProcedure
@@ -1308,44 +1391,28 @@ export const budgetRouter = {
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const connectionId = input?.connectionId;
-      const force = input?.force ?? false;
-      const errors: string[] = [];
+      const claimedAt = await claimSyncRun(userId, "IMPORTING");
 
-      const where: Prisma.BankConnectionWhereInput = {
-        status: "ACTIVE",
-        userId,
-      };
-
-      if (connectionId) {
-        where.id = connectionId;
+      if (claimedAt === null) {
+        return {
+          categorised: 0,
+          error: undefined,
+          started: false,
+          success: true,
+          warning: undefined,
+        };
       }
 
-      const connections = await prisma.bankConnection.findMany({
-        include: {
-          accounts: {
-            select: { id: true, providerAccountId: true, type: true },
-          },
-        },
-        where,
-      });
+      const reporter = createSyncReporter(userId, "IMPORTING", claimedAt);
 
-      await Effect.runPromise(
-        syncEveryConnection(connections, errors, userId, force)
+      return await Effect.runPromise(
+        runSyncAccounts(
+          userId,
+          input?.connectionId,
+          input?.force ?? false,
+          reporter
+        ).pipe(Effect.ensuring(Effect.promise(() => reporter.finished())))
       );
-
-      await matchInternalTransfers(userId);
-
-      const { categorised, warning } = await Effect.runPromise(
-        categoriseAfterSync(userId, connectionId, force)
-      );
-
-      return {
-        categorised,
-        error: errors.length > 0 ? errors.join("; ") : undefined,
-        success: errors.length === 0,
-        warning,
-      };
     }),
 
   updateTransactionCategory: protectedProcedure

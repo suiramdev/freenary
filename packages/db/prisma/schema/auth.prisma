@@ -22,6 +22,7 @@ model User {
   budgetLines           BudgetLine[]
   customCategories      CustomCategory[]
   conversations         Conversation[]
+  syncRun               SyncRun?
 
   @@unique([email])
   @@map("user")

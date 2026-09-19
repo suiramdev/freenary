@@ -340,6 +340,14 @@
     background-position: 100% 0;
   }
 }
+@keyframes progress-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
 
 @property --sf-start {
   syntax: "<number>";

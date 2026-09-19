@@ -1,13 +1,17 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { m } from "@/paraglide/messages.js";
-import { client, invalidateBudgetData } from "@/shared/api";
+import { client, invalidateBudgetData, orpc } from "@/shared/api";
 
 interface SyncVariables {
   force?: boolean;
 }
+
+const SYNC_POLL_INTERVAL_MS = 1500;
+
+const TRANSACTIONS_PER_REFRESH = 100;
 
 export const useAccountSync = (hasAccounts: boolean | undefined) => {
   const queryClient = useQueryClient();
@@ -22,6 +26,10 @@ export const useAccountSync = (hasAccounts: boolean | undefined) => {
         },
       });
     },
+    onMutate: () =>
+      queryClient.invalidateQueries({
+        queryKey: orpc.budget.getSyncStatus.key(),
+      }),
     onSuccess: async (result, variables) => {
       await invalidateBudgetData(queryClient);
 
@@ -38,7 +46,7 @@ export const useAccountSync = (hasAccounts: boolean | undefined) => {
 
       const wasAskedForByUser = variables.force === true;
 
-      if (!wasAskedForByUser) {
+      if (!(wasAskedForByUser && result.started)) {
         return;
       }
 
@@ -50,16 +58,46 @@ export const useAccountSync = (hasAccounts: boolean | undefined) => {
     },
   });
 
-  const hasStartedBackgroundSync = useRef(false);
+  const isRequestInFlight = syncMutation.isPending;
+  const statusQuery = useQuery({
+    ...orpc.budget.getSyncStatus.queryOptions(),
+    refetchInterval: (query) =>
+      (query.state.data ?? null) === null && !isRequestInFlight
+        ? false
+        : SYNC_POLL_INTERVAL_MS,
+  });
+
+  const progress = statusQuery.data ?? null;
+  const phase = progress?.phase ?? null;
+  const importedTick = Math.floor(
+    (progress?.transactionsImported ?? 0) / TRANSACTIONS_PER_REFRESH
+  );
+  const refreshKey = phase === null ? null : `${phase}:${importedTick}`;
+  const refreshedKey = useRef<string | null>(null);
+
   useEffect(() => {
-    if (hasAccounts && !hasStartedBackgroundSync.current) {
+    if (refreshedKey.current === refreshKey) {
+      return;
+    }
+
+    refreshedKey.current = refreshKey;
+
+    void invalidateBudgetData(queryClient);
+  }, [queryClient, refreshKey]);
+
+  const hasStartedBackgroundSync = useRef(false);
+  const isIdle = statusQuery.isSuccess && progress === null;
+
+  useEffect(() => {
+    if (hasAccounts && isIdle && !hasStartedBackgroundSync.current) {
       hasStartedBackgroundSync.current = true;
       syncMutation.mutate({});
     }
-  }, [hasAccounts, syncMutation]);
+  }, [hasAccounts, isIdle, syncMutation]);
 
   return {
-    isSyncing: syncMutation.isPending,
+    isSyncing: isRequestInFlight || progress !== null,
+    progress,
     resync: () => syncMutation.mutate({ force: true }),
   };
 };

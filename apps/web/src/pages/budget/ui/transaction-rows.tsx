@@ -28,6 +28,8 @@ import { TransactionRowsSkeleton } from "./transaction-rows-skeleton";
 
 const ROWS_BEFORE_END_TO_PREFETCH = 5;
 
+const ROWS_WHILE_EMPTY = 6;
+
 export const TransactionRows = ({
   transactions,
   hasMore,
@@ -101,6 +103,17 @@ export const TransactionRows = ({
   useEffect(() => {
     loadMoreCheck();
   }, [loadMoreCheck]);
+
+  if (transactions.length === 0 && isLoading) {
+    return (
+      <div aria-busy="true" className="flex flex-1 flex-col">
+        <output className="sr-only">{m.budget_transactions_loading()}</output>
+        <div aria-hidden="true">
+          <TransactionRowsSkeleton rows={ROWS_WHILE_EMPTY} />
+        </div>
+      </div>
+    );
+  }
 
   if (transactions.length === 0 && !isLoading) {
     return (

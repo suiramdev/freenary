@@ -21,6 +21,7 @@ import type { PeriodInput, TransactionsInput } from "../api/budget-queries";
 import type { SortMode, TransactionDirection } from "../model/search";
 import type { AmountRange } from "../model/transaction-filters";
 import { useBudgetView } from "../model/use-budget-view";
+import { useSyncProgress } from "../model/use-sync-progress";
 import { BudgetCharts } from "./budget-charts";
 import { BudgetKpiStrip } from "./budget-kpi-strip";
 import { PeriodNavigator } from "./period-navigator";
@@ -168,6 +169,11 @@ export const TransactionsPage = () => {
     incoming: 0,
     outgoing: 0,
   };
+  const syncProgress = useSyncProgress();
+  const hasNoHistoryYet =
+    accountsQuery.isSuccess && accountsQuery.data.firstTransactionDate === null;
+  const isAwaitingFirstData = syncProgress !== null && hasNoHistoryYet;
+  const isFilling = (isLoading: boolean) => isLoading || isAwaitingFirstData;
   const selectedTransaction = selectedTransactionId
     ? (allTransactions.find((t) => t.id === selectedTransactionId) ?? null)
     : null;
@@ -205,7 +211,7 @@ export const TransactionsPage = () => {
       <BudgetKpiStrip
         aggregation={aggregation}
         isError={sankeyQuery.isError}
-        isPending={sankeyQuery.isLoading}
+        isPending={isFilling(sankeyQuery.isLoading)}
         isStale={isStaleView(sankeyQuery)}
         totalExpenses={sankeyQuery.data?.totalExpenses ?? 0}
         totalIncome={sankeyQuery.data?.totalIncome ?? 0}
@@ -217,20 +223,20 @@ export const TransactionsPage = () => {
         breakdown={{
           data: breakdownQuery.data?.groups,
           isError: breakdownQuery.isError,
-          isPending: breakdownQuery.isLoading,
+          isPending: isFilling(breakdownQuery.isLoading),
           isStale: isStaleView(breakdownQuery),
         }}
         cashFlow={{
           data: sankeyQuery.data,
           isError: sankeyQuery.isError,
-          isPending: sankeyQuery.isLoading,
+          isPending: isFilling(sankeyQuery.isLoading),
           isStale: isStaleView(sankeyQuery),
         }}
         companion={companion}
         fixedVsVariable={{
           data: fixedVsVariableQuery.data,
           isError: fixedVsVariableQuery.isError,
-          isPending: fixedVsVariableQuery.isLoading,
+          isPending: isFilling(fixedVsVariableQuery.isLoading),
           isStale: isStaleView(fixedVsVariableQuery),
         }}
         onCompanionChange={(next) => applyPatch({ companion: next })}
@@ -239,7 +245,7 @@ export const TransactionsPage = () => {
         planned={{
           data: budgetVsActualQuery.data,
           isError: budgetVsActualQuery.isError,
-          isPending: budgetVsActualQuery.isLoading,
+          isPending: isFilling(budgetVsActualQuery.isLoading),
           isStale: isStaleView(budgetVsActualQuery),
         }}
         view={view}
@@ -267,7 +273,8 @@ export const TransactionsPage = () => {
         hasMore={transactionsQuery.hasNextPage}
         onLoadMore={handleLoadMore}
         isLoading={
-          transactionsQuery.isLoading || transactionsQuery.isFetchingNextPage
+          isFilling(transactionsQuery.isLoading) ||
+          transactionsQuery.isFetchingNextPage
         }
         isStale={isStaleView(transactionsQuery)}
         onTransactionClick={(tx) => setSelectedTransactionId(tx.id)}

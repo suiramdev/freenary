@@ -313,6 +313,33 @@ describe("categoriseBatch", () => {
     expect(results.map((result) => result.stage)).toEqual(["model", "model"]);
   });
 
+  it("reports once per merchant identity it settled", async () => {
+    const classifier = scriptedClassifier(() =>
+      Promise.resolve({ category: "groceries", confidence: 0.9 })
+    );
+    const settled: number[] = [];
+
+    await categoriseBatch(
+      [
+        { ...unresolved, amountMinor: -500 },
+        { ...unresolved, amountMinor: -90_000 },
+        { ...unresolved, merchantKey: "other shop" },
+      ],
+      {
+        classifier,
+        countries: undefined,
+        onSignatureSettled: () => {
+          settled.push(settled.length);
+
+          return Promise.resolve();
+        },
+        store: memoryStore(),
+      }
+    );
+
+    expect(settled).toHaveLength(2);
+  });
+
   it("reuses a stored answer on the next batch", async () => {
     const store = memoryStore();
     const first = scriptedClassifier(() =>
