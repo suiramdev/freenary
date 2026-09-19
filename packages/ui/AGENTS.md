@@ -60,6 +60,8 @@ The baseline is `mickadesign/fluid-functionalism@e07409c`, vendored 2026-09-10. 
 
 `oxlint.config.ts` ignores `packages/ui/**` on purpose, so the no-comments rule does not reach these files and the upstream comments stay: a small diff against upstream is worth more here than house style.
 
+That same ignore keeps `@shadcn/lint` off this package, which is correct: a rule such as `no-restyle` protects the design system from its callers, and the components here _are_ the design system. A caller reaches them as `@freenary/ui/components/<name>`, the prefix `apps/web/components.json` declares, so the linter reads their variants and names a real size in its errors.
+
 ## The Brand Avatar
 
 `BrandAvatar` (`src/components/brand-avatar.tsx`) is the product mark as a character. `state="logo"` draws exactly the static ring the favicon draws — the same measured proportions, the same three arcs — and every other state morphs out of it. The engine behind it lives in `src/lib/brand-avatar/` and is framework-free:
