@@ -8,7 +8,7 @@ Every transaction sits in one category, and every category sits in one group. On
 
 ## The fixed vocabulary
 
-Freenary ships **3 category groups** and **27 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. A category takes the color of its group. Your own categories can be renamed, nested under a group, reordered or removed.`
+Freenary ships **3 category groups** and **27 categories** inside them. You cannot add, rename or remove either one. The section itself says so: `Categories are grouped, and the groups are fixed. A category takes the color of its parent. Your own categories can be renamed, reordered or removed, and nested under a group or under one of your top-level categories. Nesting stops at one level.`
 
 A group is a section of the flow of money, and not a topic. `Income` is what arrives. `Savings & investment` and `Spending` are the two ways it leaves.
 
@@ -81,24 +81,24 @@ So `Salary & wages` never appears on a card payment, and `Groceries` never appea
 
 ### Where to read the list
 
-Open Settings, group `Budgeting`, section `Categories`. Every group starts closed, with a badge that counts what is inside it. Open one to read its categories.
+Open Settings, pane `Budget`, section `Categories`. Every group starts closed. Open one to read its categories.
 
-A built-in category carries the badge `Built-in` and offers no action. The [Budget](/docs/guides/budget) category filter lists the same 27.
+A built-in category is a plain row. It offers no action, and the [Budget](/docs/guides/budget) category filter lists the same 27.
 
 ## Custom categories
 
 A custom category is one you add. It holds an icon that you pick, and a colour that follows the same rule as a built-in one.
 
-Press `New category` in the header of the section. The drawer holds four fields.
+Press `New category` in the header of the section. The dialog holds four fields.
 
 | Field | Rule |
 | --- | --- |
 | `Name` | 1 to 40 characters. Unique among your own categories, and letter case plays no part in that check |
-| `Nested under` | One of the 3 groups, or `No parent` |
+| `Nested under` | One of the 3 groups, one of your own top-level categories, or `No parent`. Each row carries the icon of that parent, and the field shows the icon of the parent you chose |
 | `Color` | One of 7 swatches: `Blue`, `Green`, `Grey`, `Orange`, `Pink`, `Purple` and `Red`. The field shows only while `Nested under` is `No parent` |
 | `Icon` | One of 28 icons, in a grid |
 
-A category that you nest under a group takes the colour of that group. The 27 built-in ones do the same. The colour tells you if money comes in, is put aside, or goes out. A category inside a group therefore cannot show a different colour. A category with `No parent` is a group of its own. A group holds its own colour, so you pick it.
+A category that you nest takes the colour of its parent. The 27 built-in ones do the same. The colour tells you if money comes in, is put aside, or goes out. A nested category therefore cannot show a different colour. A category with `No parent` is a group of its own. A group holds its own colour, so you pick it.
 
 The first ten icons are `Airplane`, `Arrows`, `Bank`, `Bitcoin`, `Briefcase`, `Car`, `Cash`, `Pie chart`, `Coins` and `Dots`. The next ten are `Film slate`, `First aid kit`, `Fork and knife`, `Graduation cap`, `House`, `Key`, `Lightning bolt`, `Safe`, `Plant` and `Receipt`. The last eight are `Refund`, `Repeat`, `Shield with check`, `Shopping bag`, `Shopping cart`, `Storefront`, `Trend line` and `People`.
 
@@ -116,19 +116,38 @@ Each custom row offers four actions. A screen reader reads them as `Edit {label}
 
 | Action | What it does |
 | --- | --- |
-| Edit | Re-opens the drawer. `Save changes` writes it, and you read `Category updated` |
-| Re-parent | The `Nested under` field moves the category to another group, or out of every group. The colour follows the new group, and the `Color` field comes back when you move the category out of every group |
-| Reorder | Up and down move it inside its group |
+| Edit | Re-opens the dialog. `Save changes` writes it, and you read `Category updated` |
+| Re-parent | The `Nested under` field moves the category to another group, to one of your top-level categories, or out of every parent. The colour follows the new parent, and the `Color` field comes back when you move the category out of every parent |
+| Reorder | Up and down move it among the categories that share its parent |
 | Delete | Removes it, and moves its budget lines |
 
-A custom category with `No parent` stands on its own row in the list, not as a group you can open.
+A custom category with `No parent` stands on its own row. It opens like a group as soon as it holds a subcategory.
+
+### Subcategories
+
+You can nest one of your own categories under another one of your own. The `Nested under` list holds `No parent`, then the 3 fixed groups, then your own top-level categories.
+
+Two rules hold the tree to one level.
+
+- Only a top-level category accepts subcategories. A category that already sits under a parent is in no `Nested under` list.
+- A category that holds subcategories takes no parent of its own. Move each subcategory out first, and the category is free again.
+
+A subcategory sits under its parent in the list, and a guide line joins it to that parent. It shows the colour of the parent, which is the colour the parent itself carries. Freenary keeps the colour you picked. It comes back with the `Color` field when you move the category out of every parent.
+
+A subcategory serves budget lines the same way every other custom category does.
 
 ### Delete a custom category
 
 The dialog reads `Delete {label}?`. Under it sits one of two lines:
 
-- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Other` when the category has no parent.
+- `{count} budget line(s) will move to {fallback}.` — the catch-all of its parent group, or `Other` for a top-level category and for a subcategory.
 - `No budget line uses {label}.`
+
+A category that holds subcategories adds a third line:
+
+- `Its {count} subcategories are deleted with it.`
+
+That budget-line count covers the parent and its subcategories. Each of those lines moves.
 
 Press `Delete category` to confirm, or `Cancel` to leave. You read `Category deleted`, or `Category deleted — {count} budget line(s) moved to {fallback}`.
 
@@ -138,7 +157,7 @@ A delete touches no transaction, because no transaction ever carried a custom ca
 
 Your budgeting profile is the monthly plan you declare by hand. It is a list of budget lines and nothing else, so there is no profile to create first.
 
-Open Settings, group `Budgeting`, section `Budgeting profile`. Its own line reads `Declare where your money comes from and where it goes each month. A line's category places it in the flow; its name is optional.`
+Open Settings, pane `Budget`, section `Budgeting profile`. Its own line reads `Declare where your money comes from and where it goes each month. A line's category places it in the flow; its name is optional.`
 
 Press `Add a line` for an empty row. A row holds three parts.
 
@@ -159,14 +178,14 @@ Your profile holds **200** lines at most.
 
 <Callout type="info">
 
-The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Savings & investment` counts as an investment. Every category in `Spending`, and every custom category with `No parent`, counts as an outgoing.
+The category of a line decides which side of the flow it falls on, and you never pick that side. A category in `Income` counts as a revenue. A category in `Savings & investment` counts as an investment. Every category in `Spending` counts as an outgoing, and so does every custom category that sits under no group.
 
 </Callout>
 
 ### Work the editor
 
 - The category picker reads `Pick a category` while the row holds none. Type in it to narrow the list, and an empty result reads `No categories match your search`.
-- Type a name that no category carries, and the picker adds the row `New category…`. It opens the drawer, and the category you create lands on that line.
+- Type a name that no category carries, and the picker adds the row `New category…`. It opens the dialog, and the category you create lands on that line.
 - Drag a line by its handle to reorder it. The handle answers the up and down arrow keys too.
 - Press the button at the end of a row to remove it.
 

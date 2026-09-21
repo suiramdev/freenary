@@ -1,6 +1,5 @@
 import {
   CATEGORY_COLOR_VALUES,
-  CATEGORY_GROUPS,
   CATEGORY_ICON_NAMES,
 } from "@freenary/api/lib/taxonomy";
 import { useForm } from "@tanstack/react-form";
@@ -35,14 +34,14 @@ const categorySchema = z.object({
     .max(MAX_LABEL_LENGTH, {
       error: () => m.settings_error_name_too_long({ max: MAX_LABEL_LENGTH }),
     }),
-  parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
+  parentKey: z.string().nullable(),
 });
 
 const DEFAULT_VALUES: CustomCategoryValues = {
   color: "blue",
   icon: "DotsThreeIcon",
   label: "",
-  parentSlug: null,
+  parentKey: null,
 };
 
 export const useCustomCategoryForm = ({
@@ -94,7 +93,7 @@ export const useCustomCategoryForm = ({
           color: edited.color,
           icon: edited.icon,
           label: edited.label,
-          parentSlug: edited.parentSlug,
+          parentKey: edited.parentKey,
         }
       : DEFAULT_VALUES,
     onSubmit: ({ value }) => {

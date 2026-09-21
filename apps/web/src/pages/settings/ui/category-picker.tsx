@@ -56,6 +56,7 @@ export const CategoryPicker = ({
 
     return rows;
   }, [categories]);
+  const selected = items.find((row) => row.value === value);
 
   return (
     <Combobox
@@ -72,6 +73,7 @@ export const CategoryPicker = ({
     >
       <ComboboxInput
         className="w-44 shrink-0"
+        icon={selected ? categoryMenuIcon(selected.entry) : undefined}
         placeholder={m.settings_category_picker_placeholder()}
       />
       <ComboboxContent align="start">

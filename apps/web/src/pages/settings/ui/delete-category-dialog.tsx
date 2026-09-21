@@ -20,6 +20,7 @@ interface DeleteCategoryDialogProps {
   isDeleting: boolean;
   label: string;
   onConfirm: () => void;
+  subcategoryCount: number;
   usageCount: number;
 }
 
@@ -28,6 +29,7 @@ export const DeleteCategoryDialog = ({
   isDeleting,
   label,
   onConfirm,
+  subcategoryCount,
   usageCount,
 }: DeleteCategoryDialogProps) => {
   const deleteImpactDescription =
@@ -57,6 +59,13 @@ export const DeleteCategoryDialog = ({
             <AlertDialogDescription>
               {deleteImpactDescription}
             </AlertDialogDescription>
+            {subcategoryCount > 0 ? (
+              <AlertDialogDescription>
+                {m.settings_category_delete_subcategories({
+                  count: subcategoryCount,
+                })}
+              </AlertDialogDescription>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{m.settings_cancel()}</AlertDialogCancel>

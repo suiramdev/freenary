@@ -36,8 +36,16 @@ const listCategories = (customs: CategoryEntry[]): CategoryEntry[] => {
   }
 
   for (const entry of customs) {
-    if (entry.parentKey === null) {
-      out.push(entry);
+    if (entry.parentKey !== null) {
+      continue;
+    }
+
+    out.push(entry);
+
+    for (const child of customs) {
+      if (child.parentKey === entry.key) {
+        out.push(child);
+      }
     }
   }
 
@@ -123,6 +131,37 @@ describe("toCategorySections", () => {
     expect(new Set(sections.map((s) => s.key)).size).toBe(sections.length);
   });
 
+  it("puts a subcategory in its own parent's section, right after it", () => {
+    const sections = toCategorySections(
+      listCategories([
+        custom("a", "Side hustle", null),
+        custom("a1", "Petrol", "custom:a"),
+        custom("a2", "Tolls", "custom:a"),
+      ]),
+      ""
+    );
+    const hustle = sections.find((s) => s.key === "custom:a");
+
+    expect(hustle?.items.map((item) => item.key)).toEqual([
+      "custom:a",
+      "custom:a1",
+      "custom:a2",
+    ]);
+  });
+
+  it("never files a matching subcategory under an unrelated heading", () => {
+    const sections = toCategorySections(
+      listCategories([
+        custom("a", "Side hustle", null),
+        custom("a1", "Zzz petrol", "custom:a"),
+      ]),
+      "zzz"
+    );
+
+    expect(keysOf(sections)).toEqual(["custom:a1"]);
+    expect(sections.every((s) => s.heading === null)).toBe(true);
+  });
+
   it("never drops or duplicates an entry", () => {
     const customs = [
       custom("a", "Garage", "spending"),
@@ -157,16 +196,23 @@ describe("editedOf", () => {
     };
 
     expect(submitted.color).toBe("pink");
-    expect(submitted.parentSlug).toBe("spending");
+    expect(submitted.parentKey).toBe("spending");
   });
 
   it("carries the choice through a promotion to top level", () => {
-    const promoted = { ...editedOf(nestedPinkUnderSpending), parentSlug: null };
+    const promoted = { ...editedOf(nestedPinkUnderSpending), parentKey: null };
 
     expect(promoted.color).toBe("pink");
   });
 
   it("falls back to the painted colour for an entry that carries no choice", () => {
     expect(editedOf(custom("c2", "No Pick", "income")).color).toBe("blue");
+  });
+
+  it("keeps a subcategory's custom parent key", () => {
+    const subcategory = editedOf(custom("s1", "Petrol", "custom:abc"));
+
+    expect(subcategory.parentKey).toBe("custom:abc");
+    expect(subcategory.id).toBe("s1");
   });
 });

@@ -26,6 +26,20 @@ export interface ServerBudgetLine {
   id: string;
   label: string | null;
 }
+export interface BudgetProfileEditor {
+  addLine: () => void;
+  changeCount: number;
+  errors: Map<string, string>;
+  isDirty: boolean;
+  isSaving: boolean;
+  lines: EditorLine[];
+  moveLine: (id: string, direction: "down" | "up") => void;
+  removeLine: (id: string) => void;
+  reorderLines: (lines: EditorLine[]) => void;
+  reset: () => void;
+  save: () => void;
+  updateLine: (id: string, patch: Partial<EditorLine>) => void;
+}
 
 const MINOR_UNITS_PER_MAJOR = 100;
 const NO_CATEGORY_CHOSEN = "";
@@ -83,7 +97,7 @@ const signatureOf = (serverLines: ServerBudgetLine[] | undefined) =>
 export const useBudgetProfileEditor = (
   serverLines: ServerBudgetLine[] | undefined,
   categories: CategoryEntry[]
-) => {
+): BudgetProfileEditor => {
   const queryClient = useQueryClient();
   const [isDirty, setIsDirty] = useState(false);
   const draftEditCount = useRef(0);

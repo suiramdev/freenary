@@ -1,9 +1,9 @@
+import { customCategoryKey } from "@freenary/api/lib/categories";
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 import {
   CATEGORY_GROUP_FALLBACKS,
   isCategoryGroup,
 } from "@freenary/api/lib/taxonomy";
-import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
   Collapsible,
@@ -17,6 +17,7 @@ import {
   useRegisterFluidHoverItem,
 } from "@freenary/ui/hooks/use-fluid-hover";
 import { useIcon } from "@freenary/ui/lib/icon-context";
+import { useShape } from "@freenary/ui/lib/shape-context";
 import { SizeProvider, useSize } from "@freenary/ui/lib/size-context";
 import type { SizeVariant } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
@@ -30,14 +31,21 @@ import {
 } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 
+import { categoryParentOptions } from "../model/category-parent-options";
 import { editedOf } from "../model/category-sections";
 import { useCustomCategoryActions } from "../model/use-custom-category-actions";
 import type { EditedCustomCategory } from "../model/use-custom-category-form";
-import { CATEGORY_CHIP_BOX, CategoryRow } from "./category-row";
-import { CustomCategoryDrawer } from "./custom-category-drawer";
+import {
+  CATEGORY_CHIP_BOX,
+  CATEGORY_COUNT_TEXT,
+  CategoryRow,
+  CategoryRowActions,
+  ROW_ABOVE_HOVER_FILL,
+} from "./category-row";
+import { CustomCategoryDialog } from "./custom-category-dialog";
 import { SETTINGS_BLEED, SettingsSection } from "./settings-section";
 
-type DrawerState = EditedCustomCategory | "new" | null;
+type CategoryEditorState = EditedCustomCategory | "new" | null;
 
 interface CategoryTreeGroup {
   children: CategoryEntry[];
@@ -50,17 +58,35 @@ interface CategoriesSectionProps {
 }
 
 interface CategoryGroupHeaderProps {
-  count: number;
   group: CategoryEntry;
   index: number;
   registerItem: (index: number, element: HTMLElement | null) => void;
+}
+
+interface CustomCategoryParentRowProps {
+  entry: CategoryEntry;
+  fallbackLabel: string;
+  index: number;
+  isDeleting: boolean;
+  isMoving: boolean;
+  onDelete: (id: string) => void;
+  onEdit: (entry: CategoryEntry) => void;
+  onMove: (input: { direction: "down" | "up"; id: string }) => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+  subcategories: CategoryEntry[];
 }
 
 const SKELETON_GROUPS = 3;
 
 const LIST_SIZE: SizeVariant = "default";
 
-const CHILDREN_GUIDE_UNDER_THE_GROUP_ICON = "border-border ml-[45px] border-l";
+const CHILDREN_UNDER_THE_PARENT_ICON =
+  "border-border ml-[45px] gap-0.5 border-l pl-2";
+
+const ACTIONS_OVER_THE_DISCLOSURE_ROW =
+  "absolute inset-y-0 right-3 z-20 flex items-center gap-2";
+
+const DISCLOSURE_GUTTER_UNDER_THE_ACTIONS = "pr-39";
 
 const catchAllCategoryLabelOf = (groupKey: string) =>
   isCategoryGroup(groupKey)
@@ -84,7 +110,6 @@ const toGroupTreeInServerOrder = (
 };
 
 const CategoryGroupHeader = ({
-  count,
   group,
   index,
   registerItem,
@@ -97,10 +122,7 @@ const CategoryGroupHeader = ({
   return (
     <CollapsibleTrigger
       chevron="leading"
-      className={cn(
-        "relative z-10 px-3 shadow-[inset_0_-1px_0_var(--color-border)]",
-        control
-      )}
+      className={cn("relative z-10 px-3", control)}
       ref={headerRef}
     >
       <CategoryIcon
@@ -111,8 +133,64 @@ const CategoryGroupHeader = ({
       <span className={cn("flex-1 truncate font-medium", text)}>
         {categoryEntryLabel(group)}
       </span>
-      <Badge>{count}</Badge>
     </CollapsibleTrigger>
+  );
+};
+
+const CustomCategoryParentRow = ({
+  entry,
+  fallbackLabel,
+  index,
+  isDeleting,
+  isMoving,
+  onDelete,
+  onEdit,
+  onMove,
+  registerItem,
+  subcategories,
+}: CustomCategoryParentRowProps) => {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const { control, text, variant } = useSize();
+  const budgetLineCount = subcategories.reduce(
+    (total, subcategory) => total + subcategory.usageCount,
+    entry.usageCount
+  );
+
+  useRegisterFluidHoverItem(registerItem, index, rowRef);
+
+  return (
+    <div className={cn(ROW_ABOVE_HOVER_FILL, control)} ref={rowRef}>
+      <CollapsibleTrigger
+        chevron="leading"
+        className={cn("h-full pl-3", DISCLOSURE_GUTTER_UNDER_THE_ACTIONS)}
+      >
+        <CategoryIcon
+          className={CATEGORY_CHIP_BOX[variant]}
+          color={entry.color}
+          icon={entry.icon}
+        />
+        <span className={cn("flex-1 truncate font-medium", text)}>
+          {categoryEntryLabel(entry)}
+        </span>
+        {entry.usageCount > 0 ? (
+          <span className={CATEGORY_COUNT_TEXT}>
+            {m.settings_category_line_count({ count: entry.usageCount })}
+          </span>
+        ) : null}
+      </CollapsibleTrigger>
+      <CategoryRowActions
+        budgetLineCount={budgetLineCount}
+        className={ACTIONS_OVER_THE_DISCLOSURE_ROW}
+        entry={entry}
+        fallbackLabel={fallbackLabel}
+        isDeleting={isDeleting}
+        isMoving={isMoving}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onMove={onMove}
+        subcategoryCount={subcategories.length}
+      />
+    </div>
   );
 };
 
@@ -122,10 +200,12 @@ export const CategoriesSection = ({
 }: CategoriesSectionProps) => {
   const { deleteCategory, isDeleting, isMoving, moveCategory } =
     useCustomCategoryActions();
-  const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [categoryEditor, setCategoryEditor] =
+    useState<CategoryEditorState>(null);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
   const PlusIcon = useIcon("plus");
+  const shape = useShape();
   const { control } = useSize(LIST_SIZE);
   const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
 
@@ -169,13 +249,28 @@ export const CategoriesSection = ({
     return { hoverIndices: indices, rowsThatLightUp: lit };
   }, [tree]);
 
+  const parentOptions = useMemo(() => {
+    const editedKey =
+      categoryEditor === null || categoryEditor === "new"
+        ? null
+        : customCategoryKey(categoryEditor.id);
+
+    return categoryParentOptions({
+      categories,
+      editedHasSubcategories: tree.some(
+        ({ children, group }) => group.key === editedKey && children.length > 0
+      ),
+      editedKey,
+    });
+  }, [categories, categoryEditor, tree]);
+
   return (
     <SettingsSection
       action={
         <Button
           disabled={isPending}
           leadingIcon={PlusIcon}
-          onClick={() => setDrawer("new")}
+          onClick={() => setCategoryEditor("new")}
           variant="tertiary"
         >
           {m.settings_category_new()}
@@ -206,7 +301,7 @@ export const CategoriesSection = ({
             {...hover.handlers}
           >
             <FluidHoverHighlight
-              className="rounded-none"
+              className={shape.bg}
               hidden={
                 hover.activeIndex === null ||
                 !rowsThatLightUp.has(hover.activeIndex)
@@ -215,22 +310,28 @@ export const CategoriesSection = ({
             />
             <ul className="flex flex-col">
               {tree.map(({ children, group }) => {
-                const isUsersOwnTopLevelCategory = group.isCustom;
+                const fallbackLabel = catchAllCategoryLabelOf(group.key);
+                const isUsersOwnCategoryWithoutSubcategories =
+                  group.isCustom && children.length === 0;
 
-                return isUsersOwnTopLevelCategory ? (
-                  <CategoryRow
-                    entry={group}
-                    fallbackLabel={categoryLabel("uncategorised")}
-                    index={hoverIndices.get(group.key) ?? 0}
-                    isDeleting={isDeleting}
-                    isMoving={isMoving}
-                    key={group.key}
-                    onDelete={deleteCategory}
-                    onEdit={(edited) => setDrawer(editedOf(edited))}
-                    onMove={moveCategory}
-                    registerItem={hover.registerItem}
-                  />
-                ) : (
+                if (isUsersOwnCategoryWithoutSubcategories) {
+                  return (
+                    <CategoryRow
+                      entry={group}
+                      fallbackLabel={fallbackLabel}
+                      index={hoverIndices.get(group.key) ?? 0}
+                      isDeleting={isDeleting}
+                      isMoving={isMoving}
+                      key={group.key}
+                      onDelete={deleteCategory}
+                      onEdit={(edited) => setCategoryEditor(editedOf(edited))}
+                      onMove={moveCategory}
+                      registerItem={hover.registerItem}
+                    />
+                  );
+                }
+
+                return (
                   <Collapsible
                     key={group.key}
                     onOpenChange={(open) =>
@@ -243,31 +344,47 @@ export const CategoriesSection = ({
                     open={openGroups.includes(group.key)}
                     render={<li />}
                   >
-                    <CategoryGroupHeader
-                      count={children.length}
-                      group={group}
-                      index={hoverIndices.get(group.key) ?? 0}
-                      registerItem={hover.registerItem}
-                    />
+                    {group.isCustom ? (
+                      <CustomCategoryParentRow
+                        entry={group}
+                        fallbackLabel={fallbackLabel}
+                        index={hoverIndices.get(group.key) ?? 0}
+                        isDeleting={isDeleting}
+                        isMoving={isMoving}
+                        onDelete={deleteCategory}
+                        onEdit={(edited) => setCategoryEditor(editedOf(edited))}
+                        onMove={moveCategory}
+                        registerItem={hover.registerItem}
+                        subcategories={children}
+                      />
+                    ) : (
+                      <CategoryGroupHeader
+                        group={group}
+                        index={hoverIndices.get(group.key) ?? 0}
+                        registerItem={hover.registerItem}
+                      />
+                    )}
                     <CollapsibleContent
                       onTransitionEnd={remeasureAfterTheHeightSettles}
                     >
                       <ul
                         className={cn(
                           "flex flex-col",
-                          CHILDREN_GUIDE_UNDER_THE_GROUP_ICON
+                          CHILDREN_UNDER_THE_PARENT_ICON
                         )}
                       >
                         {children.map((entry) => (
                           <CategoryRow
                             entry={entry}
-                            fallbackLabel={catchAllCategoryLabelOf(group.key)}
+                            fallbackLabel={fallbackLabel}
                             index={hoverIndices.get(entry.key) ?? 0}
                             isDeleting={isDeleting}
                             isMoving={isMoving}
                             key={entry.key}
                             onDelete={deleteCategory}
-                            onEdit={(edited) => setDrawer(editedOf(edited))}
+                            onEdit={(edited) =>
+                              setCategoryEditor(editedOf(edited))
+                            }
                             onMove={moveCategory}
                             registerItem={hover.registerItem}
                           />
@@ -282,14 +399,15 @@ export const CategoriesSection = ({
         </SizeProvider>
       )}
 
-      <CustomCategoryDrawer
-        edited={drawer === "new" ? null : drawer}
+      <CustomCategoryDialog
+        edited={categoryEditor === "new" ? null : categoryEditor}
         onOpenChange={(open) => {
           if (!open) {
-            setDrawer(null);
+            setCategoryEditor(null);
           }
         }}
-        open={drawer !== null}
+        open={categoryEditor !== null}
+        parentOptions={parentOptions}
       />
     </SettingsSection>
   );

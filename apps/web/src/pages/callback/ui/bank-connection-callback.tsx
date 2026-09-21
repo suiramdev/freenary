@@ -6,7 +6,6 @@ import { toast } from "sonner";
 
 import { m } from "@/paraglide/messages.js";
 import { invalidateBudgetData, orpc } from "@/shared/api";
-import { BANK_ACCOUNTS_ANCHOR } from "@/shared/config";
 
 export const ConnectingBank = () => (
   <div
@@ -54,7 +53,7 @@ export const BankConnectionCallback = () => {
     }
 
     if (exchangeResult.returnTo === "settings") {
-      navigate({ hash: BANK_ACCOUNTS_ANCHOR, to: "/settings" });
+      navigate({ search: { section: "connections" }, to: "/settings" });
 
       return;
     }

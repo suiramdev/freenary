@@ -715,7 +715,7 @@ Protected. Creates one custom category for the caller.
 | `color` | enum | yes | One of the 7 [category colours](#category-colours). |
 | `icon` | enum | yes | One of the 28 [category icons](#category-icons). |
 | `label` | string | yes | Trimmed, 1 to 40 characters. |
-| `parentSlug` | enum or `null` | yes | One of the 3 [category groups](#category-groups). `null` makes a top-level category. |
+| `parentKey` | string or `null` | yes | A [category group](#category-groups) slug, or `custom:<id>` of a top-level category the caller owns. `null` makes a top-level category. |
 
 **Output**
 
@@ -725,11 +725,13 @@ Protected. Creates one custom category for the caller.
 
 **Errors**
 
+- `BAD_REQUEST` (400) `Unknown parent category` or `A subcategory cannot hold subcategories`.
+- `NOT_FOUND` (404) `Parent category not found`.
 - `CONFLICT` (409) `A category with that name already exists`.
 
 ### settings.deleteCustomCategory
 
-Protected. Deletes one custom category and rehomes its budget lines.
+Protected. Deletes one custom category with its subcategories, and rehomes every budget line they hold.
 
 **Input**
 
@@ -739,10 +741,11 @@ Protected. Deletes one custom category and rehomes its budget lines.
 
 **Output**
 
-| Field             | Type   | Note                                |
-| ----------------- | ------ | ----------------------------------- |
-| `fallbackSlug`    | string | The slug the budget lines moved to. |
-| `reassignedLines` | number | Budget lines the delete moved.      |
+| Field | Type | Note |
+| --- | --- | --- |
+| `fallbackSlug` | string | The slug the budget lines moved to. |
+| `reassignedLines` | number | Budget lines the delete moved, subcategories included. |
+| `deletedSubcategories` | number | Subcategories the cascade removed. |
 
 **Errors**
 
@@ -773,24 +776,26 @@ Protected. Returns the whole category tree the caller can pick from.
 
 **Output**: `{ categories: [...] }`.
 
+The array is flat, and its order is the display order. Each of the 3 groups comes first. Inside one group come its built-in categories, then the custom categories of the caller. Each top-level custom category follows, in its stored order, with its own subcategories after it.
+
 | Field of one entry | Type | Note |
 | --- | --- | --- |
-| `color` | string | One of the 7 [category colours](#category-colours). What the entry shows. For a custom category under a group it is that group's colour, and not the value stored on the row. |
+| `color` | string | One of the 7 [category colours](#category-colours). What the entry shows. For a category under a parent it is the colour of that parent, and not the value stored on the row. |
 | `icon` | string | One of the 28 [category icons](#category-icons). |
 | `isAssignable` | boolean | `false` for a built-in group header. |
 | `isCustom` | boolean | `true` for a category of the caller. |
-| `isGroup` | boolean | `true` for a group header, and for a top-level custom category. |
+| `isGroup` | boolean | `true` for a group header, and for a top-level custom category. A subcategory is `false`. |
 | `key` | string | A slug, or `custom:<id>`. |
 | `label` | string | An English display name. |
-| `parentKey` | string or `null` | The [category group](#category-groups) it sits in, `null` for a group. |
-| `pickedColor` | string | Present on a custom category only. The colour stored on the row, which `color` hides while the category sits under a group. Send this back as `color` on `settings.updateCustomCategory` to keep the choice. |
+| `parentKey` | string or `null` | A [category group](#category-groups) slug, `custom:<id>` for a subcategory, or `null` for a top-level row. |
+| `pickedColor` | string | Present on a custom category only. The colour stored on the row, which `color` hides while the category sits under a parent. Send this back as `color` on `settings.updateCustomCategory` to keep the choice. |
 | `usageCount` | number | Budget lines on a custom category. Always `0` for a built-in one. |
 
 **Errors**: none.
 
 ### settings.moveCustomCategory
 
-Protected. Swaps one custom category with its neighbour inside the same parent.
+Protected. Swaps one custom category with its neighbour inside the same parent. A group parent and a custom parent both scope the order.
 
 **Input**
 
@@ -853,7 +858,7 @@ Protected. Rewrites one custom category.
 | `icon` | enum | yes | One of the 28 [category icons](#category-icons). |
 | `id` | string | yes | Must belong to the caller. |
 | `label` | string | yes | Trimmed, 1 to 40 characters. |
-| `parentSlug` | enum or `null` | yes | One of the 3 [category groups](#category-groups), or `null`. |
+| `parentKey` | string or `null` | yes | A [category group](#category-groups) slug, `custom:<id>` of a top-level category the caller owns, or `null`. |
 
 **Output**
 
@@ -863,7 +868,8 @@ Protected. Rewrites one custom category.
 
 **Errors**
 
-- `NOT_FOUND` (404) `Category not found`.
+- `BAD_REQUEST` (400) `Unknown parent category`, `A subcategory cannot hold subcategories`, `A category with subcategories cannot be nested`, or `A category cannot be its own parent`.
+- `NOT_FOUND` (404) `Category not found`, or `Parent category not found`.
 - `CONFLICT` (409) `A category with that name already exists`.
 
 ## Enum values

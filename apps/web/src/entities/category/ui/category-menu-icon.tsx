@@ -1,6 +1,5 @@
 import type { CategoryAppearance } from "@freenary/api/lib/categories";
 import type { IconComponent } from "@freenary/ui/lib/icon-context";
-import { cn } from "@freenary/ui/lib/utils";
 
 import { CategoryIcon } from "./category-icon";
 
@@ -13,11 +12,8 @@ export const categoryMenuIcon = (
   let icon = cache.get(key);
 
   if (!icon) {
-    icon = ({ className }: { className?: string }) => (
-      <CategoryIcon
-        {...appearance}
-        className={cn("size-5 [&_svg]:size-3", className)}
-      />
+    icon = () => (
+      <CategoryIcon {...appearance} className="size-5 [&_svg]:size-3" />
     );
     cache.set(key, icon);
   }

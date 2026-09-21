@@ -383,7 +383,6 @@
   "budget_cash_flow_empty": "No money moved in this period.",
   "budget_cash_flow_loading": "Loading cash flow",
   "budget_cash_flow_title": "Cash Flow",
-  "budget_category_group_none": "No parent",
   "budget_category_reset": "Reset to auto-detected category",
   "budget_category_search_empty": "No categories match your search",
   "budget_category_search_placeholder": "Search categories…",
@@ -719,8 +718,8 @@
   "settings_2fa_disable_description": "Your password alone will sign you in again. Confirm it to continue.",
   "settings_2fa_disable_title": "Disable two-factor authentication?",
   "settings_2fa_disabled_toast": "Two-factor authentication is off",
-  "settings_2fa_drawer_title_enable": "Enable two-factor authentication",
-  "settings_2fa_drawer_title_regenerate": "New recovery codes",
+  "settings_2fa_dialog_title_enable": "Enable two-factor authentication",
+  "settings_2fa_dialog_title_regenerate": "New recovery codes",
   "settings_2fa_enabled_toast": "Two-factor authentication is on",
   "settings_2fa_error_code_format": [
     {
@@ -777,6 +776,8 @@
   "settings_accounts_provider_sso": "Single sign-on",
   "settings_accounts_providers_load_error": "Could not load the providers this instance offers, so none can be connected from here",
   "settings_accounts_title": "Connected accounts",
+  "settings_appearance_locale_description": "The language of the interface.",
+  "settings_appearance_theme_description": "Follow the system, or keep freenary light or dark.",
   "settings_bank_accounts_description": "Connect the banks you want freenary to import transactions and balances from. Disconnecting removes a bank’s imported data and asks it to revoke the access.",
   "settings_bank_accounts_loading": "Loading your bank accounts",
   "settings_bank_accounts_title": "Bank accounts",
@@ -796,10 +797,9 @@
   "settings_budgeting_save_success": "Budgeting profile saved",
   "settings_budgeting_title": "Budgeting profile",
   "settings_cancel": "Cancel",
-  "settings_categories_description": "Categories are grouped, and the groups are fixed. A category takes the color of its group. Your own categories can be renamed, nested under a group, reordered or removed.",
+  "settings_categories_description": "Categories are grouped, and the groups are fixed. A category takes the color of its parent. Your own categories can be renamed, reordered or removed, and nested under a group or under one of your top-level categories. Nesting stops at one level.",
   "settings_categories_loading": "Loading your categories",
   "settings_categories_title": "Categories",
-  "settings_category_built_in": "Built-in",
   "settings_category_create": "Create category",
   "settings_category_create_success": "Category created",
   "settings_category_delete_action": "Delete {label}",
@@ -816,6 +816,16 @@
       "match": {
         "countPlural=one": "{count} budget line will move to {fallback}.",
         "countPlural=other": "{count} budget lines will move to {fallback}."
+      }
+    }
+  ],
+  "settings_category_delete_subcategories": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Its subcategory is deleted with it.",
+        "countPlural=other": "Its {count} subcategories are deleted with it."
       }
     }
   ],
@@ -836,7 +846,7 @@
   ],
   "settings_category_delete_title": "Delete {label}?",
   "settings_category_delete_unused": "No budget line uses {label}.",
-  "settings_category_drawer_description": "Custom categories can be assigned to any revenue, investment or outgoing in your budgeting profile.",
+  "settings_category_dialog_description": "Custom categories can be assigned to any revenue, investment or outgoing in your budgeting profile.",
   "settings_category_edit_action": "Edit {label}",
   "settings_category_edit_title": "Edit category",
   "settings_category_line_count": [
@@ -875,8 +885,10 @@
   "settings_field_name": "Name",
   "settings_field_name_optional": "Name (optional)",
   "settings_field_parent": "Nested under",
-  "settings_group_budgeting_description": "The monthly plan you declare by hand, and the categories it is organized with.",
-  "settings_group_budgeting_title": "Budgeting",
+  "settings_group_appearance_description": "The theme and the language this browser uses.",
+  "settings_group_appearance_title": "Appearance",
+  "settings_group_budget_description": "The monthly plan you declare by hand, and the categories it is organized with.",
+  "settings_group_budget_title": "Budget",
   "settings_group_connections_description": "The institutions freenary syncs your accounts from.",
   "settings_group_connections_title": "Connections",
   "settings_group_security_description": "How you sign in, where your sessions are open, and what protects your account if your password leaks.",
@@ -918,6 +930,7 @@
   "settings_line_reorder_untitled": "Reorder line — use the up and down arrow keys to move it",
   "settings_line_untitled": "Untitled",
   "settings_load_error_title": "Could not load your settings",
+  "settings_nav_label": "Settings sections",
   "settings_passkeys_add": "Add a passkey",
   "settings_passkeys_add_confirm": "Continue",
   "settings_passkeys_add_description": "The name is only there to tell your passkeys apart later. Your browser asks for the passkey itself next.",

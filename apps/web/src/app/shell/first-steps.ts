@@ -6,11 +6,7 @@ import {
 import type { RemixiconComponentType } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
-import {
-  BANK_ACCOUNTS_ANCHOR,
-  BUDGETING_ANCHOR,
-  SECURITY_ANCHOR,
-} from "@/shared/config";
+import type { SettingsSection } from "@/shared/config";
 
 export interface FirstStepsState {
   hasAccountProtection: boolean;
@@ -19,37 +15,37 @@ export interface FirstStepsState {
 }
 
 interface FirstStep {
-  hash: string;
   icon: RemixiconComponentType;
   id: string;
   isDone: (state: FirstStepsState) => boolean;
   label: () => string;
+  section: SettingsSection;
   to: string;
 }
 
 export const FIRST_STEPS = [
   {
-    hash: BANK_ACCOUNTS_ANCHOR,
     icon: RiBankLine,
     id: "bank-connection",
     isDone: (state) => state.hasBankConnection,
     label: m.first_steps_connect_bank,
+    section: "connections",
     to: "/settings",
   },
   {
-    hash: BUDGETING_ANCHOR,
     icon: RiMoneyDollarCircleLine,
     id: "budgeting-profile",
     isDone: (state) => state.hasBudgetLine,
     label: m.first_steps_budgeting_profile,
+    section: "budget",
     to: "/settings",
   },
   {
-    hash: SECURITY_ANCHOR,
     icon: RiShieldKeyholeLine,
     id: "account-protection",
     isDone: (state) => state.hasAccountProtection,
     label: m.first_steps_protect_account,
+    section: "security",
     to: "/settings",
   },
 ] as const satisfies readonly FirstStep[];
