@@ -3,6 +3,8 @@ import { z } from "zod";
 const IPV4_MAPPED_IPV6_PREFIX = /^::ffff:/iu;
 const DEFAULT_PORT = 3000;
 
+export const CLASSIFIER_PROTOCOLS = ["llm", "system-one", "zero-shot"] as const;
+
 export const declaredPort = process.env.PORT || DEFAULT_PORT;
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -383,15 +385,136 @@ export const serverEnvSchema = {
     section: "email",
   }),
   TRANSACTION_CLASSIFIER: z
-    .enum(["jev"])
+    .enum(CLASSIFIER_PROTOCOLS)
     .optional()
     .describe(
-      "Names the classifier that categorises a merchant no rule, no dictionary entry and no correction knows. The one value is `jev`, which asks TypeSafe."
+      "Names the protocol of the classifier asked first for a merchant no rule, no dictionary entry and no correction knows. `system-one` posts the TypeSafe `/v1/systemone` shape, which TypeSafe Jev, `Mapika/decider-2b` and Laya all answer. `llm` posts an OpenAI-compatible chat completion. `zero-shot` posts the Hugging Face zero-shot-classification shape."
     )
     .meta({
-      example: "jev",
+      example: "system-one",
       onError:
         "Unset calls no model, and such a transaction stays uncategorised. Any other value stops the start.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_API_KEY: z
+    .string()
+    .optional()
+    .describe("The key that endpoint expects, if it expects one.")
+    .meta({
+      example: "sk-...",
+      onError:
+        "Unset sends no authorisation header at all, which a local endpoint accepts.",
+      secret: true,
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_ESCALATE_BELOW: z.coerce
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.85)
+    .describe(
+      "The confidence under which the answer of the first classifier goes to `TRANSACTION_CLASSIFIER_FALLBACK`. The default is the confidence the pipeline needs to write a category without asking the reader."
+    )
+    .meta({
+      example: "0.85",
+      onError:
+        "A value outside 0 to 1 stops the start. At 0 the fallback answers abstentions alone.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_FALLBACK: z
+    .enum(CLASSIFIER_PROTOCOLS)
+    .optional()
+    .describe(
+      "Names the protocol of the classifier asked when the first one abstains or answers under `TRANSACTION_CLASSIFIER_ESCALATE_BELOW`. The higher-confidence answer of the two wins, and each is cached against its own model."
+    )
+    .meta({
+      example: "llm",
+      onError:
+        "It needs `TRANSACTION_CLASSIFIER` too. The same protocol and the same model as the first slot stops the start, because both would share one cache row.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_FALLBACK_API_KEY: z
+    .string()
+    .optional()
+    .describe("The key the fallback endpoint expects, if it expects one.")
+    .meta({
+      example: "sk-or-...",
+      onError: "Unset sends no authorisation header at all.",
+      secret: true,
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_FALLBACK_MODEL: z
+    .string()
+    .optional()
+    .describe(
+      "Names the model the fallback endpoint serves. It is part of the cache key, so a change asks every merchant again."
+    )
+    .meta({
+      example: "qwen/qwen3-8b",
+      onError:
+        "A named fallback with no model stops the start with `TRANSACTION_CLASSIFIER_FALLBACK=<protocol> requires TRANSACTION_CLASSIFIER_FALLBACK_MODEL to be set.`",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_FALLBACK_TEMPERATURE: z.coerce
+    .number()
+    .positive()
+    .default(1)
+    .describe(
+      "Sharpens or flattens the answer distribution of the fallback before its confidence is measured. It follows the same rule as `TRANSACTION_CLASSIFIER_TEMPERATURE`."
+    )
+    .meta({
+      example: "1.3",
+      onError:
+        "A value that is not a positive number stops the start. A value above 1 lowers the confidence of an over-confident model.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_FALLBACK_URL: z
+    .url()
+    .optional()
+    .describe(
+      "The URL of the fallback endpoint. The `llm` protocol appends `/chat/completions` to it, and the other two post to it as it is."
+    )
+    .meta({
+      example: "https://openrouter.ai/api/v1",
+      onError:
+        "A value that is not a URL stops the start. A named fallback with no URL stops it too.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_MODEL: z
+    .string()
+    .optional()
+    .describe(
+      "Names the model that endpoint serves. It is part of the cache key, so a change asks every merchant again."
+    )
+    .meta({
+      example: "decider-2b-v10",
+      onError:
+        "A named classifier with no model stops the start with `TRANSACTION_CLASSIFIER=<protocol> requires TRANSACTION_CLASSIFIER_MODEL to be set.`",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_TEMPERATURE: z.coerce
+    .number()
+    .positive()
+    .default(1)
+    .describe(
+      "Sharpens or flattens the answer distribution before the confidence is measured. At 1 a `system-one` endpoint keeps the statistic it reports, and the other two protocols still measure the distribution themselves."
+    )
+    .meta({
+      example: "1.3",
+      onError:
+        "A value that is not a positive number stops the start. Fit it on merchants your own readers corrected.",
+      section: "categorisation",
+    }),
+  TRANSACTION_CLASSIFIER_URL: z
+    .url()
+    .optional()
+    .describe(
+      "The URL of the endpoint the classifier asks. The `llm` protocol appends `/chat/completions` to it, and the other two post to it as it is. It reaches a server you run or one somebody else hosts."
+    )
+    .meta({
+      example: "http://decider:8000/v1/systemone",
+      onError:
+        "A value that is not a URL stops the start. An `llm` endpoint that returns no `logprobs` leaves every answer a suggestion.",
       section: "categorisation",
     }),
   TRUSTED_PROXIES: z
@@ -423,29 +546,6 @@ export const serverEnvSchema = {
       onError:
         "A malformed entry stops the start. Unset behind a multi-hop proxy makes every caller share one rate-limit bucket.",
       section: "origins",
-    }),
-  TYPESAFE_API_KEY: z
-    .string()
-    .optional()
-    .describe("The TypeSafe API key.")
-    .meta({
-      example: "ts-...",
-      onError:
-        "With `TRANSACTION_CLASSIFIER=jev` and no key the start stops with `TRANSACTION_CLASSIFIER=jev requires TYPESAFE_API_KEY to be set.`",
-      secret: true,
-      section: "categorisation",
-    }),
-  TYPESAFE_MODEL: z
-    .string()
-    .default("jev-latest")
-    .describe(
-      "The TypeSafe model id or alias. It is part of the cache key, so a change asks every merchant again."
-    )
-    .meta({
-      example: "jev-latest",
-      onError:
-        "The default follows the newest model. Pin a version to freeze the answers.",
-      section: "categorisation",
     }),
 } as const;
 

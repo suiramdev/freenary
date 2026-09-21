@@ -182,7 +182,8 @@ describe("categoriseTransaction", () => {
 });
 
 const scriptedClassifier = (
-  answer: () => Promise<ClassificationPrediction | null>
+  answer: () => Promise<ClassificationPrediction | null>,
+  provider = "test"
 ): ScriptedClassifier => ({
   calls: 0,
   classify(input: ClassificationInput) {
@@ -191,8 +192,8 @@ const scriptedClassifier = (
 
     return answer();
   },
-  model: "test-model",
-  provider: "test",
+  model: `${provider}-model`,
+  provider,
 });
 
 const memoryStore = (): ClassificationStore & {
@@ -231,6 +232,12 @@ const unresolved: CategoriseInput = {
   normalisedDescriptor: "unknown merchant xyz abc",
 };
 
+const weak = () =>
+  Promise.resolve({ category: "groceries", confidence: 0.6 } as const);
+
+const strong = () =>
+  Promise.resolve({ category: "restaurants", confidence: 0.92 } as const);
+
 describe("categoriseBatch", () => {
   it("never asks the classifier about a transaction a deterministic stage resolved", async () => {
     const classifier = scriptedClassifier(() =>
@@ -243,7 +250,7 @@ describe("categoriseBatch", () => {
         { ...unresolved, merchantCategoryCode: "5411" },
         { ...baseInput, channel: "atm" },
       ],
-      { classifier, countries: undefined, store }
+      { classifiers: [classifier], countries: undefined, store }
     );
 
     expect(results.map((result) => result.stage)).toEqual(["mcc", "channel"]);
@@ -255,7 +262,7 @@ describe("categoriseBatch", () => {
     const store = memoryStore();
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier: null,
+      classifiers: [],
       countries: undefined,
       store,
     });
@@ -276,7 +283,7 @@ describe("categoriseBatch", () => {
     const store = memoryStore();
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier,
+      classifiers: [classifier],
       countries: undefined,
       store,
     });
@@ -305,7 +312,7 @@ describe("categoriseBatch", () => {
 
     const [result] = await categoriseBatch(
       [{ ...unresolved, amountMinor: 4200 }],
-      { classifier, countries: undefined, store }
+      { classifiers: [classifier], countries: undefined, store }
     );
 
     expect(result?.category).toBeNull();
@@ -320,7 +327,7 @@ describe("categoriseBatch", () => {
 
     const [result] = await categoriseBatch(
       [{ ...unresolved, amountMinor: 4200 }],
-      { classifier, countries: undefined, store }
+      { classifiers: [classifier], countries: undefined, store }
     );
 
     expect(result?.category).toBe("people");
@@ -337,7 +344,7 @@ describe("categoriseBatch", () => {
         { ...unresolved, amountMinor: -500 },
         { ...unresolved, amountMinor: -90_000 },
       ],
-      { classifier, countries: undefined, store }
+      { classifiers: [classifier], countries: undefined, store }
     );
 
     expect(classifier.calls).toBe(1);
@@ -357,7 +364,7 @@ describe("categoriseBatch", () => {
         { ...unresolved, merchantKey: "other shop" },
       ],
       {
-        classifier,
+        classifiers: [classifier],
         countries: undefined,
         onSignatureSettled: () => {
           settled.push(settled.length);
@@ -377,7 +384,7 @@ describe("categoriseBatch", () => {
       Promise.resolve({ category: "groceries", confidence: 0.9 })
     );
     await categoriseBatch([unresolved], {
-      classifier: first,
+      classifiers: [first],
       countries: undefined,
       store,
     });
@@ -386,7 +393,7 @@ describe("categoriseBatch", () => {
       Promise.resolve({ category: "groceries", confidence: 0.9 })
     );
     const [result] = await categoriseBatch([unresolved], {
-      classifier: second,
+      classifiers: [second],
       countries: undefined,
       store,
     });
@@ -401,7 +408,7 @@ describe("categoriseBatch", () => {
     const abstaining = scriptedClassifier(() => Promise.resolve(null));
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier: abstaining,
+      classifiers: [abstaining],
       countries: undefined,
       store,
     });
@@ -411,7 +418,7 @@ describe("categoriseBatch", () => {
 
     const soon = scriptedClassifier(() => Promise.resolve(null));
     await categoriseBatch([unresolved], {
-      classifier: soon,
+      classifiers: [soon],
       countries: undefined,
       store,
     });
@@ -421,7 +428,7 @@ describe("categoriseBatch", () => {
     const stale = { ...store, find: () => Promise.resolve(STALE_ABSTENTION) };
     const later = scriptedClassifier(() => Promise.resolve(null));
     await categoriseBatch([unresolved], {
-      classifier: later,
+      classifiers: [later],
       countries: undefined,
       store: stale,
     });
@@ -439,7 +446,7 @@ describe("categoriseBatch", () => {
     const store = memoryStore();
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier,
+      classifiers: [classifier],
       countries: undefined,
       store,
     });
@@ -455,7 +462,7 @@ describe("categoriseBatch", () => {
     const store = memoryStore();
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier,
+      classifiers: [classifier],
       countries: undefined,
       store,
     });
@@ -470,7 +477,7 @@ describe("categoriseBatch", () => {
     const store = memoryStore();
 
     const [result] = await categoriseBatch([unresolved], {
-      classifier,
+      classifiers: [classifier],
       countries: undefined,
       store,
       timeoutMs: 1,
@@ -481,6 +488,149 @@ describe("categoriseBatch", () => {
     expect(classifier.calls).toBe(1);
     expect(result?.stage).toBe("none");
     expect(store.rows.size).toBe(0);
+  });
+
+  it("escalates an answer below the bar to the next classifier", async () => {
+    const asked = scriptedClassifier(
+      () => Promise.resolve({ category: "groceries", confidence: 0.6 }),
+      "local"
+    );
+    const escalated = scriptedClassifier(
+      () => Promise.resolve({ category: "restaurants", confidence: 0.92 }),
+      "hosted"
+    );
+    const store = memoryStore();
+
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      store,
+    });
+
+    expect(asked.calls).toBe(1);
+    expect(escalated.calls).toBe(1);
+    expect(result).toMatchObject({
+      band: "auto",
+      category: "restaurants",
+      confidence: 0.92,
+      stage: "model",
+    });
+  });
+
+  it("keeps the stronger answer when the escalation answers weaker", async () => {
+    const asked = scriptedClassifier(
+      () => Promise.resolve({ category: "groceries", confidence: 0.7 }),
+      "local"
+    );
+    const escalated = scriptedClassifier(
+      () => Promise.resolve({ category: "restaurants", confidence: 0.55 }),
+      "hosted"
+    );
+
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      store: memoryStore(),
+    });
+
+    expect(result).toMatchObject({
+      band: "suggest",
+      category: "groceries",
+      confidence: 0.7,
+    });
+  });
+
+  it("never asks the next classifier about an answer above the bar", async () => {
+    const asked = scriptedClassifier(
+      () => Promise.resolve({ category: "groceries", confidence: 0.9 }),
+      "local"
+    );
+    const escalated = scriptedClassifier(
+      () => Promise.resolve({ category: "restaurants", confidence: 0.99 }),
+      "hosted"
+    );
+
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      store: memoryStore(),
+    });
+
+    expect(escalated.calls).toBe(0);
+    expect(result?.category).toBe("groceries");
+  });
+
+  it("escalates an abstention", async () => {
+    const asked = scriptedClassifier(() => Promise.resolve(null), "local");
+    const escalated = scriptedClassifier(
+      () => Promise.resolve({ category: "restaurants", confidence: 0.9 }),
+      "hosted"
+    );
+    const store = memoryStore();
+
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      store,
+    });
+
+    expect(escalated.calls).toBe(1);
+    expect(result?.category).toBe("restaurants");
+    expect([...store.rows.values()]).toMatchObject([
+      { category: null },
+      { category: "restaurants" },
+    ]);
+  });
+
+  it("caches every classifier of the chain against its own model", async () => {
+    const store = memoryStore();
+    await categoriseBatch([unresolved], {
+      classifiers: [
+        scriptedClassifier(weak, "local"),
+        scriptedClassifier(strong, "hosted"),
+      ],
+      countries: undefined,
+      store,
+    });
+
+    expect(store.rows.size).toBe(2);
+
+    const asked = scriptedClassifier(weak, "local");
+    const escalated = scriptedClassifier(strong, "hosted");
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      store,
+    });
+
+    expect(asked.calls).toBe(0);
+    expect(escalated.calls).toBe(0);
+    expect(result).toMatchObject({
+      band: "auto",
+      category: "restaurants",
+      stage: "cached-model",
+    });
+  });
+
+  it("escalates nothing but an abstention when the bar is zero", async () => {
+    const asked = scriptedClassifier(
+      () => Promise.resolve({ category: "groceries", confidence: 0.6 }),
+      "local"
+    );
+    const escalated = scriptedClassifier(
+      () => Promise.resolve({ category: "restaurants", confidence: 0.99 }),
+      "hosted"
+    );
+
+    const [result] = await categoriseBatch([unresolved], {
+      classifiers: [asked, escalated],
+      countries: undefined,
+      escalateBelow: 0,
+      store: memoryStore(),
+    });
+
+    expect(escalated.calls).toBe(0);
+    expect(result).toMatchObject({ band: "suggest", category: "groceries" });
   });
 });
 

@@ -127,9 +127,15 @@ const SECTIONS: Section[] = [
   {
     id: "categorisation",
     preamble: [
-      "Transaction classifier — optional. `jev` sends a normalised descriptor,",
-      "merchant and payment facts (never an amount, date, IBAN or account) to",
-      "TypeSafe. Answers are cached per merchant, so a merchant is asked about once.",
+      "Transaction classifier — optional. It sends a normalised descriptor, merchant",
+      "and payment facts (never an amount, date, IBAN or account) to the endpoint of",
+      "TRANSACTION_CLASSIFIER, and to the TRANSACTION_CLASSIFIER_FALLBACK endpoint",
+      "when that answer is weak. Answers are cached per merchant and per model, so a",
+      "merchant is asked about once. Each slot names a protocol and its own URL:",
+      "`system-one` (TypeSafe Jev, Mapika/decider-2b, Laya), `llm` (any",
+      "OpenAI-compatible endpoint, local or a gateway) or `zero-shot` (Hugging Face).",
+      "A URL on your own hardware keeps the descriptors on it, which is the",
+      "recommendation, not a requirement.",
       "DICTIONARY_PUBLIC_KEY is the Ed25519 public key PEM from: bun run generate:key",
     ],
     title: "Categorisation",

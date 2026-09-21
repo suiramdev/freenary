@@ -3,7 +3,10 @@ import { Data, Effect, Match, Option } from "effect";
 import type { SpendingCategory } from "../lib/taxonomy";
 import { categoryDirection, isSpendingCategory } from "../lib/taxonomy";
 import { classificationInputFrom } from "./classifier/payload";
-import { classificationSignature } from "./classifier/signature";
+import {
+  classificationSignature,
+  payloadSignature,
+} from "./classifier/signature";
 import type { ClassificationStore } from "./classifier/store";
 import type {
   ClassificationInput,
@@ -60,15 +63,25 @@ interface PendingGroup {
 }
 
 interface ClassificationPhase {
-  classifier: TransactionClassifier;
+  classifiers: readonly TransactionClassifier[];
+  escalateBelow: number;
   onSignatureSettled: () => Promise<void>;
   store: ClassificationStore;
   timeoutMs: number;
 }
 
+type ProviderOutcome =
+  | {
+      readonly kind: "answered";
+      readonly prediction: ClassificationPrediction;
+      readonly stage: ResolutionStage;
+    }
+  | { readonly kind: "silent" };
+
 export interface CategoriseBatchOptions {
   countries: Iso3166Alpha2Country[] | undefined;
-  classifier: TransactionClassifier | null;
+  classifiers: readonly TransactionClassifier[];
+  escalateBelow?: number;
   onSignatureSettled?: () => Promise<void>;
   store: ClassificationStore;
   timeoutMs?: number;
@@ -287,8 +300,7 @@ const noProgress = (): Promise<void> => Promise.resolve();
 
 const groupPending = (
   transactions: CategoriseInput[],
-  results: ResolutionResult[],
-  classifier: TransactionClassifier
+  results: ResolutionResult[]
 ): Map<string, PendingGroup> => {
   const groups = new Map<string, PendingGroup>();
 
@@ -304,7 +316,7 @@ const groupPending = (
       continue;
     }
 
-    const signature = classificationSignature(classifier, payload);
+    const signature = payloadSignature(payload);
     const existing = groups.get(signature);
 
     if (existing) {
@@ -395,25 +407,26 @@ const acceptedPrediction = (
 };
 
 const askClassifier = Effect.fnUntraced(function* askClassifier(
-  phase: ClassificationPhase,
+  classifier: TransactionClassifier,
+  timeoutMs: number,
   payload: ClassificationInput
 ) {
-  const { provider } = phase.classifier;
+  const { provider } = classifier;
   const prediction = yield* Effect.tryPromise({
     catch: (cause) =>
       new ClassificationCallFailed({
         provider,
         reason: { detail: String(cause), kind: "threw" },
       }),
-    try: () => phase.classifier.classify(payload),
+    try: () => classifier.classify(payload),
   }).pipe(
     Effect.timeoutOrElse({
-      duration: phase.timeoutMs,
+      duration: timeoutMs,
       orElse: () =>
         Effect.fail(
           new ClassificationCallFailed({
             provider,
-            reason: { afterMs: phase.timeoutMs, kind: "timeout" },
+            reason: { afterMs: timeoutMs, kind: "timeout" },
           })
         ),
     })
@@ -424,24 +437,23 @@ const askClassifier = Effect.fnUntraced(function* askClassifier(
     : null;
 });
 
-const resolveSignature = Effect.fnUntraced(function* resolveSignature(
+const consultClassifier = Effect.fnUntraced(function* consultClassifier(
   phase: ClassificationPhase,
-  results: ResolutionResult[],
-  signature: string,
-  group: PendingGroup
+  classifier: TransactionClassifier,
+  payload: ClassificationInput
 ) {
+  const signature = classificationSignature(classifier, payload);
   const cached = yield* Effect.promise(() => phase.store.find(signature));
 
   if (cached?.category) {
-    applyModelResult(
-      results,
-      group.indices,
-      cached.category,
-      cached.confidence ?? 0,
-      "cached-model"
-    );
-
-    return;
+    return {
+      kind: "answered",
+      prediction: {
+        category: cached.category,
+        confidence: cached.confidence ?? 0,
+      },
+      stage: "cached-model",
+    } satisfies ProviderOutcome;
   }
 
   const abstainedRecently =
@@ -449,10 +461,14 @@ const resolveSignature = Effect.fnUntraced(function* resolveSignature(
     Date.now() - cached.classifiedAt.getTime() < ABSTENTION_RETRY_AFTER_MS;
 
   if (abstainedRecently) {
-    return;
+    return { kind: "silent" } satisfies ProviderOutcome;
   }
 
-  const prediction = yield* askClassifier(phase, group.payload).pipe(
+  const prediction = yield* askClassifier(
+    classifier,
+    phase.timeoutMs,
+    payload
+  ).pipe(
     Effect.match({
       onFailure: (failure: ClassificationCallFailed) => {
         console.warn(`[categorisation] ${failure.message}`);
@@ -464,7 +480,7 @@ const resolveSignature = Effect.fnUntraced(function* resolveSignature(
   );
 
   if (Option.isNone(prediction)) {
-    return;
+    return { kind: "silent" } satisfies ProviderOutcome;
   }
 
   const answer = prediction.value;
@@ -473,18 +489,50 @@ const resolveSignature = Effect.fnUntraced(function* resolveSignature(
     phase.store.save(signature, {
       answeredBy: answer?.answeredBy ?? null,
       category: answer?.category ?? null,
-      classifier: phase.classifier,
+      classifier,
       confidence: answer?.confidence ?? null,
     })
   );
 
-  if (answer) {
+  return answer
+    ? ({
+        kind: "answered",
+        prediction: answer,
+        stage: "model",
+      } satisfies ProviderOutcome)
+    : ({ kind: "silent" } satisfies ProviderOutcome);
+});
+
+const resolveGroup = Effect.fnUntraced(function* resolveGroup(
+  phase: ClassificationPhase,
+  results: ResolutionResult[],
+  group: PendingGroup
+) {
+  let best: Extract<ProviderOutcome, { kind: "answered" }> | null = null;
+
+  for (const classifier of phase.classifiers) {
+    const outcome = yield* consultClassifier(phase, classifier, group.payload);
+
+    if (
+      outcome.kind === "answered" &&
+      (best === null ||
+        outcome.prediction.confidence > best.prediction.confidence)
+    ) {
+      best = outcome;
+    }
+
+    if (best !== null && best.prediction.confidence >= phase.escalateBelow) {
+      break;
+    }
+  }
+
+  if (best !== null) {
     applyModelResult(
       results,
       group.indices,
-      answer.category,
-      answer.confidence,
-      "model"
+      best.prediction.category,
+      best.prediction.confidence,
+      best.stage
     );
   }
 });
@@ -494,19 +542,23 @@ const classifyPending = Effect.fnUntraced(function* classifyPending(
   transactions: CategoriseInput[],
   results: ResolutionResult[]
 ) {
-  const groups = groupPending(transactions, results, phase.classifier);
+  const groups = groupPending(transactions, results);
 
   yield* Effect.forEach(
-    [...groups],
-    ([signature, group]) =>
-      resolveSignature(phase, results, signature, group).pipe(
+    [...groups.values()],
+    (group) =>
+      resolveGroup(phase, results, group).pipe(
         Effect.flatMap(() => Effect.promise(phase.onSignatureSettled))
       ),
     { concurrency: CLASSIFIER_CONCURRENCY }
   ).pipe(
     Effect.catchCause((cause) => {
+      const chain = phase.classifiers
+        .map((classifier) => classifier.provider)
+        .join(" then ");
+
       console.warn(
-        `[categorisation] classifier ${phase.classifier.provider} phase abandoned: ${cause}`
+        `[categorisation] classifier ${chain} phase abandoned: ${cause}`
       );
 
       return Effect.void;
@@ -519,16 +571,16 @@ const categoriseAll = async (
   options: CategoriseBatchOptions
 ): Promise<ResolutionResult[]> => {
   const results = await categoriseInOrder(transactions);
-  const { classifier } = options;
 
-  if (!classifier) {
+  if (options.classifiers.length === 0) {
     return results;
   }
 
   await Effect.runPromise(
     classifyPending(
       {
-        classifier,
+        classifiers: options.classifiers,
+        escalateBelow: options.escalateBelow ?? AUTO_BAND_MIN_CONFIDENCE,
         onSignatureSettled: options.onSignatureSettled ?? noProgress,
         store: options.store,
         timeoutMs: options.timeoutMs ?? CLASSIFIER_TIMEOUT_MS,

@@ -1,57 +1,145 @@
+import type { CLASSIFIER_PROTOCOLS } from "@freenary/env/schema";
 import { env } from "@freenary/env/server";
 import { Data, Match, Result } from "effect";
 
-import { createJevClassifier } from "./providers/jev";
+import { createLlmClassifier } from "./providers/llm";
+import { createSystemOneClassifier } from "./providers/system-one";
+import { createZeroShotClassifier } from "./providers/zero-shot";
 import type { TransactionClassifier } from "./types";
 
-export type ClassifierProviderName = "jev";
+export type ClassifierProtocol = (typeof CLASSIFIER_PROTOCOLS)[number];
+
+export interface ClassifierSlotSettings {
+  apiKey: string | undefined;
+  model: string | undefined;
+  protocol: ClassifierProtocol | undefined;
+  temperature: number;
+  url: string | undefined;
+}
 
 export interface ClassifierSettings {
-  provider: ClassifierProviderName | undefined;
-  typesafeApiKey: string | undefined;
-  typesafeModel: string;
+  fallback: ClassifierSlotSettings;
+  primary: ClassifierSlotSettings;
 }
+
+export type ClassifierChain = Result.Result<
+  readonly TransactionClassifier[],
+  ClassifierUnavailable
+>;
 
 export class ClassifierUnavailable extends Data.TaggedError(
   "ClassifierUnavailable"
 )<{
-  readonly provider: ClassifierProviderName;
-  readonly variable: string;
   readonly message: string;
+  readonly variable: string;
 }> {}
 
-export const createTransactionClassifier = (
+const PRIMARY_VARIABLE = "TRANSACTION_CLASSIFIER";
+const FALLBACK_VARIABLE = "TRANSACTION_CLASSIFIER_FALLBACK";
+
+const requiredSetting = (
+  value: string | undefined,
+  slot: string,
+  protocol: ClassifierProtocol,
+  suffix: string
+): Result.Result<string, ClassifierUnavailable> =>
+  Result.fromNullishOr(
+    value !== undefined && value.length > 0 ? value : undefined,
+    () =>
+      new ClassifierUnavailable({
+        message: `${slot}=${protocol} requires ${slot}_${suffix} to be set.`,
+        variable: `${slot}_${suffix}`,
+      })
+  );
+
+const buildClassifier = (
+  slot: string,
+  protocol: ClassifierProtocol,
+  settings: ClassifierSlotSettings
+): Result.Result<TransactionClassifier, ClassifierUnavailable> =>
+  Result.flatMap(requiredSetting(settings.url, slot, protocol, "URL"), (url) =>
+    Result.map(
+      requiredSetting(settings.model, slot, protocol, "MODEL"),
+      (model) => {
+        const endpoint = {
+          apiKey: settings.apiKey,
+          model,
+          temperature: settings.temperature,
+          url,
+        };
+
+        return Match.value(protocol).pipe(
+          Match.when("system-one", () => createSystemOneClassifier(endpoint)),
+          Match.when("llm", () => createLlmClassifier(endpoint)),
+          Match.when("zero-shot", () => createZeroShotClassifier(endpoint)),
+          Match.exhaustive
+        );
+      }
+    )
+  );
+
+export const createClassifierChain = (
   settings: ClassifierSettings
-): Result.Result<TransactionClassifier | null, ClassifierUnavailable> => {
-  if (settings.provider === undefined) {
-    return Result.succeed(null);
+): ClassifierChain => {
+  const { fallback, primary } = settings;
+  const first = primary.protocol;
+  const escalation = fallback.protocol;
+
+  if (first === undefined) {
+    return escalation === undefined
+      ? Result.succeed([])
+      : Result.fail(
+          new ClassifierUnavailable({
+            message: `${FALLBACK_VARIABLE} needs ${PRIMARY_VARIABLE} to name the classifier asked first.`,
+            variable: PRIMARY_VARIABLE,
+          })
+        );
   }
 
-  return Match.value(settings.provider).pipe(
-    Match.when("jev", () =>
+  if (escalation === undefined) {
+    return Result.map(
+      buildClassifier(PRIMARY_VARIABLE, first, primary),
+      (classifier) => [classifier]
+    );
+  }
+
+  if (escalation === first && fallback.model === primary.model) {
+    return Result.fail(
+      new ClassifierUnavailable({
+        message: `${FALLBACK_VARIABLE}=${escalation} names the protocol and the model that answer first, so both slots would share one cache row.`,
+        variable: FALLBACK_VARIABLE,
+      })
+    );
+  }
+
+  return Result.flatMap(
+    buildClassifier(PRIMARY_VARIABLE, first, primary),
+    (answered) =>
       Result.map(
-        Result.fromNullishOr(
-          settings.typesafeApiKey,
-          () =>
-            new ClassifierUnavailable({
-              message:
-                "TRANSACTION_CLASSIFIER=jev requires TYPESAFE_API_KEY to be set.",
-              provider: "jev",
-              variable: "TYPESAFE_API_KEY",
-            })
-        ),
-        (apiKey) =>
-          createJevClassifier({ apiKey, model: settings.typesafeModel })
+        buildClassifier(FALLBACK_VARIABLE, escalation, fallback),
+        (escalated) => [answered, escalated]
       )
-    ),
-    Match.exhaustive
   );
 };
 
-export const transactionClassifier = Result.getOrThrow(
-  createTransactionClassifier({
-    provider: env.TRANSACTION_CLASSIFIER,
-    typesafeApiKey: env.TYPESAFE_API_KEY,
-    typesafeModel: env.TYPESAFE_MODEL,
+export const transactionClassifiers = Result.getOrThrow(
+  createClassifierChain({
+    fallback: {
+      apiKey: env.TRANSACTION_CLASSIFIER_FALLBACK_API_KEY,
+      model: env.TRANSACTION_CLASSIFIER_FALLBACK_MODEL,
+      protocol: env.TRANSACTION_CLASSIFIER_FALLBACK,
+      temperature: env.TRANSACTION_CLASSIFIER_FALLBACK_TEMPERATURE,
+      url: env.TRANSACTION_CLASSIFIER_FALLBACK_URL,
+    },
+    primary: {
+      apiKey: env.TRANSACTION_CLASSIFIER_API_KEY,
+      model: env.TRANSACTION_CLASSIFIER_MODEL,
+      protocol: env.TRANSACTION_CLASSIFIER,
+      temperature: env.TRANSACTION_CLASSIFIER_TEMPERATURE,
+      url: env.TRANSACTION_CLASSIFIER_URL,
+    },
   })
 );
+
+export const classifierEscalateBelow =
+  env.TRANSACTION_CLASSIFIER_ESCALATE_BELOW;
