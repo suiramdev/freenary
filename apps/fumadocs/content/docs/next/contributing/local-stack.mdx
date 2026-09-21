@@ -13,13 +13,13 @@ Two paths run Freenary on your machine. The containerised path runs every part i
 
 ## The containerised path
 
-`bun run dev:up` is `bun scripts/dev.ts up --build --watch`. One command builds the images, applies the migrations and starts five services.
+`bun run dev:up` is `bun scripts/dev.ts up --build --watch`. One command builds the images, applies the migrations and starts five services. `bun run dev:mail` adds a sixth service, Mailpit.
 
-The stack needs no `.env` file. `docker-compose.dev.yml` gives every variable a default, `BETTER_AUTH_SECRET` and `EMAIL_PROVIDER` included.
+The stack needs no `.env` file. The `server` service declares `env_file` with `path: .env` and `required: false`, so an absent file is valid. Its `environment` block holds the six values the stack derives: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN` and `NODE_ENV`. Compose gives `environment` precedence over `env_file`, so those six always win. Every other variable of a root `.env` reaches the container.
 
-### The five services
+### The services
 
-`docker-compose.dev.yml` declares five services. Every service but `postgres` builds from `.docker/dockerfile.dev`.
+`docker-compose.dev.yml` declares five services. Every service but `postgres` builds from `.docker/dockerfile.dev`. `docker-compose.mail.yml` adds the sixth, `mailpit`.
 
 | Service | Image or build | Working directory | Command | Reachability |
 | --- | --- | --- | --- | --- |
@@ -28,21 +28,23 @@ The stack needs no `.env` file. `docker-compose.dev.yml` gives every variable a 
 | `server` | `.docker/dockerfile.dev` | `/app/apps/server` | `bun run --hot src/index.ts` | OrbStack labels, `http-port=3000` |
 | `web` | `.docker/dockerfile.dev` | `/app/apps/web` | `bun run dev -- --host 0.0.0.0` | OrbStack labels, `http-port=3001` |
 | `docs` | `.docker/dockerfile.dev` | `/app/apps/fumadocs` | `bun run dev -- --host 0.0.0.0` | OrbStack labels, `http-port=4000` |
+| `mailpit` | `axllent/mailpit:v1.28` | image default | image default | OrbStack labels, `http-port=8025`. Only with `--mail` |
 
-Only `server` gets the whole application environment. The `web` service gets `VITE_SERVER_URL` and `SERVER_URL`, which defaults to `http://server:3000`. A server-rendered page therefore reaches the API over the container network. The `docs` service gets `DOCS_PORT`, which no code reads.
+Only `server` loads the root `.env` and the derived values. The `web` service gets `VITE_SERVER_URL` and `SERVER_URL`, which defaults to `http://server:3000`. A server-rendered page therefore reaches the API over the container network. The `docs` service gets `DOCS_PORT`, which no code reads.
 
 The `bootstrap` service is one-shot. It waits for `postgres` to report healthy, then applies the migrations. The `server` service waits for it with the condition `service_completed_successfully`, so the schema lands first. Bootstrap re-runs on every `up`, and it exits `0` when the schema is already current.
 
-### The four scripts
+### The five scripts
 
 | Script | Literal command | The `docker compose` call |
 | --- | --- | --- |
 | `bun run dev:up` | `bun scripts/dev.ts up --build --watch` | `docker compose -p freenary-<slug> -f docker-compose.dev.yml up --build --watch` |
+| `bun run dev:mail` | `bun scripts/dev.ts --mail up --build --watch` | the same prefix with a second `-f docker-compose.mail.yml`, then `up --build --watch` |
 | `bun run dev:down` | `bun scripts/dev.ts down` | the same prefix, then `down` |
 | `bun run dev:logs` | `bun scripts/dev.ts logs -f` | the same prefix, then `logs -f` |
 | `bun run dev:reset` | `bun scripts/dev.ts reset` | `down -v`, then `up --build --watch` |
 
-`reset` is the one verb the wrapper owns. Every other argument reaches `docker compose` unchanged, always with the project name of this worktree:
+`reset` and `--mail` are the two arguments the wrapper owns. Every other argument reaches `docker compose` unchanged, always with the project name of this worktree:
 
 ```bash
 bun scripts/dev.ts ps
@@ -61,7 +63,7 @@ bun scripts/dev.ts exec server sh
 | 3 | The directory name of the worktree |
 | 4 | The constant `dev` |
 
-The `slugify` helper lowercases the name and collapses each run outside `[a-z0-9]` to one dash. It then trims the edge dashes and caps the result at 40 characters. The slug names five things:
+The `slugify` helper lowercases the name and collapses each run outside `[a-z0-9]` to one dash. It then trims the edge dashes and caps the result at 40 characters. The slug names six things:
 
 | Field | Template | With `slug=dev` |
 | --- | --- | --- |
@@ -69,6 +71,7 @@ The `slugify` helper lowercases the name and collapses each run outside `[a-z0-9
 | Web host | `web.${slug}.freenary.orb.local` | `web.dev.freenary.orb.local` |
 | Server host | `server.${slug}.freenary.orb.local` | `server.dev.freenary.orb.local` |
 | Docs host | `docs.${slug}.freenary.orb.local` | `docs.dev.freenary.orb.local` |
+| Mail host | `mail.${slug}.freenary.orb.local` | `mail.dev.freenary.orb.local` |
 | Cookie domain | `.${slug}.freenary.orb.local` | `.dev.freenary.orb.local` |
 
 The wrapper passes the cookie domain as `AUTH_COOKIE_DOMAIN`, so both origins share the session cookie. Every origin uses `https`, because OrbStack fronts each `*.orb.local` name with its own certificate. A plain-HTTP origin breaks the cross-origin calls of the web app on CORS.
@@ -80,10 +83,11 @@ The wrapper passes the cookie domain as `AUTH_COOKIE_DOMAIN`, so both origins sh
   web     https://web.<slug>.freenary.orb.local
   server  https://server.<slug>.freenary.orb.local
   docs    https://docs.<slug>.freenary.orb.local
+  mail    https://mail.<slug>.freenary.orb.local
   project freenary-<slug>
 ```
 
-The project name and the three hostnames both carry the slug, so two worktrees run side by side. Each one gets its own containers, its own `pgdata` volume and its own URLs.
+The `mail` line appears with `--mail` alone. The project name and the hostnames all carry the slug, so two worktrees run side by side. Each one gets its own containers, its own `pgdata` volume and its own URLs.
 
 <Callout type="warn">
 
@@ -148,6 +152,18 @@ The password is the `POSTGRES_PASSWORD` of the root `.env`. The schema default f
 
 </Callout>
 
+## Add an environment variable
+
+Declare it once, in `packages/env/src/schema.ts`. Give it a Zod schema, a `.describe()` sentence, and a `.meta()` block with its `section`, `example` and `onError`. Then run the generator:
+
+```bash
+bun run env:sync
+```
+
+`env:sync` writes `.env.example` and the tables of the [Configuration](/docs/self-hosting/configuration) reference. No compose file needs an edit. The development `server` service already reads the root `.env` through `env_file`, and the production one does the same. A `pre-commit` job runs the generator and stages what it writes.
+
+`bun run env:check` is the same script in check mode, and it is the `Environment` step of CI. It refuses four mistakes. A schema key with no description, no example or no `onError` fails. A `process.env` read under `apps/`, `packages/` or `scripts/` that nothing declares fails. A `${VAR}` in a compose file that nothing declares fails, and so does an unused allow-list entry.
+
 ## Reach the database
 
 On the containerised path nothing is published, so go through the wrapper:
@@ -174,13 +190,11 @@ On the local path PostgreSQL answers on `127.0.0.1:5432`, so `psql` and `bun run
 
 The repository holds no seed script. Open the web app and create the account on the sign-in screen.
 
-The containerised stack sets `EMAIL_PROVIDER: log`, so it sends no mail. The browser asks for a one-time code, and the API server prints it:
+`bun run dev:up` configures no email provider. Freenary therefore hides every flow that needs mail. Sign-up returns a session at once, and no screen asks for a code.
 
-```bash
-bun run dev:logs
-```
+Work on those flows through `bun run dev:mail`. It sets `EMAIL_PROVIDER` to `smtp` and points the server at Mailpit. Sign-up then asks for a one-time code, and Mailpit holds the message at `https://mail.<slug>.freenary.orb.local`.
 
-Read the `[email:log]` line and the six digits under it, then type them in the form. The local path sets no email provider, so a sign-up there returns a session at once.
+Read the code in that inbox, then type it in the form. The local path sets no email provider either, so a sign-up there returns a session at once.
 
 ## Reset
 
@@ -203,7 +217,7 @@ Read the `[email:log]` line and the six digits under it, then type them in the f
 <Card
   title="Contributing"
   href="/docs/contributing"
-  description="The tools, the five checks CI runs, and the pull request rules."
+  description="The tools, the six checks CI runs, and the pull request rules."
 />
 
 <Card

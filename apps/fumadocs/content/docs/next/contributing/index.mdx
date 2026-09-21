@@ -1,6 +1,6 @@
 ---
 title: Contributing
-description: Set up the repository, run the stack, run the five checks CI runs, and open a pull request.
+description: Set up the repository, run the stack, run the six checks CI runs, and open a pull request.
 icon: Hammer
 ---
 
@@ -72,7 +72,7 @@ One line separates them. The containerised path runs every part in Docker, behin
 
 `.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
 
-The `ci` job runs six commands. Run the same six before you open a pull request:
+The `ci` job runs seven commands. Run the same seven before you open a pull request:
 
 ```bash
 bun install --frozen-lockfile
@@ -80,6 +80,7 @@ bun run check
 bun run check-types
 bun run check:fsd
 bun run docs:check
+bun run env:check
 bun run build
 ```
 
@@ -90,11 +91,13 @@ bun run build
 | 3 | Type check | `bun run check-types` | `turbo run check-types` |
 | 4 | Architecture | `bun run check:fsd` | `turbo run lint:fsd`, the Feature-Sliced Design rules of `apps/web` and `apps/fumadocs` |
 | 5 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
-| 6 | Build | `bun run build` | `turbo run build`, which builds the three applications |
+| 6 | Environment | `bun run env:check` | `scripts/env-sync.ts --check`, which compares `.env.example` and the configuration reference against `packages/env/src/schema.ts` |
+| 7 | Build | `bun run build` | `turbo run build`, which builds the three applications |
 
-The `compose` job needs no Bun and no install. It checks three things:
+The `compose` job needs no Bun and no install. It checks four things:
 
 - `docker compose -f docker-compose.dev.yml config --quiet` parses the development stack.
+- The same command with `-f docker-compose.mail.yml` added parses the Mailpit layer over it.
 - The same command against `docker-compose.yml` parses the production stack, with a temporary `.env` that sets `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`.
 - The same command with an empty `.env` must fail. A pass means the production file accepted two empty secrets, so the job fails.
 
@@ -151,14 +154,15 @@ Four of the added rules change how the code is written. `no-comments` rejects ev
 
 A comment therefore never holds a fact. `docs/engineering/` in the repository holds one file per area. Each bullet names the file and the symbol it belongs to. Read the file for the area you change, and add to it when the code cannot state what you learned.
 
-`lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:
+`lefthook.yml` declares one hook. On `pre-commit` it runs three jobs in parallel:
 
-| Job      | Command                            |
-| -------- | ---------------------------------- |
-| `oxlint` | `bun oxlint --fix {staged_files}`  |
-| `oxfmt`  | `bun oxfmt --write {staged_files}` |
+| Job        | Command                            |
+| ---------- | ---------------------------------- |
+| `oxlint`   | `bun oxlint --fix {staged_files}`  |
+| `oxfmt`    | `bun oxfmt --write {staged_files}` |
+| `env-sync` | `bun run env:sync`                 |
 
-Both set `stage_fixed: true`, so each job re-stages the files it changed. The repository declares no `pre-push` hook and no `commit-msg` hook.
+All three set `stage_fixed: true`, so each job re-stages the files it changed. The `env-sync` job runs on a change to the environment schema, a compose file or the generator. The repository declares no `pre-push` hook and no `commit-msg` hook.
 
 ## Branches, commits and pull requests
 

@@ -1,13 +1,14 @@
 import { verify } from "node:crypto";
 
+import { env } from "@freenary/env/server";
 import { Option } from "effect";
 
 const ALGORITHM_FROM_KEY = null;
 
 const configuredPublicKey = (): string | null => {
-  const key = process.env.DICTIONARY_PUBLIC_KEY;
+  const key = env.DICTIONARY_PUBLIC_KEY?.trim();
 
-  return key && key.trim().length > 0 ? key.trim() : null;
+  return key === undefined || key.length === 0 ? null : key;
 };
 
 const verifiedOrNone = Option.liftThrowable(

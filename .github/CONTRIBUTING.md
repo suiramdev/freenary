@@ -28,7 +28,7 @@ bun run db:push           # applies the Prisma schema
 bun run dev               # web on 3001, server on 3000, docs on 4000
 ```
 
-There is no seed script. Create an account through the sign-in screen. The `dev:up` stack sets `EMAIL_PROVIDER=log`, so sign-up asks for a 6-digit code and the API server log prints it — read it with `bun run dev:logs`. The `bun run dev` path above sets no email provider, so sign-up returns a session at once. See [Local development stack](../apps/fumadocs/content/docs/next/contributing/local-stack.mdx) for the details, and [Configuration reference](../apps/fumadocs/content/docs/next/self-hosting/configuration.mdx) for every environment variable.
+There is no seed script. Create an account through the sign-in screen. `bun run dev:up` configures no email provider, so sign-up returns a session at once and asks for no code — and so does the `bun run dev` path above. To work on the one-time-code flows, start the stack with `bun run dev:mail` instead: it adds a Mailpit inbox and points the API server at it, so the sign-up code, the verification code and the password reset all land in that inbox. See [Local development stack](../apps/fumadocs/content/docs/next/contributing/local-stack.mdx) for the details, and [Configuration reference](../apps/fumadocs/content/docs/next/self-hosting/configuration.mdx) for every environment variable.
 
 ## Branch Naming
 

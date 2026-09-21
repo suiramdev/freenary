@@ -1,19 +1,18 @@
 ---
 title: Email delivery
-description: The three email adapters, what each one needs, the four messages Freenary sends, and where the one-time code lands.
+description: The two email adapters, what each one needs, the four messages Freenary sends, and where the one-time code lands.
 icon: Mail
 ---
 
 `EMAIL_PROVIDER` has no default. A fresh instance sends no email at all, and Freenary registers no one-time-code plugin.
 
-Set the variable to `log`, `resend` or `smtp`. There is no fourth adapter.
+Set the variable to `resend` or `smtp`. There is no third adapter.
 
 ## Choose an adapter
 
 | Value | Delivery | Needs |
 | --- | --- | --- |
-| unset | nothing. Address confirmation and password reset are off | — |
-| `log` | one line on the API server log | nothing. It does not read `EMAIL_FROM` |
+| unset | nothing. Address confirmation, one-time codes and password reset are all off. Freenary hides those flows | — |
 | `resend` | the Resend REST API | `RESEND_API_KEY`, `EMAIL_FROM` |
 | `smtp` | any SMTP relay, over one pooled connection | `SMTP_HOST`, `EMAIL_FROM` |
 
@@ -74,27 +73,13 @@ Two more facts about the message:
 - No HTML version exists. The adapter takes a recipient, a subject and a text body.
 - Freenary hashes each code before it stores it. A database dump holds no code that still opens an account.
 
-## `log`
+## Development
 
-```dotenv
-EMAIL_PROVIDER=log
-```
+A contributor who needs a real code runs `bun run dev:mail`. The command starts a Mailpit inbox beside the development stack.
 
-For each message the adapter writes two lines to standard output. The first reads `[email:log] to=<address> subject=<subject>`, and the body follows.
+Mailpit accepts every message over SMTP, and the API server points at it. Read the code in the Mailpit web inbox.
 
-The development stack uses this adapter by default, so address confirmation and password reset work with no mail account.
-
-<Callout type="error">
-
-`EMAIL_PROVIDER=log` and `NODE_ENV=production` together stop the process at startup. The refusal reads:
-
-```text
-EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
-```
-
-Startup is the last cheap moment to catch an adapter that writes codes to a log file.
-
-</Callout>
+[Local development stack](/docs/contributing/local-stack) documents the stack, the inbox address and the rest of the detail.
 
 ## `resend`
 
@@ -151,23 +136,18 @@ Write the sender as a display name and an address:
 EMAIL_FROM="Freenary <no-reply@example.com>"
 ```
 
-Freenary hands the value to the adapter untouched, so the provider decides which shapes it accepts. Both `resend` and `smtp` need it. The `log` adapter never reads it.
+Freenary hands the value to the adapter untouched, so the provider decides which shapes it accepts. Both `resend` and `smtp` need it.
 
 ## Read a code
 
 | Adapter | Where the code lands |
 | --- | --- |
-| `log` | The API server log |
 | `resend` | The target mailbox, then the Resend dashboard for the delivery record |
 | `smtp` | The target mailbox, then the log of your relay |
 
-With the `log` adapter, read the code from the running stack:
+On a served instance the code arrives in the mailbox of the address that asked for it.
 
-```bash
-docker compose logs -f server
-```
-
-Search that output for `[email:log]`. On the development stack the command is `bun run dev:logs`.
+On a development stack started with `bun run dev:mail`, it arrives in the Mailpit inbox instead.
 
 To produce a code, sign up with an address that has no account. To produce a reset code instead, open `Forgot password?` on the sign-in screen.
 
@@ -176,8 +156,7 @@ To produce a code, sign up with an address that has no account. To produce a res
 | Problem | Fix |
 | --- | --- |
 | The process refuses to start and names a variable | Set that variable, or unset `EMAIL_PROVIDER`. A half-configured adapter never starts |
-| The process refuses to start and names `log` | An instance in production cannot use the `log` adapter. Configure `resend` or `smtp` |
-| No message arrives, and no startup error | Check `EMAIL_PROVIDER`. The `log` adapter delivers nothing to a mailbox by design |
+| No message arrives, and no startup error | `EMAIL_PROVIDER` is unset, so Freenary sends no email. Set `resend` or `smtp` |
 | The message lands in spam | Publish SPF, DKIM and DMARC records for the domain in `EMAIL_FROM`, and register that domain at your provider |
 | The provider refuses the sender | Freenary reports the provider answer, for example `Resend rejected the message (403): <body>`. Use an address on a domain you registered |
 | The code no longer works | A code lives 10 minutes, and three wrong tries burn it. The user asks for a new one |

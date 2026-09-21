@@ -7,6 +7,8 @@ import { Option } from "effect";
 import { deriveDevIdentity } from "./dev-identity";
 
 const DEV_COMPOSE_FILE = "docker-compose.dev.yml";
+const MAIL_COMPOSE_FILE = "docker-compose.mail.yml";
+const MAIL_FLAG = "--mail";
 const WORKTREE_ENV_FILE = ".env";
 const DETACHED_HEAD_REF = "HEAD";
 const RESET_VERB = "reset";
@@ -61,7 +63,9 @@ const compose = (args: string[], env: typeof process.env): number => {
 };
 
 const main = (): number => {
-  const rest = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const withMail = argv.includes(MAIL_FLAG);
+  const rest = argv.filter((argument) => argument !== MAIL_FLAG);
   const identity = deriveDevIdentity({
     branch: readBranch(),
     dir: path.basename(process.cwd()),
@@ -74,14 +78,21 @@ const main = (): number => {
       readEnvOverride("AUTH_COOKIE_DOMAIN") ?? identity.cookieDomain,
     DOCS_HOST: identity.docsHost,
     FREENARY_SLUG: identity.slug,
+    MAIL_HOST: identity.mailHost,
     SERVER_HOST: identity.serverHost,
     WEB_HOST: identity.webHost,
   };
 
-  const base = ["-p", identity.composeProjectName, "-f", DEV_COMPOSE_FILE];
+  const base = [
+    "-p",
+    identity.composeProjectName,
+    "-f",
+    DEV_COMPOSE_FILE,
+    ...(withMail ? ["-f", MAIL_COMPOSE_FILE] : []),
+  ];
 
   process.stdout.write(
-    `[freenary dev] worktree "${identity.slug}"\n  web     ${identity.corsOrigin}\n  server  ${identity.betterAuthUrl}\n  docs    ${identity.docsUrl}\n  project ${identity.composeProjectName}\n`
+    `[freenary dev] worktree "${identity.slug}"\n  web     ${identity.corsOrigin}\n  server  ${identity.betterAuthUrl}\n  docs    ${identity.docsUrl}\n${withMail ? `  mail    ${identity.mailUrl}\n` : ""}  project ${identity.composeProjectName}\n`
   );
 
   if (rest[0] === RESET_VERB) {

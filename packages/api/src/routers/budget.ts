@@ -4,7 +4,10 @@ import { ORPCError } from "@orpc/server";
 import { Data, Effect, Match } from "effect";
 import { z } from "zod";
 
-import { transactionClassifier } from "../categorisation/classifier/registry";
+import {
+  classifierEscalateBelow,
+  transactionClassifiers,
+} from "../categorisation/classifier/registry";
 import { prismaClassificationStore } from "../categorisation/classifier/store";
 import { matchInternalTransfers } from "../categorisation/internal-transfer";
 import type { TransactionChannel } from "../categorisation/normalise/types";
@@ -474,8 +477,9 @@ const categoriseUncategorised = async (
   ];
 
   const results = await categoriseBatch(inputs, {
-    classifier: transactionClassifier,
+    classifiers: transactionClassifiers,
     countries: dictionaryCountries,
+    escalateBelow: classifierEscalateBelow,
     onSignatureSettled: reporter.heartbeat,
     store: prismaClassificationStore,
   });

@@ -1,21 +1,20 @@
 import { env } from "@freenary/env/server";
 import { Data, Match, Result } from "effect";
 
-import { createLogEmailProvider } from "./providers/log";
 import { createResendEmailProvider } from "./providers/resend";
 import { createSmtpEmailProvider } from "./providers/smtp";
 import type { EmailProvider } from "./types";
 
-export type EmailProviderName = "log" | "resend" | "smtp";
+export type EmailProviderName = "resend" | "smtp";
 
-export type EmailProviderUnavailableReason =
-  | { readonly kind: "missing-variable"; readonly variable: string }
-  | { readonly kind: "refused-in-production" };
+export interface EmailProviderUnavailableReason {
+  readonly kind: "missing-variable";
+  readonly variable: string;
+}
 
 export interface EmailSettings {
   provider: EmailProviderName | undefined;
   from: string | undefined;
-  isProduction: boolean;
   resendApiKey: string | undefined;
   smtpHost: string | undefined;
   smtpPassword: string | undefined;
@@ -58,18 +57,6 @@ export const createEmailProvider = (
   }
 
   return Match.value(settings.provider).pipe(
-    Match.when("log", () =>
-      settings.isProduction
-        ? Result.fail(
-            new EmailProviderUnavailable({
-              message:
-                "EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.",
-              provider: "log",
-              reason: { kind: "refused-in-production" },
-            })
-          )
-        : Result.succeed(createLogEmailProvider())
-    ),
     Match.when("resend", () =>
       Result.map(
         Result.all({
@@ -105,7 +92,6 @@ export const createEmailProvider = (
 export const emailProvider = Result.getOrThrow(
   createEmailProvider({
     from: env.EMAIL_FROM,
-    isProduction: env.NODE_ENV === "production",
     provider: env.EMAIL_PROVIDER,
     resendApiKey: env.RESEND_API_KEY,
     smtpHost: env.SMTP_HOST,

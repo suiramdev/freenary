@@ -35,7 +35,7 @@ The function `categoriseBatch(transactions, options)` loads the dictionary once 
 | 3 | Shared dictionary | An exact hit on the merchant key, or on the key minus a trailing qualifier word | `0.85`, band `auto` | `dictionary` |
 | 4a | Merchant category code | `merchantCategoryCode` resolves | `0.8` | `mcc` |
 | 4b | Bank code rules | The bank transaction code hits the `bankCode` table | `0.75` | `rules` |
-| 5 | Classifier | A classifier is configured, and it answers a category of the taxonomy | The confidence of the provider. Band `auto` at `0.85` and above, else `suggest` | `model`, or `cached-model` when the answer came from the store |
+| 5 | Classifier | A classifier is configured, and it or its fallback answers a category of the taxonomy | The confidence of the provider that answered. Band `auto` at `0.85` and above, else `suggest` | `model`, or `cached-model` when the answer came from the store |
 | 6 | Unknown | The fallthrough | `0`, band `unknown` | `none` |
 
 Stages 2 and 3 are skipped when the merchant key is empty. Stages 4 and 5 still run.
@@ -111,7 +111,7 @@ Every candidate passes `acceptInDirection()`. It rejects a category whose direct
 
 ### Stage 5 — the classifier
 
-This stage runs for the whole batch at once, and only when `TRANSACTION_CLASSIFIER` names a provider. Every transaction still at stage `none` becomes a `ClassificationInput`, grouped by merchant signature. The `MerchantClassification` cache answers first, then the provider. The taxonomy validates the answer. [The classifier](#the-classifier) holds the payload, the cache and the provider.
+This stage runs for the whole batch at once, and only when `TRANSACTION_CLASSIFIER` names a protocol. Every transaction still at stage `none` becomes a `ClassificationInput`, grouped by merchant identity. For each classifier of the chain, the `MerchantClassification` cache answers first, then the endpoint. The taxonomy validates every answer. [The classifier](#the-classifier) holds the payload, the cache, the cascade and the three protocols.
 
 </Step>
 
@@ -382,29 +382,71 @@ A failure disables stage 3 and nothing else. Stages 1, 2, 4, 5 and 6 still run.
 
 A merchant that no rule, no dictionary entry and no correction knows reaches the classifier phase. Only there does anything leave the instance. The phase runs once per batch, after every deterministic stage.
 
-`TransactionClassifier` in `packages/api/src/categorisation/classifier/types.ts` is the whole contract. It holds a `provider` name, a `model` id, and `classify(input)`. That function answers a category with a confidence, or `null` to abstain. `registry.ts` reads `TRANSACTION_CLASSIFIER` and builds the named provider, as `packages/email` builds an email provider. Unset, it builds nothing and the phase never runs.
+`TransactionClassifier` in `packages/api/src/categorisation/classifier/types.ts` is the whole contract. It holds a `provider` name, which is the protocol, a `model` id, and `classify(input)`. That function answers a category with a confidence, or `null` to abstain.
+
+`registry.ts` reads two slots, `TRANSACTION_CLASSIFIER` and `TRANSACTION_CLASSIFIER_FALLBACK`, and builds an ordered chain of one or two classifiers. Unset, it builds an empty chain and the phase never runs. A fallback with no first slot stops the start. A fallback that repeats both the protocol and the model of the first slot stops it too. The two would share one cache row.
 
 | Step | What happens |
 | --- | --- |
 | Payload | `classificationInputFrom` builds the `ClassificationInput` allow-list. A transaction with neither a merchant key nor a normalised descriptor is dropped |
-| Signature | `classificationSignature` hashes the provider, the model, `TAXONOMY_VERSION` and the merchant identity: the merchant key or the descriptor, the country, the direction and the merchant category code |
-| Grouping | Every pending transaction with the same signature becomes one group, so one merchant costs one question whatever the amounts |
+| Grouping | `payloadSignature` hashes the merchant identity: the merchant key or the descriptor, the country, the direction and the merchant category code. Every pending transaction with the same hash becomes one group, so one merchant costs one question whatever the amounts |
+| Signature | `classificationSignature` hashes the same identity behind the protocol, the model and `TAXONOMY_VERSION`. Each classifier of the chain therefore owns its own cache row |
 | Cache | `MerchantClassification` answers first. A stored category applies at stage `cached-model`. A stored abstention is honoured for 30 days, then asked again |
-| Call | Bounded to 4 in flight, each with a 15-second timeout |
+| Call | Bounded to 4 merchants in flight. A provider aborts its own request after 10 seconds, inside the resolver's 15-second budget |
 | Validation | The answer must be a slug of the taxonomy, with a confidence inside `0..1`, and the direction of the transaction must permit it. Anything else is refused, logged and cached nowhere |
-| Store | An accepted category and an explicit abstention are written. A failure, a timeout and a refused answer are not |
+| Store | An accepted category and an explicit abstention are written. A failure is not: a provider rejects on an unreachable endpoint, a refused request and an undecodable answer, which keeps a transient fault out of the 30-day abstention |
 
 A store failure never fails the batch. A classifier failure never fails a transaction: the deterministic result stands, and the row stays uncategorised.
 
-### The jev provider
+### The cascade
 
-`providers/jev.ts` calls the TypeSafe evaluation endpoint `https://api.typesafe.ai/v1/systemone` with `fetch`. It asks one question: which category describes this transaction. The two question sets, one for each direction, are built at module load from `categoriesForDirection`. A credit is offered the ten categories a credit can take, and a debit the twenty a debit can take. The model never sees an option that the picker refuses.
+The resolver asks the first classifier. It escalates to the second one when the first abstains, or when the answer is under `TRANSACTION_CLASSIFIER_ESCALATE_BELOW`. That variable is `0.85` by default. The pipeline needs that confidence to write a category without asking the reader. An answer that could only suggest therefore earns a second opinion.
 
-Each option carries a sentence that describes the situation it covers, held in `CATEGORY_CRITERIA` beside the question. A label alone is not a rubric: `Other` and `People` say nothing on their own.
+The higher-confidence answer of the two wins, and a weaker second opinion never replaces a stronger first one. The chain stops at the first answer at or above the bar, so a confident first classifier costs one call. At `0`, the second classifier answers abstentions alone.
 
-The provider thresholds the `confidence` of the answer at `JEV_ACCEPT_CONFIDENCE`, which is `0.5`. TypeSafe documents that value as the statistic to threshold on. Confidence measures how concentrated the distribution is, so it stays comparable when the taxonomy changes shape. A raw probability for one option falls as options are added, and a product of two of them falls twice. An answer below the bar is an abstention, and so is `uncategorised`. A category that the direction does not permit is a contract failure: the provider logs it and refuses it.
+Each classifier holds its own cache row, so the second batch reads both answers from the store and calls nothing. A chain of a local model and a hosted one therefore pays the hosted price once per merchant.
 
-`TYPESAFE_MODEL` defaults to the moving alias `jev-latest`. The cache key holds the configured string, so moving the alias keeps the stored answers. The `answeredBy` column records the versioned id that answered. Pin `TYPESAFE_MODEL` to a version to freeze both.
+### One statistic, three protocols
+
+`confidence.ts` holds `concentration`, which is `1 - H(p) / ln(n)` over the offered options. Every provider reports that one statistic, so a credit answer and a debit answer compare at one threshold. A raw probability for the picked option falls as options are added. A threshold on it is therefore a threshold on the size of the taxonomy. A concentration does not move that way.
+
+`ACCEPT_CONFIDENCE` is `0.5` and belongs to every provider. An answer under it is an abstention, and so is `uncategorised`. Each slot also takes a temperature that sharpens or flattens the distribution before the measure, because these models ship over-confident. Fit it on merchants your own readers corrected.
+
+A slot names a protocol, never a vendor. Each one carries its own URL, so it reaches a server you run or a server somebody else hosts. A URL on your own hardware keeps the descriptors there, which is the recommendation rather than a rule.
+
+| Protocol | What the slot URL receives | Where the number comes from |
+| --- | --- | --- |
+| `system-one` | The TypeSafe `/v1/systemone` request, posted to the URL as it is | The concentration of `probabilities` when a temperature is fitted, else the reported `certainty`, else the reported `confidence` |
+| `llm` | A chat completion, posted to the URL plus `/chat/completions` | The concentration of the log probabilities of the answer letter |
+| `zero-shot` | The Hugging Face zero-shot-classification request, posted to the URL as it is | The concentration of the label scores |
+
+Both slots read the same four settings: a URL, a model, a key and a temperature. The fallback reads them under the `TRANSACTION_CLASSIFIER_FALLBACK_` prefix. A chain can therefore hold two endpoints of one protocol. A local `system-one` server can escalate to a hosted one.
+
+### The system-one provider
+
+`providers/system-one.ts` posts one request: a `state`, one `choice` question and a `model` name. TypeSafe answers it at `https://api.typesafe.ai/v1/systemone`. `Mapika/decider-2b` serves the same route through `decider.serve`, and Laya answers the same shape. The provider sends an authorisation header only when the slot holds a key. A server on your own network wants none.
+
+The two question sets, one for each direction, are built at module load from `categoriesForDirection`. A credit is offered the ten categories a credit can take, and a debit the twenty a debit can take. The model never sees an option that the picker refuses.
+
+Each option carries a sentence that describes the situation it covers, held in `CATEGORY_CRITERIA` in `questions.ts` beside the question. Every provider shares that text. A label alone is not a rubric: `Other` and `People` say nothing on their own.
+
+A category that the direction does not permit is a contract failure: the provider logs it and refuses it.
+
+### The llm provider
+
+`providers/llm.ts` posts one chat completion to an OpenAI-compatible endpoint. A local runtime and a gateway both answer it. The options are lettered, `(A)` to `(T)`, because a slug spans several tokens and one letter does not. The request carries `temperature: 0`, so the decision repeats, and it asks for `logprobs` with `top_logprobs` equal to the option count. The provider maps the returned letters back to categories, then measures their distribution.
+
+An endpoint that returns no log probabilities still answers. The provider reads the letter the model wrote and reports `UNDISTRIBUTED_CONFIDENCE`, which is the acceptance bar itself. Such an answer can only ever suggest a category, and never write one.
+
+### The zero-shot provider
+
+`providers/zero-shot.ts` posts the Hugging Face zero-shot-classification shape: one line of state, the candidate labels and a hypothesis template. A cross-encoder such as `MoritzLaurer/ModernBERT-large-zeroshot-v2.0` answers there.
+
+The candidate labels are the rubrics rather than the slugs. The model scores an entailment, and a slug entails nothing. The provider holds the reverse map from rubric to category, and it decodes both documented response shapes. It weighs the returned scores against every offered option, so a short answer stays comparable with a complete one.
+
+### The model in the cache key
+
+A slot model is part of the signature, so a change to it asks every merchant again. A moving alias such as `jev-latest` is safe: the cache key holds the configured string. The stored answers therefore survive the alias moving. The `answeredBy` column records the versioned id that answered. Name a version in the slot model to freeze both.
 
 ## The weekly workflow
 

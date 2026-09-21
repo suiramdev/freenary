@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 
 import { TAXONOMY_VERSION } from "../../lib/taxonomy";
-import { classificationSignature } from "./signature";
+import { classificationSignature, payloadSignature } from "./signature";
 import type { ClassificationInput, TransactionClassifier } from "./types";
 
 const classifier: Pick<TransactionClassifier, "provider" | "model"> = {
-  model: "jev-latest",
-  provider: "jev",
+  model: "decider-2b-v10",
+  provider: "system-one",
 };
 
 const payload: ClassificationInput = {
@@ -28,8 +28,8 @@ describe("classificationSignature", () => {
     const expected = createHash("sha256")
       .update(
         JSON.stringify([
-          "jev",
-          "jev-latest",
+          "system-one",
+          "decider-2b-v10",
           TAXONOMY_VERSION,
           "carrefour market",
           "FR",
@@ -46,8 +46,8 @@ describe("classificationSignature", () => {
     const nextVersion = createHash("sha256")
       .update(
         JSON.stringify([
-          "jev",
-          "jev-latest",
+          "system-one",
+          "decider-2b-v10",
           TAXONOMY_VERSION + 1,
           "carrefour market",
           "FR",
@@ -101,12 +101,15 @@ describe("classificationSignature", () => {
 
     expect(
       classificationSignature(
-        { model: "jev-latest", provider: "other" },
+        { model: "decider-2b-v10", provider: "llm" },
         payload
       )
     ).not.toBe(signature);
     expect(
-      classificationSignature({ model: "jev-1.13.0", provider: "jev" }, payload)
+      classificationSignature(
+        { model: "decider-0.8b", provider: "system-one" },
+        payload
+      )
     ).not.toBe(signature);
   });
 
@@ -119,6 +122,30 @@ describe("classificationSignature", () => {
 
     expect(classificationSignature(classifier, keyless)).toBe(
       classificationSignature(classifier, asKey)
+    );
+  });
+});
+
+describe("payloadSignature", () => {
+  it("groups a merchant whatever classifier the chain names", () => {
+    expect(payloadSignature(payload)).toBe(payloadSignature(payload));
+    expect(payloadSignature(payload)).not.toBe(
+      classificationSignature(classifier, payload)
+    );
+    expect(payloadSignature(payload)).not.toBe(
+      classificationSignature(
+        { model: "decider-2b-v10", provider: "system-one" },
+        payload
+      )
+    );
+  });
+
+  it("separates a different merchant identity", () => {
+    expect(payloadSignature(payload)).not.toBe(
+      payloadSignature({ ...payload, merchantKey: "monoprix" })
+    );
+    expect(payloadSignature(payload)).not.toBe(
+      payloadSignature({ ...payload, direction: "credit" })
     );
   });
 });
