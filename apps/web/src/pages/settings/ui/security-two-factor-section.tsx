@@ -7,8 +7,8 @@ import { m } from "@/paraglide/messages.js";
 import { authClient } from "@/shared/auth";
 
 import type { TwoFactorPurpose } from "../model/use-two-factor-enrollment";
+import { SecurityTwoFactorDialog } from "./security-two-factor-dialog";
 import { SecurityTwoFactorDisableDialog } from "./security-two-factor-disable-dialog";
-import { SecurityTwoFactorDrawer } from "./security-two-factor-drawer";
 import { SettingsSection } from "./settings-section";
 
 interface SecurityTwoFactorSectionProps {
@@ -22,7 +22,7 @@ export const SecurityTwoFactorSection = ({
 }: SecurityTwoFactorSectionProps) => {
   const { data: session, isPending, refetch } = authClient.useSession();
   const [purpose, setPurpose] = useState<TwoFactorPurpose>("enable");
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDisableOpen, setIsDisableOpen] = useState(false);
 
   const isEnabled = session?.user.twoFactorEnabled === true;
@@ -48,7 +48,7 @@ export const SecurityTwoFactorSection = ({
           <Button
             onClick={() => {
               setPurpose("regenerate");
-              setIsDrawerOpen(true);
+              setIsDialogOpen(true);
             }}
             variant="tertiary"
           >
@@ -62,7 +62,7 @@ export const SecurityTwoFactorSection = ({
           onCheckedChange={(next) => {
             if (next) {
               setPurpose("enable");
-              setIsDrawerOpen(true);
+              setIsDialogOpen(true);
 
               return;
             }
@@ -105,12 +105,12 @@ export const SecurityTwoFactorSection = ({
         )}
       </div>
 
-      <SecurityTwoFactorDrawer
+      <SecurityTwoFactorDialog
         onEnabled={() => {
           void refetch();
         }}
-        onOpenChange={setIsDrawerOpen}
-        open={isDrawerOpen}
+        onOpenChange={setIsDialogOpen}
+        open={isDialogOpen}
         purpose={purpose}
       />
 

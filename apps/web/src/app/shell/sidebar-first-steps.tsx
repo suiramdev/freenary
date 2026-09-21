@@ -5,7 +5,7 @@ import {
   SidebarMenuItem,
 } from "@freenary/ui/components/sidebar";
 import { exitFallbackMs, spring } from "@freenary/ui/lib/springs";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -67,13 +67,11 @@ const ROW_TAP = { scale: 0.96 };
 
 const FirstStepRow = ({
   done,
-  hash,
   reduceMotion,
   step,
   variants,
 }: {
   done: boolean;
-  hash: string;
   reduceMotion: boolean;
   step: (typeof FIRST_STEPS)[number];
   variants: typeof ITEM_VARIANTS | undefined;
@@ -93,14 +91,7 @@ const FirstStepRow = ({
         <SidebarMenuButton
           className={done ? "text-sidebar-foreground/50" : undefined}
           icon={SidebarFirstStepIcon}
-          onClick={() => {
-            if (hash === step.hash) {
-              document
-                .querySelector(`#${step.hash}`)
-                ?.scrollIntoView({ block: "start" });
-            }
-          }}
-          render={<Link hash={step.hash} to={step.to} />}
+          render={<Link search={{ section: step.section }} to={step.to} />}
         >
           {step.label()}
           <span className="sr-only">
@@ -126,7 +117,6 @@ const phaseOnceChecklistLoaded = (
 export const SidebarFirstSteps = () => {
   const state = useFirstSteps();
   const prefersReducedMotion = useReducedMotion();
-  const hash = useLocation({ select: (location) => location.hash });
   const doneCount =
     state === null
       ? 0
@@ -178,7 +168,6 @@ export const SidebarFirstSteps = () => {
             {FIRST_STEPS.map((step) => (
               <FirstStepRow
                 done={step.isDone(state)}
-                hash={hash}
                 key={step.id}
                 reduceMotion={prefersReducedMotion === true}
                 step={step}

@@ -14,9 +14,7 @@ import {
 } from "@/features/bank-connection";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/shared/api";
-import { BANK_ACCOUNTS_ANCHOR } from "@/shared/config";
 
-import { useScrollToAnchor } from "../lib/use-scroll-to-anchor";
 import { SettingsSection } from "./settings-section";
 
 const INSTITUTIONS_FOR_THE_USERS_OWN_JURISDICTIONS = {};
@@ -32,11 +30,6 @@ export const BankAccountsSection = () => {
       enabled: isAvailable,
       input: INSTITUTIONS_FOR_THE_USERS_OWN_JURISDICTIONS,
     })
-  );
-
-  const sectionRef = useScrollToAnchor<HTMLDivElement>(
-    BANK_ACCOUNTS_ANCHOR,
-    !availability.isPending
   );
 
   const checkFailedWithNoAnswerYet =
@@ -100,13 +93,11 @@ export const BankAccountsSection = () => {
   };
 
   return (
-    <div id={BANK_ACCOUNTS_ANCHOR} ref={sectionRef}>
-      <SettingsSection
-        description={m.settings_bank_accounts_description()}
-        title={m.settings_bank_accounts_title()}
-      >
-        {renderPanel()}
-      </SettingsSection>
-    </div>
+    <SettingsSection
+      description={m.settings_bank_accounts_description()}
+      title={m.settings_bank_accounts_title()}
+    >
+      {renderPanel()}
+    </SettingsSection>
   );
 };

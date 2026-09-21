@@ -3,7 +3,7 @@ import { useTheme } from "next-themes";
 
 import { m } from "@/paraglide/messages.js";
 
-const THEME_OPTIONS = [
+export const THEME_OPTIONS = [
   { getLabel: m.theme_system, value: "system" },
   { getLabel: m.theme_dark, value: "dark" },
   { getLabel: m.theme_light, value: "light" },

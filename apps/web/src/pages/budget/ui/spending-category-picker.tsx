@@ -59,7 +59,10 @@ export const SpendingCategoryPicker = ({
       }}
       value={value}
     >
-      <ComboboxInput placeholder={m.budget_category_search_placeholder()} />
+      <ComboboxInput
+        icon={categoryMenuIcon(predefinedCategoryAppearance(value))}
+        placeholder={m.budget_category_search_placeholder()}
+      />
       <ComboboxContent align="start">
         <ComboboxEmpty>{m.budget_category_search_empty()}</ComboboxEmpty>
         <ComboboxList>

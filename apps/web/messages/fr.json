@@ -392,7 +392,6 @@
   "budget_cash_flow_empty": "Aucun mouvement sur cette période.",
   "budget_cash_flow_loading": "Chargement des flux d’argent",
   "budget_cash_flow_title": "Flux d’argent",
-  "budget_category_group_none": "Aucun parent",
   "budget_category_reset": "Rétablir la catégorie détectée automatiquement",
   "budget_category_search_empty": "Aucune catégorie ne correspond à votre recherche",
   "budget_category_search_placeholder": "Rechercher une catégorie…",
@@ -728,8 +727,8 @@
   "settings_2fa_disable_description": "Votre mot de passe seul suffira de nouveau à vous connecter. Confirmez-le pour continuer.",
   "settings_2fa_disable_title": "Désactiver l’authentification à deux facteurs ?",
   "settings_2fa_disabled_toast": "Authentification à deux facteurs désactivée",
-  "settings_2fa_drawer_title_enable": "Activer l’authentification à deux facteurs",
-  "settings_2fa_drawer_title_regenerate": "Nouveaux codes de secours",
+  "settings_2fa_dialog_title_enable": "Activer l’authentification à deux facteurs",
+  "settings_2fa_dialog_title_regenerate": "Nouveaux codes de secours",
   "settings_2fa_enabled_toast": "Authentification à deux facteurs activée",
   "settings_2fa_error_code_format": [
     {
@@ -786,6 +785,8 @@
   "settings_accounts_provider_sso": "Authentification unique",
   "settings_accounts_providers_load_error": "Impossible de charger les fournisseurs proposés par cette instance ; aucun ne peut être connecté ici",
   "settings_accounts_title": "Comptes connectés",
+  "settings_appearance_locale_description": "La langue de l’interface.",
+  "settings_appearance_theme_description": "Suivez le système, ou gardez freenary clair ou sombre.",
   "settings_bank_accounts_description": "Connectez les banques dont freenary doit importer les transactions et les soldes. La déconnexion supprime les données importées d’une banque et lui demande de révoquer l’accès.",
   "settings_bank_accounts_loading": "Chargement de vos comptes bancaires",
   "settings_bank_accounts_title": "Comptes bancaires",
@@ -805,10 +806,9 @@
   "settings_budgeting_save_success": "Profil budgétaire enregistré",
   "settings_budgeting_title": "Profil budgétaire",
   "settings_cancel": "Annuler",
-  "settings_categories_description": "Les catégories sont regroupées et les groupes sont fixes. Une catégorie prend la couleur de son groupe. Vos propres catégories peuvent être renommées, rattachées à un groupe, réordonnées ou supprimées.",
+  "settings_categories_description": "Les catégories sont regroupées et les groupes sont fixes. Une catégorie prend la couleur de son parent. Vos propres catégories peuvent être renommées, réordonnées ou supprimées, et rattachées à un groupe ou à l’une de vos catégories de premier niveau. L’imbrication s’arrête à un niveau.",
   "settings_categories_loading": "Chargement de vos catégories",
   "settings_categories_title": "Catégories",
-  "settings_category_built_in": "Intégrée",
   "settings_category_create": "Créer la catégorie",
   "settings_category_create_success": "Catégorie créée",
   "settings_category_delete_action": "Supprimer {label}",
@@ -825,6 +825,16 @@
       "match": {
         "countPlural=one": "{count} ligne budgétaire sera déplacée vers {fallback}.",
         "countPlural=other": "{count} lignes budgétaires seront déplacées vers {fallback}."
+      }
+    }
+  ],
+  "settings_category_delete_subcategories": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Sa sous-catégorie est supprimée avec elle.",
+        "countPlural=other": "Ses {count} sous-catégories sont supprimées avec elle."
       }
     }
   ],
@@ -845,7 +855,7 @@
   ],
   "settings_category_delete_title": "Supprimer {label} ?",
   "settings_category_delete_unused": "Aucune ligne budgétaire n’utilise {label}.",
-  "settings_category_drawer_description": "Les catégories personnalisées peuvent être attribuées à n’importe quel revenu, placement ou dépense de votre profil budgétaire.",
+  "settings_category_dialog_description": "Les catégories personnalisées peuvent être attribuées à n’importe quel revenu, placement ou dépense de votre profil budgétaire.",
   "settings_category_edit_action": "Modifier {label}",
   "settings_category_edit_title": "Modifier la catégorie",
   "settings_category_line_count": [
@@ -884,8 +894,10 @@
   "settings_field_name": "Nom",
   "settings_field_name_optional": "Nom (facultatif)",
   "settings_field_parent": "Rattachée à",
-  "settings_group_budgeting_description": "Le plan mensuel que vous déclarez à la main, et les catégories qui l’organisent.",
-  "settings_group_budgeting_title": "Budget",
+  "settings_group_appearance_description": "Le thème et la langue utilisés dans ce navigateur.",
+  "settings_group_appearance_title": "Apparence",
+  "settings_group_budget_description": "Le plan mensuel que vous déclarez à la main, et les catégories qui l’organisent.",
+  "settings_group_budget_title": "Budget",
   "settings_group_connections_description": "Les établissements depuis lesquels freenary synchronise vos comptes.",
   "settings_group_connections_title": "Connexions",
   "settings_group_security_description": "Comment vous vous connectez, où vos sessions sont ouvertes et ce qui protège votre compte si votre mot de passe fuite.",
@@ -927,6 +939,7 @@
   "settings_line_reorder_untitled": "Réordonner la ligne — utilisez les flèches haut et bas pour la déplacer",
   "settings_line_untitled": "Sans nom",
   "settings_load_error_title": "Impossible de charger vos réglages",
+  "settings_nav_label": "Sections des réglages",
   "settings_passkeys_add": "Ajouter une clé d’accès",
   "settings_passkeys_add_confirm": "Continuer",
   "settings_passkeys_add_description": "Ce nom sert uniquement à distinguer vos clés d’accès plus tard. Votre navigateur demandera ensuite la clé elle-même.",

@@ -12,7 +12,7 @@ import type * as React from "react";
 
 interface SettingsSectionProps {
   action?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   description: string;
   title: string;
 }
@@ -40,11 +40,13 @@ export const SettingsSection = ({
         <CardDescription>{description}</CardDescription>
         {action ? <CardAction>{action}</CardAction> : null}
       </CardHeader>
-      <CardContent
-        className={cn("flex flex-col", SETTINGS_PROSE, SETTINGS_INSET)}
-      >
-        {children}
-      </CardContent>
+      {children ? (
+        <CardContent
+          className={cn("flex flex-col", SETTINGS_PROSE, SETTINGS_INSET)}
+        >
+          {children}
+        </CardContent>
+      ) : null}
     </Card>
   </Elevated>
 );

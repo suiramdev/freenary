@@ -94,6 +94,15 @@ export const customCategoryColor = (
   return customCategoryPickedColor(chosen);
 };
 
+export const customCategoryDisplayColor = (row: {
+  chosen: string;
+  parentChosenColor: string | null;
+  parentSlug: string | null;
+}): CategoryColor =>
+  row.parentChosenColor === null
+    ? customCategoryColor(row.parentSlug, row.chosen)
+    : customCategoryPickedColor(row.parentChosenColor);
+
 const groupEntry = (group: CategoryGroup): CategoryEntry => ({
   color: CATEGORY_GROUP_COLORS[group],
   icon: CATEGORY_GROUP_ICONS[group],

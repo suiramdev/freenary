@@ -14,8 +14,8 @@ export const useLinkedAccountActions = () => {
     mutationFn: async (provider: string) => {
       const { origin } = window.location;
       const { error } = await authClient.linkSocial({
-        callbackURL: `${origin}/settings`,
-        errorCallbackURL: `${origin}/settings`,
+        callbackURL: `${origin}/settings?section=security`,
+        errorCallbackURL: `${origin}/settings?section=security`,
         provider,
       });
 

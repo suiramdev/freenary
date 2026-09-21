@@ -1,8 +1,9 @@
-export {
-  BANK_ACCOUNTS_ANCHOR,
-  BUDGETING_ANCHOR,
-  SECURITY_ANCHOR,
-} from "./anchors";
 export { docsUrl } from "./docs";
 export { GITHUB_REPO_URL } from "./links";
 export { getServerUrl, publicServerUrlScript } from "./server-url";
+export {
+  DEFAULT_SETTINGS_SECTION,
+  isSettingsSection,
+  SETTINGS_SECTIONS,
+} from "./settings-sections";
+export type { SettingsSection } from "./settings-sections";

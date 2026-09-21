@@ -16,8 +16,7 @@ export const editedOf = (entry: CategoryEntry): EditedCustomCategory => ({
   icon: entry.icon,
   id: entry.key.split(":")[1] ?? "",
   label: entry.label,
-  // SAFETY: parentKey on a custom entry is always a CategoryGroup slug
-  parentSlug: entry.parentKey as EditedCustomCategory["parentSlug"],
+  parentKey: entry.parentKey,
 });
 
 export const toCategorySections = (
@@ -44,14 +43,20 @@ export const toCategorySections = (
       continue;
     }
 
-    const isGroupOfItsOwn = entry.isGroup;
-    const openSection = isGroupOfItsOwn ? null : sections.at(-1);
+    const parentSection = sections.find(
+      (section) => section.key === entry.parentKey
+    );
 
-    if (openSection) {
-      openSection.items.push(entry);
-    } else {
-      sections.push({ heading: null, items: [entry], key: entry.key });
+    if (parentSection) {
+      parentSection.items.push(entry);
+      continue;
     }
+
+    sections.push({
+      heading: null,
+      items: [entry],
+      key: entry.parentKey ?? entry.key,
+    });
   }
 
   return sections.filter((section) => section.items.length > 0);

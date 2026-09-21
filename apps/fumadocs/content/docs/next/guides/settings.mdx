@@ -1,22 +1,69 @@
 ---
 title: Settings
-description: Every section of the Settings screen in the order the app shows them, with each control and what it changes.
+description: Every pane of the Settings screen, the address that opens it, and what each control changes.
 icon: Settings
 ---
 
-Settings holds three groups and seven sections. This page walks them in the order the screen uses, and names what each control changes.
+Settings holds four panes. A rail lists the four names, and the screen shows one pane at a time. This page walks them in the order of the rail, and names what each control changes.
 
-Open it from the sidebar. A page that fails to load reads `Could not load your settings`, with a `Try again` button.
+Open Settings from the sidebar. A pane that fails to load reads `Could not load your settings`, with a `Try again` button.
 
-| Group | Sections, in order |
-| --- | --- |
-| `Security` | `Two-factor authentication`, `Passkeys`, `Active sessions`, `Connected accounts` |
-| `Connections` | `Bank accounts` |
-| `Budgeting` | `Budgeting profile`, `Categories` |
+## The rail and the four panes
+
+Each pane carries its own address, so a pane is a link you can bookmark or send to somebody. The address `/settings` opens `Appearance`. An address that names a pane Freenary does not know opens `Appearance` too.
+
+| Pane | Address | Sections, in order |
+| --- | --- | --- |
+| `Appearance` | `/settings?section=appearance` | `Theme`, `Language` |
+| `Connections` | `/settings?section=connections` | `Bank accounts` |
+| `Budget` | `/settings?section=budget` | `Budgeting profile`, `Categories` |
+| `Security` | `/settings?section=security` | `Two-factor authentication`, `Passkeys`, `Active sessions`, `Connected accounts` |
+
+The rail is a vertical list, in that order. Press one name to replace the pane on screen, and the address changes with it. On a wide screen the rail sits beside the pane, and it keeps its place while the pane scrolls. On a narrow screen it sits above the pane.
+
+## Appearance
+
+The pane line reads `The theme and the language this browser uses.` Each of the two cards carries its own control in the card header.
+
+### Theme
+
+The section line reads `Follow the system, or keep freenary light or dark.` The control offers three choices: `System`, `Dark` and `Light`.
+
+### Language
+
+The section line reads `The language of the interface.` The control offers two choices: `English` and `Français`.
+
+<Callout type="info">
+
+Both choices belong to the browser you read Freenary in, not to your account. The sidebar account menu holds the same two controls, so every screen can change them. See [Language and appearance](/docs/guides/interface).
+
+</Callout>
+
+## Connections
+
+The pane line reads `The institutions freenary syncs your accounts from.`
+
+### Bank accounts
+
+One searchable bank list, with your connections at the top. Connect a bank, re-sync one, or disconnect one from here. The whole flow lives on its own page: [Bank connections](/docs/guides/bank-connections).
+
+With no banking service on the instance, the section reads `Bank linking is unavailable` and offers no list.
+
+## Budget
+
+The pane line reads `The monthly plan you declare by hand, and the categories it is organized with.`
+
+### Budgeting profile
+
+The monthly plan: one amount per category, each with an optional name. Freenary draws it as a live flow diagram above the editor, with a summary and an unsaved-changes bar. See [Categories and budget lines](/docs/guides/categories#the-budgeting-profile).
+
+### Categories
+
+The category list: 3 groups, each a closed row. A built-in category is a plain row with no action. Your own categories offer edit, re-parent, reorder and delete. A top-level one opens to show its subcategories, and `New category` sits in the header. See [Categories and budget lines](/docs/guides/categories#custom-categories).
 
 ## Security
 
-The group line reads `How you sign in, where your sessions are open, and what protects your account if your password leaks.`
+The pane line reads `How you sign in, where your sessions are open, and what protects your account if your password leaks.`
 
 ### Two-factor authentication
 
@@ -31,15 +78,14 @@ Under it sits the scope note: `A second factor applies to password sign-in. A pa
 
 | Control | When it appears | What it does |
 | --- | --- | --- |
-| `Enable` | The state is `Off` and your account holds a password | Opens the enrolment drawer |
-| `Disable` | The state is `On` | Opens a dialog that asks for your password |
-| `Generate new recovery codes` | The state is `On` | Opens the drawer at its last stage |
+| The switch | Always. It stays inert while your account holds no password | Switched on, it opens the enrolment dialog. Switched off, it opens a dialog that asks for your password |
+| `Generate new recovery codes` | The state is `On` | Opens the enrolment dialog at its last stage |
 
 Three dialogs sit behind those controls:
 
-- `Enable` opens `Enable two-factor authentication`. The drawer holds four stages: your password, the QR code, an app code, then the recovery codes.
-- `Generate new recovery codes` opens the same drawer as `New recovery codes`, with two stages: your password, then the codes.
-- `Disable` opens `Disable two-factor authentication?`, a dialog that asks for your password.
+- The switch, on, opens `Enable two-factor authentication`. The dialog holds four stages: your password, the QR code, an app code, then the recovery codes. The last stage does not close on `Escape` or on a click outside it.
+- `Generate new recovery codes` opens the same dialog, titled `New recovery codes`, with two stages: your password, then the codes.
+- The switch, off, opens `Disable two-factor authentication?`, a dialog that asks for your password.
 
 See [Signing in](/docs/guides/signing-in#turn-it-on) for the walkthrough.
 
@@ -109,6 +155,8 @@ An account with no password reads `No password is set on this account. Passkeys 
 
 A provider list that fails to load reads `Could not load the providers this instance offers, so none can be connected from here`. A failure on your own methods reads `Could not load your sign-in methods`.
 
+A provider you join sends you to its own pages. Freenary brings you back to the `Security` pane.
+
 <Callout type="warn">
 
 Two refusals arrive as a message:
@@ -118,35 +166,9 @@ Two refusals arrive as a message:
 
 </Callout>
 
-## Connections
-
-The group line reads `The institutions freenary syncs your accounts from.`
-
-### Bank accounts
-
-One searchable bank list, with your connections at the top. Connect a bank, re-sync one, or disconnect one from here. The whole flow lives on its own page: [Bank connections](/docs/guides/bank-connections).
-
-With no banking service on the instance, the section reads `Bank linking is unavailable` and offers no list.
-
-## Budgeting
-
-The group line reads `The monthly plan you declare by hand, and the categories it is organized with.`
-
-### Budgeting profile
-
-The monthly plan: one amount per category, each with an optional name. Freenary draws it as a live flow diagram above the editor, with a summary and an unsaved-changes bar. See [Categories and budget lines](/docs/guides/categories#the-budgeting-profile).
-
-### Categories
-
-The category list: 3 groups, each a closed row with a count. A built-in category carries the badge `Built-in` and offers no action. Your own categories offer edit, re-parent, reorder and delete, and `New category` sits in the header. See [Categories and budget lines](/docs/guides/categories#custom-categories).
-
 ## What Settings does not hold
 
-| You cannot change here | Where it lives instead |
-| --- | --- |
-| Your password | The reset path on the sign-in screen. See [Signing in](/docs/guides/signing-in#password-reset) |
-| Your language | The sidebar account menu. See [Language and appearance](/docs/guides/interface) |
-| The appearance | The sidebar account menu. See [Language and appearance](/docs/guides/interface) |
+Your password is one control Settings has no field for. The reset path on the sign-in screen changes it. See [Signing in](/docs/guides/signing-in#password-reset).
 
 Freenary holds no screen at all for the rest:
 
@@ -160,7 +182,7 @@ Your name and your email come from the account you signed up with.
   <Card
     title="Signing in"
     href="/docs/guides/signing-in"
-    description="The sign-in paths the Security group protects."
+    description="The sign-in paths the Security pane protects."
   />
   <Card
     title="Bank connections"
@@ -170,6 +192,11 @@ Your name and your email come from the account you signed up with.
   <Card
     title="Categories and budget lines"
     href="/docs/guides/categories"
-    description="The vocabulary and the plan behind the Budgeting group."
+    description="The vocabulary and the plan behind the Budget pane."
+  />
+  <Card
+    title="Language and appearance"
+    href="/docs/guides/interface"
+    description="Every place the theme and the language controls sit."
   />
 </Cards>

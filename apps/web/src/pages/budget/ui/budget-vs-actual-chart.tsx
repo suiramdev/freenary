@@ -145,7 +145,9 @@ export const BudgetVsActualChart = ({
         </p>
         <motion.div {...PRESS_MOTION} className="inline-flex">
           <Button asChild variant="tertiary">
-            <Link to="/settings">{m.budget_planned_empty_cta()}</Link>
+            <Link search={{ section: "budget" }} to="/settings">
+              {m.budget_planned_empty_cta()}
+            </Link>
           </Button>
         </motion.div>
       </div>

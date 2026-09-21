@@ -108,16 +108,42 @@ The sync path writes `balanceMinor`, `balanceAt` and every `Holding` row, and no
 
 | Model and table | Key fields | Constraints and notes |
 | --- | --- | --- |
-| `CustomCategory`, table `custom_category` | `label String @db.Citext`, `color`, `icon`, `parentSlug?`, `sortOrder @default(0)` | `@@unique([userId, label])`, `@@index([userId, parentSlug, sortOrder])`, cascade. `color` comes from `CATEGORY_COLOR_VALUES`, `icon` from `CATEGORY_ICON_NAMES`, and `parentSlug` from the three `CATEGORY_GROUPS` |
+| `CustomCategory`, table `custom_category` | `label String @db.Citext`, `color`, `icon`, `parentSlug?`, `parentId?`, `sortOrder @default(0)` | `@@unique([userId, label])`, `@@index([userId, parentSlug, sortOrder])`, `@@index([userId, parentId, sortOrder])`, cascade. `color` comes from `CATEGORY_COLOR_VALUES`, `icon` from `CATEGORY_ICON_NAMES`, and `parentSlug` from the three `CATEGORY_GROUPS` |
 | `BudgetLine`, table `budget_line` | `label?`, `amount Int` positive minor units, `categorySlug?`, `categoryId?`, `sortOrder @default(0)` | `@@index([userId, sortOrder])`, `@@index([categoryId])`. The `user` relation cascades and the `category` relation uses `onDelete: Restrict` |
 
 The budget lines of a user **are** the budget profile. No separate profile row exists. A line names a category and an amount. Its place in the flow comes from the group of that category, through `budgetLineKindOf`. The schema stores no kind column.
 
 <Callout type="warn">
 
-No database constraint makes `categorySlug` and `categoryId` exclusive. The comments state that one is null when the other is set. PostgreSQL still accepts a row with both, and a row with neither.
+No database constraint makes `categorySlug` and `categoryId` exclusive, and none makes `parentSlug` and `parentId` exclusive either. The migration adds the column, the self foreign key and the index, and no `CHECK`. PostgreSQL still accepts a row with both, and a row with neither.
 
 </Callout>
+
+### The category parent
+
+`CustomCategory` holds two parent columns, and a row sets one of them at most.
+
+| Column | Points at | The row is |
+| --- | --- | --- |
+| `parentSlug` | One of the three `CATEGORY_GROUPS` | A top-level category inside a fixed group |
+| `parentId` | Another `CustomCategory` of the same user | A subcategory |
+| Neither | — | A top-level category, and a group of its own |
+
+`parentId` is the self relation `CustomCategoryNesting`, with `children CustomCategory[]` on the other side and `onDelete: Cascade`. A delete of a parent therefore deletes its subcategories. `deleteCustomCategory` first moves the budget lines of the parent and of every child to the fallback slug.
+
+Three rules hold the tree to one level, and the procedures enforce all three:
+
+- A parent must be a top-level category of the same user. Both parent columns are null on it.
+- A category that holds children takes no parent of its own.
+- A category is never its own parent.
+
+`sortOrder` counts inside one parent pair. Two rows compare only when they share both `parentSlug` and `parentId`, which is what the two indexes serve.
+
+The wire type is one string. `CategoryEntry.parentKey` in `packages/api/src/lib/categories.ts` carries a `CategoryGroup` slug, a `custom:<id>` key for a custom parent, or `null` for a top-level row. `createCustomCategory` and `updateCustomCategory` read the same shape as `parentKey`, and the server writes `parentSlug` or `parentId` from it.
+
+Exclusivity of the parent pair is structural, and not a constraint. `createCustomCategory` and `updateCustomCategory` read one `parentKey` field, and derive exactly one column from it. No input shape sets both.
+
+The colour a subcategory shows is the stored colour of its parent, through `customCategoryDisplayColor`. Its own `color` stays on the row, and `CategoryEntry.pickedColor` carries it.
 
 ## Assistant conversations
 
@@ -265,13 +291,13 @@ where: {
 }
 ```
 
-Deletion leans on the foreign-key chain. The `disconnect` procedure deletes the `bank_connection` row, and the accounts, transactions and holdings go with it. The `BudgetLine.category` relation is the one exception. It uses `onDelete: Restrict`, and `deleteCustomCategory` moves each affected line to the group fallback slug first.
+Deletion leans on the foreign-key chain. The `disconnect` procedure deletes the `bank_connection` row, and the accounts, transactions and holdings go with it. A `custom_category` row cascades onto its subcategories the same way. The `BudgetLine.category` relation is the one exception. It uses `onDelete: Restrict`. `deleteCustomCategory` first moves each line of the category and of its subcategories to the group fallback slug.
 
 Onboarding needs no model. Two columns on `User` hold the whole state: `taxCountries` and `onboardingCompletedAt`. `onboarding.getStatus` reports `completed` as `onboardingCompletedAt !== null`. The list is the tax jurisdictions the first step asked for, and `bankConnection.listInstitutions` reads it as its country scope.
 
 ## Migrations
 
-Ten directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
+Eleven directories sit under `packages/db/prisma/migrations`, with `migration_lock.toml` pinned to `postgresql`. Oldest first:
 
 | Directory | What it does |
 | --- | --- |
@@ -285,6 +311,7 @@ Ten directories sit under `packages/db/prisma/migrations`, with `migration_lock.
 | `20260918120000_user_tax_countries` | Replaces `user.country` with the list `user.taxCountries`, carrying the single answer already on file into it |
 | `20260919120000_merchant_classification` | Creates `merchant_classification`, the instance-wide cache of classifier answers keyed by signature |
 | `20260920090000_sync_run` | Creates `SyncPhase`, then `sync_run` with its index and cascade |
+| `20260921120000_custom_category_nesting` | Adds `custom_category.parentId`, its self foreign key with `ON DELETE CASCADE`, and the index on `userId`, `parentId` and `sortOrder` |
 
 ### The loop for a schema change
 

@@ -1,4 +1,5 @@
 import prisma from "@freenary/db";
+import type { Prisma } from "@freenary/db";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
@@ -9,7 +10,7 @@ import {
   MAX_BUDGET_LINES,
 } from "../lib/budget-profile";
 import {
-  customCategoryColor,
+  customCategoryDisplayColor,
   customCategoryKey,
   customCategoryPickedColor,
   parseCategoryKey,
@@ -17,9 +18,16 @@ import {
 } from "../lib/categories";
 import type { CategoryEntry } from "../lib/categories";
 import {
+  isCustomCategoryParentRefused,
+  resolveCustomCategoryParent,
+} from "../lib/custom-category-parent";
+import type {
+  CustomCategoryParentRefusal,
+  ResolvedCustomCategoryParent,
+} from "../lib/custom-category-parent";
+import {
   CATEGORY_COLOR_VALUES,
   CATEGORY_GROUP_FALLBACKS,
-  CATEGORY_GROUPS,
   CATEGORY_ICON_NAMES,
   isCategoryGroup,
   resolveCategoryGroup,
@@ -30,7 +38,66 @@ const customCategoryFields = {
   color: z.enum(CATEGORY_COLOR_VALUES),
   icon: z.enum(CATEGORY_ICON_NAMES),
   label: z.string().trim().min(1).max(40),
-  parentSlug: z.enum(CATEGORY_GROUPS).nullable(),
+  parentKey: z.string().nullable(),
+};
+
+const PARENT_REFUSAL_ERRORS = {
+  "not-a-category": {
+    code: "BAD_REQUEST",
+    message: "Unknown parent category",
+  },
+  "parent-is-itself": {
+    code: "BAD_REQUEST",
+    message: "A category cannot be its own parent",
+  },
+  "parent-is-nested": {
+    code: "BAD_REQUEST",
+    message: "A subcategory cannot hold subcategories",
+  },
+  "parent-not-found": {
+    code: "NOT_FOUND",
+    message: "Parent category not found",
+  },
+  "would-nest-a-parent": {
+    code: "BAD_REQUEST",
+    message: "A category with subcategories cannot be nested",
+  },
+} as const satisfies Record<
+  CustomCategoryParentRefusal,
+  { code: "BAD_REQUEST" | "NOT_FOUND"; message: string }
+>;
+
+const lockOwnCategories = (tx: Prisma.TransactionClient, userId: string) =>
+  tx.$queryRaw`SELECT "id" FROM "custom_category" WHERE "userId" = ${userId} FOR UPDATE`;
+
+const resolveParentOrRefuse = async (
+  tx: Prisma.TransactionClient,
+  input: {
+    categoryId: string | null;
+    parentKey: string | null;
+    userId: string;
+  }
+): Promise<ResolvedCustomCategoryParent> => {
+  await lockOwnCategories(tx, input.userId);
+
+  const owned = await tx.customCategory.findMany({
+    select: { id: true, parentId: true, parentSlug: true },
+    where: { userId: input.userId },
+  });
+
+  const outcome = resolveCustomCategoryParent({
+    categoryId: input.categoryId,
+    owned,
+    parentKey: input.parentKey,
+  });
+
+  if (isCustomCategoryParentRefused(outcome)) {
+    const refusal = PARENT_REFUSAL_ERRORS[outcome.refusal];
+
+    throw new ORPCError(refusal.code, { message: refusal.message });
+  }
+
+  return outcome.parent;
 };
 
 const CATEGORY_SELECT = {
@@ -39,8 +106,21 @@ const CATEGORY_SELECT = {
   icon: true,
   id: true,
   label: true,
+  parent: { select: { color: true } },
+  parentId: true,
   parentSlug: true,
 } as const;
+
+const parentKeyOf = (custom: {
+  parentId: string | null;
+  parentSlug: string | null;
+}): string | null => {
+  if (custom.parentId) {
+    return customCategoryKey(custom.parentId);
+  }
+
+  return custom.parentSlug ? resolveCategoryGroup(custom.parentSlug) : null;
+};
 
 const toCategoryEntry = (custom: {
   _count: { budgetLines: number };
@@ -48,26 +128,36 @@ const toCategoryEntry = (custom: {
   icon: string;
   id: string;
   label: string;
+  parent: { color: string } | null;
+  parentId: string | null;
   parentSlug: string | null;
 }): CategoryEntry => ({
-  color: customCategoryColor(custom.parentSlug, custom.color),
+  color: customCategoryDisplayColor({
+    chosen: custom.color,
+    parentChosenColor: custom.parent?.color ?? null,
+    parentSlug: custom.parentSlug,
+  }),
   // SAFETY: icon is only ever written through the zod-validated mutations in this file
   icon: custom.icon as CategoryIconName,
   isAssignable: true,
   isCustom: true,
-  isGroup: custom.parentSlug === null,
+  isGroup: custom.parentSlug === null && custom.parentId === null,
   key: customCategoryKey(custom.id),
   label: custom.label,
-  parentKey: custom.parentSlug ? resolveCategoryGroup(custom.parentSlug) : null,
+  parentKey: parentKeyOf(custom),
   pickedColor: customCategoryPickedColor(custom.color),
   usageCount: custom._count.budgetLines,
 });
 
-const nextSortOrder = async (userId: string, parentSlug: string | null) => {
-  const last = await prisma.customCategory.findFirst({
+const nextSortOrder = async (
+  tx: Prisma.TransactionClient,
+  userId: string,
+  parent: ResolvedCustomCategoryParent
+) => {
+  const last = await tx.customCategory.findFirst({
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
-    where: { parentSlug, userId },
+    where: { parentId: parent.parentId, parentSlug: parent.parentSlug, userId },
   });
 
   return (last?.sortOrder ?? -1) + 1;
@@ -79,27 +169,39 @@ export const settingsRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
 
-      const clash = await prisma.customCategory.findFirst({
-        select: { id: true },
-        where: { label: { equals: input.label, mode: "insensitive" }, userId },
-      });
-
-      if (clash) {
-        throw new ORPCError("CONFLICT", {
-          message: "A category with that name already exists",
+      const created = await prisma.$transaction(async (tx) => {
+        const clash = await tx.customCategory.findFirst({
+          select: { id: true },
+          where: {
+            label: { equals: input.label, mode: "insensitive" },
+            userId,
+          },
         });
-      }
 
-      const created = await prisma.customCategory.create({
-        data: {
-          color: input.color,
-          icon: input.icon,
-          label: input.label,
-          parentSlug: input.parentSlug,
-          sortOrder: await nextSortOrder(userId, input.parentSlug),
+        if (clash) {
+          throw new ORPCError("CONFLICT", {
+            message: "A category with that name already exists",
+          });
+        }
+
+        const parent = await resolveParentOrRefuse(tx, {
+          categoryId: null,
+          parentKey: input.parentKey,
           userId,
-        },
-        select: { id: true },
+        });
+
+        return tx.customCategory.create({
+          data: {
+            color: input.color,
+            icon: input.icon,
+            label: input.label,
+            parentId: parent.parentId,
+            parentSlug: parent.parentSlug,
+            sortOrder: await nextSortOrder(tx, userId, parent),
+            userId,
+          },
+          select: { id: true },
+        });
       });
 
       return { key: customCategoryKey(created.id) };
@@ -110,29 +212,46 @@ export const settingsRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
 
-      const category = await prisma.customCategory.findFirst({
-        select: { id: true, parentSlug: true },
-        where: { id: input.id, userId },
-      });
+      return await prisma.$transaction(async (tx) => {
+        await lockOwnCategories(tx, userId);
 
-      if (!category) {
-        throw new ORPCError("NOT_FOUND", { message: "Category not found" });
-      }
+        const category = await tx.customCategory.findFirst({
+          select: {
+            children: { select: { id: true } },
+            id: true,
+            parentId: true,
+            parentSlug: true,
+          },
+          where: { id: input.id, userId },
+        });
 
-      const fallbackSlug =
-        category.parentSlug && isCategoryGroup(category.parentSlug)
-          ? CATEGORY_GROUP_FALLBACKS[category.parentSlug]
-          : "uncategorised";
+        if (!category) {
+          throw new ORPCError("NOT_FOUND", { message: "Category not found" });
+        }
 
-      const [reassigned] = await prisma.$transaction([
-        prisma.budgetLine.updateMany({
+        const fallbackSlug =
+          category.parentSlug && isCategoryGroup(category.parentSlug)
+            ? CATEGORY_GROUP_FALLBACKS[category.parentSlug]
+            : "uncategorised";
+
+        const removedIds = [
+          category.id,
+          ...category.children.map((child) => child.id),
+        ];
+
+        const reassigned = await tx.budgetLine.updateMany({
           data: { categoryId: null, categorySlug: fallbackSlug },
-          where: { categoryId: category.id },
-        }),
-        prisma.customCategory.delete({ where: { id: category.id } }),
-      ]);
+          where: { categoryId: { in: removedIds } },
+        });
 
-      return { fallbackSlug, reassignedLines: reassigned.count };
+        await tx.customCategory.delete({ where: { id: category.id } });
+
+        return {
+          deletedSubcategories: category.children.length,
+          fallbackSlug,
+          reassignedLines: reassigned.count,
+        };
+      });
     }),
 
   getBudgetProfile: protectedProcedure.handler(async ({ context }) => {
@@ -185,7 +304,14 @@ export const settingsRouter = {
       }
     }
 
-    categories.push(...customEntries.filter((custom) => custom.isGroup));
+    for (const custom of customEntries) {
+      if (custom.isGroup) {
+        categories.push(
+          custom,
+          ...customEntries.filter((child) => child.parentKey === custom.key)
+        );
+      }
+    }
 
     return { categories };
   }),
@@ -196,7 +322,12 @@ export const settingsRouter = {
       const userId = context.session.user.id;
 
       const current = await prisma.customCategory.findFirst({
-        select: { id: true, parentSlug: true, sortOrder: true },
+        select: {
+          id: true,
+          parentId: true,
+          parentSlug: true,
+          sortOrder: true,
+        },
         where: { id: input.id, userId },
       });
 
@@ -210,6 +341,7 @@ export const settingsRouter = {
         orderBy: { sortOrder: movingUp ? "desc" : "asc" },
         select: { id: true, sortOrder: true },
         where: {
+          parentId: current.parentId,
           parentSlug: current.parentSlug,
           sortOrder: movingUp
             ? { lt: current.sortOrder }
@@ -291,43 +423,58 @@ export const settingsRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
 
-      const category = await prisma.customCategory.findFirst({
-        select: { parentSlug: true, sortOrder: true },
-        where: { id: input.id, userId },
-      });
-
-      if (!category) {
-        throw new ORPCError("NOT_FOUND", { message: "Category not found" });
-      }
-
-      const clash = await prisma.customCategory.findFirst({
-        select: { id: true },
-        where: {
-          id: { not: input.id },
-          label: { equals: input.label, mode: "insensitive" },
-          userId,
-        },
-      });
-
-      if (clash) {
-        throw new ORPCError("CONFLICT", {
-          message: "A category with that name already exists",
+      await prisma.$transaction(async (tx) => {
+        const category = await tx.customCategory.findFirst({
+          select: {
+            parentId: true,
+            parentSlug: true,
+            sortOrder: true,
+          },
+          where: { id: input.id, userId },
         });
-      }
 
-      const reparented = category.parentSlug !== input.parentSlug;
+        if (!category) {
+          throw new ORPCError("NOT_FOUND", { message: "Category not found" });
+        }
 
-      await prisma.customCategory.update({
-        data: {
-          color: input.color,
-          icon: input.icon,
-          label: input.label,
-          parentSlug: input.parentSlug,
-          sortOrder: reparented
-            ? await nextSortOrder(userId, input.parentSlug)
-            : category.sortOrder,
-        },
-        where: { id: input.id },
+        const clash = await tx.customCategory.findFirst({
+          select: { id: true },
+          where: {
+            id: { not: input.id },
+            label: { equals: input.label, mode: "insensitive" },
+            userId,
+          },
+        });
+
+        if (clash) {
+          throw new ORPCError("CONFLICT", {
+            message: "A category with that name already exists",
+          });
+        }
+
+        const parent = await resolveParentOrRefuse(tx, {
+          categoryId: input.id,
+          parentKey: input.parentKey,
+          userId,
+        });
+
+        const reparented =
+          category.parentSlug !== parent.parentSlug ||
+          category.parentId !== parent.parentId;
+
+        await tx.customCategory.update({
+          data: {
+            color: input.color,
+            icon: input.icon,
+            label: input.label,
+            parentId: parent.parentId,
+            parentSlug: parent.parentSlug,
+            sortOrder: reparented
+              ? await nextSortOrder(tx, userId, parent)
+              : category.sortOrder,
+          },
+          where: { id: input.id },
+        });
       });
 
       return { success: true as const };
