@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { customCategoryColor, customCategoryPickedColor } from "./categories";
+import {
+  customCategoryColor,
+  customCategoryDisplayColor,
+  customCategoryPickedColor,
+} from "./categories";
 import {
   CATEGORY_COLOR_VALUES,
   CATEGORY_GROUP_COLORS,
@@ -58,5 +62,44 @@ describe("customCategoryPickedColor", () => {
 
   it("falls back to grey when the stored colour is not in the palette", () => {
     expect(customCategoryPickedColor("chartreuse")).toBe("grey");
+  });
+});
+
+describe("customCategoryDisplayColor", () => {
+  it("paints a subcategory its parent's picked colour", () => {
+    expect(
+      customCategoryDisplayColor({
+        chosen: "pink",
+        parentChosenColor: "purple",
+        parentSlug: null,
+      })
+    ).toBe("purple");
+  });
+
+  it("falls back to grey when the parent's stored colour is unreadable", () => {
+    expect(
+      customCategoryDisplayColor({
+        chosen: "pink",
+        parentChosenColor: "chartreuse",
+        parentSlug: null,
+      })
+    ).toBe("grey");
+  });
+
+  it("keeps the group rule for a category with no custom parent", () => {
+    expect(
+      customCategoryDisplayColor({
+        chosen: "pink",
+        parentChosenColor: null,
+        parentSlug: "spending",
+      })
+    ).toBe(CATEGORY_GROUP_COLORS.spending);
+    expect(
+      customCategoryDisplayColor({
+        chosen: "pink",
+        parentChosenColor: null,
+        parentSlug: null,
+      })
+    ).toBe("pink");
   });
 });
