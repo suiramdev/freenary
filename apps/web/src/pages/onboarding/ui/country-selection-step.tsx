@@ -32,8 +32,8 @@ interface CountrySelectionStepProps {
 
 interface CountryRow {
   code: string;
-  flag: string;
   label: string;
+  prefix: string;
   value: string;
 }
 
@@ -49,8 +49,8 @@ export const CountrySelectionStep = ({
     () =>
       countriesFor(locale).map((country) => ({
         code: country.code,
-        flag: country.flag,
         label: country.name,
+        prefix: country.flag,
         value: country.code,
       })),
     [locale]
@@ -91,7 +91,7 @@ export const CountrySelectionStep = ({
                 <ComboboxItem value={row.value}>
                   <span className="flex w-full items-center justify-between gap-2">
                     <span className="truncate">
-                      <span aria-hidden="true">{row.flag} </span>
+                      <span aria-hidden="true">{row.prefix} </span>
                       {row.label}
                     </span>
                     {isFullySupportedCountry(row.code) ? null : (

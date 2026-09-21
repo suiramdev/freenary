@@ -775,7 +775,7 @@ Protected. Returns the whole category tree the caller can pick from.
 
 | Field of one entry | Type | Note |
 | --- | --- | --- |
-| `color` | string | One of the 7 [category colours](#category-colours). |
+| `color` | string | One of the 7 [category colours](#category-colours). What the entry shows. For a custom category under a group it is that group's colour, and not the value stored on the row. |
 | `icon` | string | One of the 28 [category icons](#category-icons). |
 | `isAssignable` | boolean | `false` for a built-in group header. |
 | `isCustom` | boolean | `true` for a category of the caller. |
@@ -783,6 +783,7 @@ Protected. Returns the whole category tree the caller can pick from.
 | `key` | string | A slug, or `custom:<id>`. |
 | `label` | string | An English display name. |
 | `parentKey` | string or `null` | The [category group](#category-groups) it sits in, `null` for a group. |
+| `pickedColor` | string | Present on a custom category only. The colour stored on the row, which `color` hides while the category sits under a group. Send this back as `color` on `settings.updateCustomCategory` to keep the choice. |
 | `usageCount` | number | Budget lines on a custom category. Always `0` for a built-in one. |
 
 **Errors**: none.

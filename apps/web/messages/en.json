@@ -796,7 +796,7 @@
   "settings_budgeting_save_success": "Budgeting profile saved",
   "settings_budgeting_title": "Budgeting profile",
   "settings_cancel": "Cancel",
-  "settings_categories_description": "Categories are grouped, and the groups are fixed. Your own categories can be renamed, recolored, nested under a group, reordered or removed.",
+  "settings_categories_description": "Categories are grouped, and the groups are fixed. A category takes the color of its group. Your own categories can be renamed, nested under a group, reordered or removed.",
   "settings_categories_loading": "Loading your categories",
   "settings_categories_title": "Categories",
   "settings_category_built_in": "Built-in",

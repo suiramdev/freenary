@@ -9,7 +9,9 @@ import {
   MAX_BUDGET_LINES,
 } from "../lib/budget-profile";
 import {
+  customCategoryColor,
   customCategoryKey,
+  customCategoryPickedColor,
   parseCategoryKey,
   predefinedCategoryGroups,
 } from "../lib/categories";
@@ -22,7 +24,7 @@ import {
   isCategoryGroup,
   resolveCategoryGroup,
 } from "../lib/taxonomy";
-import type { CategoryColor, CategoryIconName } from "../lib/taxonomy";
+import type { CategoryIconName } from "../lib/taxonomy";
 
 const customCategoryFields = {
   color: z.enum(CATEGORY_COLOR_VALUES),
@@ -48,9 +50,8 @@ const toCategoryEntry = (custom: {
   label: string;
   parentSlug: string | null;
 }): CategoryEntry => ({
-  // SAFETY: color and icon are only ever written through the zod-validated mutations in this file
-  color: custom.color as CategoryColor,
-  // SAFETY: color and icon are only ever written through the zod-validated mutations in this file
+  color: customCategoryColor(custom.parentSlug, custom.color),
+  // SAFETY: icon is only ever written through the zod-validated mutations in this file
   icon: custom.icon as CategoryIconName,
   isAssignable: true,
   isCustom: true,
@@ -58,6 +59,7 @@ const toCategoryEntry = (custom: {
   key: customCategoryKey(custom.id),
   label: custom.label,
   parentKey: custom.parentSlug ? resolveCategoryGroup(custom.parentSlug) : null,
+  pickedColor: customCategoryPickedColor(custom.color),
   usageCount: custom._count.budgetLines,
 });
 

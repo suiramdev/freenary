@@ -7,7 +7,9 @@ import {
   categoriesInGroup,
   categoryColor,
   categoryIcon,
+  isCategoryColor,
   isSpendingCategory,
+  resolveCategoryGroup,
 } from "./taxonomy";
 import type {
   CategoryColor,
@@ -18,6 +20,7 @@ import type {
 
 export interface CategoryEntry {
   color: CategoryColor;
+  pickedColor?: CategoryColor;
   icon: CategoryIconName;
   isCustom: boolean;
   isGroup: boolean;
@@ -37,6 +40,8 @@ export interface PredefinedCategoryGroup {
   categories: CategoryEntry[];
   group: CategoryEntry;
 }
+
+const COLOR_OF_AN_UNREADABLE_CHOICE: CategoryColor = "grey";
 
 export const CUSTOM_CATEGORY_PREFIX = "custom:";
 
@@ -71,6 +76,23 @@ export const categoryGroupAppearance = (
   color: CATEGORY_GROUP_COLORS[group],
   icon: CATEGORY_GROUP_ICONS[group],
 });
+
+export const customCategoryPickedColor = (chosen: string): CategoryColor =>
+  isCategoryColor(chosen) ? chosen : COLOR_OF_AN_UNREADABLE_CHOICE;
+
+export const customCategoryColor = (
+  parentSlug: string | null,
+  chosen: string
+): CategoryColor => {
+  const parentGroup =
+    parentSlug === null ? null : resolveCategoryGroup(parentSlug);
+
+  if (parentGroup) {
+    return CATEGORY_GROUP_COLORS[parentGroup];
+  }
+
+  return customCategoryPickedColor(chosen);
+};
 
 const groupEntry = (group: CategoryGroup): CategoryEntry => ({
   color: CATEGORY_GROUP_COLORS[group],

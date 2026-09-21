@@ -1,7 +1,6 @@
 import { cn } from "@freenary/ui/lib/utils";
 import { useMemo, useState } from "react";
 
-import { CHART_COLOR_VARS } from "../../lib/chart-colors";
 import {
   ACCENT_W,
   computeSankeyLayout,
@@ -73,7 +72,7 @@ export const SankeyChart = ({
         <path
           key={ribbon.id}
           d={svgLinkPath(ribbon)}
-          fill={CHART_COLOR_VARS[ribbon.color]}
+          fill={ribbon.color}
           fillOpacity={
             LINK_OPACITY *
             (hovered && !lit.has(ribbon.id) ? UNRELATED_DIM_FACTOR : 1)
@@ -84,7 +83,7 @@ export const SankeyChart = ({
       ))}
 
       {layout.nodes.map((node) => {
-        const color = CHART_COLOR_VARS[node.color];
+        const { color } = node;
         const dim = hovered && !lit.has(node.id) ? UNRELATED_DIM_FACTOR : 1;
 
         return (

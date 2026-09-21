@@ -1,4 +1,3 @@
-import { categoryColor } from "@freenary/api/lib/taxonomy";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
@@ -15,7 +14,7 @@ import { useRef } from "react";
 import type { CategorySelection } from "@/entities/category";
 import { categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
-import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { categoryChartColor } from "@/shared/lib/chart-colors";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
 import { PRESS_MOTION } from "./list-controls";
@@ -120,9 +119,7 @@ const PlannedRow = ({
       </span>
       <PlanTrack
         actualColor={
-          isOverPlan
-            ? "var(--destructive)"
-            : CHART_COLOR_VARS[categoryColor(entry.category)]
+          isOverPlan ? "var(--destructive)" : categoryChartColor(entry.category)
         }
         actualShare={entry.actual / scale}
         plannedShare={entry.planned / scale}

@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { predefinedCategoryGroups } from "@freenary/api/lib/categories";
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 
-import { toCategorySections } from "./category-sections";
+import { editedOf, toCategorySections } from "./category-sections";
 import type { CategorySection } from "./category-sections";
 
 const custom = (
@@ -136,5 +136,37 @@ describe("toCategorySections", () => {
       .map((entry) => entry.key);
 
     expect(rendered.toSorted()).toEqual(assignable.toSorted());
+  });
+});
+
+describe("editedOf", () => {
+  const nestedPinkUnderSpending: CategoryEntry = {
+    ...custom("c1", "Pink Under Spending", "spending"),
+    color: "blue",
+    pickedColor: "pink",
+  };
+
+  it("seeds the drawer with the stored choice, not the painted group colour", () => {
+    expect(editedOf(nestedPinkUnderSpending).color).toBe("pink");
+  });
+
+  it("does not overwrite the choice when only the name is edited", () => {
+    const submitted = {
+      ...editedOf(nestedPinkUnderSpending),
+      label: "Renamed",
+    };
+
+    expect(submitted.color).toBe("pink");
+    expect(submitted.parentSlug).toBe("spending");
+  });
+
+  it("carries the choice through a promotion to top level", () => {
+    const promoted = { ...editedOf(nestedPinkUnderSpending), parentSlug: null };
+
+    expect(promoted.color).toBe("pink");
+  });
+
+  it("falls back to the painted colour for an entry that carries no choice", () => {
+    expect(editedOf(custom("c2", "No Pick", "income")).color).toBe("blue");
   });
 });

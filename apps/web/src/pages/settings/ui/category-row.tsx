@@ -71,8 +71,7 @@ export const CategoryRow = ({
         ROW_ABOVE_HOVER_FILL,
         ROW_DIVIDER_WITHOUT_HEIGHT,
         "border-0 px-3 py-0",
-        control,
-        entry.parentKey && "pl-8"
+        control
       )}
       ref={rowRef}
       render={<li />}

@@ -1,7 +1,9 @@
 import {
   CATEGORY_COLOR_VALUES,
+  CATEGORY_GROUP_COLORS,
   CATEGORY_ICON_NAMES,
 } from "@freenary/api/lib/taxonomy";
+import type { CategoryColor } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import {
   Drawer,
@@ -36,7 +38,10 @@ import {
   CATEGORY_ICON_LABELS,
 } from "../model/category-appearance-labels";
 import { useCustomCategoryForm } from "../model/use-custom-category-form";
-import type { EditedCustomCategory } from "../model/use-custom-category-form";
+import type {
+  CustomCategoryValues,
+  EditedCustomCategory,
+} from "../model/use-custom-category-form";
 import { CategoryGroupSelect } from "./category-group-select";
 
 interface CustomCategoryDrawerProps {
@@ -48,6 +53,13 @@ interface CustomCategoryDrawerProps {
 
 const PRESSED_RING_OVER_OPAQUE_SWATCH =
   "aria-pressed:ring-2 aria-pressed:ring-ring";
+
+const effectiveCategoryColor = (state: {
+  values: CustomCategoryValues;
+}): CategoryColor =>
+  state.values.parentSlug === null
+    ? state.values.color
+    : CATEGORY_GROUP_COLORS[state.values.parentSlug];
 
 export const CustomCategoryDrawer = ({
   edited,
@@ -121,49 +133,73 @@ export const CustomCategoryDrawer = ({
                 )}
               </form.Field>
 
-              <form.Field name="color">
+              <form.Field name="parentSlug">
                 {(field) => (
-                  <FieldSet>
-                    <FieldLegend variant="label">
-                      {m.settings_field_color()}
-                    </FieldLegend>
-                    <ToggleGroup
-                      className="flex-wrap"
-                      value={[field.state.value]}
-                      onValueChange={([next]) => {
-                        const color = CATEGORY_COLOR_VALUES.find(
-                          (value) => value === next
-                        );
-
-                        if (color) {
-                          field.handleChange(color);
-                        }
-                      }}
-                    >
-                      {CATEGORY_COLOR_VALUES.map((color) => (
-                        <ToggleGroupItem
-                          key={color}
-                          aria-label={CATEGORY_COLOR_LABELS[color]()}
-                          className={cn(
-                            "size-8 rounded-full p-0",
-                            PRESSED_RING_OVER_OPAQUE_SWATCH
-                          )}
-                          value={color}
-                        >
-                          <span
-                            className={cn(
-                              "flex size-full items-center justify-center rounded-full",
-                              SWATCH_BY_COLOR[color]
-                            )}
-                          >
-                            {field.state.value === color ? <CheckIcon /> : null}
-                          </span>
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                  </FieldSet>
+                  <Field>
+                    <FieldLabel htmlFor="custom-category-parent">
+                      {m.settings_field_parent()}
+                    </FieldLabel>
+                    <CategoryGroupSelect
+                      id="custom-category-parent"
+                      noneLabel={m.settings_category_parent_none()}
+                      onValueChange={(v) => field.handleChange(v)}
+                      value={field.state.value}
+                    />
+                  </Field>
                 )}
               </form.Field>
+
+              <form.Subscribe selector={(state) => state.values.parentSlug}>
+                {(parentSlug) =>
+                  parentSlug === null ? (
+                    <form.Field name="color">
+                      {(field) => (
+                        <FieldSet>
+                          <FieldLegend variant="label">
+                            {m.settings_field_color()}
+                          </FieldLegend>
+                          <ToggleGroup
+                            className="flex-wrap"
+                            value={[field.state.value]}
+                            onValueChange={([next]) => {
+                              const color = CATEGORY_COLOR_VALUES.find(
+                                (value) => value === next
+                              );
+
+                              if (color) {
+                                field.handleChange(color);
+                              }
+                            }}
+                          >
+                            {CATEGORY_COLOR_VALUES.map((color) => (
+                              <ToggleGroupItem
+                                key={color}
+                                aria-label={CATEGORY_COLOR_LABELS[color]()}
+                                className={cn(
+                                  "size-8 rounded-full p-0",
+                                  PRESSED_RING_OVER_OPAQUE_SWATCH
+                                )}
+                                value={color}
+                              >
+                                <span
+                                  className={cn(
+                                    "flex size-full items-center justify-center rounded-full",
+                                    SWATCH_BY_COLOR[color]
+                                  )}
+                                >
+                                  {field.state.value === color ? (
+                                    <CheckIcon />
+                                  ) : null}
+                                </span>
+                              </ToggleGroupItem>
+                            ))}
+                          </ToggleGroup>
+                        </FieldSet>
+                      )}
+                    </form.Field>
+                  ) : null
+                }
+              </form.Subscribe>
 
               <form.Field name="icon">
                 {(field) => (
@@ -171,7 +207,7 @@ export const CustomCategoryDrawer = ({
                     <FieldLegend variant="label">
                       {m.settings_field_icon()}
                     </FieldLegend>
-                    <form.Subscribe selector={(state) => state.values.color}>
+                    <form.Subscribe selector={effectiveCategoryColor}>
                       {(color) => (
                         <ToggleGroup
                           className="grid grid-cols-7"
@@ -207,22 +243,6 @@ export const CustomCategoryDrawer = ({
                       )}
                     </form.Subscribe>
                   </FieldSet>
-                )}
-              </form.Field>
-
-              <form.Field name="parentSlug">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="custom-category-parent">
-                      {m.settings_field_parent()}
-                    </FieldLabel>
-                    <CategoryGroupSelect
-                      id="custom-category-parent"
-                      noneLabel={m.settings_category_parent_none()}
-                      onValueChange={(v) => field.handleChange(v)}
-                      value={field.state.value}
-                    />
-                  </Field>
                 )}
               </form.Field>
 

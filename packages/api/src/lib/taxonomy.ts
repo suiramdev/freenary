@@ -204,36 +204,6 @@ export const CATEGORY_DIRECTION_OF = {
   uncategorised: "both",
 } as const satisfies Record<SpendingCategory, CategoryDirection>;
 
-export const CATEGORY_COLORS = {
-  benefits: "orange",
-  "bills-utilities": "blue",
-  "car-fuel": "red",
-  "cash-withdrawal": "grey",
-  crypto: "orange",
-  entertainment: "purple",
-  "family-education": "orange",
-  groceries: "green",
-  health: "red",
-  "investment-income": "purple",
-  "loans-bank-fees": "grey",
-  "other-income": "grey",
-  people: "green",
-  refunds: "pink",
-  "rent-mortgage": "purple",
-  "rental-income": "blue",
-  restaurants: "orange",
-  retirement: "blue",
-  salary: "green",
-  savings: "green",
-  securities: "purple",
-  "self-employment": "green",
-  shopping: "pink",
-  subscriptions: "pink",
-  taxes: "grey",
-  "transport-travel": "blue",
-  uncategorised: "grey",
-} as const satisfies Record<SpendingCategory, CategoryColor>;
-
 export const CATEGORY_ICONS = {
   benefits: "ShieldCheckIcon",
   "bills-utilities": "LightningIcon",
@@ -366,12 +336,15 @@ export const isSpendingCategory = (value: string): value is SpendingCategory =>
 export const isCategoryGroup = (value: string): value is CategoryGroup =>
   Object.hasOwn(CATEGORY_GROUP_LABELS, value);
 
+export const isCategoryColor = (value: string): value is CategoryColor =>
+  CATEGORY_COLOR_VALUES.some((color) => color === value);
+
 export const categoriesInGroup = (
   group: CategoryGroup
 ): readonly SpendingCategory[] => CATEGORIES_BY_GROUP[group];
 
 export const categoryColor = (category: SpendingCategory): CategoryColor =>
-  CATEGORY_COLORS[category];
+  CATEGORY_GROUP_COLORS[CATEGORY_GROUP_OF[category]];
 
 export const categoryIcon = (category: SpendingCategory): CategoryIconName =>
   CATEGORY_ICONS[category];

@@ -6,7 +6,7 @@ import type { SankeyLayout, SankeyNode } from "./layout";
 const THREE_COLUMN_X_BEFORE_GENERALIZATION = [12, 275.64, 539.28];
 
 const node = (id: string, value: number): SankeyNode => ({
-  color: "blue",
+  color: "var(--chart-blue)",
   id,
   label: id,
   value,
