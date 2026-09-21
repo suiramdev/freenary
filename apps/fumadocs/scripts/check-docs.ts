@@ -305,6 +305,25 @@ const checkRepoLinksArePinned = (page: DocPage, report: Report) => {
   }
 };
 
+const checkVersionExamplesArePinned = (page: DocPage, report: Report) => {
+  const movingVersionExampleLine = "\nFREENARY_VERSION=main\n";
+  let index = page.raw.indexOf(movingVersionExampleLine);
+
+  while (index !== -1) {
+    report(
+      "error",
+      page.relativePath,
+      lineAt(page.raw, index + 1),
+      "version",
+      `\`FREENARY_VERSION=main\` names the moving branch. A released page pins it: \`FREENARY_VERSION=${versionOf(page.relativePath)}\`.`
+    );
+    index = page.raw.indexOf(
+      movingVersionExampleLine,
+      index + movingVersionExampleLine.length
+    );
+  }
+};
+
 const checkMeta = (
   meta: MetaFile,
   pages: readonly DocPage[],
@@ -675,6 +694,7 @@ for (const page of pages) {
     checkAuthoredLanguage(page, report);
   } else {
     checkRepoLinksArePinned(page, report);
+    checkVersionExamplesArePinned(page, report);
   }
 }
 

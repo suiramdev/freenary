@@ -15,7 +15,7 @@ docker compose logs --tail 100 server
 
 **What you see.** `docker compose pull` fails on both images, and the message names the tag.
 
-**Why.** `FREENARY_VERSION` is unset or empty, so Compose falls back to the tag `latest`. GHCR holds no `latest` tag until a maintainer cuts a release.
+**Why.** `FREENARY_VERSION` names a tag that the registry does not hold. A typo, or a `sha-` tag that predates the images, gives the same message.
 
 **The fix.** Name a tag that exists in the root `.env` file:
 
@@ -23,7 +23,7 @@ docker compose logs --tail 100 server
 FREENARY_VERSION=main
 ```
 
-The tags are `main`, `dev` and `sha-<7 characters>`. [Updates](/docs/self-hosting/updates) lists all of them and what publishes each one.
+The tags are `X.Y.Z`, `X.Y`, `X`, `latest`, `main`, `dev` and `sha-<7 characters>`. [Updates](/docs/self-hosting/updates) lists what publishes each one.
 
 ## Compose creates no container at all
 

@@ -48,7 +48,7 @@ The site publishes one copy of the documentation for each version of Freenary. `
 | `next` | The unreleased code, which the `dev` and `main` images run | Every pull request |
 | `X.Y` | The release `X.Y`, frozen at the moment of the release | A correction to that release alone |
 
-**Write in `next`.** A pull request edits `next`, and nothing else. The `Release` workflow copies `next` to `content/docs/X.Y` before it tags, so a release needs no manual copy. See [Release a version](/docs/contributing/releasing).
+**Write in `next`.** A pull request edits `next`, and nothing else. A maintainer freezes `next` as `content/docs/X.Y` in a pull request before a release. The `Release` workflow refuses a version without that folder. See [Release a version](/docs/contributing/releasing).
 
 **A link never names a version.** Write `/docs/guides/budget`. The site adds the version of the page the reader is on, so one page body serves every version. `docs:check` fails a link that names a version. In a browser, a path with no version lands on the newest release.
 
@@ -62,7 +62,7 @@ To freeze a version by hand:
 cd apps/fumadocs && bun run docs:snapshot 1.2.0
 ```
 
-The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag.
+The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag. It also pins each `FREENARY_VERSION=main` line in the copy to `X.Y`.
 
 ## The five steps
 

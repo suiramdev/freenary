@@ -13,7 +13,7 @@ Freenary ships as two container images. A release is maintainer work. A contribu
 | `dev`  | The integration branch | Every pull request                |
 | `main` | The release branch     | `dev`, at the moment of a release |
 
-A normal release takes two moves. A maintainer merges `dev` into `main`, then runs the `Release` workflow from `main`.
+A normal release takes three moves. A maintainer merges a documentation snapshot into `dev`, merges `dev` into `main`, then runs the `Release` workflow from `main`.
 
 A hotfix goes the other way. The pull request opens against `main`, so the fix carries none of the unreleased work on `dev`. The release runs from `main` as usual. Then `main` merges back into `dev`, or the fix disappears at the next release.
 
@@ -44,7 +44,7 @@ It runs on two triggers:
 
 A pre-release moves no other tag. It never becomes `latest`, and it never moves `X.Y` or `X`. Any other ref stops the `tags` job with `Unsupported ref: <ref>`.
 
-The version tags come into existence with the first release run. Until a maintainer runs one, the two branch tags and the per-commit `sha-` tags are the whole set. The production compose file defaults `FREENARY_VERSION` to `latest`, and only a `vX.Y.Z` git tag writes that tag. [Update an instance](/docs/self-hosting/updates) is the operator view.
+Only a `vX.Y.Z` git tag writes the `latest` tag. The production compose file defaults `FREENARY_VERSION` to `latest`. [Update an instance](/docs/self-hosting/updates) is the operator view.
 
 ### The three jobs
 
@@ -72,6 +72,14 @@ A maintainer runs it by hand:
 
 <Step>
 
+### Snapshot the documentation
+
+On a branch from `dev`, run `cd apps/fumadocs && bun run docs:snapshot X.Y.Z`, then open a pull request against `dev` and merge it. A pre-release skips this step.
+
+</Step>
+
+<Step>
+
 ### Merge and wait
 
 Merge `dev` into `main`, then wait for CI to pass on `main`.
@@ -96,7 +104,7 @@ Type the version in the `version` field, with no `v`. Press **Run workflow** aga
 
 </Steps>
 
-### The three refusals
+### The four refusals
 
 The first job, `tag`, stops before it writes anything when one of these holds:
 
@@ -105,6 +113,7 @@ The first job, `tag`, stops before it writes anything when one of these holds:
 | The run started from a branch other than `main` | `Releases are cut from main, not from <branch>` |
 | The version does not match `X.Y.Z` or `X.Y.Z-pre` | `Not a version: <version> (expected X.Y.Z or X.Y.Z-pre)` |
 | The tag `v<version>` exists already | `v<version> already exists` |
+| A stable version whose folder `apps/fumadocs/content/docs/X.Y` is missing | `<folder> is missing. Run 'cd apps/fumadocs && bun run docs:snapshot <version>' in a pull request to dev, merge it into main, then release.` |
 
 The pre-release suffix accepts digits, letters and dots. A version with a `-` in it is a pre-release.
 
@@ -112,13 +121,13 @@ The pre-release suffix accepts digits, letters and dots. A version with a `-` in
 
 | Job | What it does |
 | --- | --- |
-| `tag` | Snapshots `apps/fumadocs/content/docs/next` as `content/docs/X.Y`, commits it on `main`, then pushes the annotated tag `v<version>` on the commit of the run, with the message `Freenary <version>`, as `github-actions[bot]`. It also records the newest earlier `v*` tag for the notes |
+| `tag` | Pushes the annotated tag `v<version>` on the commit of the run, with the message `Freenary <version>`, as `github-actions[bot]`. It also records the newest earlier `v*` tag for the notes |
 | `images` | Calls the `Images` workflow with the ref `refs/tags/v<version>`, which publishes the four version tags |
-| `publish` | Creates the GitHub release `v<version>`, titled `Freenary <version>`. The notes open with an **Images** section that names both references and their platforms, then GitHub appends generated notes from the previous tag. A version with a `-` marks the release as a pre-release |
+| `publish` | Creates the GitHub release `v<version>`, titled `Freenary <version>`. The notes open with an **Images** section that names both references and their platforms, then GitHub appends generated notes from the previous tag. The first release has no earlier `v*` tag, so its notes list every merged pull request instead of the generated range. A version with a `-` marks the release as a pre-release |
 
 ## The merchant data releases
 
-`.github/workflows/generate-data.yml`, named **Generate merchant data**, publishes a second kind of release: the tag `data-<YYYY-MM-DD>` with the asset `merchant-data.tar.gz`. It passes `--latest=false`, because a data release is a build input and not a version of Freenary. The `Release` workflow passes no such flag, so a version release takes that place. [Transaction categorisation](/docs/contributing/categorisation#the-weekly-workflow) covers its triggers and its steps.
+`.github/workflows/generate-data.yml`, named **Generate merchant data**, publishes a second kind of release: the tag `data-<YYYY-MM-DD>` with the asset `merchant-data.tar.gz`. It passes `--latest=false`, because a data release is a build input and not a version of Freenary. The `Release` workflow passes `--latest` for a stable version, so that release takes the badge. [Transaction categorisation](/docs/contributing/categorisation#the-weekly-workflow) covers its triggers and its steps.
 
 ## The documentation snapshot
 
@@ -129,11 +138,12 @@ The documentation site publishes one copy of the pages for each version. `conten
 | `X.Y` | The pages as they were at the release of `X.Y` |
 | `next` | The pages for the unreleased code, which the `dev` and `main` images run |
 
-The `tag` job runs the copy before it writes the tag. The tag therefore names a tree that holds the new folder. The copy carries one edit: a repository link names `main`, and the frozen page names the release tag. Three rules follow:
+The snapshot lands through a pull request into `dev`. The `tag` job refuses a stable version whose folder is missing. The `main and dev` ruleset admits no push outside a pull request, so the workflow writes no commit.
+
+The copy carries two edits. A repository link names `main`, and the frozen page names the release tag. A `FREENARY_VERSION=main` line names the branch, and the frozen page names `X.Y`. Two rules follow:
 
 - A patch release finds `content/docs/X.Y` in place, and copies nothing. A documentation fix for a released version therefore edits that folder directly.
 - A pre-release copies nothing. Its readers stay on `next`.
-- The step is safe to repeat. A maintainer who runs `cd apps/fumadocs && bun run docs:snapshot X.Y.Z` in the release pull request leaves the workflow nothing to do. A repeat run also finishes an interrupted one.
 
 The application links to the documentation for the version it runs. `images.yml` passes the version to the web image as the build argument `FREENARY_VERSION`. The account menu opens `/docs/X.Y` for a release, and `/docs/next` for a branch build. [Writing documentation](/docs/contributing/writing-docs#versions) holds the authoring rules.
 
