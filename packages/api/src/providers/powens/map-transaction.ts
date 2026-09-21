@@ -2,11 +2,17 @@ import type { ProviderTransaction } from "../types";
 import type { PowensTransaction } from "./client";
 import { isReported, toMinorUnits } from "./client";
 
-/**
- * ISO 20022 family codes per Powens transaction type, split by direction, so
- * Powens rows reach `channelFromFamilyCode` with the same signal Enable
- * Banking's own codes carry. Powens `order` is a direct debit.
- */
+interface CounterpartyFields {
+  creditorIban?: string;
+  creditorName?: string;
+  debtorIban?: string;
+  debtorName?: string;
+}
+
+const IBAN_SCHEME = "iban";
+const PENDING = "PDNG";
+const BOOKED = "BOOK";
+
 const FAMILY_CODE_BY_TYPE = {
   bank: { issued: "CHRG", received: "CHRG" },
   card: { issued: "CCRD", received: "CCRD" },
@@ -25,29 +31,24 @@ const FAMILY_CODE_BY_TYPE = {
 const isCodedType = (type: string): type is keyof typeof FAMILY_CODE_BY_TYPE =>
   Object.hasOwn(FAMILY_CODE_BY_TYPE, type);
 
-interface CounterpartyFields {
-  creditorIban?: string;
-  creditorName?: string;
-  debtorIban?: string;
-  debtorName?: string;
-}
-
 const mapCounterparty = (
   transaction: PowensTransaction,
   value: number
 ): CounterpartyFields => {
   const { counterparty } = transaction;
   const label = counterparty?.label;
+
   if (!(counterparty && label)) {
     return {};
   }
 
   const iban =
-    counterparty.account_scheme_name === "iban"
+    counterparty.account_scheme_name === IBAN_SCHEME
       ? (counterparty.account_identification ?? undefined)
       : undefined;
-  // Powens omits the role on some connectors; the sign says which side we are.
-  const role = counterparty.type ?? (value < 0 ? "creditor" : "debtor");
+  const roleImpliedBySign = value < 0 ? "creditor" : "debtor";
+  const role = counterparty.type ?? roleImpliedBySign;
+
   return role === "creditor"
     ? { creditorIban: iban, creditorName: label }
     : { debtorIban: iban, debtorName: label };
@@ -55,24 +56,23 @@ const mapCounterparty = (
 
 const remittanceLines = (transaction: PowensTransaction): string[] => {
   const lines: string[] = [];
+
   for (const line of [transaction.original_wording, transaction.wording]) {
     if (line && !lines.includes(line)) {
       lines.push(line);
     }
   }
+
   return lines;
 };
 
-/**
- * Null when there is nothing to book: a deleted row, or one missing the amount
- * or the booking date the core stores.
- */
 export const mapPowensTransaction = (
   transaction: PowensTransaction,
   currency: string,
   precision: number
 ): ProviderTransaction | null => {
   const { value, date: bookingDate, type } = transaction;
+
   if (transaction.deleted || !isReported(value) || !bookingDate) {
     return null;
   }
@@ -81,6 +81,7 @@ export const mapPowensTransaction = (
   const codes = isCodedType(typeName)
     ? FAMILY_CODE_BY_TYPE[typeName]
     : undefined;
+
   return {
     ...mapCounterparty(transaction, value),
     amountMinor: toMinorUnits(value, precision),
@@ -91,23 +92,26 @@ export const mapPowensTransaction = (
     providerTransactionId: String(transaction.id),
     psuNote: transaction.comment ?? undefined,
     remittanceLines: remittanceLines(transaction),
-    status: transaction.coming ? "PDNG" : "BOOK",
+    status: transaction.coming ? PENDING : BOOKED,
     transactionDate: transaction.rdate ?? undefined,
     valueDate: transaction.vdate ?? undefined,
   };
 };
 
 export const mapPowensTransactions = (
-  transactions: PowensTransaction[],
+  transactions: readonly PowensTransaction[],
   currency: string,
   precision: number
 ): ProviderTransaction[] => {
   const mapped: ProviderTransaction[] = [];
+
   for (const transaction of transactions) {
     const result = mapPowensTransaction(transaction, currency, precision);
+
     if (result) {
       mapped.push(result);
     }
   }
+
   return mapped;
 };

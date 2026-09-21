@@ -2,15 +2,16 @@ import prisma from "@freenary/db";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
+import { taxResidencyCountries } from "../lib/country-code";
 
 export const onboardingRouter = {
   completeOnboarding: protectedProcedure
-    .input(z.object({ country: z.string() }))
+    .input(z.object({ taxCountries: taxResidencyCountries.min(1) }))
     .handler(async ({ context, input }) => {
       await prisma.user.update({
         data: {
-          country: input.country,
           onboardingCompletedAt: new Date(),
+          taxCountries: input.taxCountries,
         },
         where: { id: context.session.user.id },
       });
@@ -20,13 +21,13 @@ export const onboardingRouter = {
 
   getStatus: protectedProcedure.handler(async ({ context }) => {
     const user = await prisma.user.findUniqueOrThrow({
-      select: { country: true, onboardingCompletedAt: true },
+      select: { onboardingCompletedAt: true, taxCountries: true },
       where: { id: context.session.user.id },
     });
 
     return {
       completed: user.onboardingCompletedAt !== null,
-      country: user.country ?? null,
+      taxCountries: user.taxCountries,
     };
   }),
 };

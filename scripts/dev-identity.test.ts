@@ -22,6 +22,7 @@ describe("deriveDevIdentity slug derivation", () => {
 
   test("a slug longer than 40 chars is capped at 40", () => {
     const { slug } = deriveDevIdentity({ branch: "a".repeat(45) });
+
     expect(slug).toBe("a".repeat(40));
     expect(slug).toHaveLength(40);
   });
@@ -30,6 +31,7 @@ describe("deriveDevIdentity slug derivation", () => {
     const { slug } = deriveDevIdentity({
       branch: `${"a".repeat(39)}_${"z".repeat(20)}`,
     });
+
     expect(slug).toBe("a".repeat(39));
     expect(slug.length).toBeLessThanOrEqual(40);
     expect(slug.endsWith("-")).toBe(false);
@@ -78,7 +80,7 @@ describe("deriveDevIdentity URL / host consistency", () => {
     expect(new URL(id.betterAuthUrl).host).toBe(id.serverHost);
     expect(new URL(id.viteServerUrl).host).toBe(id.serverHost);
     expect(new URL(id.docsUrl).host).toBe(id.docsHost);
-
+    expect(new URL(id.mailUrl).host).toBe(id.mailHost);
     expect(id.betterAuthUrl).toBe(id.viteServerUrl);
     expect(id.webHost).toContain(id.slug);
     expect(id.serverHost).toContain(id.slug);
@@ -103,7 +105,8 @@ describe("deriveDevIdentity host shapes", () => {
     );
     expect(id.docsHost).toBe("docs.feat-projects.freenary.orb.local");
     expect(id.docsUrl).toBe("https://docs.feat-projects.freenary.orb.local");
-    // The server refuses a domain that is not a parent of both hosts.
+    expect(id.mailHost).toBe("mail.feat-projects.freenary.orb.local");
+    expect(id.mailUrl).toBe("https://mail.feat-projects.freenary.orb.local");
     expect(id.cookieDomain).toBe(".feat-projects.freenary.orb.local");
   });
 });
@@ -117,6 +120,7 @@ describe("deriveDevIdentity cross-worktree distinctness", () => {
     expect(a.webHost).not.toBe(b.webHost);
     expect(a.serverHost).not.toBe(b.serverHost);
     expect(a.docsHost).not.toBe(b.docsHost);
+    expect(a.mailHost).not.toBe(b.mailHost);
     expect(a.corsOrigin).not.toBe(b.corsOrigin);
   });
 });

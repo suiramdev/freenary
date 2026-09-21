@@ -1,14 +1,5 @@
 import type { CompletedConnection } from "../types";
-
-export interface EBCompletedConnection {
-  accounts: {
-    account_id?: { iban?: string; identification_hash?: string };
-    name?: string;
-    uid: string;
-  }[];
-  aspsp?: { name?: string; group?: string };
-  session_id: string;
-}
+import type { EBCompletedConnection } from "./client";
 
 export const mapEBCompletedConnection = (
   connection: EBCompletedConnection

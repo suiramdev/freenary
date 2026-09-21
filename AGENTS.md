@@ -21,13 +21,41 @@ bun run db:push    # apply the Prisma schema
 bun run dev        # web 3001, server 3000, docs 4000
 ```
 
-The dev stack needs no `.env`: `docker-compose.dev.yml` defaults every variable, and `EMAIL_PROVIDER` defaults to `log`, so the one-time-code flows print the code to the server log instead of sending mail. `createEmailProvider` refuses `log` in production. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
+The dev stack needs no `.env`: the `server` service declares `env_file` with `required: false`, so an optional root `.env` reaches the container line by line, and `environment` carries only the six values the stack derives from the worktree — `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN` and `NODE_ENV` (Compose gives `environment` precedence over `env_file`). It configures no email provider, so the one-time-code flows are off. `bun run dev:mail` layers `docker-compose.mail.yml` over it: that file starts `axllent/mailpit:v1.28` and points the server at it with `EMAIL_PROVIDER=smtp`, `SMTP_HOST=mailpit`, `SMTP_PORT=1025` and `EMAIL_FROM=Freenary <no-reply@freenary.test>`, and the inbox is a web page at `https://mail.<slug>.freenary.orb.local`. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
 
-**There is no seed script.** Create an account through the sign-in screen. The `dev:up` stack sets `EMAIL_PROVIDER=log`, so `requireEmailVerification` is on: sign-up lands on **Confirm your email**, and the API server log prints the 6-digit code as a `[email:log]` line — read it with `bun run dev:logs`. The `bun run dev` path sets no email provider, so verification stays off there and sign-up returns a session at once. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
+**There is no seed script.** Create an account through the sign-in screen. Neither `bun run dev:up` nor `bun run dev` configures an email provider, so `requireEmailVerification` stays off, sign-up returns a session at once, and the interface shows no **Forgot password?** link. To work on the one-time-code flows, start the stack with `bun run dev:mail` and read the code in the Mailpit inbox. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
 
-The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. That third line is not optional: the compose default is `latest`, and GHCR holds no such tag — the published tags are `main`, `dev` and `sha-<7 characters>`, so an unpinned `up -d` fails with `not found`.
+The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. The compose default is `latest`, the newest release; the other published tags are `X.Y.Z`, `X.Y`, `X`, `main`, `dev` and `sha-<7 characters>`.
 
 Full walkthrough: [Local development stack](apps/fumadocs/content/docs/next/contributing/local-stack.mdx) and [Self-hosting](apps/fumadocs/content/docs/next/self-hosting/index.mdx).
+
+## Frontend Architecture: Feature-Sliced Design
+
+`apps/web` and `apps/fumadocs` are each a [Feature-Sliced Design](https://fsd.how) root: `src/` holds layers, nothing else. The packages are not — FSD is for applications, and `@freenary/ui`, `@freenary/api` and the rest are libraries the apps consume.
+
+```txt
+src/app/        the application: routing, the router, the signed-in shell, global styles
+src/pages/      one slice per screen; a page owns its composition, queries and handlers
+src/features/   a user interaction two or more pages share (auth-gate, bank-connection)
+src/entities/   a domain model two or more pages share (category)
+src/shared/     infrastructure with no business rule: ui, lib, api, auth, config, i18n
+```
+
+Four rules carry the whole thing, and [Steiger](https://github.com/feature-sliced/steiger) enforces them:
+
+- **A module imports only from a layer strictly below it.** `shared < entities < features < pages < app`. Nothing imports from `app`.
+- **A slice is entered through its `index.ts`.** `@/pages/budget`, `@/features/bank-connection`, `@/entities/category` — never a path inside one. `shared` is entered per segment: `@/shared/api`, `@/shared/auth`, `@/shared/config`, `@/shared/i18n`, and per module for `@/shared/ui/<x>` and `@/shared/lib/<x>`.
+- **Inside a slice, imports are relative**; across slices they use the alias. Both mistakes fail the gate.
+- **Extraction is earned, never anticipated.** New code starts in the page that uses it. It moves down a layer when a second consumer exists, the responsibility is focused, and it has a reason to change of its own — which is why `features/` holds two slices and `entities/` one.
+
+Segment names say what code is _for_, not what it _is_: `ui`, `model`, `api`, `lib`, `config`. A `components/`, `hooks/`, `utils/` or `types/` folder inside a slice is a lint error, and so is a `ui` segment in `app`.
+
+```bash
+bun run check:fsd                       # both apps, through turbo
+cd apps/web && bun run lint:fsd         # one app; steiger reads steiger.config.ts
+```
+
+Run it from the app directory or through the script: steiger finds `steiger.config.ts` only when that file's directory is the working directory, and silently falls back to its own defaults otherwise. CI runs the gate as the **Architecture** step. Generated and framework files sit outside every layer — `src/routeTree.gen.ts`, `src/paraglide/` and `src/server.ts` in `apps/web` — and the Vite config points TanStack Start at `src/app/routes`.
 
 ## Documentation: Ship It With the Change
 
@@ -77,7 +105,7 @@ cd apps/fumadocs && bun run build
 | Missing or malformed frontmatter, or no `description` or `icon` | Fails | Fails |
 | Unknown code-fence language | Fails | Fails |
 | Frontmatter `icon` that is not in lucide's `icons` record | **Passes** — renders nothing | Fails |
-| MDX component not registered in `src/components/mdx.tsx` | **Passes** — renders nothing | Fails |
+| MDX component not registered in `src/shared/ui/mdx.tsx` | **Passes** — renders nothing | Fails |
 | Dead internal link or `#anchor` | **Passes** | Fails |
 | Page missing from its folder's `meta.json` | **Passes** | Fails |
 | A shell command or an env var inside `guides/` | **Passes** | Fails |
@@ -85,6 +113,12 @@ cd apps/fumadocs && bun run build
 | A contraction, a banned word, roadmap language, a 26-word sentence | **Passes** | Fails (in `next`; a frozen version keeps the structure rules only) |
 
 A green gate therefore is not proof the page is right. Load the page you changed and look at it. The authoring rules and the five-step writing workflow live in [`apps/fumadocs/AGENTS.md`](apps/fumadocs/AGENTS.md), and the reader-facing version is [`content/docs/next/contributing/writing-docs.mdx`](apps/fumadocs/content/docs/next/contributing/writing-docs.mdx) — update both together when the conventions change. Every page is written in ASD-STE100 Simplified Technical English; that rule is part of the authoring standard, not a style preference.
+
+## Environment Variables: One Schema, Two Generated Files
+
+Every server variable is declared once, in [`packages/env/src/schema.ts`](packages/env/src/schema.ts), with a `.describe()` sentence and a `.meta({ section, example, onError })` block; `packages/env/src/server.ts` only hands that object to `createEnv`, and the client variables live in `schema-web.ts`. `bun run env:sync` writes the two artifacts from it: the root `.env.example`, and the tables of `apps/fumadocs/content/docs/next/self-hosting/configuration.mdx`, between the `{/* env-sync:start … */}` and `{/* env-sync:end */}` markers. **Neither artifact is edited by hand** — the next sync overwrites the edit.
+
+`bun run env:check` is the same script with `--check`, and CI runs it as the **Environment** step; a `lefthook` pre-commit job runs `env:sync` and stages what it writes. The generator also refuses a schema key that carries no `.describe()`, `example` or `onError`, a `process.env.X` read that no schema and no allow-list declares, a `${VAR}` in a compose file that nothing declares, and an allow-list entry that no file uses. Adding a variable is therefore a schema edit plus `bun run env:sync`: the compose files no longer list pass-through variables, so no compose edit is part of it.
 
 ## Interface Text: Every String Is a Message Key
 
@@ -94,7 +128,7 @@ The rules live next to the code they govern: [`apps/web/AGENTS.md`](apps/web/AGE
 
 ## Branches and Releases
 
-Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging `dev` into `main` and running the `Release` workflow, which snapshots the documentation, creates the `vX.Y.Z` tag, the versioned images and the GitHub release. The web image carries its version from the build argument `FREENARY_VERSION`, which is what its account-menu documentation link points at. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/next/contributing/releasing.mdx).
+Pull requests target `dev`, the integration branch; `main` holds released code, and a push to either branch publishes the `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images under that branch name. A maintainer releases by merging a docs snapshot (`bun run docs:snapshot X.Y.Z`) into `dev`, merging `dev` into `main`, and running the `Release` workflow, which refuses a stable version without its snapshot, then creates the `vX.Y.Z` tag, the versioned images and the GitHub release. The web image carries its version from the build argument `FREENARY_VERSION`, which is what its account-menu documentation link points at. Contributors never tag and never bump a version — see [Release a version](apps/fumadocs/content/docs/next/contributing/releasing.mdx).
 
 ## Pull Request Descriptions: Complete, Then Brief
 
@@ -112,17 +146,18 @@ Once an integration is implemented and smoke-tested, the owning agent runs the `
 
 ---
 
-# Ultracite Code Standards
+# Code Standards: Ultracite and begone-slop
 
-This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
+This project runs **Ultracite** (Oxlint + Oxfmt) for the general standard, and the **`@jliocsar/begone-slop`** preset on top of it. `oxlint.config.ts` extends the Ultracite `core`, `react` and `tanstack` presets and the begone-slop `preset.json`, and loads the plugin through `jsPlugins`. All 37 begone-slop rules are `error`. `apps/fumadocs` is a standalone app with its own `.oxlintrc.json`, which extends the same preset.
 
 ## Quick Reference
 
 - **Format code**: `bun x ultracite fix`
 - **Check for issues**: `bun x ultracite check`
+- **Lint under Bun** (a TypeScript config needs Bun or Node 22.18+): `bunx --bun oxlint`
 - **Diagnose setup**: `bun x ultracite doctor`
 
-Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
+Most formatting issues fix themselves. The begone-slop rules mostly do not: `no-comments`, `statement-order`, `no-try-catch` and `no-switch` are hand work.
 
 ---
 
@@ -151,7 +186,7 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 - Always `await` promises in async functions - don't forget to use the return value
 - Use `async/await` syntax instead of promise chains for better readability
-- Handle errors appropriately in async code with try-catch blocks
+- Model an async failure with Effect, not with `try`/`catch`
 - Don't use async functions as Promise executors
 
 ### React & JSX
@@ -172,9 +207,9 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 ### Error Handling & Debugging
 
 - Remove `console.log`, `debugger`, and `alert` statements from production code
-- Throw `Error` objects with descriptive messages, not strings or other values
-- Use `try-catch` blocks meaningfully - don't catch errors just to rethrow them
+- `begone-slop/no-try-catch` bans `try`/`catch` and `try`/`finally`. Model the failure instead — see the Effect section below
 - Prefer early returns over nested conditionals for error cases
+- `begone-slop/no-silent-error-swallow` bans a handler that discards the error; carry it in the error channel or log it with its cause
 
 ### Code Organization
 
@@ -184,13 +219,13 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Prefer simple conditionals over nested ternary operators
 - Group related code together and separate concerns
 
-### Code Comments: Document the "Why", Briefly
+### Code Comments: There Are Almost None
 
-- **Prefer self-explanatory code first.** Clear naming, simple structure, and readable control flow should carry the meaning — reach for a comment only when the code genuinely can't.
-- When writing or modifying code driven by a design doc or non-obvious constraint, add a comment explaining **why** the code behaves the way it does (safety constraint, compatibility shim, design-doc rule).
-- Keep comments short — one or two lines. Capture only the non-obvious reason.
-- Don't restate what the code does, narrate the mechanism, cite design-doc sections verbatim, or explain adjacent API choices unless they're the point.
-- A comment longer than three lines is a smell: the code may need simplifying, or the explanation belongs in `docs/` rather than inline.
+`begone-slop/no-comments` rejects every comment except a `SAFETY:` justification, a tooling directive (`@ts-expect-error`, `oxlint-disable`, `eslint-disable`, `c8`, `istanbul`), a `/// <reference …>` and a shebang. JSDoc is not exempt.
+
+- **The code carries the meaning.** A name that needs a sentence beside it is the wrong name. Rename the symbol, name the intermediate value, extract a named function, tighten the type, or turn the literal into a named constant.
+- **Durable knowledge goes in a document.** A vendor's documented quirk, a protocol constraint, a measured number's provenance: [`docs/engineering/`](docs/engineering) holds one file per area (`web-ui`, `web-app`, `api`, `categorisation`, `data-pipeline`, `platform`), keyed by `path › symbol`; a package's `AGENTS.md` holds a rule contributors need; `apps/fumadocs` holds anything a reader needs. `docs/engineering/platform.md` also records the oxlint rule interactions that bite when writing Effect here.
+- **`SAFETY:` is only for an assertion.** It states the invariant that makes one `as` sound, immediately before the assertion or its statement. Never write one to smuggle prose past the rule, and never add an `oxlint-disable` for `no-comments`.
 
 ### Security
 
@@ -219,6 +254,26 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 - Use ref as a prop instead of `React.forwardRef`
 
+### Effect v4
+
+`effect@4.0.0-rc.115` is a root dependency, and the packages that import it declare it too. The authoritative reference ships with the library: read `node_modules/effect/AGENTS.md`, the examples under `node_modules/effect/ai-docs/src/**`, and the `.d.ts` files in `node_modules/effect/dist/`. Names changed from v2 and v3: `Result` (not `Either`), `Context.Service`, `Schema.TaggedError`, `Data.TaggedError`, `Effect.fn`, `Effect.catchTag`.
+
+Where it earns its keep:
+
+- **Typed errors.** `Data.TaggedError("ProviderRequestFailed")<{ … }>` beside the code that raises it, `Effect.catchTag` to recover. `Schema.TaggedError` when the payload crosses a wire.
+- **A sync call that throws.** One module-level `Option.liftThrowable(…)` or `Result.try({ try, catch })`, then `Option.match` at the call site. Never `Effect.runSync(Effect.try(…))`: it pays for a fiber to do nothing.
+- **Async work with more than one failure mode.** `Effect.tryPromise` inside `Effect.fn("name")`, one `Effect.runPromise` at the module's own edge, so the exported signature stays a promise.
+- **Cleanup.** `Effect.acquireRelease` with `Effect.scoped`, which is what replaced `try`/`finally`.
+- **Bounded concurrency.** `Effect.forEach(items, run, { concurrency: n })` instead of a hand-rolled batching loop.
+- **Dispatch.** `Match.value(…)` with `Match.exhaustive`, `Match.tag`, or a `satisfies Record<Key, …>` table when the arms are wide.
+
+Where it does not:
+
+- **zod stays** at the boundaries a library owns: oRPC route contracts, `@t3-oss/env-core`, better-auth options, AI SDK tool schemas.
+- **No Effect in a render path**, in a `useMemo`, or per row in `packages/api/src/categorisation`, which runs over every transaction. `Option`, `Result`, `Match` and `Predicate` are fine there; a fiber is not.
+- **No service or `Layer`** for a module with one implementation and no lifecycle.
+- `apps/fumadocs` depends on no workspace package and does not carry `effect`.
+
 ---
 
 ## Testing
@@ -238,7 +293,7 @@ Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attenti
 3. **Architecture decisions** - Component structure, data flow, and API design
 4. **Edge cases** - Handle boundary conditions and error states
 5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
+6. **Documentation** - Name things so the code reads itself, and put durable facts in `docs/` or `apps/fumadocs`
 
 ---
 

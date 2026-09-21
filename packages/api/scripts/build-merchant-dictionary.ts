@@ -1,22 +1,3 @@
-/**
- * Builds the embedded merchant dictionary from three sources:
- *  1. Name Suggestion Index (NSI) — OSM brand/operator data
- *  2. Wikidata brands — CC0 entities with official websites (P856)
- *  3. Hand-curated supplement — categories NSI under-covers
- *
- * Fetches the pinned NSI tarball from npm, merges Wikidata aliases/domains from
- * the pre-fetched intermediate file, applies the curated supplement (which wins
- * on collision), and writes a gzipped JSONL artifact sorted by id for
- * byte-stable diffs.
- *
- * Graceful degradation:
- *  When the NSI tarball download fails and an existing merchants.jsonl.gz file
- *  is present, the script logs a warning and exits successfully, leaving the
- *  existing artifact intact.
- *
- * Usage: bun packages/api/scripts/build-merchant-dictionary.ts
- */
-
 import { sign } from "node:crypto";
 import {
   createWriteStream,
@@ -24,62 +5,22 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 
+import { Data, Effect, Match, Option } from "effect";
+
 import { mergeCountryScopes } from "../src/categorisation/merchant-scope";
 import { normaliseDescriptor } from "../src/categorisation/normalise/normalise-descriptor";
 import { resolveNsiCountries } from "../src/categorisation/nsi/location-scope";
-import { mapNafToCategory } from "../src/categorisation/sirene/naf-categories";
 import { mapOsmTagToCategory } from "./lib/category-map";
 import { categoryPriority } from "./lib/category-priority";
 import { CURATED_MERCHANTS } from "./lib/curated-merchants";
-import { fetchSireneBatch } from "./lib/sirene-client";
-import type { SireneSearchResponse } from "./lib/sirene-client";
 import type { DictionaryAlias, DictionaryMerchant } from "./lib/types";
 
-/**
- * Stub: place-token filtering will be wired into the build pipeline when the
- * GeoNames place-token generator is ready. Until then, no names are filtered.
- */
-const isEntirelyPlaceName = (_normalisedName: string): boolean => false;
-
-// Configuration
-
-const NSI_VERSION = "8.0.20260729";
-const NSI_TARBALL_URL = `https://registry.npmjs.org/name-suggestion-index/-/name-suggestion-index-${NSI_VERSION}.tgz`;
-const OUTPUT_PATH = path.resolve(
-  import.meta.dirname,
-  "../data/merchants.jsonl.gz"
-);
-const WIKIDATA_PATH = path.resolve(
-  import.meta.dirname,
-  "../data/wikidata-brands.json"
-);
-
-/**
- * Wall-clock ceiling for the SIRENE pass. The job's own limit is 60 minutes and
- * every other pass needs about 7, so this leaves the release steps room even
- * when the endpoint is slow. Whatever it does answer is cached on disk, so a
- * truncated pass resumes rather than restarts.
- */
-const SIRENE_BUDGET_MS = 15 * 60 * 1000;
-
-/** A one-word name matches half the registry, so it is not worth a query. */
-const MIN_SIRENE_QUERY_LENGTH = 3;
-
-const SIRENE_PROGRESS_EVERY = 50;
-
-// NSI types (minimal, for extraction)
-
-/**
- * NSI geographic scope. `include` mixes ISO codes, UN M49 codes, region
- * filenames and inline GeoJSON geometry, so a member is only a country when
- * `resolveNsiCountries` can validate it as one.
- */
 interface NsiLocationSet {
   include?: unknown[];
 }
@@ -114,139 +55,302 @@ interface GenericWordsRoot {
   genericWords: string[];
 }
 
-// Tarball helpers
+interface Pass1Result {
+  rawMerchants: DictionaryMerchant[];
+  scannedCount: number;
+}
 
-const extractFromTarball = async (
+interface WikidataBrand {
+  aliases: string[];
+  countries?: string[];
+  domains: string[];
+  id: string;
+  label: string;
+}
+
+type DictionaryFailure =
+  | { readonly kind: "artifactWriteFailed"; readonly cause: unknown }
+  | { readonly kind: "memberMissing"; readonly member: string }
+  | { readonly kind: "memberUnreadable"; readonly cause: unknown }
+  | { readonly kind: "nsiJsonUndecodable"; readonly cause: unknown }
+  | { readonly kind: "nsiRequestFailed"; readonly cause: unknown }
+  | {
+      readonly kind: "nsiTarballRejected";
+      readonly status: number;
+      readonly statusText: string;
+    }
+  | { readonly kind: "signingFailed"; readonly cause: unknown }
+  | {
+      readonly kind: "tarFailed";
+      readonly member: string;
+      readonly exitCode: number;
+      readonly stderr: string;
+    }
+  | { readonly kind: "unexpected"; readonly cause: unknown }
+  | { readonly kind: "wikidataUnavailable"; readonly cause: unknown };
+
+class DictionaryBuildFailed extends Data.TaggedError("DictionaryBuildFailed")<{
+  readonly reason: DictionaryFailure;
+}> {}
+
+const NSI_VERSION = "8.0.20260729";
+const NSI_TARBALL_URL = `https://registry.npmjs.org/name-suggestion-index/-/name-suggestion-index-${NSI_VERSION}.tgz`;
+const NSI_JSON_MEMBER = "package/dist/json/nsi.min.json";
+const NSI_GENERIC_WORDS_MEMBER = "*/genericWords.min.json";
+
+const OUTPUT_PATH = path.resolve(
+  import.meta.dirname,
+  "../data/merchants.jsonl.gz"
+);
+const WIKIDATA_PATH = path.resolve(
+  import.meta.dirname,
+  "../data/wikidata-brands.json"
+);
+const PRIVATE_KEY_PATH = path.resolve(
+  import.meta.dirname,
+  "../data/dictionary.key"
+);
+
+const MIN_SINGLE_TOKEN_LENGTH = 3;
+const MAX_GZIP_LEVEL = 9;
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+const BUILD_FAILED_EXIT_CODE = 1;
+
+const OSM_TAG_PATH_SEGMENTS = 3;
+
+const WWW_PREFIX = /^www\./u;
+const NON_SLUG_CHARACTERS = /[^a-z0-9]+/gu;
+const SLUG_EDGE_DASHES = /^-|-$/gu;
+const TRANSIENT_MESSAGE =
+  /fetch|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|AbortError|network/u;
+
+const isEntirelyPlaceName = (_normalisedName: string): boolean => false;
+
+const describe = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
+
+const noticeFor = (reason: DictionaryFailure): string =>
+  Match.value(reason).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      artifactWriteFailed: ({ cause }) => describe(cause),
+      memberMissing: ({ member }) => `No files matching ${member} in tarball`,
+      memberUnreadable: ({ cause }) => describe(cause),
+      nsiJsonUndecodable: ({ cause }) => describe(cause),
+      nsiRequestFailed: ({ cause }) => describe(cause),
+      nsiTarballRejected: ({ status, statusText }) =>
+        `Failed to fetch NSI tarball: ${status} ${statusText}`,
+      signingFailed: ({ cause }) => describe(cause),
+      tarFailed: ({ member, exitCode, stderr }) =>
+        `tar extraction of ${member} failed (exit ${exitCode}): ${stderr}`,
+      unexpected: ({ cause }) => describe(cause),
+      wikidataUnavailable: ({ cause }) => describe(cause),
+    })
+  );
+
+const isTransient = (reason: DictionaryFailure): boolean =>
+  Match.value(reason).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      artifactWriteFailed: () => false,
+      memberMissing: () => false,
+      memberUnreadable: () => false,
+      nsiJsonUndecodable: () => false,
+      nsiRequestFailed: () => true,
+      nsiTarballRejected: () => true,
+      signingFailed: () => false,
+      tarFailed: () => false,
+      unexpected: ({ cause }) =>
+        cause instanceof TypeError ||
+        (cause instanceof Error && TRANSIENT_MESSAGE.test(cause.message)),
+      wikidataUnavailable: () => false,
+    })
+  );
+
+const parseUrl = Option.liftThrowable(
+  (url: string) => new URL(url.startsWith("http") ? url : `https://${url}`)
+);
+
+const extractDomain = (url: string): Option.Option<string> =>
+  parseUrl(url).pipe(
+    Option.map((parsed) =>
+      parsed.hostname.toLowerCase().replace(WWW_PREFIX, "")
+    )
+  );
+
+const discardTempDir = (tmpDir: string): Effect.Effect<void> =>
+  Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "memberUnreadable" },
+      }),
+    try: () => rm(tmpDir, { force: true, recursive: true }),
+  }).pipe(Effect.ignore);
+
+const extractFromTarball = Effect.fnUntraced(function* extractFromTarball(
   tarballBytes: ArrayBuffer,
   memberGlob: string
-): Promise<string> => {
-  const tmpDir = await mkdtemp(path.join(tmpdir(), "nsi-"));
-  try {
-    const tarPath = path.join(tmpDir, "archive.tgz");
-    await Bun.write(tarPath, tarballBytes);
-    const proc = Bun.spawn(["tar", "-xzf", tarPath, "-C", tmpDir], {
-      stderr: "pipe",
+) {
+  const tmpDir = yield* Effect.acquireRelease(
+    Effect.tryPromise({
+      catch: (cause) =>
+        new DictionaryBuildFailed({
+          reason: { cause, kind: "memberUnreadable" },
+        }),
+      try: () => mkdtemp(path.join(tmpdir(), "nsi-")),
+    }),
+    discardTempDir
+  );
+
+  const tarPath = path.join(tmpDir, "archive.tgz");
+
+  const extraction = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "memberUnreadable" },
+      }),
+    try: async () => {
+      await Bun.write(tarPath, tarballBytes);
+      const proc = Bun.spawn(["tar", "-xzf", tarPath, "-C", tmpDir], {
+        stderr: "pipe",
+      });
+      const exitCode = await proc.exited;
+
+      return { exitCode, stderr: await new Response(proc.stderr).text() };
+    },
+  });
+
+  if (extraction.exitCode !== 0) {
+    return yield* new DictionaryBuildFailed({
+      reason: {
+        exitCode: extraction.exitCode,
+        kind: "tarFailed",
+        member: memberGlob,
+        stderr: extraction.stderr,
+      },
     });
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      throw new Error(
-        `tar extraction of ${memberGlob} failed (exit ${exitCode}): ${stderr}`
-      );
-    }
-    const glob = new Bun.Glob(memberGlob);
-    const [firstMatch] = [...glob.scanSync({ cwd: tmpDir })];
-    if (!firstMatch) {
-      throw new Error(`No files matching ${memberGlob} in tarball`);
-    }
-    return await readFile(path.join(tmpDir, firstMatch), "utf-8");
-  } finally {
-    try {
-      await rm(tmpDir, { force: true, recursive: true });
-    } catch {
-      // Best-effort cleanup: a leftover temp dir must not mask the real result.
-    }
   }
-};
 
-// Category-path to OSM tag
+  const glob = new Bun.Glob(memberGlob);
+  const [firstMatch] = [...glob.scanSync({ cwd: tmpDir })];
 
-/**
- * NSI category paths look like "brands/shop/supermarket" or "operators/amenity/fuel".
- * Returns e.g. "shop=supermarket".
- */
+  if (!firstMatch) {
+    return yield* new DictionaryBuildFailed({
+      reason: { kind: "memberMissing", member: memberGlob },
+    });
+  }
+
+  return yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "memberUnreadable" },
+      }),
+    try: () => readFile(path.join(tmpDir, firstMatch), "utf-8"),
+  });
+}, Effect.scoped);
+
 const categoryPathToOsmTag = (categoryPath: string): string | null => {
   const parts = categoryPath.split("/");
-  if (parts.length < 3) {
+
+  if (parts.length < OSM_TAG_PATH_SEGMENTS) {
     return null;
   }
+
   return `${parts[1]}=${parts[2]}`;
 };
-
-// Domain extraction
-
-const extractDomain = (url: string): string | null => {
-  try {
-    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
-    return parsed.hostname.toLowerCase().replace(/^www\./u, "");
-  } catch {
-    return null;
-  }
-};
-
-// Slugify for stable ids
 
 const slugify = (text: string): string =>
   text
     .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, "-")
-    .replaceAll(/^-|-$/gu, "");
+    .replaceAll(NON_SLUG_CHARACTERS, "-")
+    .replaceAll(SLUG_EDGE_DASHES, "");
 
-// Write gzipped JSONL artifact
-
-const writeArtifact = async (
+const writeArtifact = Effect.fnUntraced(function* writeArtifact(
   outputPath: string,
   merchants: DictionaryMerchant[]
-): Promise<{ rawBytes: number; gzippedBytes: number }> => {
-  await mkdir(path.dirname(outputPath), { recursive: true });
-
+) {
   const rawLines: string[] = [];
+
   for (const merchant of merchants) {
     rawLines.push(JSON.stringify(merchant));
   }
+
   const rawContent = `${rawLines.join("\n")}\n`;
   const rawBytes = Buffer.byteLength(rawContent, "utf-8");
 
-  const gzip = createGzip({ level: 9 });
-  const fileStream = createWriteStream(outputPath);
-  gzip.end(rawContent);
-  await pipeline(gzip, fileStream);
+  const gzippedBytes = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "artifactWriteFailed" },
+      }),
+    try: async () => {
+      await mkdir(path.dirname(outputPath), { recursive: true });
+      const gzip = createGzip({ level: MAX_GZIP_LEVEL });
+      const fileStream = createWriteStream(outputPath);
+      gzip.end(rawContent);
+      await pipeline(gzip, fileStream);
+      const { size } = await Bun.file(outputPath).stat();
 
-  const { size: gzippedBytes } = await Bun.file(outputPath).stat();
+      return size;
+    },
+  });
 
   return { gzippedBytes, rawBytes };
-};
-
-// URL field narrowing — parse at the I/O boundary into typed values
+});
 
 const extractWebsites = (tags: NsiItem["tags"]): string[] => {
   const urls: string[] = [];
+
   if (tags?.website && tags.website.length > 0) {
     urls.push(tags.website);
   }
+
   if (tags?.["contact:website"] && tags["contact:website"].length > 0) {
     urls.push(tags["contact:website"]);
   }
+
   return urls;
 };
 
-// Alias collection from NSI item tags
-
 const collectRawAliases = (item: NsiItem): string[] => {
   const rawAliases: string[] = [];
+
   if (item.matchNames) {
     rawAliases.push(...item.matchNames);
   }
+
   if (item.tags?.alt_name) {
     for (const alt of item.tags.alt_name.split(";")) {
       const trimmed = alt.trim();
+
       if (trimmed.length > 0) {
         rawAliases.push(trimmed);
       }
     }
   }
+
   if (item.tags?.short_name) {
-    for (const sn of item.tags.short_name.split(";")) {
-      const trimmed = sn.trim();
+    for (const shortName of item.tags.short_name.split(";")) {
+      const trimmed = shortName.trim();
+
       if (trimmed.length > 0) {
         rawAliases.push(trimmed);
       }
     }
   }
+
   return rawAliases;
 };
 
-// Normalise and deduplicate aliases
+const isTooWeakToIndex = (
+  normalisedName: string,
+  isGenericToken: (token: string) => boolean
+): boolean => {
+  const [firstToken] = normalisedName.split(" ");
+
+  return (
+    !normalisedName.includes(" ") &&
+    (firstToken.length < MIN_SINGLE_TOKEN_LENGTH || isGenericToken(firstToken))
+  );
+};
 
 const buildAliases = (
   rawAliases: string[],
@@ -258,10 +362,13 @@ const buildAliases = (
 
   for (const rawAlias of rawAliases) {
     const normalisedAlias = normaliseDescriptor(rawAlias);
+
     if (normalisedAlias.length === 0 || seenNormalised.has(normalisedAlias)) {
       continue;
     }
+
     const aliasTokens = normalisedAlias.split(" ");
+
     if (aliasTokens.length === 1 && isGenericToken(aliasTokens[0])) {
       continue;
     }
@@ -273,27 +380,21 @@ const buildAliases = (
   return aliases;
 };
 
-// Extract domains from URL tags
-
 const buildDomains = (websiteUrls: string[]): string[] => {
   const domains: string[] = [];
   const seenDomains = new Set<string>();
+
   for (const url of websiteUrls) {
     const domain = extractDomain(url);
-    if (domain && !seenDomains.has(domain)) {
-      seenDomains.add(domain);
-      domains.push(domain);
+
+    if (Option.isSome(domain) && !seenDomains.has(domain.value)) {
+      seenDomains.add(domain.value);
+      domains.push(domain.value);
     }
   }
+
   return domains;
 };
-
-// Pass 1: collect raw NSI candidates from parsed data
-
-interface Pass1Result {
-  rawMerchants: DictionaryMerchant[];
-  scannedCount: number;
-}
 
 const collectNsiCandidates = (
   nsiData: Record<string, NsiCategory>,
@@ -325,19 +426,16 @@ const collectNsiCandidates = (
 
     for (const item of categoryData.items) {
       const displayName = item.displayName ?? item.tags?.name;
+
       if (!displayName || displayName.trim().length === 0) {
         continue;
       }
 
       const normalisedName = normaliseDescriptor(displayName);
-      if (normalisedName.length === 0) {
-        continue;
-      }
 
-      const [firstToken] = normalisedName.split(" ");
       if (
-        !normalisedName.includes(" ") &&
-        (firstToken.length < 3 || isGenericToken(firstToken))
+        normalisedName.length === 0 ||
+        isTooWeakToIndex(normalisedName, isGenericToken)
       ) {
         continue;
       }
@@ -364,25 +462,28 @@ const collectNsiCandidates = (
   return { rawMerchants, scannedCount };
 };
 
-// Pass 3: resolve normalisedName collisions via category priority
-
-/** Takes a non-empty group so the primary needs no unchecked index access. */
 const mergeCollisionGroup = (
   group: [DictionaryMerchant, ...DictionaryMerchant[]]
 ) => {
   let winningCategory = group[0].category;
   let bestPriority = -1;
-  for (const m of group) {
-    const p = m.category ? categoryPriority(m.category) : 0;
-    if (p > bestPriority) {
-      bestPriority = p;
-      winningCategory = m.category;
+
+  for (const candidate of group) {
+    const priority = candidate.category
+      ? categoryPriority(candidate.category)
+      : 0;
+
+    if (priority > bestPriority) {
+      bestPriority = priority;
+      winningCategory = candidate.category;
     }
   }
 
   group.sort(
-    (a, b) => a.name.length - b.name.length || a.id.localeCompare(b.id)
+    (left, right) =>
+      left.name.length - right.name.length || left.id.localeCompare(right.id)
   );
+
   const [primary] = group;
 
   const allNormalisedAliases = new Set<string>([primary.normalisedName]);
@@ -390,23 +491,24 @@ const mergeCollisionGroup = (
   const mergedDomains: string[] = [];
   const seenDomains = new Set<string>();
 
-  for (const m of group) {
-    if (m !== primary) {
-      const normName = normaliseDescriptor(m.name);
+  for (const absorbed of group) {
+    if (absorbed !== primary) {
+      const normName = normaliseDescriptor(absorbed.name);
+
       if (normName.length > 0 && !allNormalisedAliases.has(normName)) {
         allNormalisedAliases.add(normName);
-        mergedAliases.push({ alias: m.name, normalisedAlias: normName });
+        mergedAliases.push({ alias: absorbed.name, normalisedAlias: normName });
       }
     }
 
-    for (const alias of m.aliases) {
+    for (const alias of absorbed.aliases) {
       if (!allNormalisedAliases.has(alias.normalisedAlias)) {
         allNormalisedAliases.add(alias.normalisedAlias);
         mergedAliases.push(alias);
       }
     }
 
-    for (const domain of m.domains) {
+    for (const domain of absorbed.domains) {
       if (!seenDomains.has(domain)) {
         seenDomains.add(domain);
         mergedDomains.push(domain);
@@ -420,29 +522,11 @@ const mergeCollisionGroup = (
       ...primary,
       aliases: mergedAliases,
       category: winningCategory,
-      countries: mergeCountryScopes(group.map((m) => m.countries)),
+      countries: mergeCountryScopes(group.map((member) => member.countries)),
       domains: mergedDomains,
     },
   };
 };
-
-// Wikidata intermediate file types
-
-interface WikidataBrand {
-  aliases: string[];
-  /** ISO 3166-1 alpha-2 from Wikidata P17; absent in artifacts built before it was captured. */
-  countries?: string[];
-  domains: string[];
-  id: string;
-  label: string;
-  sirene?: {
-    nafCode: string;
-    denomination: string;
-    tradeName: string | null;
-  };
-}
-
-// Pass 3b: merge Wikidata brands into NSI merchants
 
 const mergeWikidataBrands = (
   merchants: DictionaryMerchant[],
@@ -450,48 +534,46 @@ const mergeWikidataBrands = (
   isGenericToken: (token: string) => boolean
 ) => {
   const byNorm: Record<string, number> = {};
-  for (let i = 0; i < merchants.length; i += 1) {
-    byNorm[merchants[i].normalisedName] = i;
+
+  for (let index = 0; index < merchants.length; index += 1) {
+    byNorm[merchants[index].normalisedName] = index;
   }
 
   let wikidataMatched = 0;
   let wikidataNew = 0;
 
-  for (const wd of wikidataBrands) {
-    const normalisedName = normaliseDescriptor(wd.label);
-    if (normalisedName.length === 0) {
-      continue;
-    }
+  for (const brand of wikidataBrands) {
+    const normalisedName = normaliseDescriptor(brand.label);
 
-    // Filter: single short token or generic word
-    const [firstToken] = normalisedName.split(" ");
     if (
-      !normalisedName.includes(" ") &&
-      (firstToken.length < 3 || isGenericToken(firstToken))
+      normalisedName.length === 0 ||
+      isTooWeakToIndex(normalisedName, isGenericToken) ||
+      isEntirelyPlaceName(normalisedName)
     ) {
       continue;
     }
 
-    // Filter: place-only name
-    if (isEntirelyPlaceName(normalisedName)) {
-      continue;
-    }
-
-    const domains = buildDomains(wd.domains.map((d) => `https://${d}`));
-    const aliases = buildAliases(wd.aliases, normalisedName, isGenericToken);
+    const domains = buildDomains(brand.domains.map((d) => `https://${d}`));
+    const aliases = buildAliases(brand.aliases, normalisedName, isGenericToken);
 
     const existingIdx = byNorm[normalisedName];
     const existing =
       existingIdx === undefined ? undefined : merchants[existingIdx];
+
+    const statesCountries = Boolean(
+      brand.countries && brand.countries.length > 0
+    );
+    const hasCommercialEvidence = domains.length > 0;
+
     if (existing) {
-      // Enrich existing entry with new aliases and domains
       const seenAliases = new Set<string>([
         existing.normalisedName,
-        ...existing.aliases.map((a) => a.normalisedAlias),
+        ...existing.aliases.map((alias) => alias.normalisedAlias),
       ]);
       const seenDomains = new Set(existing.domains);
 
       let enriched = false;
+
       for (const alias of aliases) {
         if (!seenAliases.has(alias.normalisedAlias)) {
           seenAliases.add(alias.normalisedAlias);
@@ -499,6 +581,7 @@ const mergeWikidataBrands = (
           enriched = true;
         }
       }
+
       for (const domain of domains) {
         if (!seenDomains.has(domain)) {
           seenDomains.add(domain);
@@ -506,33 +589,29 @@ const mergeWikidataBrands = (
           enriched = true;
         }
       }
-      // Only a stated P17 is evidence. An absent one means Wikidata does not
-      // know where the brand trades, which must not erase what NSI declared.
-      if (wd.countries && wd.countries.length > 0) {
+
+      if (statesCountries && brand.countries) {
         existing.countries = mergeCountryScopes([
           existing.countries,
-          wd.countries,
+          brand.countries,
         ]);
       }
+
       if (enriched) {
         wikidataMatched += 1;
       }
-    } else if (domains.length > 0) {
-      // Only add unmatched Wikidata brands that carry a domain — evidence
-      // of being a real commercial entity rather than a Wikipedia article.
+    } else if (hasCommercialEvidence) {
       merchants.push({
         aliases,
         category: null,
-        countries: wd.countries ?? [],
+        countries: brand.countries ?? [],
         domains,
-        id: `wd:${wd.id}`,
-        name: wd.label,
+        id: `wd:${brand.id}`,
+        name: brand.label,
         normalisedName,
         osmTag: null,
         source: "wikidata",
       });
-      // Register so later Wikidata entries with the same normalised name
-      // enrich rather than duplicate.
       byNorm[normalisedName] = merchants.length - 1;
       wikidataNew += 1;
     }
@@ -541,169 +620,23 @@ const mergeWikidataBrands = (
   return { wikidataMatched, wikidataNew };
 };
 
-/**
- * NAF classes that name a legal or asset structure rather than a trade. A brand
- * is matched here by name, not by SIREN, so the hit is routinely the group's
- * property or holding company: NRJ, Thalys and LVMH all resolve to 68.20, which
- * would file a radio station, a railway and a luxury house alike under `rent`.
- * The map keeps reading these codes at face value, which is right for an
- * establishment identified by its own SIREN rather than by a name search.
- */
-const STRUCTURAL_NAF_CLASSES = {
-  "64.20": true,
-  "64.30": true,
-  "66.30": true,
-  "68.20": true,
-  "70.10": true,
-} as const satisfies Record<string, true>;
-
-const parseNafCode = (
-  data: SireneSearchResponse,
-  queryName: string
-): string | null => {
-  const [firstResult] = data.results;
-  if (!firstResult) {
-    return null;
-  }
-
-  // Name-match guard: the result must overlap with the query.
-  const resultName = (firstResult.nom_complet ?? "").toLowerCase().trim();
-  const merchantNameLower = queryName.toLowerCase().trim();
-  if (
-    !resultName.includes(merchantNameLower) &&
-    !merchantNameLower.includes(resultName)
-  ) {
-    return null;
-  }
-
-  const nafCode = firstResult.matching_etablissements[0]?.activite_principale;
-  if (!nafCode) {
-    return null;
-  }
-  if (Object.hasOwn(STRUCTURAL_NAF_CLASSES, nafCode.slice(0, 5))) {
-    return null;
-  }
-  return nafCode;
-};
-
-// Pass 3c: enrich uncategorised merchants via the French SIRENE registry
-
-/**
- * SIRENE only holds French legal entities, so a non-French brand can only match
- * a namesake: querying it returned a French subsidiary's holding or landlord
- * code 21% of the time (Adobe → 68.20B "rent", Samsung → the obsolete 51.4S),
- * which is worse than leaving the category null. Restricting the pass to
- * French-linked names is also what makes it finish: it cuts ~48k lookups, over
- * two hours at the documented 7 req/s, down to about fifteen hundred.
- */
-const isFrenchLinked = (merchant: DictionaryMerchant): boolean =>
-  merchant.countries.includes("FR") ||
-  merchant.domains.some((d) => d.endsWith(".fr"));
-
-const enrichWithSirene = async (
-  merchants: DictionaryMerchant[]
-): Promise<number> => {
-  const candidates = merchants.filter((m) => {
-    if (m.name.length < MIN_SIRENE_QUERY_LENGTH) {
-      return false;
-    }
-    if (!isFrenchLinked(m)) {
-      return false;
-    }
-    if (m.category === null) {
-      return true;
-    }
-    // `uncategorised` and `other-shopping` are the weak NSI outcomes worth a
-    // second look: both mean "no consumer intent identified".
-    if (
-      m.source === "nsi" &&
-      (m.category === "uncategorised" || m.category === "other-shopping")
-    ) {
-      return true;
-    }
-    return false;
-  });
-
-  if (candidates.length === 0) {
-    return 0;
-  }
-
-  console.log(
-    `SIRENE: ${candidates.length} French-linked candidates to enrich`
-  );
-
-  // Build a name→merchant index so we can apply results back.
-  const byName = new Map<string, DictionaryMerchant[]>();
-  for (const m of candidates) {
-    const existing = byName.get(m.name);
-    if (existing) {
-      existing.push(m);
-    } else {
-      byName.set(m.name, [m]);
-    }
-  }
-
-  const uniqueNames = [...byName.keys()];
-
-  const outcome = await fetchSireneBatch(uniqueNames, parseNafCode, {
-    budgetMs: SIRENE_BUDGET_MS,
-    onProgress: (done, total) => {
-      if (done % SIRENE_PROGRESS_EVERY === 0 || done === total) {
-        console.log(`SIRENE: processed ${done}/${total}`);
-      }
-    },
-  });
-
-  let enriched = 0;
-  for (const { query, data: nafCode } of outcome.results) {
-    if (nafCode === null) {
-      continue;
-    }
-    const category = mapNafToCategory(nafCode);
-    // `uncategorised` states no consumer intent, so it is not worth overwriting
-    // a null with: the entry stays a candidate for a better source later.
-    if (category === null || category === "uncategorised") {
-      continue;
-    }
-    const merchantsForName = byName.get(query);
-    if (!merchantsForName) {
-      continue;
-    }
-    for (const m of merchantsForName) {
-      m.category = category;
-      enriched += 1;
-    }
-  }
-
-  console.log(
-    `SIRENE: ${enriched} merchants enriched (${outcome.cached} from cache, ${outcome.failed} requests failed)`
-  );
-  if (outcome.stop !== "complete") {
-    console.log(
-      `SIRENE: stopped early (${outcome.stop}) with ${outcome.skipped} names unqueried — the disk cache carries them into the next run`
-    );
-  }
-  return enriched;
-};
-
-// Pass 4: merge curated supplement into NSI merchants
-
 const mergeCuratedSupplement = (
   nsiMerchants: DictionaryMerchant[],
   wikidataBrands: WikidataBrand[]
 ) => {
   const nsiByNorm: Record<string, number> = {};
-  for (let i = 0; i < nsiMerchants.length; i += 1) {
-    nsiByNorm[nsiMerchants[i].normalisedName] = i;
+
+  for (let index = 0; index < nsiMerchants.length; index += 1) {
+    nsiByNorm[nsiMerchants[index].normalisedName] = index;
   }
 
-  // Index Wikidata brands by lower-case label for curated cross-reference
-  const wdByLabel: Record<string, WikidataBrand> = {};
-  for (const wd of wikidataBrands) {
-    const key = wd.label.toLowerCase();
-    // Keep the first match (most likely the canonical entity)
-    if (!wdByLabel[key]) {
-      wdByLabel[key] = wd;
+  const canonicalBrandByLabel: Record<string, WikidataBrand> = {};
+
+  for (const brand of wikidataBrands) {
+    const key = brand.label.toLowerCase();
+
+    if (!canonicalBrandByLabel[key]) {
+      canonicalBrandByLabel[key] = brand;
     }
   }
 
@@ -712,31 +645,31 @@ const mergeCuratedSupplement = (
 
   for (const curated of CURATED_MERCHANTS) {
     const normalisedName = normaliseDescriptor(curated.name);
+
     if (normalisedName.length === 0) {
       continue;
     }
 
-    // Look up aliases and domains from Wikidata data (curated entries no
-    // longer carry them — they were moved to the Wikidata fetch pipeline).
-    const wdMatch = wdByLabel[curated.name.toLowerCase()];
-    const rawAliases = wdMatch?.aliases ?? [];
-    const rawDomains = wdMatch?.domains ?? [];
+    const brandMatch = canonicalBrandByLabel[curated.name.toLowerCase()];
+    const rawAliases = brandMatch?.aliases ?? [];
+    const rawDomains = brandMatch?.domains ?? [];
 
     const seenNormalised = new Set<string>([normalisedName]);
     const aliases: DictionaryAlias[] = [];
+
     for (const rawAlias of rawAliases) {
       const normAlias = normaliseDescriptor(rawAlias);
+
       if (normAlias.length === 0 || seenNormalised.has(normAlias)) {
         continue;
       }
+
       seenNormalised.add(normAlias);
       aliases.push({ alias: rawAlias, normalisedAlias: normAlias });
     }
 
     const domains = buildDomains(rawDomains.map((d) => `https://${d}`));
 
-    // The curated list declares no country and spans both French utilities and
-    // global subscriptions, so it stays unscoped rather than assumed French.
     const merchant: DictionaryMerchant = {
       aliases,
       category: curated.category,
@@ -750,6 +683,7 @@ const mergeCuratedSupplement = (
     };
 
     const existingIdx = nsiByNorm[normalisedName];
+
     if (existingIdx === undefined) {
       nsiMerchants.push(merchant);
       curatedAdded += 1;
@@ -757,18 +691,21 @@ const mergeCuratedSupplement = (
       const existing = nsiMerchants[existingIdx];
       const mergedDomains = [...merchant.domains];
       const domainSet = new Set(mergedDomains);
-      for (const d of existing.domains) {
-        if (!domainSet.has(d)) {
-          domainSet.add(d);
-          mergedDomains.push(d);
+
+      for (const domain of existing.domains) {
+        if (!domainSet.has(domain)) {
+          domainSet.add(domain);
+          mergedDomains.push(domain);
         }
       }
+
       for (const alias of existing.aliases) {
         if (!seenNormalised.has(alias.normalisedAlias)) {
           seenNormalised.add(alias.normalisedAlias);
           aliases.push(alias);
         }
       }
+
       nsiMerchants[existingIdx] = {
         ...merchant,
         aliases,
@@ -781,237 +718,326 @@ const mergeCuratedSupplement = (
   return { curatedAdded, curatedOverridden };
 };
 
-// Main
-
-const main = async (): Promise<void> => {
-  console.log(`Fetching NSI v${NSI_VERSION} tarball…`);
-  const response = await fetch(NSI_TARBALL_URL);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch NSI tarball: ${response.status} ${response.statusText}`
-    );
-  }
-  const tarballBytes = await response.arrayBuffer();
-  console.log(
-    `Downloaded ${(tarballBytes.byteLength / 1024 / 1024).toFixed(1)} MB`
-  );
-
-  const nsiJson = await extractFromTarball(
-    tarballBytes,
-    "package/dist/json/nsi.min.json"
-  );
-  // SAFETY: nsi.min.json is NSI's published JSON artifact with a known top-level structure
-  const nsiRoot = JSON.parse(nsiJson) as NsiRoot;
-
-  let genericRegexes: RegExp[] = [];
-  try {
-    const gwJson = await extractFromTarball(
-      tarballBytes,
-      "*/genericWords.min.json"
-    );
-    if (gwJson.trim().length > 0) {
-      // SAFETY: genericWords.min.json has { genericWords: string[] }
-      const gwRoot = JSON.parse(gwJson) as GenericWordsRoot;
-      genericRegexes = gwRoot.genericWords.map(
-        (pattern) => new RegExp(pattern, "iu")
-      );
-    }
-  } catch {
-    console.log(
-      "Warning: genericWords not found in tarball, using empty stop-list"
-    );
-  }
-
-  const isGenericToken = (token: string): boolean =>
-    genericRegexes.some((re) => re.test(token));
-
-  // Pass 1: collect raw NSI candidates
-  const { rawMerchants, scannedCount } = collectNsiCandidates(
-    nsiRoot.nsi,
-    isGenericToken
-  );
-
-  // Pass 2: drop place-only names
-  let placeDropped = 0;
-  const afterPass2: DictionaryMerchant[] = [];
-  for (const m of rawMerchants) {
-    if (isEntirelyPlaceName(m.normalisedName)) {
-      placeDropped += 1;
-      continue;
-    }
-    afterPass2.push(m);
-  }
-  console.log(`Place-name filter: dropped ${placeDropped}`);
-
-  // Pass 3: resolve normalisedName collisions via category priority
+const resolveCollisions = (candidates: DictionaryMerchant[]) => {
   const groups: Record<string, DictionaryMerchant[]> = {};
-  for (const m of afterPass2) {
-    const key = m.normalisedName;
+
+  for (const candidate of candidates) {
+    const key = candidate.normalisedName;
+
     if (!groups[key]) {
       groups[key] = [];
     }
-    groups[key].push(m);
+
+    groups[key].push(candidate);
   }
 
-  const nsiMerchants: DictionaryMerchant[] = [];
+  const merchants: DictionaryMerchant[] = [];
   let mergedCount = 0;
+
   for (const [, group] of Object.entries(groups)) {
     const [primary, ...rest] = group;
+
     if (!primary) {
       continue;
     }
+
     if (rest.length === 0) {
-      nsiMerchants.push(primary);
+      merchants.push(primary);
       continue;
     }
+
     const { merged, absorbed } = mergeCollisionGroup([primary, ...rest]);
-    nsiMerchants.push(merged);
+    merchants.push(merged);
     mergedCount += absorbed;
   }
-  console.log(
-    `Collision resolution: merged ${mergedCount} NSI rows (category-priority)`
-  );
 
-  // Pass 3b: merge Wikidata brands (aliases + domains only; no category)
-  let wikidataBrands: WikidataBrand[] = [];
-  let wikidataMatched = 0;
-  let wikidataNew = 0;
-  try {
-    const wikidataJson = await readFile(WIKIDATA_PATH, "utf-8");
-    // SAFETY: wikidata-brands.json is our own build artifact with known WikidataBrand[] shape
-    wikidataBrands = JSON.parse(wikidataJson) as WikidataBrand[];
-    ({ wikidataMatched, wikidataNew } = mergeWikidataBrands(
-      nsiMerchants,
-      wikidataBrands,
-      isGenericToken
-    ));
-    console.log(
-      `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
-    );
-  } catch {
-    console.log(
-      "Warning: wikidata-brands.json not found, skipping Wikidata enrichment (run fetch-wikidata-brands.ts to generate it)"
-    );
+  return { merchants, mergedCount };
+};
+
+const fetchNsiTarball = Effect.fnUntraced(function* fetchNsiTarball() {
+  console.log(`Fetching NSI v${NSI_VERSION} tarball…`);
+
+  const response = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "nsiRequestFailed" },
+      }),
+    try: () => fetch(NSI_TARBALL_URL),
+  });
+
+  if (!response.ok) {
+    return yield* new DictionaryBuildFailed({
+      reason: {
+        kind: "nsiTarballRejected",
+        status: response.status,
+        statusText: response.statusText,
+      },
+    });
   }
 
-  // Pass 3c: enrich uncategorised merchants via French SIRENE registry
-  try {
-    const sireneEnriched = await enrichWithSirene(nsiMerchants);
-    console.log(`SIRENE enrichment: ${sireneEnriched} merchants categorised`);
-  } catch (error) {
-    console.log(
-      `Warning: SIRENE enrichment failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+  const tarballBytes = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "nsiRequestFailed" },
+      }),
+    try: () => response.arrayBuffer(),
+  });
 
-  // Pass 4: merge curated supplement (aliases/domains from Wikidata data)
-  const { curatedAdded, curatedOverridden } = mergeCuratedSupplement(
-    nsiMerchants,
-    wikidataBrands
-  );
   console.log(
-    `Curated supplement: ${curatedAdded} added, ${curatedOverridden} overrode NSI`
+    `Downloaded ${(tarballBytes.byteLength / BYTES_PER_MEGABYTE).toFixed(1)} MB`
   );
 
-  const merchants = nsiMerchants;
-  merchants.sort((a, b) => a.id.localeCompare(b.id));
+  return tarballBytes;
+});
 
-  let totalAliases = 0;
-  let nsiCount = 0;
-  let curatedCount = 0;
-  let wikidataCount = 0;
-  for (const m of merchants) {
-    totalAliases += m.aliases.length;
-    if (m.source === "curated") {
-      curatedCount += 1;
-    } else if (m.source === "wikidata") {
-      wikidataCount += 1;
-    } else {
-      nsiCount += 1;
+const loadGenericWordRegexes = Effect.fnUntraced(
+  function* loadGenericWordRegexes(tarballBytes: ArrayBuffer) {
+    const gwJson = yield* extractFromTarball(
+      tarballBytes,
+      NSI_GENERIC_WORDS_MEMBER
+    );
+
+    if (gwJson.trim().length === 0) {
+      return [];
     }
+
+    /* SAFETY: genericWords.min.json is NSI's published artifact, whose only
+       documented member is a genericWords array of regex source strings */
+    const gwRoot = yield* Effect.try({
+      catch: (cause) =>
+        new DictionaryBuildFailed({
+          reason: { cause, kind: "nsiJsonUndecodable" },
+        }),
+      try: () => JSON.parse(gwJson) as GenericWordsRoot,
+    });
+
+    return gwRoot.genericWords.map((pattern) => new RegExp(pattern, "iu"));
+  }
+);
+
+const mergeWikidata = Effect.fnUntraced(function* mergeWikidata(
+  merchants: DictionaryMerchant[],
+  isGenericToken: (token: string) => boolean
+) {
+  const wikidataJson = yield* Effect.tryPromise({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "wikidataUnavailable" },
+      }),
+    try: () => readFile(WIKIDATA_PATH, "utf-8"),
+  });
+
+  /* SAFETY: wikidata-brands.json is this repository's own build artifact,
+     written by fetch-wikidata-brands.ts as a WikidataBrand array */
+  const brands = yield* Effect.try({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "wikidataUnavailable" },
+      }),
+    try: () => JSON.parse(wikidataJson) as WikidataBrand[],
+  });
+
+  const { wikidataMatched, wikidataNew } = yield* Effect.try({
+    catch: (cause) =>
+      new DictionaryBuildFailed({
+        reason: { cause, kind: "wikidataUnavailable" },
+      }),
+    try: () => mergeWikidataBrands(merchants, brands, isGenericToken),
+  });
+
+  console.log(
+    `Wikidata brands: ${wikidataMatched} enriched, ${wikidataNew} new entries`
+  );
+
+  return { brands, wikidataMatched, wikidataNew };
+});
+
+const signArtifact = Effect.fnUntraced(function* signArtifact() {
+  if (!existsSync(PRIVATE_KEY_PATH)) {
+    console.log("No signing key found — dictionary is unsigned.");
+
+    return;
   }
 
-  const distinctCategories = new Set(merchants.map((m) => m.category));
-
-  // Every consumer loads the one artifact and filters on `countries` in memory:
-  // per-country files would each need the unscoped worldwide tail duplicated.
-  const { gzippedBytes, rawBytes } = await writeArtifact(
-    OUTPUT_PATH,
-    merchants
-  );
-
-  // Sign the dictionary artifact
-  const PRIVATE_KEY_PATH = path.resolve(
-    import.meta.dirname,
-    "../data/dictionary.key"
-  );
-  try {
-    if (existsSync(PRIVATE_KEY_PATH)) {
+  yield* Effect.try({
+    catch: (cause) =>
+      new DictionaryBuildFailed({ reason: { cause, kind: "signingFailed" } }),
+    try: () => {
       const privateKey = readFileSync(PRIVATE_KEY_PATH, "utf-8");
       const artifactBytes = readFileSync(OUTPUT_PATH);
-      const sig = sign(null, artifactBytes, privateKey);
-      const sigPath = `${OUTPUT_PATH}.sig`;
-      writeFileSync(sigPath, sig);
-      console.log(`Dictionary signed: ${sigPath} (${sig.length} bytes)`);
-    } else {
-      console.log("No signing key found — dictionary is unsigned.");
-    }
-  } catch (error) {
-    console.warn(
-      "Signing failed:",
-      error instanceof Error ? error.message : String(error)
+      const signature = sign(null, artifactBytes, privateKey);
+      const signaturePath = `${OUTPUT_PATH}.sig`;
+      writeFileSync(signaturePath, signature);
+      console.log(
+        `Dictionary signed: ${signaturePath} (${signature.length} bytes)`
+      );
+    },
+  });
+});
+
+const buildMerchantDictionary = Effect.fnUntraced(
+  function* buildMerchantDictionary() {
+    const tarballBytes = yield* fetchNsiTarball();
+
+    const nsiJson = yield* extractFromTarball(tarballBytes, NSI_JSON_MEMBER);
+
+    /* SAFETY: nsi.min.json is the Name Suggestion Index's published artifact,
+       whose documented top level is { _meta, nsi } */
+    const nsiRoot = yield* Effect.try({
+      catch: (cause) =>
+        new DictionaryBuildFailed({
+          reason: { cause, kind: "nsiJsonUndecodable" },
+        }),
+      try: () => JSON.parse(nsiJson) as NsiRoot,
+    });
+
+    const genericRegexes = yield* loadGenericWordRegexes(tarballBytes).pipe(
+      Effect.catchTag("DictionaryBuildFailed", () =>
+        Effect.sync(() => {
+          console.log(
+            "Warning: genericWords not found in tarball, using empty stop-list"
+          );
+
+          return [];
+        })
+      )
     );
-  }
 
-  const scopedCount = merchants.filter((m) => m.countries.length > 0).length;
+    const isGenericToken = (token: string): boolean =>
+      genericRegexes.some((regex) => regex.test(token));
 
-  console.log("\n─── Build Summary ───");
-  console.log(`NSI version:        ${NSI_VERSION}`);
-  console.log(`Items scanned:      ${scannedCount}`);
-  console.log(`Raw NSI candidates: ${rawMerchants.length}`);
-  console.log(`NSI kept:           ${nsiCount}`);
-  console.log(`Wikidata matched:   ${wikidataMatched}`);
-  console.log(`Wikidata new:       ${wikidataNew} (${wikidataCount} total)`);
-  console.log(`Curated:            ${curatedCount}`);
-  console.log(`Total merchants:    ${merchants.length}`);
-  console.log(`Aliases kept:       ${totalAliases}`);
-  console.log(`Distinct categories: ${distinctCategories.size}`);
-  console.log(
-    `Country-scoped:     ${scopedCount} (${merchants.length - scopedCount} unscoped)`
-  );
-  console.log(`Raw JSONL bytes:    ${rawBytes.toLocaleString()}`);
-  console.log(`Gzipped bytes:      ${gzippedBytes.toLocaleString()}`);
-  console.log(`Output:             ${OUTPUT_PATH}`);
-};
+    const { rawMerchants, scannedCount } = collectNsiCandidates(
+      nsiRoot.nsi,
+      isGenericToken
+    );
 
-const run = async (): Promise<void> => {
-  try {
-    await main();
-  } catch (error) {
-    const isTransient =
-      error instanceof TypeError ||
-      (error instanceof Error &&
-        (error.message.includes("fetch") ||
-          error.message.includes("ECONNREFUSED") ||
-          error.message.includes("ETIMEDOUT") ||
-          error.message.includes("ENOTFOUND") ||
-          error.message.includes("AbortError") ||
-          error.message.includes("network")));
+    let placeDropped = 0;
+    const afterPass2: DictionaryMerchant[] = [];
 
-    if (isTransient) {
-      const exists = await access(OUTPUT_PATH)
-        .then(() => true)
-        .catch(() => false);
-      if (exists) {
-        console.warn(
-          `⚠ Merchant dictionary build failed (transient) — keeping existing merchants.jsonl.gz. Error: ${error instanceof Error ? error.message : error}`
-        );
-        return;
+    for (const candidate of rawMerchants) {
+      if (isEntirelyPlaceName(candidate.normalisedName)) {
+        placeDropped += 1;
+        continue;
+      }
+
+      afterPass2.push(candidate);
+    }
+
+    console.log(`Place-name filter: dropped ${placeDropped}`);
+
+    const { merchants: nsiMerchants, mergedCount } =
+      resolveCollisions(afterPass2);
+    console.log(
+      `Collision resolution: merged ${mergedCount} NSI rows (category-priority)`
+    );
+
+    const wikidata = yield* mergeWikidata(nsiMerchants, isGenericToken).pipe(
+      Effect.catchTag("DictionaryBuildFailed", () =>
+        Effect.sync(() => {
+          console.log(
+            "Warning: wikidata-brands.json not found, skipping Wikidata enrichment (run fetch-wikidata-brands.ts to generate it)"
+          );
+
+          return { brands: [], wikidataMatched: 0, wikidataNew: 0 };
+        })
+      )
+    );
+
+    const { curatedAdded, curatedOverridden } = mergeCuratedSupplement(
+      nsiMerchants,
+      wikidata.brands
+    );
+    console.log(
+      `Curated supplement: ${curatedAdded} added, ${curatedOverridden} overrode NSI`
+    );
+
+    const merchants = nsiMerchants;
+    merchants.sort((left, right) => left.id.localeCompare(right.id));
+
+    let totalAliases = 0;
+    let nsiCount = 0;
+    let curatedCount = 0;
+    let wikidataCount = 0;
+
+    for (const merchant of merchants) {
+      totalAliases += merchant.aliases.length;
+
+      if (merchant.source === "curated") {
+        curatedCount += 1;
+      } else if (merchant.source === "wikidata") {
+        wikidataCount += 1;
+      } else {
+        nsiCount += 1;
       }
     }
-    console.error("Build failed:", error);
-    process.exit(1);
-  }
-};
 
-run();
+    const distinctCategories = new Set(
+      merchants.map((merchant) => merchant.category)
+    );
+
+    const { gzippedBytes, rawBytes } = yield* writeArtifact(
+      OUTPUT_PATH,
+      merchants
+    );
+
+    yield* signArtifact().pipe(
+      Effect.catchTag("DictionaryBuildFailed", ({ reason }) =>
+        Effect.sync(() => {
+          console.warn("Signing failed:", noticeFor(reason));
+        })
+      )
+    );
+
+    const scopedCount = merchants.filter(
+      (merchant) => merchant.countries.length > 0
+    ).length;
+
+    console.log("\n─── Build Summary ───");
+    console.log(`NSI version:        ${NSI_VERSION}`);
+    console.log(`Items scanned:      ${scannedCount}`);
+    console.log(`Raw NSI candidates: ${rawMerchants.length}`);
+    console.log(`NSI kept:           ${nsiCount}`);
+    console.log(`Wikidata matched:   ${wikidata.wikidataMatched}`);
+    console.log(
+      `Wikidata new:       ${wikidata.wikidataNew} (${wikidataCount} total)`
+    );
+    console.log(`Curated:            ${curatedCount}`);
+    console.log(`Total merchants:    ${merchants.length}`);
+    console.log(`Aliases kept:       ${totalAliases}`);
+    console.log(`Distinct categories: ${distinctCategories.size}`);
+    console.log(
+      `Country-scoped:     ${scopedCount} (${merchants.length - scopedCount} unscoped)`
+    );
+    console.log(`Raw JSONL bytes:    ${rawBytes.toLocaleString()}`);
+    console.log(`Gzipped bytes:      ${gzippedBytes.toLocaleString()}`);
+    console.log(`Output:             ${OUTPUT_PATH}`);
+  }
+);
+
+const abandonBuild = (
+  cause: unknown,
+  reason: DictionaryFailure
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    if (isTransient(reason) && existsSync(OUTPUT_PATH)) {
+      console.warn(
+        `⚠ Merchant dictionary build failed (transient) — keeping existing merchants.jsonl.gz. Error: ${noticeFor(reason)}`
+      );
+
+      return;
+    }
+
+    console.error(`Build failed: ${noticeFor(reason)}`, cause);
+    process.exit(BUILD_FAILED_EXIT_CODE);
+  });
+
+await Effect.runPromise(
+  buildMerchantDictionary().pipe(
+    Effect.catchTag("DictionaryBuildFailed", (failure) =>
+      abandonBuild(failure, failure.reason)
+    ),
+    Effect.catchDefect((cause) =>
+      abandonBuild(cause, { cause, kind: "unexpected" })
+    )
+  )
+);

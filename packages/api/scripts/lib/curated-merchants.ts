@@ -1,87 +1,95 @@
-/**
- * Hand-curated merchant supplement for categories NSI structurally under-covers.
- *
- * Each entry declares only the canonical name and its spending category.
- * Aliases and domains are resolved at build time from Wikidata and SIRENE.
- */
-
 import type { CuratedEntry } from "./types";
 
-export const CURATED_MERCHANTS: CuratedEntry[] = [
-  // ── Energy ──
-  { category: "energy", name: "EDF" },
-  { category: "energy", name: "Engie" },
-  { category: "energy", name: "TotalEnergies" },
-  { category: "energy", name: "Enercoop" },
+const ENERGY_SUPPLIERS: CuratedEntry[] = [
+  { category: "bills-utilities", name: "EDF" },
+  { category: "bills-utilities", name: "Engie" },
+  { category: "bills-utilities", name: "TotalEnergies" },
+  { category: "bills-utilities", name: "Enercoop" },
+];
 
-  // ── Water ──
-  { category: "water", name: "Veolia" },
-  { category: "water", name: "Suez" },
-  { category: "water", name: "Saur" },
+const WATER_UTILITIES: CuratedEntry[] = [
+  { category: "bills-utilities", name: "Veolia" },
+  { category: "bills-utilities", name: "Suez" },
+  { category: "bills-utilities", name: "Saur" },
+];
 
-  // ── Telecom / ISP ──
-  { category: "telecom", name: "Orange" },
-  { category: "telecom", name: "SFR" },
-  { category: "telecom", name: "Free" },
-  { category: "telecom", name: "Bouygues Telecom" },
-  { category: "telecom", name: "Sosh" },
-  { category: "telecom", name: "Red by SFR" },
+const TELECOM_AND_INTERNET_PROVIDERS: CuratedEntry[] = [
+  { category: "bills-utilities", name: "Orange" },
+  { category: "bills-utilities", name: "SFR" },
+  { category: "bills-utilities", name: "Free" },
+  { category: "bills-utilities", name: "Bouygues Telecom" },
+  { category: "bills-utilities", name: "Sosh" },
+  { category: "bills-utilities", name: "Red by SFR" },
+];
 
-  // ── Transport / Rail ──
-  { category: "public-transport", name: "SNCF" },
-  { category: "public-transport", name: "Trainline" },
-  { category: "public-transport", name: "RATP" },
-  { category: "public-transport", name: "Île-de-France Mobilités" },
-  { category: "public-transport", name: "BlaBlaCar" },
-  { category: "taxi", name: "Uber" },
-  { category: "takeaway", name: "Uber Eats" },
-  { category: "taxi", name: "Bolt" },
+const TRANSPORT_BRANDS: CuratedEntry[] = [
+  { category: "transport-travel", name: "SNCF" },
+  { category: "transport-travel", name: "Trainline" },
+  { category: "transport-travel", name: "RATP" },
+  { category: "transport-travel", name: "Île-de-France Mobilités" },
+  { category: "transport-travel", name: "BlaBlaCar" },
+  { category: "transport-travel", name: "Uber" },
+  { category: "restaurants", name: "Uber Eats" },
+  { category: "transport-travel", name: "Bolt" },
+];
 
-  // ── Insurance ──
-  // A multi-line insurer covers home, vehicle and health alike, so none of the
-  // three specific leaves can be claimed from the brand name.
-  { category: "other-insurance", name: "AXA" },
-  { category: "other-insurance", name: "MAIF" },
-  { category: "other-insurance", name: "MACIF" },
-  { category: "other-insurance", name: "MAAF" },
-  { category: "other-insurance", name: "Matmut" },
-  { category: "other-insurance", name: "Groupama" },
-  { category: "other-insurance", name: "Allianz" },
-  { category: "health-insurance", name: "April" },
+const HEALTH_INSURERS: CuratedEntry[] = [
+  { category: "bills-utilities", name: "April" },
+];
 
-  // ── Streaming / Subscriptions ──
-  { category: "streaming", name: "Netflix" },
-  { category: "streaming", name: "Spotify" },
-  { category: "streaming", name: "Disney+" },
-  { category: "streaming", name: "Canal+" },
-  { category: "streaming", name: "Deezer" },
-  { category: "streaming", name: "Amazon Prime" },
-  { category: "streaming", name: "YouTube Premium" },
-  // Storefronts that bill for apps and cloud rather than media.
-  { category: "software", name: "Apple" },
-  { category: "software", name: "Google" },
-  { category: "software", name: "Microsoft" },
-  { category: "software", name: "Adobe" },
-  { category: "software", name: "OVH" },
-  { category: "software", name: "Scaleway" },
+const STREAMING_SERVICES: CuratedEntry[] = [
+  { category: "subscriptions", name: "Netflix" },
+  { category: "subscriptions", name: "Spotify" },
+  { category: "subscriptions", name: "Disney+" },
+  { category: "subscriptions", name: "Canal+" },
+  { category: "subscriptions", name: "Deezer" },
+  { category: "subscriptions", name: "Amazon Prime" },
+  { category: "subscriptions", name: "YouTube Premium" },
+];
 
-  // ── Health ──
-  { category: "medical", name: "Doctolib" },
-  { category: "medical", name: "Ameli" },
+const APP_AND_CLOUD_STOREFRONTS: CuratedEntry[] = [
+  { category: "subscriptions", name: "Apple" },
+  { category: "subscriptions", name: "Google" },
+  { category: "subscriptions", name: "Microsoft" },
+  { category: "subscriptions", name: "Adobe" },
+  { category: "subscriptions", name: "OVH" },
+  { category: "subscriptions", name: "Scaleway" },
+];
 
-  // ── E-commerce NSI lacks ──
-  { category: "other-shopping", name: "Cdiscount" },
-  { category: "clothing", name: "Vinted" },
-  { category: "other-shopping", name: "Leboncoin" },
-  { category: "electronics", name: "Back Market" },
-  { category: "home-maintenance", name: "ManoMano" },
-  { category: "other-shopping", name: "Veepee" },
+const HEALTH_SERVICES: CuratedEntry[] = [
+  { category: "health", name: "Doctolib" },
+  { category: "health", name: "Ameli" },
+];
 
-  // ── Supermarkets with country-qualified NSI names ──
+const ECOMMERCE_MISSING_FROM_NSI: CuratedEntry[] = [
+  { category: "shopping", name: "Cdiscount" },
+  { category: "shopping", name: "Vinted" },
+  { category: "shopping", name: "Leboncoin" },
+  { category: "shopping", name: "Back Market" },
+  { category: "bills-utilities", name: "ManoMano" },
+  { category: "shopping", name: "Veepee" },
+];
+
+const SUPERMARKETS_WITH_COUNTRY_QUALIFIED_NSI_NAMES: CuratedEntry[] = [
   { category: "groceries", name: "Monoprix" },
   { category: "groceries", name: "Carrefour" },
+];
 
-  // ── Fuel brands whose NSI convenience-store tag incorrectly overrides fuel ──
-  { category: "fuel", name: "Esso" },
-  { category: "fuel", name: "Shell" },
+const FUEL_BRANDS_NSI_TAGS_AS_CONVENIENCE_STORES: CuratedEntry[] = [
+  { category: "car-fuel", name: "Esso" },
+  { category: "car-fuel", name: "Shell" },
+];
+
+export const CURATED_MERCHANTS: CuratedEntry[] = [
+  ...ENERGY_SUPPLIERS,
+  ...WATER_UTILITIES,
+  ...TELECOM_AND_INTERNET_PROVIDERS,
+  ...TRANSPORT_BRANDS,
+  ...HEALTH_INSURERS,
+  ...STREAMING_SERVICES,
+  ...APP_AND_CLOUD_STOREFRONTS,
+  ...HEALTH_SERVICES,
+  ...ECOMMERCE_MISSING_FROM_NSI,
+  ...SUPERMARKETS_WITH_COUNTRY_QUALIFIED_NSI_NAMES,
+  ...FUEL_BRANDS_NSI_TAGS_AS_CONVENIENCE_STORES,
 ];

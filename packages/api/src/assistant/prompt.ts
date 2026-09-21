@@ -1,9 +1,7 @@
 import { assistantUiPrompt } from "./ui";
 
 export interface AssistantPromptContext {
-  /** BCP-47 tag the answer must be written in; the server cannot infer it. */
   locale: string;
-  /** Today, as YYYY-MM-DD, so relative periods resolve without a clock tool. */
   today: string;
   firstTransactionDate: string | null;
   lastTransactionDate: string | null;
@@ -30,7 +28,7 @@ export const assistantSystemPrompt = ({
     `Today is ${today}.`,
     "Never state a figure you did not get from a tool. Call the tools, then answer from their results.",
     "Amounts in tool results are already decimal figures in the currency each result names — quote them as given and never rescale them.",
-    'Categories and category groups come back as stable slugs such as "daily-living" or "eating-out"; name them naturally in the user\'s language, never as a slug.',
+    'Categories come back as stable slugs such as "rent-mortgage" or "transport-travel", and each one sits in the "income", "investments" or "spending" section; name them naturally in the user\'s language, never as a slug.',
     range,
     "If no bank account is connected, say so and point the user to Settings → Bank accounts.",
     "Be brief: two or three sentences, then the numbers that support them.",

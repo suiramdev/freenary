@@ -1,25 +1,44 @@
-/// A user-created spending category, offered alongside the application's predefined ones.
+/// A user-created spending category, offered alongside the application's
+/// predefined ones. A user's own top-level category may hold subcategories,
+/// and nesting stops there: a subcategory never holds subcategories of its own.
 model CustomCategory {
-  id          String       @id @default(cuid())
+  id          String           @id @default(cuid())
   userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Display name; unique per user, case-insensitively (citext compares
   /// case-insensitively, so the DB backs the API's insensitive conflict check).
-  label       String       @db.Citext
-  /// Palette color name, validated against CATEGORY_COLOR_VALUES.
+  label       String           @db.Citext
+  /// Palette color name, validated against CATEGORY_COLOR_VALUES. It is what
+  /// the row shows only while both parents are null and the category is a group
+  /// of its own: a category nested under a group is painted that group's color,
+  /// and a subcategory is painted its parent's picked color, because the color
+  /// states the direction of money. The choice is still carried to the client
+  /// as `CategoryEntry.pickedColor`, which is what the edit dialog writes back,
+  /// so nesting a category does not destroy it.
   color       String
   /// Icon name, validated against CATEGORY_ICON_NAMES.
   icon        String
-  /// Category group slug this one nests under; null = it is a group of its own.
+  /// Category group slug this one nests under. Mutually exclusive with
+  /// `parentId`: the API derives exactly one of the pair from a single input
+  /// field, so both null means the category is a group of its own.
   parentSlug  String?
-  /// Position among the user's custom categories sharing the same parent.
-  sortOrder   Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  /// Top-level custom category this one is a subcategory of. Mutually
+  /// exclusive with `parentSlug`, and never set to a category that itself
+  /// carries a parent, which is what keeps nesting one level deep.
+  parentId    String?
+  parent      CustomCategory?  @relation("CustomCategoryNesting", fields: [parentId], references: [id], onDelete: Cascade)
+  /// Subcategories. A row that has any must stay top-level, and deleting it
+  /// deletes them with it.
+  children    CustomCategory[] @relation("CustomCategoryNesting")
+  /// Position among the user's custom categories sharing the same parent pair.
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   budgetLines BudgetLine[]
 
   @@unique([userId, label])
   @@index([userId, parentSlug, sortOrder])
+  @@index([userId, parentId, sortOrder])
   @@map("custom_category")
 }
 

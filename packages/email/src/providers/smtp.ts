@@ -6,7 +6,6 @@ interface SmtpCredentials {
   from: string;
   host: string;
   port: number;
-  /** Implicit TLS (usually port 465); STARTTLS is negotiated when this is off. */
   secure: boolean;
   user?: string;
   password?: string;
@@ -15,9 +14,7 @@ interface SmtpCredentials {
 export const createSmtpEmailProvider = (
   credentials: SmtpCredentials
 ): EmailProvider => {
-  // One pooled transport for the process: without `pool` nodemailer opens a
-  // fresh TCP+TLS handshake for every message.
-  const transport = createTransport({
+  const pooledTransport = createTransport({
     auth:
       credentials.user === undefined
         ? undefined
@@ -31,7 +28,7 @@ export const createSmtpEmailProvider = (
   return {
     id: "smtp",
     send: async (message: EmailMessage) => {
-      await transport.sendMail({
+      await pooledTransport.sendMail({
         from: credentials.from,
         subject: message.subject,
         text: message.text,

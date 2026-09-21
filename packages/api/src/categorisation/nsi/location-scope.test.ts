@@ -2,14 +2,22 @@ import { describe, expect, it } from "bun:test";
 
 import { resolveNsiCountries } from "./location-scope";
 
+const UN_M49_REGION_CODES = {
+  "001": "world",
+  "150": "Europe",
+  "419": "Latin America",
+} as const satisfies Record<string, string>;
+
+const AMBIGUOUS_NSI_CODE_MEANING_JAPAN_OR_JAMAICA = "ja";
+const NON_ISO_NSI_COUNTRY_CODES = ["el", "ra", "pi", "kv"];
+const MALFORMED_REGION_SUBTAGS = ["12", "1a", "a1", "--", "f-", "é!"];
+
 describe("resolveNsiCountries", () => {
   it("reads plain ISO country codes", () => {
     expect(resolveNsiCountries(["fr", "be", "lu"])).toEqual(["BE", "FR", "LU"]);
   });
 
   it("folds metropolitan France onto FR", () => {
-    // `fx` carries more French brands than `fr`, so losing it would leave the
-    // French scope at a third of its real size.
     expect(resolveNsiCountries(["fx"])).toEqual(["FR"]);
     expect(resolveNsiCountries(["fr", "fx"])).toEqual(["FR"]);
   });
@@ -21,8 +29,7 @@ describe("resolveNsiCountries", () => {
   });
 
   it("refuses codes that name no single country", () => {
-    // UN M49: 001 is the world, 150 is Europe, 419 Latin America.
-    expect(resolveNsiCountries(["001", "150", "419"])).toEqual([]);
+    expect(resolveNsiCountries(Object.keys(UN_M49_REGION_CODES))).toEqual([]);
     expect(resolveNsiCountries(["conus", "northern cyprus"])).toEqual([]);
     expect(resolveNsiCountries([{ coordinates: [], type: "Polygon" }])).toEqual(
       []
@@ -30,10 +37,10 @@ describe("resolveNsiCountries", () => {
   });
 
   it("refuses NSI's non-ISO country codes rather than guessing", () => {
-    // `ja` is Japan in some NSI entries and Jamaica in others, so resolving it
-    // either way would invent a fact. The rest are simply not ISO.
-    expect(resolveNsiCountries(["ja"])).toEqual([]);
-    expect(resolveNsiCountries(["el", "ra", "pi", "kv"])).toEqual([]);
+    expect(
+      resolveNsiCountries([AMBIGUOUS_NSI_CODE_MEANING_JAPAN_OR_JAMAICA])
+    ).toEqual([]);
+    expect(resolveNsiCountries(NON_ISO_NSI_COUNTRY_CODES)).toEqual([]);
   });
 
   it("keeps the countries it can read when a set mixes shapes", () => {
@@ -48,9 +55,7 @@ describe("resolveNsiCountries", () => {
   });
 
   it("refuses malformed two-character tokens instead of throwing", () => {
-    // `Intl.DisplayNames.of` throws RangeError on anything that is not a
-    // well-formed region subtag, which would abort the whole build.
-    for (const token of ["12", "1a", "a1", "--", "f-", "é!"]) {
+    for (const token of MALFORMED_REGION_SUBTAGS) {
       expect(resolveNsiCountries([token])).toEqual([]);
     }
   });

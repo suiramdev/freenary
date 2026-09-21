@@ -7,7 +7,8 @@
     "build": "vite build",
     "serve": "vite preview",
     "dev": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --output-structure message-modules --strategy cookie preferredLanguage baseLocale --emit-ts-declarations && vite dev",
-    "favicon": "bun scripts/generate-favicon.ts"
+    "favicon": "bun scripts/generate-favicon.ts",
+    "lint:fsd": "steiger src --fail-on-warnings"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.10",
@@ -34,6 +35,7 @@
     "ai": "^7.0.62",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "evlog": "catalog:",
     "motion": "^13.1.1",
     "nanoid": "^6.0.1",
@@ -42,14 +44,15 @@
     "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-markdown": "^10.1.0",
     "recharts": "3.8.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "catalog:",
-    "streamdown": "^2.6.0",
     "tailwindcss": "catalog:",
-    "use-stick-to-bottom": "^1.1.6",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@feature-sliced/steiger-plugin": "^0.7.0",
     "@freenary/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.101.4",
     "@tanstack/react-router-devtools": "^1.167.0",
@@ -59,6 +62,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^30.0.0",
+    "steiger": "^0.6.0",
     "typescript": "catalog:",
     "vite": "^8.1.5",
     "web-vitals": "^6.0.1"

@@ -20,14 +20,14 @@ describe("bank connection state", () => {
 
   test("encodes canonical institution data and preserves original state", () => {
     const state = parseBankConnectionState(
-      encodeBankConnectionState(
-        "enable-banking",
+      encodeBankConnectionState({
         institution,
-        userId,
+        original: "csrf-state",
+        providerId: "enable-banking",
+        returnTo: "settings",
         secret,
-        "settings",
-        "csrf-state"
-      )
+        userId,
+      })
     );
 
     expect(state).toMatchObject({
@@ -40,39 +40,42 @@ describe("bank connection state", () => {
   });
 
   test("HMAC verifies for the same user", () => {
-    const encoded = encodeBankConnectionState(
-      "enable-banking",
+    const encoded = encodeBankConnectionState({
       institution,
-      userId,
+      providerId: "enable-banking",
+      returnTo: "onboarding",
       secret,
-      "onboarding"
-    );
+      userId,
+    });
     const state = parseBankConnectionState(encoded);
+
     expect(verifyBankConnectionState(state, userId, secret)).toBe(true);
   });
 
   test("HMAC rejects a different user", () => {
-    const encoded = encodeBankConnectionState(
-      "enable-banking",
+    const encoded = encodeBankConnectionState({
       institution,
-      userId,
+      providerId: "enable-banking",
+      returnTo: "onboarding",
       secret,
-      "onboarding"
-    );
+      userId,
+    });
     const state = parseBankConnectionState(encoded);
+
     expect(verifyBankConnectionState(state, "other-user", secret)).toBe(false);
   });
 
   test("HMAC rejects a tampered return target", () => {
     const state = parseBankConnectionState(
-      encodeBankConnectionState(
-        "enable-banking",
+      encodeBankConnectionState({
         institution,
-        userId,
+        providerId: "enable-banking",
+        returnTo: "onboarding",
         secret,
-        "onboarding"
-      )
+        userId,
+      })
     );
+
     expect(
       verifyBankConnectionState(
         { ...state, returnTo: "settings" },

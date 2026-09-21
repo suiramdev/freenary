@@ -1,33 +1,36 @@
 import { verify } from "node:crypto";
 
-/**
- * Read the Ed25519 public key from the environment.
- * Returns null when the variable is absent or blank.
- */
-const getPublicKey = (): string | null => {
-  const key = process.env.DICTIONARY_PUBLIC_KEY;
-  return key && key.trim().length > 0 ? key.trim() : null;
+import { env } from "@freenary/env/server";
+import { Option } from "effect";
+
+const ALGORITHM_FROM_KEY = null;
+
+const configuredPublicKey = (): string | null => {
+  const key = env.DICTIONARY_PUBLIC_KEY?.trim();
+
+  return key === undefined || key.length === 0 ? null : key;
 };
 
-/** Whether signature verification is configured (env var set). */
-export const isVerificationConfigured = (): boolean => getPublicKey() !== null;
+const verifiedOrNone = Option.liftThrowable(
+  (content: Buffer, publicKey: string, signature: Buffer): boolean =>
+    verify(ALGORITHM_FROM_KEY, content, publicKey, signature)
+);
 
-/**
- * Verify an Ed25519 signature over file contents.
- * Returns true when valid, false when invalid.
- * Fails closed: returns false when no key is configured.
- */
+export const isVerificationConfigured = (): boolean =>
+  configuredPublicKey() !== null;
+
 export const verifySignature = (
   content: Buffer,
   signature: Buffer
 ): boolean => {
-  const publicKey = getPublicKey();
-  if (!publicKey) {
+  const publicKey = configuredPublicKey();
+
+  if (publicKey === null) {
     return false;
   }
-  try {
-    return verify(null, content, publicKey, signature);
-  } catch {
-    return false;
-  }
+
+  return Option.getOrElse(
+    verifiedOrNone(content, publicKey, signature),
+    () => false
+  );
 };

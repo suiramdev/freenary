@@ -1,0 +1,69 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@freenary/ui/components/alert-dialog";
+import { Button } from "@freenary/ui/components/button";
+
+import { m } from "@/paraglide/messages.js";
+
+interface DisconnectBankDialogProps {
+  accountCount: number;
+  institutionName: string;
+  isDisconnecting: boolean;
+  onConfirm: () => void;
+}
+
+export const DisconnectBankDialog = ({
+  accountCount,
+  institutionName,
+  isDisconnecting,
+  onConfirm,
+}: DisconnectBankDialogProps) => {
+  const description =
+    accountCount > 0
+      ? m.bank_disconnect_confirm_description({ count: accountCount })
+      : m.bank_disconnect_confirm_description_none();
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            aria-label={m.bank_disconnect_aria_label({
+              institution: institutionName,
+            })}
+            variant="tertiary"
+          />
+        }
+      >
+        {m.bank_disconnect()}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {m.bank_disconnect_confirm_title({ institution: institutionName })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{m.bank_disconnect_cancel()}</AlertDialogCancel>
+          <AlertDialogAction
+            className="text-destructive hover:text-destructive"
+            loading={isDisconnecting}
+            onClick={onConfirm}
+            variant="ghost"
+          >
+            {m.bank_disconnect_confirm()}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};

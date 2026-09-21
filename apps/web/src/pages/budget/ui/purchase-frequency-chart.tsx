@@ -1,0 +1,69 @@
+import { ScrollArea } from "@freenary/ui/components/scroll-area";
+
+import { m } from "@/paraglide/messages.js";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { formatCurrency } from "@/shared/lib/format-currency";
+
+import type { FrequencyRow } from "../model/recurring";
+
+interface PurchaseFrequencyChartProps {
+  currency: string;
+  rows: FrequencyRow[];
+}
+
+const SMALLEST_DIVISIBLE_OCCURRENCE_COUNT = 1;
+
+export const PurchaseFrequencyChart = ({
+  currency,
+  rows,
+}: PurchaseFrequencyChartProps) => {
+  if (rows.length === 0) {
+    return (
+      <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
+        {m.budget_recurring_frequency_empty()}
+      </p>
+    );
+  }
+
+  const occurrenceScale = Math.max(
+    SMALLEST_DIVISIBLE_OCCURRENCE_COUNT,
+    ...rows.map((row) => row.occurrences)
+  );
+
+  return (
+    <ScrollArea className="h-full">
+      <ul
+        aria-label={m.budget_recurring_frequency_chart_label()}
+        className="flex flex-col gap-2"
+      >
+        {rows.map((row) => (
+          <li className="flex flex-col gap-1.5 p-1" key={row.id}>
+            <span className="flex items-baseline gap-2 text-xs">
+              <span className="truncate">{row.label}</span>
+              <span className="text-muted-foreground shrink-0 text-[10px]">
+                {m.budget_recurring_per_year({
+                  count: Math.round(row.perYear),
+                })}
+              </span>
+              <span className="ms-auto shrink-0 font-mono text-[11px] tabular-nums">
+                {formatCurrency(row.annualMinor, currency)}
+              </span>
+            </span>
+            <span className="bg-muted relative block h-2 w-full overflow-hidden rounded-full">
+              <span
+                className="absolute inset-y-0 start-0 rounded-full"
+                style={{
+                  backgroundColor:
+                    row.kind === "fixed"
+                      ? CHART_COLOR_VARS.blue
+                      : CHART_COLOR_VARS.orange,
+                  width: `${(row.occurrences / occurrenceScale) * 100}%`,
+                }}
+              />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </ScrollArea>
+  );
+};

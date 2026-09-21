@@ -13,14 +13,12 @@ describe("deriveMerchantKey", () => {
   describe("card path", () => {
     it("derives normalised descriptor as merchant key", () => {
       const result = deriveMerchantKey(baseInput);
+
       expect(result.path).toBe("card");
       expect(result.merchantKey.length).toBeGreaterThan(0);
       expect(result.channel).toBeDefined();
     });
 
-    // Deferred-debit cards print "DEBIT DIFFERE" between the card marker and
-    // the merchant; the key is an exact dictionary lookup, so keeping the
-    // marker misses every merchant behind it.
     it("drops deferred and immediate debit markers", () => {
       expect(
         deriveMerchantKey({
@@ -42,8 +40,9 @@ describe("deriveMerchantKey", () => {
         remittanceLines: ["PAYPAL *MERCHANT NAME"],
       };
       const result = deriveMerchantKey(input);
+
       expect(result.path).toBe("card");
-      // The intermediary should be detected (PayPal)
+
       if (result.intermediaryName) {
         expect(result.intermediaryName.toLowerCase()).toContain("paypal");
       }
@@ -54,6 +53,7 @@ describe("deriveMerchantKey", () => {
         ...baseInput,
         remittanceLines: [],
       });
+
       expect(result.merchantKey).toBe("");
     });
   });
@@ -66,6 +66,7 @@ describe("deriveMerchantKey", () => {
         creditorIban: "FR7630006000011234567890189",
         remittanceLines: ["PRLV SEPA EDF"],
       });
+
       expect(result.path).toBe("iban");
       expect(result.merchantKey).toBe("FR7630006000011234567890189");
     });
@@ -77,6 +78,7 @@ describe("deriveMerchantKey", () => {
         creditorIban: " fr7630006000011234567890189 ",
         remittanceLines: ["VIR SEPA SALARY"],
       });
+
       expect(result.path).toBe("iban");
       expect(result.merchantKey).toBe("FR7630006000011234567890189");
     });
@@ -87,6 +89,7 @@ describe("deriveMerchantKey", () => {
         bankTransactionFamilyCode: "RDDT",
         creditorIban: undefined,
       });
+
       expect(result.path).toBe("card");
     });
 
@@ -96,6 +99,7 @@ describe("deriveMerchantKey", () => {
         bankTransactionFamilyCode: "UNKNOWN",
         creditorIban: "FR7630006000011234567890189",
       });
+
       expect(result.path).toBe("card");
     });
   });
@@ -104,6 +108,7 @@ describe("deriveMerchantKey", () => {
     it("never throws, returns fallback", () => {
       // SAFETY: deliberately passing empty object to test error resilience
       const result = deriveMerchantKey({} as MerchantKeyInput);
+
       expect(result.merchantKey).toBe("");
       expect(result.path).toBe("card");
     });

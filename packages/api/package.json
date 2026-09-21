@@ -14,8 +14,7 @@
     "build:data": "bun scripts/download-data.ts || bun run build:data:generate",
     "build:data:generate": "bun scripts/generate-place-tokens.ts && bun scripts/fetch-wikidata-brands.ts && bun scripts/build-merchant-dictionary.ts",
     "build:places": "bun scripts/generate-place-tokens.ts",
-    "generate:key": "bun scripts/generate-signing-key.ts",
-    "train:model": "bun scripts/train-model.ts"
+    "generate:key": "bun scripts/generate-signing-key.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.43",
@@ -30,6 +29,7 @@
     "ai": "^7.0.62",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "evlog": "catalog:",
     "fflate": "^0.8.3",
     "zod": "catalog:"

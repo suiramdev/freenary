@@ -21,8 +21,8 @@ The server is thin glue — business logic lives in `packages/api`, auth in `pac
 ## Conventions
 
 - All API procedures belong in `packages/api/src/routers/`, not here. This app mounts the router — it does not define procedures.
-- Environment variables are validated in `@freenary/env/server` via `createEnv`. Add new server-side vars there, not in this app.
-- The `.env` file in this directory provides development defaults. Docker Compose overrides them for container networking.
+- Environment variables are declared in `packages/env/src/schema.ts` and validated at startup by `@freenary/env/server`, which hands that shape to `createEnv`. Add a new server-side variable there, not in this app, then run `bun run env:sync` from the repository root to regenerate `.env.example` and the configuration reference.
+- `@freenary/env/server` imports `dotenv/config`, so an optional, gitignored `apps/server/.env` supplies local defaults when this app runs from its own directory. The Docker stacks supply them instead: the root `.env` reaches the container through `env_file`, and `docker-compose.dev.yml` sets `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN` and `NODE_ENV` under `environment`, which wins over both `env_file` and anything dotenv would load.
 - CORS is restricted to `env.CORS_ORIGIN`; credentials are enabled.
 
 ## Adding a new HTTP surface

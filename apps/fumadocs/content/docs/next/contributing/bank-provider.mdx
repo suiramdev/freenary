@@ -23,7 +23,7 @@ Twelve members, eight of them required. The adapter never touches Prisma: `packa
 | `id` | yes, `readonly` | none | a stable lower-case string | The registry key, and the value of `bank_connection.provider` |
 | `callbackPath` | yes, `readonly` | none | a path typed `` `/callback/${string}` `` | `startConnection` builds the redirect URL from `CORS_ORIGIN` and this path |
 | `isConfigured` | yes | none | a boolean | `bankConnection.getProviderAvailability` gates the settings section and the onboarding bank step. Never call the network here |
-| `listInstitutions` | yes | one ISO 3166-1 alpha-2 country | a promise of provider institutions | The bank picker, and the exact match on the pair of id and country at start and at exchange |
+| `listInstitutions` | yes | one ISO 3166-1 alpha-2 country | an `Effect` of provider institutions, which can fail with `BankInstitutionsUnavailable` | The bank picker, and the exact match on the pair of id and country at start and at exchange |
 | `startConnection` | yes | a start request | a promise of one `url` | The web app sends the browser to that URL |
 | `completeConnection` | yes | the callback parameters and the user session | a promise of one completed connection | `exchangeCode` writes the connection row and one account row per account |
 | `closeConnection` | yes | a connection request | a promise of nothing | `disconnect` calls it before it deletes the local rows |
@@ -131,13 +131,23 @@ No router, no sync code and no web route changes.
 
 ### Add the environment variables
 
-Two edits in `packages/env/src/server.ts`. Add each credential with a Zod schema under the server key, `optional()` unless the adapter is mandatory. Then add your `id` to the `BANKING_PROVIDER` enum:
+Two edits in `packages/env/src/schema.ts`. Add each credential as a Zod schema, with a `.describe()` sentence and a `.meta()` block. Use `optional()` unless the adapter is mandatory. Then add your `id` to the `BANKING_PROVIDER` enum:
 
 ```ts
 BANKING_PROVIDER: z
   .enum(["powens", "enable-banking", "my-bank"])
-  .default("powens"),
+  .default("powens")
+  .describe(
+    "Picks the provider a new bank connection uses: `powens`, `enable-banking` or `my-bank`."
+  )
+  .meta({
+    example: "powens",
+    onError: "Any other value stops the start.",
+    section: "bank",
+  }),
 ```
+
+The `.meta()` block needs a `section`, an `example` and an `onError` note. `bun run env:check` refuses a key that misses one of the three.
 
 </Step>
 
@@ -145,7 +155,7 @@ BANKING_PROVIDER: z
 
 ### Register the callback URL at the provider
 
-**No new web route.** `apps/web/src/routes/callback/$provider.tsx` is one dynamic route that serves every provider. It renders with `ssr: false`, because the exchange needs the session cookie. No route on the API server answers under `/callback`.
+**No new web route.** `apps/web/src/app/routes/callback/$provider.tsx` is one dynamic route that serves every provider. It renders with `ssr: false`, because the exchange needs the session cookie. No route on the API server answers under `/callback`.
 
 Register the join of `CORS_ORIGIN` and your `callbackPath` at the provider as an allowed redirect URL. For the path `/callback/my-bank` and the origin `https://money.example.com`, that is `https://money.example.com/callback/my-bank`.
 
@@ -153,16 +163,13 @@ Register the join of `CORS_ORIGIN` and your `callbackPath` at the provider as an
 
 <Step>
 
-### Add the compose entries and the operator note
+### Generate the operator reference
 
-Add one line per variable to the `x-app-env` anchor of `docker-compose.dev.yml`, in the `${VAR:-}` form the block already uses:
-
-```yaml
-MY_BANK_APP_ID: ${MY_BANK_APP_ID:-}
-MY_BANK_APP_SECRET: ${MY_BANK_APP_SECRET:-}
+```bash
+bun run env:sync
 ```
 
-`docker-compose.yml` needs no edit, because its `server` service loads the root `.env` with `env_file`. Then document each variable in `.env.example`, commented out, next to the two existing blocks.
+The generator writes `.env.example` and the tables of the [Configuration](/docs/self-hosting/configuration) reference from the schema. No compose file needs an edit. The development `server` service reads the optional root `.env` through `env_file`, and the production one does the same.
 
 </Step>
 
@@ -245,7 +252,7 @@ With no stable id from the provider, derive one. Enable Banking hashes the stabl
 
 Two rules both shipped adapters follow:
 
-- `listInstitutions` never throws. It returns an empty list when the adapter is unconfigured, when the call fails, and when it throws.
+- `listInstitutions` does not throw, and it does not hide a failed call behind an empty list. It fails the `Effect` with `BankInstitutionsUnavailable`, which carries the `country`. An empty list therefore means the provider has no bank for that country.
 - `closeConnection` and `deleteUser` treat a 404 as success, because the record is already gone.
 
 A sync failure changes no connection status. [Data model](/docs/contributing/data-model#bankconnectionstatus) owns the status vocabulary and states which of its values the code writes.

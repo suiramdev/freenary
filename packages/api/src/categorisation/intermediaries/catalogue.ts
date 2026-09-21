@@ -1,147 +1,135 @@
-import type { IntermediaryDefinition } from "./types";
+import type { CataloguedIntermediary, IntermediaryDefinition } from "./types";
 
 export const INTERMEDIARY_CATALOGUE = {
   adyen: {
     carriesSubmerchant: false,
-    creditorIdentifiers: ["NL48ZZZ342764500000"],
-    id: "adyen",
-    markers: ["adyen"],
+    hasSchemeDocumentedPrefix: false,
     name: "Adyen",
+    normalisedLeadingTokenMarkers: ["adyen"],
+    sepaCreditorIdentifiers: ["NL48ZZZ342764500000"],
   },
   checkout: {
     carriesSubmerchant: true,
-    id: "checkout",
-    markers: ["cko"],
+    hasSchemeDocumentedPrefix: true,
     name: "Checkout.com",
+    normalisedLeadingTokenMarkers: ["cko"],
   },
   klarna: {
     carriesSubmerchant: false,
-    id: "klarna",
-    markers: ["klarna"],
+    hasSchemeDocumentedPrefix: false,
     name: "Klarna",
+    normalisedLeadingTokenMarkers: ["klarna"],
   },
   lydia: {
     carriesSubmerchant: false,
-    id: "lydia",
-    markers: ["lydia"],
+    hasSchemeDocumentedPrefix: false,
     name: "Lydia",
+    normalisedLeadingTokenMarkers: ["lydia"],
   },
   mollie: {
     carriesSubmerchant: true,
-    creditorIdentifiers: ["NL08ZZZ502057730000"],
-    id: "mollie",
-    markers: ["mollie"],
+    hasSchemeDocumentedPrefix: true,
     name: "Mollie",
+    normalisedLeadingTokenMarkers: ["mollie"],
+    sepaCreditorIdentifiers: ["NL08ZZZ502057730000"],
   },
   nexi: {
     carriesSubmerchant: false,
-    id: "nexi",
-    markers: ["nexi"],
+    hasSchemeDocumentedPrefix: false,
     name: "Nexi",
+    normalisedLeadingTokenMarkers: ["nexi"],
   },
   paypal: {
     carriesSubmerchant: true,
-    id: "paypal",
-    markers: ["paypal", "pp"],
+    hasSchemeDocumentedPrefix: true,
     name: "PayPal",
+    normalisedLeadingTokenMarkers: ["paypal", "pp"],
   },
   revolut: {
     carriesSubmerchant: false,
-    id: "revolut",
-    markers: ["revolut"],
+    hasSchemeDocumentedPrefix: false,
     name: "Revolut",
+    normalisedLeadingTokenMarkers: ["revolut"],
   },
   shopify: {
     carriesSubmerchant: false,
-    id: "shopify",
-    markers: ["shopify"],
+    hasSchemeDocumentedPrefix: false,
     name: "Shopify",
+    normalisedLeadingTokenMarkers: ["shopify"],
   },
   square: {
     carriesSubmerchant: true,
-    id: "square",
-    markers: ["sq"],
+    hasSchemeDocumentedPrefix: true,
     name: "Square",
+    normalisedLeadingTokenMarkers: ["sq"],
   },
   stripe: {
     carriesSubmerchant: false,
-    id: "stripe",
-    markers: ["stripe"],
+    hasSchemeDocumentedPrefix: false,
     name: "Stripe",
+    normalisedLeadingTokenMarkers: ["stripe"],
   },
   sumup: {
     carriesSubmerchant: true,
-    id: "sumup",
-    markers: ["sumup"],
+    hasSchemeDocumentedPrefix: true,
     name: "SumUp",
+    normalisedLeadingTokenMarkers: ["sumup"],
   },
   tfl: {
     carriesSubmerchant: true,
-    id: "tfl",
-    markers: ["tfl"],
+    hasSchemeDocumentedPrefix: true,
     name: "Transport for London",
+    normalisedLeadingTokenMarkers: ["tfl"],
   },
   worldline: {
     carriesSubmerchant: false,
-    id: "worldline",
-    markers: ["worldline", "ingenico"],
+    hasSchemeDocumentedPrefix: false,
     name: "Worldline",
+    normalisedLeadingTokenMarkers: ["worldline", "ingenico"],
   },
   zettle: {
     carriesSubmerchant: true,
-    id: "zettle",
-    markers: ["ztl", "iz", "izettle", "zettle"],
+    hasSchemeDocumentedPrefix: true,
     name: "Zettle",
+    normalisedLeadingTokenMarkers: ["ztl", "iz", "izettle", "zettle"],
   },
-} as const satisfies Record<string, IntermediaryDefinition>;
+} satisfies Record<string, IntermediaryDefinition>;
 
-/**
- * Intermediaries whose prefix convention is scheme-documented,
- * so a marker match alone warrants high confidence.
- */
-export const HIGH_CONFIDENCE_MARKER_IDS = {
-  checkout: true,
-  mollie: true,
-  paypal: true,
-  square: true,
-  sumup: true,
-  tfl: true,
-  zettle: true,
-} as const satisfies Record<string, true>;
+export const BY_LEADING_MARKER: Record<
+  string,
+  CataloguedIntermediary | undefined
+> = {};
 
-// SAFETY: `satisfies` guarantees every definition conforms to IntermediaryDefinition;
-// the cast restores the declared interface because `as const` omits absent optional keys
-const catalogueDefinitions = Object.values(
+export const BY_CREDITOR_IBAN: Record<
+  string,
+  CataloguedIntermediary | undefined
+> = {};
+
+export const BY_SEPA_CREDITOR_IDENTIFIER: Record<
+  string,
+  CataloguedIntermediary | undefined
+> = {};
+
+export const intermediaryFor = (
+  table: Record<string, CataloguedIntermediary | undefined>,
+  key: string
+): CataloguedIntermediary | undefined =>
+  Object.hasOwn(table, key) ? table[key] : undefined;
+
+for (const [id, definition] of Object.entries<IntermediaryDefinition>(
   INTERMEDIARY_CATALOGUE
-) as readonly IntermediaryDefinition[];
+)) {
+  const catalogued: CataloguedIntermediary = { definition, id };
 
-/** O(1) marker → intermediary id lookup, built once at module scope. */
-export const MARKER_INDEX: Record<string, string> = {};
-
-for (const def of catalogueDefinitions) {
-  for (const marker of def.markers) {
-    MARKER_INDEX[marker] = def.id;
+  for (const marker of definition.normalisedLeadingTokenMarkers) {
+    BY_LEADING_MARKER[marker] = catalogued;
   }
-}
 
-/** O(1) IBAN → intermediary id lookup, built once at module scope. */
-export const IBAN_INDEX: Record<string, string> = {};
-
-for (const def of catalogueDefinitions) {
-  if (def.ibans) {
-    for (const iban of def.ibans) {
-      IBAN_INDEX[iban] = def.id;
-    }
+  for (const iban of definition.creditorIbans ?? []) {
+    BY_CREDITOR_IBAN[iban] = catalogued;
   }
-}
 
-/** O(1) SEPA creditor identifier → intermediary id lookup, built once. */
-export const CREDITOR_IDENTIFIER_INDEX: Record<string, string> = {};
-
-for (const def of catalogueDefinitions) {
-  if (def.creditorIdentifiers) {
-    for (const identifier of def.creditorIdentifiers) {
-      CREDITOR_IDENTIFIER_INDEX[identifier] = def.id;
-    }
+  for (const identifier of definition.sepaCreditorIdentifiers ?? []) {
+    BY_SEPA_CREDITOR_IDENTIFIER[identifier] = catalogued;
   }
 }

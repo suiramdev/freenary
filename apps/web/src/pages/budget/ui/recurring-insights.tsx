@@ -1,0 +1,151 @@
+import { Skeleton } from "@freenary/ui/components/skeleton";
+import { useSize, useTypeScale } from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
+import {
+  RiArrowDownLine,
+  RiArrowUpLine,
+  RiCalendarEventLine,
+  RiPieChartLine,
+  RiRepeatLine,
+} from "@remixicon/react";
+import type { RemixiconComponentType } from "@remixicon/react";
+
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
+import { formatCurrency } from "@/shared/lib/format-currency";
+
+import type { RecurringInsight, RecurringTrend } from "../model/recurring";
+
+interface InsightLine {
+  Icon: RemixiconComponentType;
+  text: string;
+}
+
+const MAX_INSIGHTS = 4;
+
+const trendLine = (
+  trend: RecurringTrend,
+  percentFormat: Intl.NumberFormat
+): InsightLine => {
+  const percent = percentFormat.format(Math.abs(trend.ratio));
+
+  if (trend.direction === "up") {
+    return {
+      Icon: RiArrowUpLine,
+      text: m.budget_recurring_insight_trend_up({ percent }),
+    };
+  }
+
+  if (trend.direction === "down") {
+    return {
+      Icon: RiArrowDownLine,
+      text: m.budget_recurring_insight_trend_down({ percent }),
+    };
+  }
+
+  return {
+    Icon: RiRepeatLine,
+    text: m.budget_recurring_insight_trend_flat(),
+  };
+};
+
+const insightLine = (
+  insight: RecurringInsight,
+  currency: string,
+  percentFormat: Intl.NumberFormat
+): InsightLine => {
+  if (insight.kind === "due-soon") {
+    return {
+      Icon: RiCalendarEventLine,
+      text: m.budget_recurring_insight_due({
+        count: insight.count,
+        days: insight.days,
+      }),
+    };
+  }
+
+  if (insight.kind === "share") {
+    const percent = percentFormat.format(insight.share);
+
+    return {
+      Icon: RiPieChartLine,
+      text:
+        insight.denominator === "plan"
+          ? m.budget_recurring_insight_share_plan({ percent })
+          : m.budget_recurring_insight_share_income({ percent }),
+    };
+  }
+
+  if (insight.kind === "top-annual") {
+    return {
+      Icon: RiRepeatLine,
+      text: m.budget_recurring_insight_top({
+        amount: formatCurrency(insight.annualMinor, currency),
+        merchant: insight.label,
+      }),
+    };
+  }
+
+  return trendLine(insight.trend, percentFormat);
+};
+
+const LINE_HEIGHT_RATIO = 1.5;
+
+export const RecurringInsights = ({
+  currency,
+  insights,
+  isPending,
+}: {
+  currency: string;
+  insights: RecurringInsight[];
+  isPending: boolean;
+}) => {
+  const { text: textClass } = useSize();
+  const type = useTypeScale();
+
+  if (isPending) {
+    return (
+      <div aria-busy="true">
+        <output className="sr-only">{m.budget_recurring_loading()}</output>
+        <Skeleton
+          aria-hidden="true"
+          className="max-w-lg"
+          style={{ height: Math.round(type.body * LINE_HEIGHT_RATIO) }}
+        />
+      </div>
+    );
+  }
+
+  if (insights.length === 0) {
+    return null;
+  }
+
+  const percentFormat = new Intl.NumberFormat(getLocale(), {
+    maximumFractionDigits: 0,
+    style: "percent",
+  });
+
+  return (
+    <ul
+      aria-label={m.budget_recurring_insights_label()}
+      className="flex flex-wrap items-center gap-x-6 gap-y-2"
+    >
+      {insights.slice(0, MAX_INSIGHTS).map((insight) => {
+        const { Icon, text } = insightLine(insight, currency, percentFormat);
+
+        return (
+          <li
+            className={cn(
+              "text-muted-foreground flex items-center gap-1.5",
+              textClass
+            )}
+            key={insight.kind}
+          >
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span>{text}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+};

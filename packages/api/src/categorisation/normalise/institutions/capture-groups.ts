@@ -1,17 +1,17 @@
-/**
- * Named regex capture groups are the contract between country profiles,
- * which author the patterns, and the parse engine, which reads them back.
- * This module owns that read so neither side has to import the other.
- */
+export interface DescriptorCaptureGroups {
+  readonly payee?: string;
+  readonly date?: string;
+  readonly card?: string;
+  readonly motif?: string;
+}
 
-/**
- * Read a named capture group, returning the trimmed value or undefined when
- * the group is absent or blank.
- */
-export const capture = (
-  groups: Record<string, string>,
-  name: string
+export type DescriptorCaptureName = keyof DescriptorCaptureGroups;
+
+export const nonBlankCapture = (
+  groups: DescriptorCaptureGroups,
+  name: DescriptorCaptureName
 ): string | undefined => {
-  const val = groups[name]?.trim();
-  return val && val.length > 0 ? val : undefined;
+  const trimmed = groups[name]?.trim();
+
+  return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;
 };

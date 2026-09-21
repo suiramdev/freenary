@@ -1,0 +1,152 @@
+import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
+import type { ChartConfig } from "@freenary/ui/components/chart";
+import { CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from "recharts";
+
+import { m } from "@/paraglide/messages.js";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { formatCurrency } from "@/shared/lib/format-currency";
+import { ChartTooltipCard } from "@/shared/ui/chart-tooltip";
+
+import type { FrequencyRow } from "../model/recurring";
+
+interface FrequencyCostChartProps {
+  currency: string;
+  points: FrequencyRow[];
+}
+
+const SERIES_BY_KIND = [
+  {
+    color: CHART_COLOR_VARS.blue,
+    key: "fixed",
+    label: m.budget_recurring_series_fixed,
+  },
+  {
+    color: CHART_COLOR_VARS.orange,
+    key: "behavioral",
+    label: m.budget_recurring_series_behavioral,
+  },
+] as const;
+
+const FrequencyCostTooltip = ({
+  active,
+  config,
+  currency,
+  payload,
+}: {
+  active?: boolean;
+  config: ChartConfig;
+  currency: string;
+  payload?: { payload?: FrequencyRow }[];
+}) => {
+  const row = active ? payload?.[0]?.payload : undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return (
+    <ChartTooltipCard className="min-w-40">
+      <div className="flex items-center gap-1.5 font-medium">
+        <span
+          className="size-2.5 shrink-0 rounded-[2px]"
+          style={{ backgroundColor: config[row.kind]?.color }}
+        />
+        <span className="max-w-48 truncate">{row.label}</span>
+      </div>
+      <div className="flex items-center gap-3 leading-none">
+        <span className="text-muted-foreground flex-1">
+          {m.budget_recurring_per_year({ count: Math.round(row.perYear) })}
+        </span>
+        <span className="text-foreground font-mono font-medium tabular-nums">
+          {formatCurrency(row.annualMinor, currency)}
+        </span>
+      </div>
+    </ChartTooltipCard>
+  );
+};
+
+export const FrequencyCostChart = ({
+  currency,
+  points,
+}: FrequencyCostChartProps) => {
+  if (points.length === 0) {
+    return (
+      <p className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-xs">
+        {m.budget_recurring_scatter_empty()}
+      </p>
+    );
+  }
+
+  const config: ChartConfig = Object.fromEntries(
+    SERIES_BY_KIND.map((series) => [
+      series.key,
+      { color: series.color, label: series.label() },
+    ])
+  );
+
+  return (
+    <figure className="flex h-full flex-col gap-2">
+      <figcaption className="sr-only">
+        {m.budget_recurring_scatter_chart_label()}
+      </figcaption>
+      <ChartContainer
+        className="aspect-auto min-h-0 w-full flex-1"
+        config={config}
+      >
+        <ScatterChart
+          accessibilityLayer
+          margin={{ left: 6, right: 16, top: 4 }}
+        >
+          <CartesianGrid />
+          <XAxis
+            axisLine={false}
+            dataKey="perYear"
+            domain={[0, "auto"]}
+            tickFormatter={(value: number) => String(Math.round(value))}
+            tickLine={false}
+            tickMargin={8}
+            type="number"
+          />
+          <YAxis
+            axisLine={false}
+            dataKey="annualMinor"
+            domain={[0, "auto"]}
+            tickFormatter={(value: number) => formatCurrency(value, currency)}
+            tickLine={false}
+            type="number"
+            width="auto"
+          />
+          <ChartTooltip
+            content={
+              <FrequencyCostTooltip config={config} currency={currency} />
+            }
+            cursor={{ strokeDasharray: "3 3" }}
+          />
+          {SERIES_BY_KIND.map((series) => (
+            <Scatter
+              data={points.filter((row) => row.kind === series.key)}
+              fill={`var(--color-${series.key})`}
+              isAnimationActive={false}
+              key={series.key}
+              name={series.key}
+            />
+          ))}
+        </ScatterChart>
+      </ChartContainer>
+      <ul className="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 px-1">
+        {SERIES_BY_KIND.map((series) => (
+          <li
+            className="text-muted-foreground flex items-center gap-1.5 text-[11px]"
+            key={series.key}
+          >
+            <span
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: series.color }}
+            />
+            {series.label()}
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+};

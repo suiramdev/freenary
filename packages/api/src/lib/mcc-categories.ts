@@ -1,338 +1,243 @@
-import {
-  allBankCodeKeywords,
-  allCounterpartyKeywords,
-  matchKeyword,
-} from "../categorisation/keywords";
-import { CATEGORY_GROUP_OF, resolveCategorySlug } from "./taxonomy";
 import type { SpendingCategory } from "./taxonomy";
 
-// MCC → SpendingCategory flat lookup (keys sorted lexicographically)
-
 const MCC_TO_CATEGORY = {
-  "1520": "home-maintenance",
-  "1711": "home-maintenance",
-  "1731": "home-maintenance",
-  "1740": "home-maintenance",
-  "1750": "home-maintenance",
-  "1761": "home-maintenance",
-  "1771": "home-maintenance",
-  "1799": "home-maintenance",
-  // Freight rail, unlike 4112 passenger railways.
-  "4011": "other-transport",
-  "4111": "public-transport",
-  "4112": "public-transport",
-  "4121": "taxi",
-  "4131": "public-transport",
-  "4411": "other-travel",
-  "4457": "other-travel",
-  "4468": "other-travel",
-  "4511": "flights",
-  // Airport and terminal charges, not the ticket.
-  "4582": "other-travel",
-  "4722": "other-travel",
-  "4723": "other-travel",
-  "4784": "parking-tolls",
-  "4812": "electronics",
-  "4813": "telecom",
-  "4814": "telecom",
-  "4815": "telecom",
-  "4816": "telecom",
-  "4821": "telecom",
-  "4829": "other-transfer",
-  "4899": "streaming",
-  "4900": "energy",
-  "5013": "vehicle-maintenance",
-  "5021": "furniture",
-  "5039": "home-maintenance",
-  "5046": "other-shopping",
-  "5047": "medical",
-  "5065": "home-maintenance",
-  "5072": "home-maintenance",
-  "5074": "home-maintenance",
-  "5085": "other-shopping",
-  "5111": "other-shopping",
-  "5122": "pharmacy",
-  "5131": "clothing",
-  "5137": "clothing",
-  "5139": "clothing",
-  "5169": "other-shopping",
-  "5172": "fuel",
-  "5192": "hobbies",
-  "5193": "home-maintenance",
-  "5194": "other-shopping",
-  "5198": "home-maintenance",
-  "5199": "other-shopping",
-  "5200": "home-maintenance",
-  "5211": "home-maintenance",
-  "5231": "home-maintenance",
-  "5251": "home-maintenance",
-  "5261": "home-maintenance",
-  "5292": "other-health",
-  "5300": "other-shopping",
-  "5309": "other-shopping",
-  "5310": "other-shopping",
-  "5311": "other-shopping",
-  "5331": "other-shopping",
-  "5399": "other-shopping",
+  "1520": "bills-utilities",
+  "1711": "bills-utilities",
+  "1731": "bills-utilities",
+  "1740": "bills-utilities",
+  "1750": "bills-utilities",
+  "1761": "bills-utilities",
+  "1771": "bills-utilities",
+  "1799": "bills-utilities",
+  "4011": "transport-travel",
+  "4111": "transport-travel",
+  "4112": "transport-travel",
+  "4121": "transport-travel",
+  "4131": "transport-travel",
+  "4411": "transport-travel",
+  "4457": "transport-travel",
+  "4468": "transport-travel",
+  "4511": "transport-travel",
+  "4582": "transport-travel",
+  "4722": "transport-travel",
+  "4723": "transport-travel",
+  "4784": "car-fuel",
+  "4812": "shopping",
+  "4813": "bills-utilities",
+  "4814": "bills-utilities",
+  "4815": "bills-utilities",
+  "4816": "bills-utilities",
+  "4821": "bills-utilities",
+  "4829": "people",
+  "4899": "subscriptions",
+  "4900": "bills-utilities",
+  "5013": "car-fuel",
+  "5021": "shopping",
+  "5039": "bills-utilities",
+  "5046": "shopping",
+  "5047": "health",
+  "5065": "bills-utilities",
+  "5072": "bills-utilities",
+  "5074": "bills-utilities",
+  "5085": "shopping",
+  "5111": "shopping",
+  "5122": "health",
+  "5131": "shopping",
+  "5137": "shopping",
+  "5139": "shopping",
+  "5169": "shopping",
+  "5172": "car-fuel",
+  "5192": "entertainment",
+  "5193": "bills-utilities",
+  "5194": "shopping",
+  "5198": "bills-utilities",
+  "5199": "shopping",
+  "5200": "bills-utilities",
+  "5211": "bills-utilities",
+  "5231": "bills-utilities",
+  "5251": "bills-utilities",
+  "5261": "bills-utilities",
+  "5292": "health",
+  "5300": "shopping",
+  "5309": "shopping",
+  "5310": "shopping",
+  "5311": "shopping",
+  "5331": "shopping",
+  "5399": "shopping",
   "5411": "groceries",
   "5422": "groceries",
   "5441": "groceries",
   "5451": "groceries",
   "5462": "groceries",
   "5499": "groceries",
-  // Vehicle dealers: a purchase, not upkeep, and the group has no leaf for it.
-  "5511": "other-transport",
-  "5521": "other-transport",
-  "5531": "vehicle-maintenance",
-  "5532": "vehicle-maintenance",
-  "5533": "vehicle-maintenance",
-  "5541": "fuel",
-  "5542": "fuel",
-  "5571": "other-transport",
-  "5592": "other-transport",
-  "5599": "other-transport",
-  "5611": "clothing",
-  "5621": "clothing",
-  "5631": "clothing",
-  "5641": "clothing",
-  "5651": "clothing",
-  "5655": "clothing",
-  "5661": "clothing",
-  "5681": "clothing",
-  "5691": "clothing",
-  "5697": "clothing",
-  "5698": "personal-care",
-  "5699": "clothing",
-  "5712": "furniture",
-  "5713": "furniture",
-  "5714": "furniture",
-  "5718": "furniture",
-  "5719": "furniture",
-  "5722": "furniture",
-  "5733": "hobbies",
-  "5735": "hobbies",
+  "5511": "transport-travel",
+  "5521": "transport-travel",
+  "5531": "car-fuel",
+  "5532": "car-fuel",
+  "5533": "car-fuel",
+  "5541": "car-fuel",
+  "5542": "car-fuel",
+  "5571": "transport-travel",
+  "5592": "transport-travel",
+  "5599": "transport-travel",
+  "5611": "shopping",
+  "5621": "shopping",
+  "5631": "shopping",
+  "5641": "shopping",
+  "5651": "shopping",
+  "5655": "shopping",
+  "5661": "shopping",
+  "5681": "shopping",
+  "5691": "shopping",
+  "5697": "shopping",
+  "5698": "health",
+  "5699": "shopping",
+  "5712": "shopping",
+  "5713": "shopping",
+  "5714": "shopping",
+  "5718": "shopping",
+  "5719": "shopping",
+  "5722": "shopping",
+  "5733": "entertainment",
+  "5735": "entertainment",
   "5811": "restaurants",
   "5812": "restaurants",
-  "5813": "bars-cafes",
-  "5814": "takeaway",
-  "5815": "streaming",
-  "5816": "hobbies",
-  "5817": "software",
-  // Large digital-goods merchant: spans media, apps and games alike.
-  "5818": "other-subscription",
-  "5912": "pharmacy",
-  "5931": "other-shopping",
-  "5932": "other-shopping",
-  "5933": "other-shopping",
-  "5935": "other-shopping",
-  "5937": "other-shopping",
-  "5940": "sports",
-  "5941": "sports",
-  "5942": "hobbies",
-  "5943": "other-shopping",
-  "5944": "other-shopping",
-  "5945": "hobbies",
-  "5946": "electronics",
-  "5947": "gifts",
-  "5948": "other-shopping",
-  "5949": "hobbies",
-  "5950": "furniture",
-  "5960": "other-insurance",
-  "5966": "other-subscription",
-  "5967": "other-subscription",
-  "5968": "other-subscription",
-  "5970": "hobbies",
-  "5971": "culture",
-  "5975": "medical",
-  "5976": "medical",
-  "5977": "personal-care",
-  "5978": "other-shopping",
-  // Fuel dealers deliver heating oil, wood and LPG to the home.
-  "5983": "energy",
-  "5992": "gifts",
-  "5993": "other-daily-living",
-  "5994": "hobbies",
-  "5995": "pets",
-  "5996": "home-maintenance",
-  "5997": "personal-care",
-  "5998": "other-shopping",
-  "5999": "other-shopping",
-  // 6010 is a manual cash disbursement — a withdrawal over a counter. 6012 is
-  // the bank selling a service, matching NAF 64 and amenity=bank.
+  "5813": "restaurants",
+  "5814": "restaurants",
+  "5815": "subscriptions",
+  "5816": "entertainment",
+  "5817": "subscriptions",
+  "5818": "subscriptions",
+  "5912": "health",
+  "5931": "shopping",
+  "5932": "shopping",
+  "5933": "shopping",
+  "5935": "shopping",
+  "5937": "shopping",
+  "5940": "entertainment",
+  "5941": "entertainment",
+  "5942": "entertainment",
+  "5943": "shopping",
+  "5944": "shopping",
+  "5945": "entertainment",
+  "5946": "shopping",
+  "5947": "shopping",
+  "5948": "shopping",
+  "5949": "entertainment",
+  "5950": "shopping",
+  "5960": "bills-utilities",
+  "5966": "subscriptions",
+  "5967": "subscriptions",
+  "5968": "subscriptions",
+  "5970": "entertainment",
+  "5971": "entertainment",
+  "5975": "health",
+  "5976": "health",
+  "5977": "health",
+  "5978": "shopping",
+  "5983": "bills-utilities",
+  "5992": "shopping",
+  "5993": "shopping",
+  "5994": "entertainment",
+  "5995": "shopping",
+  "5996": "bills-utilities",
+  "5997": "health",
+  "5998": "shopping",
+  "5999": "shopping",
   "6010": "cash-withdrawal",
   "6011": "cash-withdrawal",
-  "6012": "other-financial",
-  "6050": "other-transfer",
-  "6051": "other-transfer",
+  "6012": "loans-bank-fees",
+  "6050": "cash-withdrawal",
+  "6051": "cash-withdrawal",
   "6211": "securities",
-  "6300": "other-insurance",
-  "6381": "other-insurance",
-  "6399": "other-insurance",
-  "6513": "rent",
-  "7011": "accommodation",
-  "7012": "accommodation",
-  "7032": "other-travel",
-  "7033": "accommodation",
-  "7511": "fuel",
-  "7512": "other-travel",
-  "7513": "other-transport",
-  "7519": "other-travel",
-  "7523": "parking-tolls",
-  "7524": "other-transport",
-  "7531": "vehicle-maintenance",
-  "7534": "vehicle-maintenance",
-  "7535": "vehicle-maintenance",
-  "7538": "vehicle-maintenance",
-  "7542": "vehicle-maintenance",
-  "7549": "vehicle-maintenance",
-  "7622": "electronics",
-  "7623": "home-maintenance",
-  "7629": "home-maintenance",
-  "7641": "furniture",
-  "7692": "home-maintenance",
-  "7699": "home-maintenance",
-  // Lotteries, licensed online casinos and race betting sit with 7995.
-  "7800": "hobbies",
-  "7801": "hobbies",
-  "7802": "hobbies",
-  "7829": "culture",
-  "7832": "culture",
-  "7841": "culture",
-  "7911": "sports",
-  "7922": "culture",
-  "7929": "culture",
-  "7932": "hobbies",
-  "7933": "sports",
-  "7941": "sports",
-  "7991": "culture",
-  "7992": "sports",
-  "7993": "hobbies",
-  "7994": "hobbies",
-  "7995": "hobbies",
-  "7996": "culture",
-  "7997": "sports",
-  "7998": "culture",
-  "7999": "other-leisure",
-  "8011": "medical",
-  "8021": "medical",
-  "8031": "medical",
-  "8041": "medical",
-  "8042": "medical",
-  "8043": "medical",
-  "8049": "medical",
-  "8050": "medical",
-  "8062": "medical",
-  "8071": "medical",
-  "8082": "medical",
-  "8099": "other-health",
-  "8211": "tuition",
-  "8220": "tuition",
-  "8241": "courses",
-  "8244": "courses",
-  "8249": "courses",
-  "8299": "other-education",
-  "8351": "childcare",
-  "9211": "child-support",
-  "9222": "other-taxes",
-  "9311": "income-tax",
-  "9399": "other-taxes",
-  "9402": "other-daily-living",
-  "9405": "other-taxes",
+  "6300": "bills-utilities",
+  "6381": "bills-utilities",
+  "6399": "bills-utilities",
+  "6513": "rent-mortgage",
+  "7011": "transport-travel",
+  "7012": "transport-travel",
+  "7032": "transport-travel",
+  "7033": "transport-travel",
+  "7511": "car-fuel",
+  "7512": "transport-travel",
+  "7513": "transport-travel",
+  "7519": "transport-travel",
+  "7523": "car-fuel",
+  "7524": "transport-travel",
+  "7531": "car-fuel",
+  "7534": "car-fuel",
+  "7535": "car-fuel",
+  "7538": "car-fuel",
+  "7542": "car-fuel",
+  "7549": "car-fuel",
+  "7622": "shopping",
+  "7623": "bills-utilities",
+  "7629": "bills-utilities",
+  "7641": "shopping",
+  "7692": "bills-utilities",
+  "7699": "bills-utilities",
+  "7800": "entertainment",
+  "7801": "entertainment",
+  "7802": "entertainment",
+  "7829": "entertainment",
+  "7832": "entertainment",
+  "7841": "entertainment",
+  "7911": "entertainment",
+  "7922": "entertainment",
+  "7929": "entertainment",
+  "7932": "entertainment",
+  "7933": "entertainment",
+  "7941": "entertainment",
+  "7991": "entertainment",
+  "7992": "entertainment",
+  "7993": "entertainment",
+  "7994": "entertainment",
+  "7995": "entertainment",
+  "7996": "entertainment",
+  "7997": "entertainment",
+  "7998": "entertainment",
+  "7999": "entertainment",
+  "8011": "health",
+  "8021": "health",
+  "8031": "health",
+  "8041": "health",
+  "8042": "health",
+  "8043": "health",
+  "8049": "health",
+  "8050": "health",
+  "8062": "health",
+  "8071": "health",
+  "8082": "health",
+  "8099": "health",
+  "8211": "family-education",
+  "8220": "family-education",
+  "8241": "family-education",
+  "8244": "family-education",
+  "8249": "family-education",
+  "8299": "family-education",
+  "8351": "family-education",
+  "9211": "people",
+  "9222": "taxes",
+  "9311": "taxes",
+  "9399": "taxes",
+  "9402": "uncategorised",
+  "9405": "taxes",
 } as const satisfies Record<string, SpendingCategory>;
 
-// MCC code → category (range checks first, then flat lookup)
+const FIRST_ISSUER_ASSIGNED_TRAVEL_MCC = 3000;
+const LAST_ISSUER_ASSIGNED_TRAVEL_MCC = 3999;
 
-/** Category for an ISO 18245 code, or null when the code maps to nothing. */
 export const categoryFromMcc = (code: string): SpendingCategory | null => {
-  const n = Math.trunc(Number(code));
-  if (!Number.isNaN(n)) {
-    // The 3xxx block is issuer-assigned per carrier: airlines, then car-rental
-    // agencies, then lodging chains.
-    if (n >= 3000 && n <= 3299) {
-      return "flights";
-    }
-    if (n >= 3300 && n <= 3499) {
-      return "other-travel";
-    }
-    if (n >= 3500 && n <= 3999) {
-      return "accommodation";
-    }
+  const numericCode = Math.trunc(Number(code));
+
+  const isIssuerAssignedTravel =
+    numericCode >= FIRST_ISSUER_ASSIGNED_TRAVEL_MCC &&
+    numericCode <= LAST_ISSUER_ASSIGNED_TRAVEL_MCC;
+
+  if (isIssuerAssignedTravel) {
+    return "transport-travel";
   }
+
   // SAFETY: code is always a string key from the EB API; the assertion narrows for const lookup
   return MCC_TO_CATEGORY[code as keyof typeof MCC_TO_CATEGORY] ?? null;
-};
-
-// Derive category from transaction data
-// Cascade: MCC → income-by-sign → bank code keywords → counterparty → "uncategorised"
-
-export const deriveCategory = (tx: {
-  resolvedCategory?: string | null;
-  merchantCategoryCode?: string | null;
-  bankTransactionCode?: string | null;
-  counterpartyName?: string | null;
-  amount: number;
-}): SpendingCategory => {
-  const resolved = tx.resolvedCategory
-    ? resolveCategorySlug(tx.resolvedCategory)
-    : null;
-  if (resolved) {
-    return resolved;
-  }
-
-  // 1. MCC lookup
-  if (tx.merchantCategoryCode) {
-    const byMcc = categoryFromMcc(tx.merchantCategoryCode);
-    if (byMcc) {
-      return byMcc;
-    }
-  }
-
-  // 2. A credit's bank code may still name the income precisely. An expense
-  //    keyword on a credit means a refund, not that category, so only an
-  //    income-group match wins.
-  if (tx.amount > 0) {
-    const desc = tx.bankTransactionCode?.toLowerCase();
-    const named = desc ? matchKeyword(allBankCodeKeywords, desc) : null;
-    return named && CATEGORY_GROUP_OF[named] === "income"
-      ? named
-      : "other-income";
-  }
-
-  // 3. Bank transaction code keyword heuristics
-  const bankCode = tx.bankTransactionCode?.toLowerCase();
-  const byBankCode = bankCode
-    ? matchKeyword(allBankCodeKeywords, bankCode)
-    : null;
-  if (byBankCode) {
-    return byBankCode;
-  }
-
-  // 4. Counterparty name heuristics
-  const counterparty = tx.counterpartyName?.toLowerCase();
-  const byCounterparty = counterparty
-    ? matchKeyword(allCounterpartyKeywords, counterparty)
-    : null;
-  if (byCounterparty) {
-    return byCounterparty;
-  }
-
-  return "uncategorised";
-};
-
-/**
- * The single source of truth for a transaction's category.
- * Returns the user override when set, otherwise the auto-derived category.
- */
-export const effectiveCategory = (tx: {
-  category?: string | null;
-  resolvedCategory?: string | null;
-  merchantCategoryCode?: string | null;
-  bankTransactionCode?: string | null;
-  counterpartyName?: string | null;
-  amount: number;
-}): SpendingCategory => {
-  // A row written before the hierarchy carries a legacy slug; an unrecognised
-  // value is treated as no override at all.
-  const override = tx.category ? resolveCategorySlug(tx.category) : null;
-  return override ?? deriveCategory(tx);
 };

@@ -20,9 +20,12 @@
       "inputs": [
         "content/**",
         "scripts/**",
-        "src/components/mdx.tsx",
-        "src/lib/versions.ts"
+        "src/shared/ui/mdx.tsx",
+        "src/shared/lib/versions.ts"
       ]
+    },
+    "lint:fsd": {
+      "inputs": ["src/**", "steiger.config.ts", "tsconfig.json"]
     },
     "dev": {
       "cache": false,

@@ -1,6 +1,7 @@
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
 import { ORPCError } from "@orpc/server";
+import { Effect, Option } from "effect";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
@@ -9,8 +10,12 @@ import {
   ensureProviderUser,
   releaseProviderUser,
 } from "../lib/bank-provider-user";
+import {
+  isoAlpha2CountryCode,
+  taxResidencyCountries,
+} from "../lib/country-code";
 import { getDefaultProvider, getProvider } from "../providers/registry";
-import type { BankingProvider } from "../providers/types";
+import type { BankingProvider, ProviderInstitution } from "../providers/types";
 import type { BankConnectionState } from "./bank-connection-state";
 import {
   BANK_CONNECTION_RETURN_TARGETS,
@@ -20,37 +25,37 @@ import {
   verifyBankConnectionState,
 } from "./bank-connection-state";
 
-/** The provider a callback names, refusing an id this build does not carry. */
-const resolveProvider = (providerId: string): BankingProvider => {
-  try {
-    return getProvider(providerId);
-  } catch {
-    throw new ORPCError("NOT_FOUND", { message: "Unknown banking provider" });
-  }
-};
+const providerById = Option.liftThrowable(getProvider);
 
-/**
- * Resolves the signed state a provider hands back, refusing anything that is
- * not this session's own in-flight connection.
- */
+const decodeConnectionState = Option.liftThrowable(parseBankConnectionState);
+
+const LIST_INSTITUTIONS_CONCURRENCY = 3;
+
+const resolveProvider = (providerId: string): BankingProvider =>
+  Option.getOrThrowWith(
+    providerById(providerId),
+    () => new ORPCError("NOT_FOUND", { message: "Unknown banking provider" })
+  );
+
 const readConnectionState = (
   state: string,
   providerId: string,
   userId: string
 ): BankConnectionState => {
-  let connectionState: BankConnectionState;
-  try {
-    connectionState = parseBankConnectionState(state);
-  } catch {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Invalid bank connection state",
-    });
-  }
+  const connectionState = Option.getOrThrowWith(
+    decodeConnectionState(state),
+    () =>
+      new ORPCError("BAD_REQUEST", {
+        message: "Invalid bank connection state",
+      })
+  );
+
   if (connectionState.providerId !== providerId) {
     throw new ORPCError("BAD_REQUEST", {
       message: "Invalid banking provider in connection state",
     });
   }
+
   if (
     !verifyBankConnectionState(connectionState, userId, env.BETTER_AUTH_SECRET)
   ) {
@@ -58,7 +63,31 @@ const readConnectionState = (
       message: "Bank connection state does not belong to this session",
     });
   }
+
   return connectionState;
+};
+
+const requireInstitutionsOf = async (
+  provider: BankingProvider,
+  country: string
+): Promise<ProviderInstitution[]> => {
+  const institutions = await Effect.runPromise(
+    provider
+      .listInstitutions(country)
+      .pipe(
+        Effect.catchTag("BankInstitutionsUnavailable", () =>
+          Effect.succeed(null)
+        )
+      )
+  );
+
+  if (institutions === null) {
+    throw new ORPCError("SERVICE_UNAVAILABLE", {
+      message: "Could not load banks for this country",
+    });
+  }
+
+  return institutions;
 };
 
 export const bankConnectionRouter = {
@@ -76,14 +105,13 @@ export const bankConnectionRouter = {
         },
         where: { id: input.connectionId, userId },
       });
+
       if (!connection) {
         throw new ORPCError("NOT_FOUND", {
           message: "Bank connection not found",
         });
       }
 
-      // Ask the provider to revoke first so the bank-side consent stops too,
-      // but never let a failure there block the user from deleting their data.
       const provider = getProvider(connection.provider);
       const providerUser = await findProviderUser(userId, provider);
       const revocationRequested = provider.isConfigured()
@@ -96,11 +124,8 @@ export const bankConnectionRouter = {
             .catch(() => false)
         : false;
 
-      // Accounts, transactions and holdings go with it through the FK cascade.
       await prisma.bankConnection.delete({ where: { id: connection.id } });
 
-      // The provider identity outlives no connection: the last one taking it
-      // away is what closes the account at the provider.
       await releaseProviderUser(userId, provider);
 
       return {
@@ -121,14 +146,17 @@ export const bankConnectionRouter = {
       const provider = resolveProvider(input.providerId);
       const userId = context.session.user.id;
       const { state } = input.params;
+
       if (!state) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Missing bank connection state",
         });
       }
+
       const connectionState = readConnectionState(state, provider.id, userId);
 
-      const institutions = await provider.listInstitutions(
+      const institutions = await requireInstitutionsOf(
+        provider,
         connectionState.institution.country
       );
       const institution = findInstitution(
@@ -136,15 +164,15 @@ export const bankConnectionRouter = {
         connectionState.institution.id,
         connectionState.institution.country
       );
+
       if (!institution) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Bank institution is no longer available",
         });
       }
 
-      // A per-user provider needs its stored identity: the callback carries a
-      // connection id that only means anything under that user's token.
       const providerUser = await findProviderUser(userId, provider);
+
       if (!providerUser && provider.createUser) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No provider session for this user",
@@ -158,8 +186,6 @@ export const bankConnectionRouter = {
       const providerInstitutionName = result.institutionName.trim();
       const bankName = providerInstitutionName || institution.name;
 
-      // One transaction: a connection whose accounts failed to write would
-      // still list as linked, with nothing under it.
       const connection = await prisma.$transaction(async (db) => {
         const created = await db.bankConnection.create({
           data: {
@@ -205,10 +231,6 @@ export const bankConnectionRouter = {
     available: getDefaultProvider().isConfigured(),
   })),
 
-  /**
-   * The linked banks a user actually has. A row exists only once
-   * `exchangeCode` completed, so this is what "connected" means in the UI.
-   */
   listConnections: protectedProcedure.handler(async ({ context }) => {
     const connections = await prisma.bankConnection.findMany({
       orderBy: { createdAt: "asc" },
@@ -218,6 +240,7 @@ export const bankConnectionRouter = {
           select: { iban: true, id: true, name: true },
         },
         id: true,
+        institutionCountry: true,
         institutionId: true,
         institutionName: true,
         lastSyncedAt: true,
@@ -229,43 +252,79 @@ export const bankConnectionRouter = {
     return { connections };
   }),
 
-  /**
-   * Institutions the provider can link in a country. Onboarding passes the
-   * country being picked; elsewhere the user's own country is the answer.
-   */
   listInstitutions: protectedProcedure
-    .input(z.object({ country: z.string().optional() }))
+    .input(z.object({ countries: taxResidencyCountries.optional() }))
     .handler(async ({ context, input }) => {
-      let { country } = input;
-      if (!country) {
+      let { countries } = input;
+
+      if (!countries?.length) {
         const user = await prisma.user.findUniqueOrThrow({
-          select: { country: true },
+          select: { taxCountries: true },
           where: { id: context.session.user.id },
         });
-        country = user.country ?? undefined;
+        countries = user.taxCountries;
       }
-      if (!country) {
+
+      if (countries.length === 0) {
         throw new ORPCError("BAD_REQUEST", {
           message: "No country to list banks for",
         });
       }
 
-      const institutions = await getDefaultProvider().listInstitutions(country);
-      return {
-        banks: institutions.map((inst) => ({
-          bic: inst.bic ?? null,
-          country: inst.country,
-          id: inst.id,
-          logo: inst.logoUrl ?? null,
-          name: inst.name,
-        })),
-      };
+      const provider = getDefaultProvider();
+      const perCountry = await Effect.runPromise(
+        Effect.forEach(
+          [...new Set(countries)],
+          (country) =>
+            provider.listInstitutions(country).pipe(
+              Effect.catchTag("BankInstitutionsUnavailable", () =>
+                Effect.succeed(null)
+              ),
+              Effect.map((institutions) => ({ country, institutions }))
+            ),
+          { concurrency: LIST_INSTITUTIONS_CONCURRENCY }
+        )
+      );
+
+      const seen = new Set<string>();
+      const banks: {
+        bic: string | null;
+        country: string;
+        id: string;
+        logo: string | null;
+        name: string;
+      }[] = [];
+      const unavailableCountries: string[] = [];
+
+      for (const listed of perCountry) {
+        if (listed.institutions === null) {
+          unavailableCountries.push(listed.country);
+          continue;
+        }
+
+        for (const inst of listed.institutions) {
+          const key = `${inst.country}:${inst.id}`;
+
+          if (!seen.has(key)) {
+            seen.add(key);
+            banks.push({
+              bic: inst.bic ?? null,
+              country: inst.country,
+              id: inst.id,
+              logo: inst.logoUrl ?? null,
+              name: inst.name,
+            });
+          }
+        }
+      }
+
+      return { banks, unavailableCountries };
     }),
 
   startConnection: protectedProcedure
     .input(
       z.object({
-        bankCountry: z.string(),
+        bankCountry: isoAlpha2CountryCode,
         institutionId: z.string(),
         returnTo: z.enum(BANK_CONNECTION_RETURN_TARGETS),
         state: z.string().optional(),
@@ -274,30 +333,32 @@ export const bankConnectionRouter = {
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
       const provider = getDefaultProvider();
-      const institutions = await provider.listInstitutions(input.bankCountry);
+      const institutions = await requireInstitutionsOf(
+        provider,
+        input.bankCountry
+      );
       const institution = findInstitution(
         institutions,
         input.institutionId,
         input.bankCountry
       );
+
       if (!institution) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Unknown bank institution",
         });
       }
 
-      // The provider identity has to exist before the webview opens: it is what
-      // scopes the connection the callback comes back with.
       const providerUser = await ensureProviderUser(userId, provider);
       const redirectUrl = `${env.CORS_ORIGIN}${provider.callbackPath}`;
-      const encodedState = encodeBankConnectionState(
-        provider.id,
+      const encodedState = encodeBankConnectionState({
         institution,
+        original: input.state,
+        providerId: provider.id,
+        returnTo: input.returnTo,
+        secret: env.BETTER_AUTH_SECRET,
         userId,
-        env.BETTER_AUTH_SECRET,
-        input.returnTo,
-        input.state
-      );
+      });
       const result = await provider.startConnection({
         country: input.bankCountry,
         institutionId: institution.id,
@@ -305,6 +366,7 @@ export const bankConnectionRouter = {
         state: encodedState,
         user: providerUser,
       });
+
       return result;
     }),
 };

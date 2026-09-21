@@ -1,54 +1,44 @@
 import type { TransactionChannel } from "../types";
 
-/**
- * Map ISO 20022 bank transaction family codes to TransactionChannel.
- *
- * These codes are standardised across all SEPA banks and provided by
- * Enable Banking via `bank_transaction_code.code`. When present they
- * are a more reliable channel signal than regex parsing of remittance text.
- *
- * Reference: ISO 20022 External Code Sets — ExternalBankTransactionFamily.
- */
-const FAMILY_CODE_MAP = {
-  // Card payments (counter transactions)
-  CCRD: "card",
-  // Charges, fees and interest
-  CHRG: "fee",
-  // Cash (ATM, counter withdrawals)
-  CNTR: "atm",
-  // Issued credit transfers
-  ICDT: "transfer",
-  // Issued cheques
-  ICHQ: "cheque",
-  // Issued direct debits
-  IDDT: "direct-debit",
-  // Loans and deposits
-  LDAS: "loan",
-  // Card payments (customer transactions)
-  MCRD: "card",
-  // Received credit transfers
-  RCDT: "transfer",
-  // Received cheques
-  RCHQ: "cheque",
-  // Received direct debits
-  RDDT: "direct-debit",
-} satisfies Record<string, TransactionChannel>;
+const CARD_PAYMENT_COUNTER_TRANSACTION = "CCRD";
+const CARD_PAYMENT_CUSTOMER_TRANSACTION = "MCRD";
+const CHARGES_FEES_AND_INTEREST = "CHRG";
+const CASH_AT_COUNTER_OR_ATM = "CNTR";
+const ISSUED_CREDIT_TRANSFER = "ICDT";
+const ISSUED_CHEQUE = "ICHQ";
+const ISSUED_DIRECT_DEBIT = "IDDT";
+const LOANS_AND_DEPOSITS = "LDAS";
+const RECEIVED_CREDIT_TRANSFER = "RCDT";
+const RECEIVED_CHEQUE = "RCHQ";
+const RECEIVED_DIRECT_DEBIT = "RDDT";
 
-type FamilyCode = keyof typeof FAMILY_CODE_MAP;
+const CHANNEL_BY_FAMILY_CODE = {
+  [CARD_PAYMENT_COUNTER_TRANSACTION]: "card",
+  [CARD_PAYMENT_CUSTOMER_TRANSACTION]: "card",
+  [CASH_AT_COUNTER_OR_ATM]: "atm",
+  [CHARGES_FEES_AND_INTEREST]: "fee",
+  [ISSUED_CHEQUE]: "cheque",
+  [ISSUED_CREDIT_TRANSFER]: "transfer",
+  [ISSUED_DIRECT_DEBIT]: "direct-debit",
+  [LOANS_AND_DEPOSITS]: "loan",
+  [RECEIVED_CHEQUE]: "cheque",
+  [RECEIVED_CREDIT_TRANSFER]: "transfer",
+  [RECEIVED_DIRECT_DEBIT]: "direct-debit",
+} as const satisfies Record<string, TransactionChannel>;
+
+type FamilyCode = keyof typeof CHANNEL_BY_FAMILY_CODE;
 
 const isFamilyCode = (code: string): code is FamilyCode =>
-  Object.hasOwn(FAMILY_CODE_MAP, code);
+  Object.hasOwn(CHANNEL_BY_FAMILY_CODE, code);
 
-/**
- * Resolve a TransactionChannel from an ISO 20022 family code.
- * Returns undefined when the code is absent or not mapped.
- */
 export const channelFromFamilyCode = (
   familyCode: string | null | undefined
 ): TransactionChannel | undefined => {
   if (!familyCode) {
     return undefined;
   }
+
   const code = familyCode.toUpperCase();
-  return isFamilyCode(code) ? FAMILY_CODE_MAP[code] : undefined;
+
+  return isFamilyCode(code) ? CHANNEL_BY_FAMILY_CODE[code] : undefined;
 };

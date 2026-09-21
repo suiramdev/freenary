@@ -1,144 +1,124 @@
+import { Data, Effect } from "effect";
+
+import { BankInstitutionsUnavailable } from "../types";
 import type {
   BankingProvider,
   CompleteConnectionRequest,
-  CompletedConnection,
   ConnectionRequest,
   FetchTransactionsRequest,
-  ProviderInstitution,
-  ProviderTransaction,
   StartConnectionRequest,
 } from "../types";
-import { ebFetch, fetchTransactionPages, isConfigured } from "./client";
-import type { EBCompletedConnection } from "./map-connection";
+import {
+  EBAuthorizationSchema,
+  EBCompletedConnectionSchema,
+  EBInstitutionsSchema,
+  ebDeleteIfPresent,
+  ebJson,
+  fetchTransactionPages,
+  isConfigured,
+} from "./client";
 import { mapEBCompletedConnection } from "./map-connection";
 import { mapEBTransactions } from "./map-transaction";
 
-export const enableBankingProvider: BankingProvider = {
-  callbackPath: "/callback/enable-banking",
+export class EnableBankingCallbackIncomplete extends Data.TaggedError(
+  "EnableBankingCallbackIncomplete"
+)<Record<never, never>> {
+  override readonly message =
+    "Enable Banking callback is missing the authorization code";
+}
 
-  async closeConnection(request: ConnectionRequest): Promise<void> {
-    const response = await ebFetch(
-      `/sessions/${encodeURIComponent(request.providerSessionId)}`,
-      { method: "DELETE" }
-    );
+const CONSENT_VALIDITY_DAYS = 90;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const PSU_TYPE = "personal";
 
-    // Enable Banking closes the bank consent only "if possible", so a deleted
-    // session — or one already gone (404) — is a request, not a confirmation.
-    if (response.ok || response.status === 404) {
-      return;
-    }
+const closeConnection = (request: ConnectionRequest) =>
+  ebDeleteIfPresent(
+    "session deletion",
+    `/sessions/${encodeURIComponent(request.providerSessionId)}`
+  );
 
-    const text = await response.text();
-    throw new Error(
-      `Enable Banking session deletion failed: ${response.status} ${text}`
-    );
-  },
-
-  async completeConnection(
-    request: CompleteConnectionRequest
-  ): Promise<CompletedConnection> {
+const completeConnection = Effect.fn("enableBanking.completeConnection")(
+  function* completeConnection(request: CompleteConnectionRequest) {
     const { code } = request.callbackParams;
+
     if (!code) {
-      throw new Error(
-        "Enable Banking callback is missing the authorization code"
-      );
+      return yield* new EnableBankingCallbackIncomplete();
     }
 
-    const response = await ebFetch("/sessions", {
-      body: JSON.stringify({ code }),
-      method: "POST",
-    });
+    const session = yield* ebJson(
+      "session",
+      EBCompletedConnectionSchema,
+      "/sessions",
+      { body: JSON.stringify({ code }), method: "POST" }
+    );
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `Enable Banking session failed: ${response.status} ${text}`
-      );
-    }
+    return mapEBCompletedConnection(session);
+  }
+);
 
-    // SAFETY: Enable Banking POST /sessions returns { session_id, accounts } per their docs
-    const data = (await response.json()) as EBCompletedConnection;
-    return mapEBCompletedConnection(data);
-  },
-
-  async fetchTransactions(
-    request: FetchTransactionsRequest
-  ): Promise<ProviderTransaction[]> {
-    const raw = await fetchTransactionPages(
+const fetchTransactions = Effect.fn("enableBanking.fetchTransactions")(
+  function* fetchTransactions(request: FetchTransactionsRequest) {
+    const raw = yield* fetchTransactionPages(
       request.providerAccountId,
       request.dateFrom,
       request.dateTo
     );
+
     return mapEBTransactions(raw, request.dateFrom);
-  },
+  }
+);
 
-  id: "enable-banking",
-
-  isConfigured,
-
-  async listInstitutions(country: string): Promise<ProviderInstitution[]> {
-    if (!isConfigured()) {
-      return [];
-    }
-
-    try {
-      const response = await ebFetch(
+const listInstitutions = Effect.fn("enableBanking.listInstitutions")(
+  function* listInstitutions(country: string) {
+    const listed = yield* Effect.mapError(
+      ebJson(
+        "institutions",
+        EBInstitutionsSchema,
         `/aspsps?country=${encodeURIComponent(country)}`
-      );
+      ),
+      () => new BankInstitutionsUnavailable({ country })
+    );
 
-      if (!response.ok) {
-        return [];
-      }
+    return listed.aspsps.map((aspsp) => ({
+      bic: aspsp.bic ?? undefined,
+      country: aspsp.country,
+      group: aspsp.group ?? undefined,
+      id: aspsp.name,
+      logoUrl: aspsp.logo ?? undefined,
+      name: aspsp.name,
+    }));
+  }
+);
 
-      // SAFETY: Enable Banking API returns { aspsps: [...] } per their docs
-      const data = (await response.json()) as {
-        aspsps: {
-          bic?: string | null;
-          country: string;
-          group?: string | null;
-          logo?: string | null;
-          name: string;
-        }[];
-      };
-
-      return data.aspsps.map((aspsp) => ({
-        bic: aspsp.bic ?? undefined,
-        country: aspsp.country,
-        group: aspsp.group ?? undefined,
-        id: aspsp.name,
-        logoUrl: aspsp.logo ?? undefined,
-        name: aspsp.name,
-      }));
-    } catch {
-      return [];
-    }
-  },
-
-  async startConnection(
-    request: StartConnectionRequest
-  ): Promise<{ url: string }> {
-    const response = await ebFetch("/auth", {
+const startConnection = Effect.fn("enableBanking.startConnection")(
+  function* startConnection(request: StartConnectionRequest) {
+    const authorized = yield* ebJson("auth", EBAuthorizationSchema, "/auth", {
       body: JSON.stringify({
         access: {
           valid_until: new Date(
-            Date.now() + 90 * 24 * 60 * 60 * 1000
+            Date.now() + CONSENT_VALIDITY_DAYS * MILLISECONDS_PER_DAY
           ).toISOString(),
         },
         aspsp: { country: request.country, name: request.institutionId },
-        psu_type: "personal",
+        psu_type: PSU_TYPE,
         redirect_url: request.redirectUrl,
         state: request.state,
       }),
       method: "POST",
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Enable Banking auth failed: ${response.status} ${text}`);
-    }
+    return { url: authorized.url };
+  }
+);
 
-    // SAFETY: Enable Banking POST /auth returns { url: string } per their docs
-    const data = (await response.json()) as { url: string };
-    return { url: data.url };
-  },
+export const enableBankingProvider: BankingProvider = {
+  callbackPath: "/callback/enable-banking",
+  closeConnection: (request) => Effect.runPromise(closeConnection(request)),
+  completeConnection: (request) =>
+    Effect.runPromise(completeConnection(request)),
+  fetchTransactions: (request) => Effect.runPromise(fetchTransactions(request)),
+  id: "enable-banking",
+  isConfigured,
+  listInstitutions,
+  startConnection: (request) => Effect.runPromise(startConnection(request)),
 };

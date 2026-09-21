@@ -5,7 +5,10 @@ model User {
   emailVerified         Boolean            @default(false)
   twoFactorEnabled      Boolean            @default(false)
   image                 String?
-  country               String?
+  /// Tax jurisdictions the user answered onboarding with, ISO 3166-1 alpha-2.
+  /// A person can be resident in several, and the bank picker lists the
+  /// institutions of every one of them.
+  taxCountries          String[]
   onboardingCompletedAt DateTime?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
@@ -19,6 +22,7 @@ model User {
   budgetLines           BudgetLine[]
   customCategories      CustomCategory[]
   conversations         Conversation[]
+  syncRun               SyncRun?
 
   @@unique([email])
   @@map("user")

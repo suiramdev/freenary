@@ -5,6 +5,8 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "exports": {
+    "./schema": "./src/schema.ts",
+    "./schema-web": "./src/schema-web.ts",
     "./server": "./src/server.ts",
     "./web": "./src/web.ts"
   },

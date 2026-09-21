@@ -5,11 +5,18 @@ pre-commit:
   parallel: true
   jobs:
     - name: oxlint
-      # oxlint exits 1 when the staged set holds no file it can lint, which a
-      # documentation-only commit always does. The glob makes lefthook skip it.
+      # oxlint exits 1 when the staged set holds no file it can lint. The glob
+      # covers a documentation-only commit; the flag covers a commit whose only
+      # source files sit under an ignored path, such as packages/ui.
       glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
-      run: bun oxlint --fix {staged_files}
+      run: bun oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
     - name: oxfmt
       run: bun oxfmt --write {staged_files}
+      stage_fixed: true
+    - name: env-sync
+      # The schema is the only authored source: .env.example and the
+      # configuration reference are generated from it.
+      glob: "{packages/env/src/schema*.ts,docker-compose*.yml,scripts/env-sync.ts}"
+      run: bun run env:sync
       stage_fixed: true

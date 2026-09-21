@@ -28,7 +28,7 @@ bun run db:push           # applies the Prisma schema
 bun run dev               # web on 3001, server on 3000, docs on 4000
 ```
 
-There is no seed script. Create an account through the sign-in screen. The `dev:up` stack sets `EMAIL_PROVIDER=log`, so sign-up asks for a 6-digit code and the API server log prints it — read it with `bun run dev:logs`. The `bun run dev` path above sets no email provider, so sign-up returns a session at once. See [Local development stack](../apps/fumadocs/content/docs/next/contributing/local-stack.mdx) for the details, and [Configuration reference](../apps/fumadocs/content/docs/next/self-hosting/configuration.mdx) for every environment variable.
+There is no seed script. Create an account through the sign-in screen. `bun run dev:up` configures no email provider, so sign-up returns a session at once and asks for no code — and so does the `bun run dev` path above. To work on the one-time-code flows, start the stack with `bun run dev:mail` instead: it adds a Mailpit inbox and points the API server at it, so the sign-up code, the verification code and the password reset all land in that inbox. See [Local development stack](../apps/fumadocs/content/docs/next/contributing/local-stack.mdx) for the details, and [Configuration reference](../apps/fumadocs/content/docs/next/self-hosting/configuration.mdx) for every environment variable.
 
 ## Branch Naming
 
@@ -49,6 +49,7 @@ Run the same checks that CI runs, in this order:
 ```bash
 bun run check         # Oxlint + Oxfmt
 bun run check-types   # TypeScript
+bun run check:fsd     # Feature-Sliced Design layers and public APIs
 bun run docs:check    # documentation gate
 bun run build         # every app
 ```
@@ -58,6 +59,8 @@ Most lint/format issues are auto-fixable with `bun run fix`.
 CI runs one more job that no root script covers: it parses both Compose files with `docker compose config --quiet`, and it asserts that `docker-compose.yml` still refuses an empty `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Reproduce it before you change either file.
 
 CI runs no tests, and there is no root `test` script. Run the test files your change touches by hand with `bun test <path>`.
+
+`apps/web` and `apps/fumadocs` follow [Feature-Sliced Design](https://fsd.how): a module imports only from a lower layer, a slice is entered through its `index.ts`, and code starts in the page that uses it rather than in a speculative `features/` or `entities/` slice. `bun run check:fsd` is that rule set, and CI runs it as the **Architecture** step. The layout and the import forms are in the [repository guide](../AGENTS.md#frontend-architecture-feature-sliced-design).
 
 If your change affects UI, verify it in the browser, including light and dark mode.
 

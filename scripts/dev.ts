@@ -1,43 +1,52 @@
-// Worktree-aware wrapper around `docker compose` for the dev stack. Derives
-// this worktree's identity (see dev-identity.ts) and injects it: the project
-// name via `-p` (the highest-precedence lever, so it holds regardless of the
-// file's `name:`), and the slug + hostnames via the environment Compose
-// interpolates. Several worktrees can then run at once without container-name,
-// OrbStack-domain, or CORS collisions. All `dev:*` scripts route through here
-// so every command targets the current worktree's stack.
-
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+
+import { Option } from "effect";
 
 import { deriveDevIdentity } from "./dev-identity";
 
 const DEV_COMPOSE_FILE = "docker-compose.dev.yml";
+const MAIL_COMPOSE_FILE = "docker-compose.mail.yml";
+const MAIL_FLAG = "--mail";
+const WORKTREE_ENV_FILE = ".env";
+const DETACHED_HEAD_REF = "HEAD";
+const RESET_VERB = "reset";
+const SPAWN_FAILURE_EXIT_CODE = 1;
 const QUOTE_EDGES = /^["']|["']$/gu;
+
+const readWorktreeEnvFile = Option.liftThrowable((file: string): string =>
+  readFileSync(file, "utf-8")
+);
 
 const readBranch = (): string | null => {
   const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     encoding: "utf-8",
   });
-  const branch = result.status === 0 ? result.stdout.trim() : "";
-  // Detached HEAD reports "HEAD"; treat it as no branch so we fall back to the dir.
-  return branch && branch !== "HEAD" ? branch : null;
+  const ref = result.status === 0 ? result.stdout.trim() : "";
+  const isDetachedHead = ref === DETACHED_HEAD_REF;
+
+  return ref && !isDetachedHead ? ref : null;
 };
 
-// A key may live in the worktree-local .env (copied per worktree). Read just
-// that one without a dotenv dependency; the shell env wins when both are set.
 const readEnvOverride = (key: string): string | null => {
-  const fromShell = process.env[key]?.trim();
-  if (fromShell) {
-    return fromShell;
+  const shellOverrideWins = process.env[key]?.trim();
+
+  if (shellOverrideWins) {
+    return shellOverrideWins;
   }
-  if (!existsSync(".env")) {
-    return null;
-  }
-  const line = new RegExp(`^\\s*${key}\\s*=\\s*(?<value>.+?)\\s*$`, "mu");
-  const match = readFileSync(".env", "utf-8").match(line);
-  const value = match?.groups?.value?.replace(QUOTE_EDGES, "");
-  return value || null;
+
+  const assignment = new RegExp(`^\\s*${key}\\s*=\\s*(?<value>.+?)\\s*$`, "mu");
+
+  return Option.getOrNull(
+    readWorktreeEnvFile(WORKTREE_ENV_FILE).pipe(
+      Option.flatMapNullishOr(
+        (contents) => contents.match(assignment)?.groups?.value
+      ),
+      Option.map((value) => value.replace(QUOTE_EDGES, "")),
+      Option.filter((value) => value.length > 0)
+    )
+  );
 };
 
 const compose = (args: string[], env: typeof process.env): number => {
@@ -45,14 +54,18 @@ const compose = (args: string[], env: typeof process.env): number => {
     env,
     stdio: "inherit",
   });
+
   if (result.error) {
     process.stderr.write(`${result.error.message}\n`);
   }
-  return result.status ?? 1;
+
+  return result.status ?? SPAWN_FAILURE_EXIT_CODE;
 };
 
 const main = (): number => {
-  const rest = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const withMail = argv.includes(MAIL_FLAG);
+  const rest = argv.filter((argument) => argument !== MAIL_FLAG);
   const identity = deriveDevIdentity({
     branch: readBranch(),
     dir: path.basename(process.cwd()),
@@ -61,28 +74,33 @@ const main = (): number => {
 
   const env = {
     ...process.env,
-    // Shares the session cookie with the web host, which is what lets the web
-    // app resolve the visitor while rendering. An operator's own value wins.
     AUTH_COOKIE_DOMAIN:
       readEnvOverride("AUTH_COOKIE_DOMAIN") ?? identity.cookieDomain,
     DOCS_HOST: identity.docsHost,
     FREENARY_SLUG: identity.slug,
+    MAIL_HOST: identity.mailHost,
     SERVER_HOST: identity.serverHost,
     WEB_HOST: identity.webHost,
   };
 
-  const base = ["-p", identity.composeProjectName, "-f", DEV_COMPOSE_FILE];
+  const base = [
+    "-p",
+    identity.composeProjectName,
+    "-f",
+    DEV_COMPOSE_FILE,
+    ...(withMail ? ["-f", MAIL_COMPOSE_FILE] : []),
+  ];
 
   process.stdout.write(
-    `[freenary dev] worktree "${identity.slug}"\n  web     ${identity.corsOrigin}\n  server  ${identity.betterAuthUrl}\n  docs    ${identity.docsUrl}\n  project ${identity.composeProjectName}\n`
+    `[freenary dev] worktree "${identity.slug}"\n  web     ${identity.corsOrigin}\n  server  ${identity.betterAuthUrl}\n  docs    ${identity.docsUrl}\n${withMail ? `  mail    ${identity.mailUrl}\n` : ""}  project ${identity.composeProjectName}\n`
   );
 
-  // `reset` is our own verb: down -v (this worktree's volumes only), then rebuild up.
-  if (rest[0] === "reset") {
-    const down = compose([...base, "down", "-v"], env);
-    return down === 0
+  if (rest[0] === RESET_VERB) {
+    const downWithVolumes = compose([...base, "down", "-v"], env);
+
+    return downWithVolumes === 0
       ? compose([...base, "up", "--build", "--watch"], env)
-      : down;
+      : downWithVolumes;
   }
 
   return compose([...base, ...rest], env);

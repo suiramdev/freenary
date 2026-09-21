@@ -15,7 +15,7 @@ describe("RecurringExpense", () => {
   it("defines the expected shape", () => {
     const expense: RecurringExpense = {
       amountSpread: 0,
-      category: "energy",
+      category: "bills-utilities",
       confidence: "confirmed",
       currency: "EUR",
       frequency: "monthly",
@@ -29,6 +29,7 @@ describe("RecurringExpense", () => {
       occurrences: 12,
       typicalAmountMinor: 8500,
     };
+
     expect(expense.frequency).toBe("monthly");
     expect(expense.intervalDays).toBe(30);
     expect(expense.occurrences).toBe(12);
@@ -42,6 +43,7 @@ describe("RecurringExpense", () => {
       "annual",
       "irregular",
     ];
+
     expect(frequencies).toHaveLength(5);
   });
 });
@@ -55,7 +57,7 @@ const monthlySeries = (
 ): RecurrenceTransaction[] =>
   Array.from({ length: occurrences }, (_, index) => ({
     amount: -1500,
-    category: "energy",
+    category: "bills-utilities",
     counterpartyName: merchantKey,
     currency: "EUR",
     date: new Date(first.getFullYear(), first.getMonth() + index, 5),
@@ -72,6 +74,7 @@ describe("recurringInWindow", () => {
       monthlySeries("netflix", new Date(2025, 9, 5), 6),
       window
     );
+
     expect(detected).toHaveLength(1);
     expect(detected[0]?.merchantKey).toBe("netflix");
     expect(detected[0]?.frequency).toBe("monthly");
@@ -83,6 +86,7 @@ describe("recurringInWindow", () => {
       monthlySeries("old-gym", new Date(2024, 1, 5), 12),
       window
     );
+
     expect(detected).toHaveLength(0);
   });
 
@@ -91,12 +95,11 @@ describe("recurringInWindow", () => {
       [
         ...monthlySeries("old-gym", new Date(2024, 1, 5), 12),
         ...monthlySeries("netflix", new Date(2025, 9, 5), 6),
-        // A subscription that only starts after the observed period: the split
-        // of a past period must not be classified with a later month's plan.
         ...monthlySeries("new-gym", new Date(2026, 9, 5), 4),
       ],
       window
     );
+
     expect(detected.map((e) => e.merchantKey)).toEqual(["netflix"]);
   });
 });
@@ -107,17 +110,17 @@ describe("cadenceWindow", () => {
 
   it("reaches a year either side of the period", () => {
     const window = cadenceWindow(from, to);
+
     expect(window.from.getTime()).toBe(from.getTime() - WINDOW_MS);
     expect(window.to.getTime()).toBe(to.getTime() + WINDOW_MS);
   });
 
   it("classifies the first month of a history from the months after it", () => {
-    // Rent starting in June is only recurring if the window sees July and
-    // August; a trailing-only window would report June's rent as variable.
     const detected = recurringInWindow(
       monthlySeries("landlord", from, 3),
       cadenceWindow(from, to)
     );
+
     expect(detected.map((e) => e.merchantKey)).toEqual(["landlord"]);
     expect(detected[0]?.frequency).toBe("monthly");
   });
@@ -125,7 +128,6 @@ describe("cadenceWindow", () => {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A monthly series on the 5th, one transaction per amount given. */
 const monthlyAmounts = (
   merchantKey: string,
   first: Date,
@@ -133,7 +135,7 @@ const monthlyAmounts = (
 ): RecurrenceTransaction[] =>
   amounts.map((amount, index) => ({
     amount: -amount,
-    category: "energy",
+    category: "bills-utilities",
     counterpartyName: merchantKey,
     currency: "EUR",
     date: new Date(first.getFullYear(), first.getMonth() + index, 5),
@@ -141,7 +143,6 @@ const monthlyAmounts = (
     resolvedCategory: null,
   }));
 
-/** A weekly series, one transaction per amount given. */
 const weeklyAmounts = (
   merchantKey: string,
   first: Date,
@@ -249,6 +250,7 @@ describe("recurringInWindow classification", () => {
       monthlySeries("netflix", new Date(2025, 9, 5), 6),
       window
     );
+
     expect(detected?.kind).toBe("fixed");
     expect(detected?.confidence).toBe("confirmed");
     expect(detected?.amountSpread).toBe(0);
@@ -263,6 +265,7 @@ describe("recurringInWindow classification", () => {
       ),
       window
     );
+
     expect(detected?.kind).toBe("fixed");
     expect(detected?.confidence).toBe("likely");
     expect(detected?.amountSpread).toBeCloseTo(0.15, 5);
@@ -277,6 +280,7 @@ describe("recurringInWindow classification", () => {
       ),
       window
     );
+
     expect(detected?.frequency).toBe("weekly");
     expect(detected?.kind).toBe("behavioral");
     expect(detected?.confidence).toBe("pattern");
@@ -284,12 +288,11 @@ describe("recurringInWindow classification", () => {
   });
 
   it("tolerates a posting date that slips a few days", () => {
-    // A bank posts a direct debit when it pleases; the commitment is unchanged.
-    const days = [5, 7, 4, 6, 5, 8];
+    const postingDaysOfMonth = [5, 7, 4, 6, 5, 8];
     const [detected] = recurringInWindow(
-      days.map((day, index) => ({
+      postingDaysOfMonth.map((day, index) => ({
         amount: -1500,
-        category: "energy",
+        category: "bills-utilities",
         counterpartyName: "landlord",
         currency: "EUR",
         date: new Date(2025, 9 + index, day),
@@ -298,6 +301,7 @@ describe("recurringInWindow classification", () => {
       })),
       window
     );
+
     expect(detected?.frequency).toBe("monthly");
     expect(detected?.kind).toBe("fixed");
     expect(detected?.confidence).toBe("confirmed");

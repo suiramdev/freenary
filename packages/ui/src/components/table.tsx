@@ -1,113 +1,216 @@
-import { cn } from "@freenary/ui/lib/utils";
-import * as React from "react";
+"use client";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
-  return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-xs", className)}
+import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@freenary/ui/hooks/use-fluid-hover";
+import { fontWeights } from "@freenary/ui/lib/font-weight";
+import {
+  SizeProvider,
+  useSize,
+  type SizeVariant,
+} from "@freenary/ui/lib/size-context";
+import { cn } from "@freenary/ui/lib/utils";
+import {
+  useRef,
+  useMemo,
+  createContext,
+  useContext,
+  forwardRef,
+  type ReactNode,
+  type HTMLAttributes,
+  type TdHTMLAttributes,
+  type ThHTMLAttributes,
+} from "react";
+
+// ── Context ──────────────────────────────────────────────
+
+interface TableContextValue {
+  registerItem: (index: number, element: HTMLElement | null) => void;
+  activeIndex: number | null;
+}
+
+const TableContext = createContext<TableContextValue | null>(null);
+
+// ── Table ────────────────────────────────────────────────
+
+interface TableProps extends HTMLAttributes<HTMLTableElement> {
+  children: ReactNode;
+  /** Pins the table's rows to one step of the size ladder (default 36px,
+   *  compact 28px — see /docs/sizes). Omitted, it follows the surrounding
+   *  SizeProvider. */
+  size?: SizeVariant;
+}
+
+const Table = forwardRef<HTMLTableElement, TableProps>(
+  ({ children, size, className, ...props }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const sizeClasses = useSize(size);
+
+    const hover = useFluidHover(containerRef);
+    const { activeIndex, handlers, registerItem } = hover;
+
+    const contextValue = useMemo(
+      () => ({ registerItem, activeIndex }),
+      [registerItem, activeIndex]
+    );
+
+    const table = (
+      <TableContext.Provider value={contextValue}>
+        <div
+          ref={containerRef}
+          className="relative"
+          onMouseEnter={handlers.onMouseEnter}
+          onMouseMove={handlers.onMouseMove}
+          onMouseLeave={handlers.onMouseLeave}
+          onClick={handlers.onClick}
+        >
+          {/* Hover background */}
+          <FluidHoverHighlight hover={hover} />
+
+          <table
+            ref={ref}
+            className={cn(
+              "w-full border-collapse",
+              sizeClasses.text,
+              className
+            )}
+            {...props}
+          >
+            {children}
+          </table>
+        </div>
+      </TableContext.Provider>
+    );
+
+    // A size prop pins every cell to one ladder step (cells read the context).
+    return size ? <SizeProvider size={size}>{table}</SizeProvider> : table;
+  }
+);
+
+Table.displayName = "Table";
+
+// ── TableHeader ──────────────────────────────────────────
+
+const TableHeader = forwardRef<
+  HTMLTableSectionElement,
+  HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <thead ref={ref} className={cn("", className)} {...props} />
+));
+
+TableHeader.displayName = "TableHeader";
+
+// ── TableBody ────────────────────────────────────────────
+
+const TableBody = forwardRef<
+  HTMLTableSectionElement,
+  HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <tbody ref={ref} className={cn("", className)} {...props} />
+));
+
+TableBody.displayName = "TableBody";
+
+// ── TableRow ─────────────────────────────────────────────
+
+interface TableRowProps extends HTMLAttributes<HTMLTableRowElement> {
+  index?: number;
+}
+
+const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
+  ({ index, className, style, ...props }, ref) => {
+    const internalRef = useRef<HTMLTableRowElement>(null);
+    const ctx = useContext(TableContext);
+
+    useRegisterFluidHoverItem(ctx?.registerItem, index, internalRef);
+
+    const isBodyRow = index !== undefined;
+    const activeIdx = ctx?.activeIndex ?? null;
+    const hideBorder =
+      activeIdx !== null &&
+      ((isBodyRow && (index === activeIdx || index === activeIdx - 1)) ||
+        (!isBodyRow && activeIdx === 0));
+
+    return (
+      <tr
+        ref={(node) => {
+          (
+            internalRef as React.MutableRefObject<HTMLTableRowElement | null>
+          ).current = node;
+          if (typeof ref === "function") ref(node);
+          else if (ref)
+            (
+              ref as React.MutableRefObject<HTMLTableRowElement | null>
+            ).current = node;
+        }}
+        data-fluid-hover-index={index}
+        className={cn(
+          "group/row relative z-10 border-b transition-[border-color] duration-80",
+          hideBorder ? "border-transparent" : "border-accent/40",
+          isBodyRow && activeIdx === index && "is-active",
+          className
+        )}
+        style={{
+          ...style,
+          fontVariationSettings: isBodyRow
+            ? fontWeights.normal
+            : fontWeights.semibold,
+        }}
         {...props}
       />
-    </div>
-  );
-}
+    );
+  }
+);
 
-function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return (
-    <thead
-      data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
-      {...props}
-    />
-  );
-}
+TableRow.displayName = "TableRow";
 
-function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
-  return (
-    <tbody
-      data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
-      {...props}
-    />
-  );
-}
+// ── TableHead ────────────────────────────────────────────
 
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return (
-    <tfoot
-      data-slot="table-footer"
-      className={cn(
-        "bg-muted/50 border-t font-medium [&>tr]:last:border-b-0",
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
-function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return (
-    <tr
-      data-slot="table-row"
-      className={cn(
-        "hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+const TableHead = forwardRef<
+  HTMLTableCellElement,
+  ThHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => {
+  const sizeClasses = useSize();
   return (
     <th
-      data-slot="table-head"
+      ref={ref}
       className={cn(
-        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "text-foreground text-left",
+        // py + line box lands the row on the ladder (36px / 28px).
+        sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
         className
       )}
       {...props}
     />
   );
-}
+});
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+TableHead.displayName = "TableHead";
+
+// ── TableCell ────────────────────────────────────────────
+
+const TableCell = forwardRef<
+  HTMLTableCellElement,
+  TdHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => {
+  const sizeClasses = useSize();
   return (
     <td
-      data-slot="table-cell"
+      ref={ref}
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "text-muted-foreground group-[.is-active]/row:text-foreground transition-colors duration-80",
+        sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
         className
       )}
       {...props}
     />
   );
-}
+});
 
-function TableCaption({
-  className,
-  ...props
-}: React.ComponentProps<"caption">) {
-  return (
-    <caption
-      data-slot="table-caption"
-      className={cn("text-muted-foreground mt-4 text-xs", className)}
-      {...props}
-    />
-  );
-}
+TableCell.displayName = "TableCell";
 
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
-};
+// ── Exports ──────────────────────────────────────────────
+
+export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };

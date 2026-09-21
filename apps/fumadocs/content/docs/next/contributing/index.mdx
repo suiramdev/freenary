@@ -1,6 +1,6 @@
 ---
 title: Contributing
-description: Set up the repository, run the stack, run the five checks CI runs, and open a pull request.
+description: Set up the repository, run the stack, run the six checks CI runs, and open a pull request.
 icon: Hammer
 ---
 
@@ -72,13 +72,15 @@ One line separates them. The containerised path runs every part in Docker, behin
 
 `.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
 
-The `ci` job runs five commands. Run the same five before you open a pull request:
+The `ci` job runs seven commands. Run the same seven before you open a pull request:
 
 ```bash
 bun install --frozen-lockfile
 bun run check
 bun run check-types
+bun run check:fsd
 bun run docs:check
+bun run env:check
 bun run build
 ```
 
@@ -87,12 +89,15 @@ bun run build
 | 1 | _(unnamed)_ | `bun install --frozen-lockfile` | The lockfile matches the manifests |
 | 2 | Lint & format | `bun run check` | `ultracite check` over the whole repository |
 | 3 | Type check | `bun run check-types` | `turbo run check-types` |
-| 4 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
-| 5 | Build | `bun run build` | `turbo run build`, which builds the three applications |
+| 4 | Architecture | `bun run check:fsd` | `turbo run lint:fsd`, the Feature-Sliced Design rules of `apps/web` and `apps/fumadocs` |
+| 5 | Documentation | `bun run docs:check` | `turbo run docs:check`, which reaches `apps/fumadocs` |
+| 6 | Environment | `bun run env:check` | `scripts/env-sync.ts --check`, which compares `.env.example` and the configuration reference against `packages/env/src/schema.ts` |
+| 7 | Build | `bun run build` | `turbo run build`, which builds the three applications |
 
-The `compose` job needs no Bun and no install. It checks three things:
+The `compose` job needs no Bun and no install. It checks four things:
 
 - `docker compose -f docker-compose.dev.yml config --quiet` parses the development stack.
+- The same command with `-f docker-compose.mail.yml` added parses the Mailpit layer over it.
 - The same command against `docker-compose.yml` parses the production stack, with a temporary `.env` that sets `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`.
 - The same command with an empty `.env` must fail. A pass means the production file accepted two empty secrets, so the job fails.
 
@@ -113,12 +118,12 @@ bun test scripts/dev-identity.test.ts
 bun test packages/api/src
 ```
 
-The repository holds 48 test files outside `node_modules`, each named `*.test.ts` or `*.test.tsx`:
+The repository holds 50 test files outside `node_modules`, each named `*.test.ts` or `*.test.tsx`:
 
 | Location         | Test files |
 | ---------------- | ---------- |
 | `packages/api`   | 28         |
-| `apps/web/src`   | 15         |
+| `apps/web/src`   | 17         |
 | `packages/ui`    | 2          |
 | `packages/auth`  | 1          |
 | `packages/email` | 1          |
@@ -133,21 +138,31 @@ bun run fix     # ultracite fix, writes the fixes
 bun run check   # ultracite check, reports only
 ```
 
-Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format.
+Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format. On top of them, the repository enables the `@jliocsar/begone-slop` preset, which adds 37 rules at `error`. A TypeScript lint config needs Bun or Node 22.18 and newer, so run `bunx --bun oxlint` when you call Oxlint directly.
 
 | File | What it sets |
 | --- | --- |
-| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets. Registers the local `anti-slop` plugin with 15 rules at `error`. Ignores `packages/ui/**`, `apps/web/src/components/ai-elements/**` and `apps/web/src/paraglide/**`. |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the `@jliocsar/begone-slop` preset. Loads the begone-slop and `@shadcn/lint` plugins through `jsPlugins`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
+| `apps/fumadocs/.oxlintrc.json` | Extends the same begone-slop preset through a relative path, because Oxlint resolves `extends` against the config file and refuses a package name. Loads the same two plugins, because the `lint` script of this application reads this file. |
 | `oxfmt.config.ts` | Spreads the Ultracite format config. It does not ignore `packages/ui/**`, so Oxfmt formats that package and Oxlint does not lint it. |
 
-`lefthook.yml` declares one hook. On `pre-commit` it runs two jobs in parallel:
+`@shadcn/lint` is a design-system linter for Tailwind. It reads the components, the variants and the theme of the project. An error from it can therefore name the size, the token or the file to use instead. The repository registers the plugin and enables no rule of it yet.
 
-| Job      | Command                            |
-| -------- | ---------------------------------- |
-| `oxlint` | `bun oxlint --fix {staged_files}`  |
-| `oxfmt`  | `bun oxfmt --write {staged_files}` |
+`settings.shadcn.componentImports` declares the `@/shared/ui` alias that both applications use for their own compositions. `apps/web/components.json` supplies the rest: the primitives in `@freenary/ui/components`, and the theme in `packages/ui/src/styles/globals.css`. To switch a rule on, read its [rule list](https://github.com/shadcn-ui/lint/blob/main/README.md#rules). The [configuration examples](https://github.com/shadcn-ui/lint/blob/main/docs/design-systems.md) show contracts and custom messages. A rule must stay off for `packages/ui`, because the components there are the design system.
 
-Both set `stage_fixed: true`, so each job re-stages the files it changed. The repository declares no `pre-push` hook and no `commit-msg` hook.
+Four of the added rules change how the code is written. `no-comments` rejects every comment except a `SAFETY:` justification and a tooling directive. A name therefore carries what a comment used to say. `no-try-catch` and `no-switch` send failure handling and dispatch to Effect. `statement-order` fixes the order of the declarations in a module.
+
+A comment therefore never holds a fact. `docs/engineering/` in the repository holds one file per area. Each bullet names the file and the symbol it belongs to. Read the file for the area you change, and add to it when the code cannot state what you learned.
+
+`lefthook.yml` declares one hook. On `pre-commit` it runs three jobs in parallel:
+
+| Job        | Command                            |
+| ---------- | ---------------------------------- |
+| `oxlint`   | `bun oxlint --fix {staged_files}`  |
+| `oxfmt`    | `bun oxfmt --write {staged_files}` |
+| `env-sync` | `bun run env:sync`                 |
+
+All three set `stage_fixed: true`, so each job re-stages the files it changed. The `env-sync` job runs on a change to the environment schema, a compose file or the generator. The repository declares no `pre-push` hook and no `commit-msg` hook.
 
 ## Branches, commits and pull requests
 
@@ -245,7 +260,7 @@ Each workspace states its own rules next to its code:
 <Card
   title="Architecture"
   href="/docs/contributing/architecture"
-  description="The workspaces, the path of one request, and the build graph."
+  description="The workspaces, the frontend layers, the path of one request, and the build graph."
 />
 
 <Card

@@ -28,11 +28,23 @@ jobs:
       - name: Type check
         run: bun run check-types
 
+      # The layer, slice and public-API rules of Feature-Sliced Design in
+      # `apps/web` and `apps/fumadocs`. Nothing else catches an import that
+      # reaches up a layer or past a slice's index.
+      - name: Architecture
+        run: bun run check:fsd
+
       # The build catches a missing title and an unknown fence language. This
       # catches the icons, components, links, navigation and language rules it
       # does not.
       - name: Documentation
         run: bun run docs:check
+
+      # .env.example and the configuration reference are generated from
+      # packages/env/src/schema.ts. This also refuses a variable the code reads
+      # and nothing declares.
+      - name: Environment
+        run: bun run env:check
 
       - name: Build
         run: bun run build
@@ -48,6 +60,7 @@ jobs:
       - name: Validate the compose files
         run: |
           docker compose -f docker-compose.dev.yml config --quiet
+          docker compose -f docker-compose.dev.yml -f docker-compose.mail.yml config --quiet
           printf 'POSTGRES_PASSWORD=x\nBETTER_AUTH_SECRET=y\n' > .env
           docker compose -f docker-compose.yml config --quiet
           : > .env

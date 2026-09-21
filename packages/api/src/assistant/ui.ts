@@ -1,18 +1,8 @@
 import { createLibrary, defineComponent } from "@openuidev/lang-core";
 import { z } from "zod";
 
-/**
- * The components the model may compose into an answer, as OpenUI Lang. This
- * module owns the schemas and the prompt; `apps/web` attaches a renderer to
- * each definition, so the two sides cannot describe different components.
- *
- * Zod key order is the positional argument order the model writes, so the
- * shapes below are ordered by importance, not by name.
- */
-
 const currency = z.string().optional();
 
-/** One line or bar group: a named sequence aligned with the chart's labels. */
 const series = z.object({
   name: z.string(),
   values: z.array(z.number()),
@@ -92,7 +82,6 @@ export const ASSISTANT_UI = {
   Stat: stat,
 } as const;
 
-/** The prompt side of the library: signatures only, no renderer attached. */
 const promptLibrary = createLibrary({
   componentGroups: [
     {
@@ -113,8 +102,6 @@ const PREAMBLE = `## Charts
 Answer in prose. When the figures you quote form a series — several periods, several categories or groups, a planned amount against an actual one — add one chart after the prose. A chart is a program in openui-lang, a declarative UI language, inside a fenced code block tagged \`openui-lang\`. A question answered by one figure or by yes or no gets no chart.`;
 
 const ADDITIONAL_RULES = [
-  // The generator always appends its stock "tables for comparisons, forms for
-  // input" rule; this one, appended after it, names what actually exists.
   "Card, Stat, BarChart, LineChart and DonutChart are the only components. There is no table, no form and no other component.",
   "Every series holds exactly one value per label, in the same order as the labels.",
   "Chart only figures a tool returned. Never invent, round off or extrapolate a data point.",
@@ -144,20 +131,20 @@ chart = BarChart(["January", "February", "March"], [{name: "Incoming", values: [
 \`\`\``,
 ];
 
-let cachedPrompt: string | undefined;
+const createUiPromptReader = (): (() => string) => {
+  let cached: string | undefined;
 
-/**
- * The chart section of the system prompt. Built once: the library is static,
- * and the generator walks every schema on each call.
- */
-export const assistantUiPrompt = (): string => {
-  cachedPrompt ??= promptLibrary.prompt({
-    additionalRules: ADDITIONAL_RULES,
-    bindings: false,
-    examples: EXAMPLES,
-    preamble: PREAMBLE,
-    toolCalls: false,
-  });
+  return () => {
+    cached ??= promptLibrary.prompt({
+      additionalRules: ADDITIONAL_RULES,
+      bindings: false,
+      examples: EXAMPLES,
+      preamble: PREAMBLE,
+      toolCalls: false,
+    });
 
-  return cachedPrompt;
+    return cached;
+  };
 };
+
+export const assistantUiPrompt = createUiPromptReader();

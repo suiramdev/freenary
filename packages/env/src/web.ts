@@ -1,16 +1,12 @@
 import { createEnv } from "@t3-oss/env-core";
-import { z } from "zod";
 
-// SAFETY: import.meta.env is Vite's typed env object; cast needed because @t3-oss/env-core expects plain Record
+import { clientEnvSchema } from "./schema-web";
+
+// SAFETY: import.meta.env is Vite's typed env object; @t3-oss/env-core expects a plain record
 const runtimeEnv = import.meta.env as Record<string, string | undefined>;
 
 export const env = createEnv({
-  client: {
-    // CI passes the release tag as a build argument, so one image is one
-    // version. A branch build carries `dev` or `main`.
-    VITE_FREENARY_VERSION: z.string().optional(),
-    VITE_SERVER_URL: z.url().default("http://localhost:3000"),
-  },
+  client: clientEnvSchema,
   clientPrefix: "VITE_",
   emptyStringAsUndefined: true,
   runtimeEnv,
