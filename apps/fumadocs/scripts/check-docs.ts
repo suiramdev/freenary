@@ -4,7 +4,6 @@ import { join, relative } from "node:path";
 
 import { icons } from "lucide-react";
 
-import { gitConfig, repoBlobUrl } from "../src/shared/config/site";
 import { isVersionId, NEXT_VERSION } from "../src/shared/lib/versions";
 import { getMDXComponents } from "../src/shared/ui/mdx";
 import {
@@ -28,6 +27,7 @@ import {
   STE_PARAGRAPH_SENTENCE_LIMIT,
   STE_WORD_SUBSTITUTIONS,
 } from "./docs-rules";
+import { indexOfMatchedText, MOVING_REFS } from "./moving-refs";
 
 type Severity = "error" | "warning";
 
@@ -296,43 +296,23 @@ const checkLinks = (
   }
 };
 
-const checkRepoLinksArePinned = (page: DocPage, report: Report) => {
-  const movingBranchLinkTarget = `](${repoBlobUrl(gitConfig.branch)}`;
-  let index = page.raw.indexOf(movingBranchLinkTarget);
+const checkMovingRefsArePinned = (page: DocPage, report: Report) => {
+  const folder = versionOf(page.relativePath);
 
-  while (index !== -1) {
-    report(
-      "error",
-      page.relativePath,
-      lineAt(page.raw, index),
-      "link",
-      `a repository link names \`${gitConfig.branch}\`. A released page pins it: \`/blob/v${versionOf(page.relativePath)}.0/\`, or whichever patch tag holds the code the page describes.`
-    );
+  for (const ref of MOVING_REFS) {
+    let index = page.raw.indexOf(ref.moving);
 
-    index = page.raw.indexOf(
-      movingBranchLinkTarget,
-      index + movingBranchLinkTarget.length
-    );
-  }
-};
+    while (index !== -1) {
+      report(
+        "error",
+        page.relativePath,
+        lineAt(page.raw, indexOfMatchedText(ref, index)),
+        ref.rule,
+        ref.message(folder)
+      );
 
-const checkVersionExamplesArePinned = (page: DocPage, report: Report) => {
-  const movingVersionExampleLine = "\nFREENARY_VERSION=main\n";
-  let index = page.raw.indexOf(movingVersionExampleLine);
-
-  while (index !== -1) {
-    report(
-      "error",
-      page.relativePath,
-      lineAt(page.raw, index + 1),
-      "version",
-      `\`FREENARY_VERSION=main\` names the moving branch. A released page pins it: \`FREENARY_VERSION=${versionOf(page.relativePath)}\`.`
-    );
-
-    index = page.raw.indexOf(
-      movingVersionExampleLine,
-      index + movingVersionExampleLine.length
-    );
+      index = page.raw.indexOf(ref.moving, index + ref.moving.length);
+    }
   }
 };
 
@@ -710,8 +690,7 @@ for (const page of pages) {
   if (versionOf(page.relativePath) === NEXT_VERSION) {
     checkAuthoredLanguage(page, report);
   } else {
-    checkRepoLinksArePinned(page, report);
-    checkVersionExamplesArePinned(page, report);
+    checkMovingRefsArePinned(page, report);
   }
 }
 
