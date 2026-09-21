@@ -10,11 +10,13 @@ export interface DevIdentity {
   webHost: string;
   serverHost: string;
   docsHost: string;
+  mailHost: string;
   corsOrigin: string;
   betterAuthUrl: string;
   viteServerUrl: string;
   cookieDomain: string;
   docsUrl: string;
+  mailUrl: string;
 }
 
 const DEFAULT_SLUG = "dev";
@@ -49,6 +51,7 @@ export const deriveDevIdentity = (input: DevIdentityInput): DevIdentity => {
   const webHost = `web.${slug}.${ORBSTACK_SUFFIX}`;
   const serverHost = `server.${slug}.${ORBSTACK_SUFFIX}`;
   const docsHost = `docs.${slug}.${ORBSTACK_SUFFIX}`;
+  const mailHost = `mail.${slug}.${ORBSTACK_SUFFIX}`;
   const parentDomainOfWebAndServerHosts = `.${slug}.${ORBSTACK_SUFFIX}`;
 
   return {
@@ -58,6 +61,8 @@ export const deriveDevIdentity = (input: DevIdentityInput): DevIdentity => {
     corsOrigin: `https://${webHost}`,
     docsHost,
     docsUrl: `https://${docsHost}`,
+    mailHost,
+    mailUrl: `https://${mailHost}`,
     serverHost,
     slug,
     viteServerUrl: `https://${serverHost}`,

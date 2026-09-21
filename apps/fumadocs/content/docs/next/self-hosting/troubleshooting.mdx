@@ -101,15 +101,14 @@ TRUSTED_PROXIES=10.0.0.1,10.0.0.0/24
 
 ## The server refuses the email configuration
 
-**What you see.** One of these three lines, and the process exits:
+**What you see.** One of these two lines, and the process exits:
 
 ```text
-EMAIL_PROVIDER=log prints one-time codes to the server log and is refused in production. Configure `resend` or `smtp`.
 EMAIL_PROVIDER=resend requires RESEND_API_KEY to be set.
 EMAIL_PROVIDER=smtp requires SMTP_HOST to be set.
 ```
 
-**Why.** The first line is the production rule: the `log` adapter prints codes instead of sending them. The other two mean a named adapter is half configured.
+**Why.** A named adapter is half configured. Each line states the adapter you chose and the variable that adapter still needs.
 
 **The fix.** Pick `resend` or `smtp`, and set every value that adapter needs. A stack missing both names `EMAIL_FROM` first, because the adapter checks it before its own values. [Email](/docs/self-hosting/email) holds both adapters.
 
@@ -223,16 +222,17 @@ A correct answer names `__Secure-better-auth.session_token`, with `SameSite=Lax`
 | Cause | What you see |
 | --- | --- |
 | `EMAIL_PROVIDER` unset | No code, no address confirmation, and no `Forgot password?` link |
-| `EMAIL_PROVIDER=log` in production | The server exits at startup with the refusal above |
 | A half-configured adapter | The server exits at startup and names the missing variable |
 
 **The fix.** Set `EMAIL_PROVIDER` to `resend` or `smtp`, with the values that adapter needs. [Email](/docs/self-hosting/email) holds both.
 
-**The check.** The `log` adapter prints each code, outside production alone:
+**The check.** Read the server log after a start:
 
 ```bash
-docker compose logs server | grep 'email:log'
+docker compose logs --tail 100 server
 ```
+
+A running server holds a complete adapter, because a missing variable stops the process at startup. For a refused message the log holds the provider answer, such as `Resend rejected the message (403): <body>`.
 
 ## The stack stops because `migrate` failed
 

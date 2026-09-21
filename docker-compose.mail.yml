@@ -1,0 +1,31 @@
+name: freenary
+
+# An SMTP transport for the development stack, with no mail account and no
+# console printing: Mailpit accepts every message and holds it in a web inbox.
+# `bun run dev:up --mail` layers this file over docker-compose.dev.yml. Without
+# it the stack configures no email provider, so Freenary hides the flows that
+# need one instead of offering them.
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.28
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    expose:
+      - "1025"
+    labels:
+      - dev.orbstack.domains=${MAIL_HOST:-mail.freenary.orb.local}
+      - dev.orbstack.http-port=8025
+    restart: unless-stopped
+
+  server:
+    environment:
+      EMAIL_PROVIDER: smtp
+      EMAIL_FROM: Freenary <no-reply@freenary.test>
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: false
+    depends_on:
+      mailpit:
+        condition: service_started

@@ -131,13 +131,23 @@ No router, no sync code and no web route changes.
 
 ### Add the environment variables
 
-Two edits in `packages/env/src/server.ts`. Add each credential with a Zod schema under the server key, `optional()` unless the adapter is mandatory. Then add your `id` to the `BANKING_PROVIDER` enum:
+Two edits in `packages/env/src/schema.ts`. Add each credential as a Zod schema, with a `.describe()` sentence and a `.meta()` block. Use `optional()` unless the adapter is mandatory. Then add your `id` to the `BANKING_PROVIDER` enum:
 
 ```ts
 BANKING_PROVIDER: z
   .enum(["powens", "enable-banking", "my-bank"])
-  .default("powens"),
+  .default("powens")
+  .describe(
+    "Picks the provider a new bank connection uses: `powens`, `enable-banking` or `my-bank`."
+  )
+  .meta({
+    example: "powens",
+    onError: "Any other value stops the start.",
+    section: "bank",
+  }),
 ```
+
+The `.meta()` block needs a `section`, an `example` and an `onError` note. `bun run env:check` refuses a key that misses one of the three.
 
 </Step>
 
@@ -153,16 +163,13 @@ Register the join of `CORS_ORIGIN` and your `callbackPath` at the provider as an
 
 <Step>
 
-### Add the compose entries and the operator note
+### Generate the operator reference
 
-Add one line per variable to the `x-app-env` anchor of `docker-compose.dev.yml`, in the `${VAR:-}` form the block already uses:
-
-```yaml
-MY_BANK_APP_ID: ${MY_BANK_APP_ID:-}
-MY_BANK_APP_SECRET: ${MY_BANK_APP_SECRET:-}
+```bash
+bun run env:sync
 ```
 
-`docker-compose.yml` needs no edit, because its `server` service loads the root `.env` with `env_file`. Then document each variable in `.env.example`, commented out, next to the two existing blocks.
+The generator writes `.env.example` and the tables of the [Configuration](/docs/self-hosting/configuration) reference from the schema. No compose file needs an edit. The development `server` service reads the optional root `.env` through `env_file`, and the production one does the same.
 
 </Step>
 

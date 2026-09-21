@@ -8,7 +8,6 @@ import type { EmailProvider } from "./types";
 
 const settings = (overrides: Partial<EmailSettings>): EmailSettings => ({
   from: undefined,
-  isProduction: false,
   provider: undefined,
   resendApiKey: undefined,
   smtpHost: undefined,
@@ -26,21 +25,6 @@ const failure = (
 describe("createEmailProvider", () => {
   test("reports no provider when none is named", () => {
     expect(Result.getOrThrow(createEmailProvider(settings({})))).toBeNull();
-  });
-
-  test("refuses the log adapter in production", () => {
-    const refused = createEmailProvider(
-      settings({ isProduction: true, provider: "log" })
-    );
-
-    expect(failure(refused).reason).toEqual({ kind: "refused-in-production" });
-    expect(() => Result.getOrThrow(refused)).toThrow(/refused in production/u);
-  });
-
-  test("allows the log adapter outside production", () => {
-    expect(
-      Result.getOrThrow(createEmailProvider(settings({ provider: "log" })))?.id
-    ).toBe("log");
   });
 
   test("refuses a named provider whose credentials are missing", () => {
