@@ -50,15 +50,17 @@ FREENARY_VERSION=main
 
 `BETTER_AUTH_SECRET` needs 32 characters or more. Compose stops before it creates a container when either secret is empty. It prints `Set POSTGRES_PASSWORD in .env` or `Set BETTER_AUTH_SECRET in .env`.
 
-`FREENARY_VERSION` names the tag of both images. Three kinds of tag exist in the registry:
+`FREENARY_VERSION` names the tag of both images. Five kinds of tag exist in the registry:
 
-| Tag                  | What it holds                                   |
-| -------------------- | ----------------------------------------------- |
-| `main`               | the code of the `main` branch, at its last push |
-| `dev`                | the code of the `dev` branch                    |
-| `sha-<7 characters>` | one commit of either branch                     |
+| Tag                  | What it holds                         |
+| -------------------- | ------------------------------------- |
+| `X.Y.Z`              | one release. The tag never moves      |
+| `X.Y`                | the newest patch of that release line |
+| `latest`             | the newest release                    |
+| `main` or `dev`      | that branch, at its last push         |
+| `sha-<7 characters>` | one commit                            |
 
-No `latest` tag exists, and `latest` is the fallback of the Compose file. An unset `FREENARY_VERSION` therefore fails the pull. Read [Updates](/docs/self-hosting/updates) for the tags that a release adds.
+`latest` is the fallback of the Compose file, and it moves at each release. Name the tag you want in `.env`. Read [Updates](/docs/self-hosting/updates) for what publishes each tag.
 
 </Step>
 

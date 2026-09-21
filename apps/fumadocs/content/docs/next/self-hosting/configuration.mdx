@@ -72,7 +72,7 @@ Fourteen configuration mistakes stop the stack instead of degrading it. Four are
 | `POSTGRES_PASSWORD` unset or empty | Compose, before any container | `Set POSTGRES_PASSWORD in .env` |
 | `BETTER_AUTH_SECRET` unset or empty | Compose, before any container | `Set BETTER_AUTH_SECRET in .env` |
 | No `.env` next to `docker-compose.yml` | Compose, on the `env_file` of `server` | Compose names the file it cannot find |
-| `FREENARY_VERSION` unset | the image pull | `not found`, because the registry holds no `latest` tag |
+| `FREENARY_VERSION` set to a tag the registry does not hold | the image pull | `not found` |
 | `BETTER_AUTH_SECRET` under 32 characters | the schema | the invalid-environment report above, then exit |
 | `PORT` with a character that is not a digit | the schema | `PORT must be a decimal number between 1 and 65535` |
 | `TRUSTED_PROXIES` with an IPv4-mapped entry | the schema | `write an IPv4-mapped address in its IPv4 form, e.g. 10.0.0.0/24` |
@@ -294,7 +294,7 @@ These variables configure the stack, not the application. No application code re
 | Variable | Default | What it does | Absent or wrong |
 | --- | --- | --- | --- |
 | `POSTGRES_PASSWORD` | none | The database password. It fills both the container password and the `DATABASE_URL` of `migrate` and `server`. | Compose refuses an unset or empty value. |
-| `FREENARY_VERSION` | `latest` | The tag of both published images. | The registry holds no `latest` tag, so an unset value fails the pull. The tags that exist are `main`, `dev` and `sha-<7 characters>`. A Release adds `X.Y.Z`, `X.Y`, `X` and `latest`. |
+| `FREENARY_VERSION` | `latest` | The tag of both published images. | An unset value falls back to `latest`, the newest release. A value that names no tag fails the pull with `not found`. The tags are `X.Y.Z`, `X.Y`, `X`, `latest`, `main`, `dev` and `sha-<7 characters>`. |
 | `SERVER_PORT` | `3000` | The host port of the API server. | — |
 | `WEB_PORT` | `3001` | The host port of the web app. | — |
 | `POSTGRES_PORT` | `5432` | The host port of PostgreSQL. Compose publishes `127.0.0.1:<POSTGRES_PORT>:5432`, so the loopback interface alone gets it. | — |

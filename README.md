@@ -27,8 +27,10 @@ Open `.env` and write these three lines:
 ```dotenv
 POSTGRES_PASSWORD=<the first value>
 BETTER_AUTH_SECRET=<the second value>
-FREENARY_VERSION=main
+FREENARY_VERSION=latest
 ```
+
+`latest` is the newest release. Pin a version such as `0.1` for an instance you keep; the [Releases](https://github.com/suiramdev/freenary/releases) page lists them.
 
 ### 3. Set up the bank provider
 

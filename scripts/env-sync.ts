@@ -159,11 +159,11 @@ const EXTERNAL: ExternalVariable[] = [
     description: "The tag of both published images.",
     envFile: "required",
     envFileSection: "images",
-    example: "main",
+    example: "latest",
     kind: "compose",
     name: "FREENARY_VERSION",
     onError:
-      "The registry holds no `latest` tag, so an unset value fails the pull. The tags that exist are `main`, `dev` and `sha-<7 characters>`. A Release adds `X.Y.Z`, `X.Y`, `X` and `latest`.",
+      "An unset value falls back to `latest`, the newest release. A value that names no tag fails the pull with `not found`. The tags are `X.Y.Z`, `X.Y`, `X`, `latest`, `main`, `dev` and `sha-<7 characters>`.",
   },
   {
     default: "`3000`",

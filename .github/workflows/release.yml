@@ -3,8 +3,9 @@ name: Release
 # Cuts a release from main: tags vX.Y.Z, publishes the versioned images, then
 # opens a GitHub release with generated notes. Run it from the Actions tab.
 #
-# Day to day, pull requests land on dev, which publishes the `dev` images.
-# A release is dev merged into main, then this workflow.
+# A stable release needs `apps/fumadocs/content/docs/X.Y` in the tree already,
+# which a pull request to dev writes with `bun run docs:snapshot X.Y.Z`. Merge
+# that, merge dev into main, then run this workflow from main.
 
 on:
   workflow_dispatch:
@@ -17,6 +18,7 @@ on:
 permissions:
   contents: write
   packages: write
+  pull-requests: read
 
 jobs:
   tag:
@@ -54,18 +56,7 @@ jobs:
             exit 1
           fi
 
-      - name: Find the previous release
-        id: previous
-        run: echo "tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_OUTPUT"
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      # The documentation site serves one folder per release. The snapshot has
-      # to be in the tree the tag names, so it happens before the tag.
-      - name: Snapshot the documentation
-        id: docs
+      - name: Refuse a release without its documentation snapshot
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -73,20 +64,15 @@ jobs:
             echo "Pre-release: the documentation stays on next"
             exit 0
           fi
-          echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
-          cd apps/fumadocs && bun scripts/snapshot-version.ts "$VERSION"
-
-      - name: Commit the snapshot
-        env:
-          MINOR: ${{ steps.docs.outputs.minor }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ -n "$(git status --porcelain apps/fumadocs/content/docs)" ]]; then
-            git add apps/fumadocs/content/docs
-            git commit -m "docs: snapshot $MINOR"
-            git push origin HEAD:main
+          folder="apps/fumadocs/content/docs/${VERSION%.*}"
+          if [[ ! -d "$folder" ]]; then
+            echo "$folder is missing. Run 'cd apps/fumadocs && bun run docs:snapshot $VERSION' in a pull request to dev, merge it into main, then release." >&2
+            exit 1
           fi
+
+      - name: Find the previous release
+        id: previous
+        run: echo "tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_OUTPUT"
 
       - name: Tag
         env:
@@ -129,7 +115,16 @@ jobs:
             echo "Both for linux/amd64 and linux/arm64. \`FREENARY_VERSION=$VERSION\` in \`.env\` pins a stack to them."
             echo
           } > /tmp/notes.md
-          args=(--title "Freenary $VERSION" --notes-file /tmp/notes.md --generate-notes)
-          [[ -n "$PREVIOUS" ]] && args+=(--notes-start-tag "$PREVIOUS")
-          [[ "$VERSION" == *-* ]] && args+=(--prerelease)
+          args=(--title "Freenary $VERSION" --notes-file /tmp/notes.md --verify-tag)
+          if [[ -n "$PREVIOUS" ]]; then
+            args+=(--generate-notes --notes-start-tag "$PREVIOUS")
+          else
+            {
+              echo "## What's Changed"
+              echo
+              gh pr list --state merged --limit 1000 --json number,title,author,url \
+                --jq 'sort_by(.number)[] | select(.title | startswith("Merge ") | not) | "- \(.title) by @\(.author.login) in \(.url)"'
+            } >> /tmp/notes.md
+          fi
+          if [[ "$VERSION" == *-* ]]; then args+=(--prerelease); else args+=(--latest); fi
           gh release create "v$VERSION" "${args[@]}"
