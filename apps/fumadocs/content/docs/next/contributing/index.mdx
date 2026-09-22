@@ -138,19 +138,19 @@ bun run fix     # ultracite fix, writes the fixes
 bun run check   # ultracite check, reports only
 ```
 
-Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format. On top of them, the repository enables the `@jliocsar/begone-slop` preset, which adds 37 rules at `error`. A TypeScript lint config needs Bun or Node 22.18 and newer, so run `bunx --bun oxlint` when you call Oxlint directly.
+Both skip Turborepo and cover the whole repository. Ultracite wraps two tools: Oxlint for the rules and Oxfmt for the format. On top of them, the repository enables the `oxslop` plugin, which adds 39 rules at `error`. A TypeScript lint config needs Bun or Node 22.18 and newer, so run `bunx --bun oxlint` when you call Oxlint directly.
 
 | File | What it sets |
 | --- | --- |
-| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the `@jliocsar/begone-slop` preset. Loads the begone-slop and `@shadcn/lint` plugins through `jsPlugins`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
-| `apps/fumadocs/.oxlintrc.json` | Extends the same begone-slop preset through a relative path, because Oxlint resolves `extends` against the config file and refuses a package name. Loads the same two plugins, because the `lint` script of this application reads this file. |
+| `oxlint.config.ts` | Extends the Ultracite `core`, `react` and `tanstack` presets and the fragment that `oxslop/config` builds. That fragment carries the oxslop plugin, its rules and its test-file overrides. Loads the `@shadcn/lint` plugin through `jsPlugins`. Ignores `packages/ui/**` and `apps/web/src/paraglide/**`. |
+| `apps/fumadocs/.oxlintrc.json` | Extends the `presets/all.json` file of oxslop through a relative path, because Oxlint resolves `extends` against the config file and refuses a package name. Loads `@shadcn/lint` as well, because the `lint` script of this application reads this file. |
 | `oxfmt.config.ts` | Spreads the Ultracite format config. It does not ignore `packages/ui/**`, so Oxfmt formats that package and Oxlint does not lint it. |
 
 `@shadcn/lint` is a design-system linter for Tailwind. It reads the components, the variants and the theme of the project. An error from it can therefore name the size, the token or the file to use instead. The repository registers the plugin and enables no rule of it yet.
 
 `settings.shadcn.componentImports` declares the `@/shared/ui` alias that both applications use for their own compositions. `apps/web/components.json` supplies the rest: the primitives in `@freenary/ui/components`, and the theme in `packages/ui/src/styles/globals.css`. To switch a rule on, read its [rule list](https://github.com/shadcn-ui/lint/blob/main/README.md#rules). The [configuration examples](https://github.com/shadcn-ui/lint/blob/main/docs/design-systems.md) show contracts and custom messages. A rule must stay off for `packages/ui`, because the components there are the design system.
 
-Four of the added rules change how the code is written. `no-comments` rejects every comment except a `SAFETY:` justification and a tooling directive. A name therefore carries what a comment used to say. `no-try-catch` and `no-switch` send failure handling and dispatch to Effect. `statement-order` fixes the order of the declarations in a module.
+Four of the added rules change how the code is written. `no-comments` rejects every comment except a `SAFETY:` justification and a tooling directive. A name therefore carries what a comment used to say. `no-try-catch` and `no-switch` send failure handling and dispatch to Effect. `no-vague-identifiers` refuses a placeholder name such as `data` or `result`.
 
 A comment therefore never holds a fact. `docs/engineering/` in the repository holds one file per area. Each bullet names the file and the symbol it belongs to. Read the file for the area you change, and add to it when the code cannot state what you learned.
 

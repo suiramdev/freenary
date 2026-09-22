@@ -67,8 +67,8 @@ const buildPlugins = (): BetterAuthPlugin[] => {
         expiresIn: OTP_EXPIRY_SECONDS,
         otpLength: OTP_LENGTH,
         overrideDefaultEmailVerification: true,
-        sendVerificationOTP: (data) =>
-          sendOtpEmail(data.email, data.otp, data.type),
+        sendVerificationOTP: (request) =>
+          sendOtpEmail(request.email, request.otp, request.type),
         storeOTP: "hashed",
       })
     );

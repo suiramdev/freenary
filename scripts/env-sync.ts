@@ -30,14 +30,18 @@ interface Section {
 
 const ENV_EXAMPLE_FILE = ".env.example";
 const GENERATOR_FILE = "scripts/env-sync.ts";
+
 const CONFIGURATION_PAGE =
   "apps/fumadocs/content/docs/next/self-hosting/configuration.mdx";
+
 const REPOSITORY_BLOB = "https://github.com/suiramdev/freenary/blob/main";
+
 const COMPOSE_FILES = [
   "docker-compose.yml",
   "docker-compose.dev.yml",
   "docker-compose.mail.yml",
 ];
+
 const SOURCE_GLOBS = [
   "apps/*/src/**/*.{ts,tsx}",
   "apps/*/scripts/**/*.ts",
@@ -47,12 +51,17 @@ const SOURCE_GLOBS = [
   "packages/*/*.config.ts",
   "scripts/**/*.ts",
 ];
+
 const SOURCE_EXCLUDED = /\/(?:node_modules|dist|paraglide|routeTree\.gen)\//u;
+
 const ENV_READ =
   /(?:process|Bun)\.env(?:\.(?<dot>[A-Z][A-Z0-9_]*)|\[["'](?<bracket>[A-Z][A-Z0-9_]*)["']\])/gu;
+
 const COMPOSE_INTERPOLATION = /\$\{(?<name>[A-Z][A-Z0-9_]*)/gu;
+
 const MARKER =
   /\{\/\* env-sync:start (?<id>[a-z-]+) \*\/\}[\s\S]*?\{\/\* env-sync:end \*\/\}/gu;
+
 const TABLE_CELL_PIPE = /\|/gu;
 const BLANK_RUN = /\n{3,}/gu;
 const YAML_FILE = /\.ya?ml$/u;
@@ -642,6 +651,7 @@ const main = async (): Promise<number> => {
       changed ? CONFIGURATION_PAGE : null
     ),
   ]);
+
   const written = outcomes.filter((file) => file !== null);
 
   for (const message of new Set(failures)) {

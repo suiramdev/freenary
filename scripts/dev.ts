@@ -20,10 +20,11 @@ const readWorktreeEnvFile = Option.liftThrowable((file: string): string =>
 );
 
 const readBranch = (): string | null => {
-  const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+  const revParse = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     encoding: "utf-8",
   });
-  const ref = result.status === 0 ? result.stdout.trim() : "";
+
+  const ref = revParse.status === 0 ? revParse.stdout.trim() : "";
   const isDetachedHead = ref === DETACHED_HEAD_REF;
 
   return ref && !isDetachedHead ? ref : null;
@@ -50,16 +51,16 @@ const readEnvOverride = (key: string): string | null => {
 };
 
 const compose = (args: string[], env: typeof process.env): number => {
-  const result = spawnSync("docker", ["compose", ...args], {
+  const composed = spawnSync("docker", ["compose", ...args], {
     env,
     stdio: "inherit",
   });
 
-  if (result.error) {
-    process.stderr.write(`${result.error.message}\n`);
+  if (composed.error) {
+    process.stderr.write(`${composed.error.message}\n`);
   }
 
-  return result.status ?? SPAWN_FAILURE_EXIT_CODE;
+  return composed.status ?? SPAWN_FAILURE_EXIT_CODE;
 };
 
 const main = (): number => {

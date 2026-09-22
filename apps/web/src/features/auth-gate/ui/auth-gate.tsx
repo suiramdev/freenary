@@ -49,6 +49,7 @@ export const AuthGate = ({ audience, children }: AuthGateProps) => {
     from: "__root__",
     select: (context) => context.viewer,
   });
+
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
   const status = useQuery(

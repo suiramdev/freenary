@@ -92,6 +92,7 @@ if (!folder) {
   console.error(
     `Not a release version: ${version ?? "(none)"} (expected X.Y.Z, such as 1.2.0)`
   );
+
   process.exit(1);
 }
 
@@ -123,13 +124,14 @@ if (await exists(target)) {
 }
 
 const folders = (await readdir(CONTENT_DIR, { withFileTypes: true }))
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
+  .flatMap((entry) => (entry.isDirectory() ? [entry.name] : []))
   .sort(compareVersionIds);
 
 const versionList = join(CONTENT_DIR, VERSION_LIST_FILE);
 const root = await readNavMeta(versionList);
+
 root.pages = folders;
+
 await writeNavMeta(versionList, root);
 
 console.log(`Versions: ${folders.join(", ")}.`);

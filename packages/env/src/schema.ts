@@ -521,10 +521,11 @@ export const serverEnvSchema = {
     .string()
     .optional()
     .transform((value) =>
-      value
-        ?.split(",")
-        .map((entry) => entry.trim())
-        .filter((entry) => entry.length > 0)
+      value?.split(",").flatMap((entry) => {
+        const trimmed = entry.trim();
+
+        return trimmed.length > 0 ? [trimmed] : [];
+      })
     )
     .pipe(
       z

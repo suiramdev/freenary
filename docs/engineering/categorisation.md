@@ -1,6 +1,6 @@
 # Transaction categorisation
 
-Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `begone-slop/no-comments` rule was adopted.
+Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `no-comments` rule was adopted.
 
 The contributor-facing overview of the pipeline — the stages, their confidence values, the artifact fields, the classifier and its cache — is [Transaction categorisation](../../apps/fumadocs/content/docs/next/contributing/categorisation.mdx); the dictionary build and its sources are `packages/api/data/README.md`. What follows is only what those two omit.
 

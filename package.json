@@ -69,12 +69,12 @@
   },
   "devDependencies": {
     "@freenary/config": "workspace:*",
-    "@jliocsar/begone-slop": "^0.1.4",
     "@shadcn/lint": "^0.1.1",
     "@types/bun": "catalog:",
     "lefthook": "latest",
     "oxfmt": "latest",
     "oxlint": "latest",
+    "oxslop": "^0.1.1",
     "turbo": "^2.10.7",
     "typescript": "catalog:",
     "ultracite": "7.10.6"

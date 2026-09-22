@@ -50,8 +50,8 @@ const LITERAL_NEWLINE_ESCAPE = "\\n";
 const LONGEST_HISTORY_STRATEGY = "longest";
 const NOT_FOUND = 404;
 
-const base64url = (data: Buffer | string): string => {
-  const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+const base64url = (payload: Buffer | string): string => {
+  const buf = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
 
   return buf.toString("base64url");
 };
@@ -60,6 +60,7 @@ const createJwt = (appId: string, privateKey: string): string => {
   const header = base64url(
     JSON.stringify({ alg: "RS256", kid: appId, typ: "JWT" })
   );
+
   const issuedAt = Math.floor(Date.now() / MILLISECONDS_PER_SECOND);
   const payload = base64url(
     JSON.stringify({
@@ -335,5 +336,7 @@ export const fetchTransactionPages = Effect.fn(
 
 export type EBCreditorIdentification =
   typeof EBCreditorIdentificationSchema.Type;
+
 export type EBTransaction = typeof EBTransactionSchema.Type;
+
 export type EBCompletedConnection = typeof EBCompletedConnectionSchema.Type;
