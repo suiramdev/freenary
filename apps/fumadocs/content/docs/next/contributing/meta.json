@@ -9,6 +9,7 @@
     "data-model",
     "categorisation",
     "bank-provider",
+    "dependencies",
     "writing-docs",
     "releasing"
   ]

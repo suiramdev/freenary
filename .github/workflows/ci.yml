@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [dev, main]
+  # .github/workflows/renovate-lockfile.yml calls this after it commits
+  # bun.lock: a push it makes with GITHUB_TOKEN starts no workflow of its own,
+  # and dispatch is what GitHub exempts from that rule.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}

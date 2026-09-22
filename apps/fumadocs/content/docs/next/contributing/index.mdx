@@ -70,7 +70,7 @@ One line separates them. The containerised path runs every part in Docker, behin
 
 ## The checks before a pull request
 
-`.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
+`.github/workflows/ci.yml` declares two jobs, `ci` and `compose`. GitHub starts both on every pull request, and on every push to `dev` and `main`. The file also declares `workflow_dispatch`, which [Dependency updates](/docs/contributing/dependencies) explains. The `ci` timeout is 10 minutes and the `compose` timeout is 5 minutes.
 
 The `ci` job runs seven commands. Run the same seven before you open a pull request:
 
@@ -267,6 +267,12 @@ Each workspace states its own rules next to its code:
   title="Local development stack"
   href="/docs/contributing/local-stack"
   description="The five services, the hostnames, the database commands and the resets."
+/>
+
+<Card
+  title="Dependency updates"
+  href="/docs/contributing/dependencies"
+  description="What Renovate watches, what it automerges, and why the Bun catalog needs a second job."
 />
 
 <Card
