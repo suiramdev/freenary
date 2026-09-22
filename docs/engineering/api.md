@@ -1,6 +1,6 @@
 # API package
 
-Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `begone-slop/no-comments` rule was adopted.
+Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `no-comments` rule was adopted.
 
 The reader-facing contracts live in the documentation site and are not repeated here: [`contributing/bank-provider.mdx`](../../apps/fumadocs/content/docs/next/contributing/bank-provider.mdx) owns the `BankingProvider` boundary, and [`integrations/`](../../apps/fumadocs/content/docs/next/integrations) owns the public route surface, the caps and the error codes.
 

@@ -146,9 +146,9 @@ Once an integration is implemented and smoke-tested, the owning agent runs the `
 
 ---
 
-# Code Standards: Ultracite and begone-slop
+# Code Standards: Ultracite and oxslop
 
-This project runs **Ultracite** (Oxlint + Oxfmt) for the general standard, and the **`@jliocsar/begone-slop`** preset on top of it. `oxlint.config.ts` extends the Ultracite `core`, `react` and `tanstack` presets and the begone-slop `preset.json`, and loads the plugin through `jsPlugins`. All 37 begone-slop rules are `error`. `apps/fumadocs` is a standalone app with its own `.oxlintrc.json`, which extends the same preset.
+This project runs **Ultracite** (Oxlint + Oxfmt) for the general standard, and the **`oxslop`** plugin on top of it. `oxlint.config.ts` extends the Ultracite `core`, `react` and `tanstack` presets and the fragment that `oxslop({ strict: true })` returns from `oxslop/config`, which carries the plugin, the rules and the test-file overrides. All 39 oxslop rules are `error`, across its four groups — `core`, `effect`, `style` and `testing`. `apps/fumadocs` is a standalone app with its own `.oxlintrc.json`, which extends `presets/all.json` instead, because Oxlint resolves `extends` against the config file and JSON takes no function call.
 
 ## Quick Reference
 
@@ -157,7 +157,7 @@ This project runs **Ultracite** (Oxlint + Oxfmt) for the general standard, and t
 - **Lint under Bun** (a TypeScript config needs Bun or Node 22.18+): `bunx --bun oxlint`
 - **Diagnose setup**: `bun x ultracite doctor`
 
-Most formatting issues fix themselves. The begone-slop rules mostly do not: `no-comments`, `statement-order`, `no-try-catch` and `no-switch` are hand work.
+Most formatting issues fix themselves, and so do `require-readable-spacing`, `expect-padding` and `prefer-option-from-nullable`, the three oxslop rules that carry a fix. The rest do not: `no-comments`, `no-vague-identifiers`, `no-array-filter-map`, `no-try-catch` and `no-switch` are hand work.
 
 ---
 
@@ -207,9 +207,9 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 ### Error Handling & Debugging
 
 - Remove `console.log`, `debugger`, and `alert` statements from production code
-- `begone-slop/no-try-catch` bans `try`/`catch` and `try`/`finally`. Model the failure instead — see the Effect section below
+- `oxslop/no-try-catch` bans `try`/`catch` and `try`/`finally`. Model the failure instead — see the Effect section below
 - Prefer early returns over nested conditionals for error cases
-- `begone-slop/no-silent-error-swallow` bans a handler that discards the error; carry it in the error channel or log it with its cause
+- `oxslop/no-silent-error-swallow` bans a catch handler that ignores the error and returns `Effect.void` or an empty success; carry it in the error channel, or log it with `Effect.logWarning` and name the error parameter
 
 ### Code Organization
 
@@ -221,11 +221,11 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 
 ### Code Comments: There Are Almost None
 
-`begone-slop/no-comments` rejects every comment except a `SAFETY:` justification, a tooling directive (`@ts-expect-error`, `oxlint-disable`, `eslint-disable`, `c8`, `istanbul`), a `/// <reference …>` and a shebang. JSDoc is not exempt.
+`oxslop/no-comments` rejects every comment except a `SAFETY:` justification, a tooling directive (`@ts-`, `oxlint-`, `eslint-`, `biome-`, `prettier-`, `c8 `, `v8 `, `istanbul `, `#region`, `#endregion`), a `/// <reference …>`, a `/*! … */` licence banner, a `/* @__PURE__ */` annotation and a shebang. JSDoc is exempt in oxslop by default; `oxlint.config.ts` passes `allowJsdoc: false`, so it is not exempt here.
 
 - **The code carries the meaning.** A name that needs a sentence beside it is the wrong name. Rename the symbol, name the intermediate value, extract a named function, tighten the type, or turn the literal into a named constant.
 - **Durable knowledge goes in a document.** A vendor's documented quirk, a protocol constraint, a measured number's provenance: [`docs/engineering/`](docs/engineering) holds one file per area (`web-ui`, `web-app`, `api`, `categorisation`, `data-pipeline`, `platform`), keyed by `path › symbol`; a package's `AGENTS.md` holds a rule contributors need; `apps/fumadocs` holds anything a reader needs. `docs/engineering/platform.md` also records the oxlint rule interactions that bite when writing Effect here.
-- **`SAFETY:` is only for an assertion.** It states the invariant that makes one `as` sound, immediately before the assertion or its statement. Never write one to smuggle prose past the rule, and never add an `oxlint-disable` for `no-comments`.
+- **`SAFETY:` is only for an assertion.** It states the invariant that makes one `as` sound. `oxslop/require-safety-comment-for-type-assertion` reads it only on a line the assertion itself spans, or directly above the whole statement the assertion sits in — not above an object property or a JSX attribute in the middle of one. Where that reads badly, bind the assertion to a named `const` and put the justification above it. Never write one to smuggle prose past the rule, and never add an `oxlint-disable` for `no-comments`.
 
 ### Security
 

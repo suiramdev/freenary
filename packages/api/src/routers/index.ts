@@ -21,5 +21,7 @@ export const appRouter = {
   })),
   settings: settingsRouter,
 };
+
 export type AppRouter = typeof appRouter;
+
 export type AppRouterClient = RouterClient<typeof appRouter>;

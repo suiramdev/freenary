@@ -46,8 +46,10 @@ export class PowensRequestFailed extends Data.TaggedError(
 }
 
 const DOMAIN_SUFFIX = /\.biapi\.pro\/?$/u;
+
 const POWENS_UTC_DATETIME =
   /^(?<date>\d{4}-\d{2}-\d{2})[ T](?<time>\d{2}:\d{2}:\d{2})/u;
+
 const API_PATH = "/2.0";
 const NOT_FOUND = 404;
 const MAX_TRANSACTIONS_PER_PAGE = 1000;
@@ -364,6 +366,7 @@ export const fetchTransactionPages = Effect.fn("powens.fetchTransactionPages")(
       "transactions",
       `/users/me/accounts/${encodeURIComponent(accountId)}/transactions?limit=${MAX_TRANSACTIONS_PER_PAGE}&last_update=${encodeURIComponent(lastUpdate)}`
     );
+
     let nextPage: string | undefined = firstPage;
 
     while (nextPage) {
@@ -383,11 +386,19 @@ export const fetchTransactionPages = Effect.fn("powens.fetchTransactionPages")(
 );
 
 export type PowensCurrency = typeof PowensCurrencySchema.Type;
+
 export type PowensConnector = typeof PowensConnectorSchema.Type;
+
 export type PowensAccountType = typeof PowensAccountTypeSchema.Type;
+
 export type PowensAccount = typeof PowensAccountSchema.Type;
+
 export type PowensConnection = typeof PowensConnectionSchema.Type;
+
 export type PowensCounterparty = typeof PowensCounterpartySchema.Type;
+
 export type PowensTransaction = typeof PowensTransactionSchema.Type;
+
 export type PowensInvestment = typeof PowensInvestmentSchema.Type;
+
 type PowensTransactionPage = typeof PowensTransactionPageSchema.Type;

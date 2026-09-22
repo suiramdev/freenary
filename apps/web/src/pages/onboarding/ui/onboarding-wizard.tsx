@@ -43,6 +43,7 @@ const STEP_LABEL_FNS = [
   m.onboarding_step_country,
   m.onboarding_step_bank,
 ] as const satisfies readonly (() => string)[];
+
 const STEP_LABEL_FNS_WITHOUT_BANKING = [
   m.onboarding_step_country,
 ] as const satisfies readonly (() => string)[];

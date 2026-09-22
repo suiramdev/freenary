@@ -31,6 +31,7 @@ const rpcHandler = new RPCHandler(appRouter, {
     }),
   ],
 });
+
 const apiHandler = new OpenAPIHandler(appRouter, {
   interceptors: [
     // eslint-disable-next-line promise/prefer-await-to-callbacks -- oRPC interceptor API uses callback pattern

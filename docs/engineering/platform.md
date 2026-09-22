@@ -1,6 +1,6 @@
 # Platform
 
-Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `begone-slop/no-comments` rule was adopted.
+Durable facts that the code cannot carry in a name. Each bullet names the module it belongs to. Source: comments deleted when the `no-comments` rule was adopted.
 
 ## Environment and email
 
@@ -83,6 +83,7 @@ Durable facts that the code cannot carry in a name. Each bullet names the module
 - `eslint(max-classes-per-file)` allows 1 — `ultracite/oxlint/core` sets it with no option, so the eslint default stands. A module therefore carries at most one tagged error, and a boundary with several failure modes gives that error a `reason` union instead of a class each: see `packages/email/src/registry.ts › EmailProviderUnavailableReason`.
 - `eslint(sort-keys)` orders `catch` before `try` in `Effect.try` and `Effect.tryPromise`, so the handler is written above the body it handles (`packages/api/scripts/download-data.ts`). The rule is switched off only under `**/routes/**` by `ultracite/oxlint/tanstack`, where route option types are order-sensitive; everywhere else, sorting wins.
 - `eslint(func-names)` rejects an unnamed generator expression, so an `Effect.fn` or `Effect.fnUntraced` body must be a named `function*` (`packages/api/scripts/download-data.ts › extractIntoPackage`).
-- `begone-slop/statement-order` requires constants before variables, while `eslint(no-use-before-define)` requires a declaration before its first reference. A module-level `let` read by a top-level `const` function satisfies neither, so the linted source contains no module-level `let` at all; a cache belongs inside its owner or in a `Map` constant.
-- `begone-slop/no-comments` exempts the `SAFETY:` line itself and nothing after it, so a justification split over two `//` lines fails on the continuation line. A multi-line justification has to be one `/* … */` block.
+- `oxslop/no-comments` exempts the `SAFETY:` line itself and nothing after it, so a justification split over two `//` lines fails on the continuation line. A multi-line justification has to be one `/* … */` block.
+- `oxslop/require-safety-comment-for-type-assertion` reads a `SAFETY:` comment only on a line the assertion spans, or directly above the statement that holds it. A justification above an object property, a JSX attribute or an expression body inside a longer statement does not count, and `eslint(no-inline-comments)` rules out putting it after the assertion. Bind the assertion to its own `const` and justify that (`packages/api/src/routers/budget.ts › recategoriseTransactions`).
+- `oxslop/no-array-filter-map` rejects `filter` next to `map` in either order. A single `flatMap` returning `[value]` or `[]` replaces both passes; the lazy `values().filter().map().toArray()` form also passes the rule, but iterator helpers are newer than the browsers `apps/web` targets.
 - `jsx-a11y/control-has-associated-label` walks two element levels looking for a control's text: `<button><span>Save</span></button>` passes, and one more wrapper around the text does not. Label text nested deeper needs an explicit `aria-label`.

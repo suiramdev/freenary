@@ -53,16 +53,20 @@ const GUIDES_FOLDER = "guides";
 const VERSION_LIST_FILE = "meta.json";
 const REQUIRED_FRONTMATTER_FIELDS = ["title", "description", "icon"];
 const PAGE_OR_META_FILE = /\.(?:mdx|json)$/;
+
 const NON_PAGE_META_ENTRY =
   /^(?:---.*---|\.\.\..*|!.+|(?:external:)?\[.*\]\(.*\))$/;
+
 const META_ENTRY_PREFIX = /^\.\//;
 const PAGE_EXTENSION = /\.mdx$/;
 const TRAILING_SLASH = /\/$/;
 const SENTENCE_TRAILING_MARKUP = '[*_`")\\]]{0,2}';
 const SENTENCE_OPENING_MARKUP = "[*_`\"'[(A-Z]";
+
 const SENTENCE_SPLIT = new RegExp(
   `(?<=[.!?]${SENTENCE_TRAILING_MARKUP})\\s+(?=${SENTENCE_OPENING_MARKUP})`
 );
+
 const PARAGRAPH_SPLIT = /\n[ \t]*\n/;
 const MARKDOWN_TABLE_ROW = /^[ \t]*\|/;
 const LIST_ITEM = /^[ \t]*(?:[-*+]|\d+\.)\s/;
@@ -165,6 +169,7 @@ const checkFences = (page: DocPage, report: Report) => {
         "code-fence",
         "the fence names no language. Name a Shiki language on every fence."
       );
+
       continue;
     }
 
@@ -173,6 +178,7 @@ const checkFences = (page: DocPage, report: Report) => {
         fence.language === "env"
           ? " Write `dotenv` for an environment file."
           : "";
+
       report(
         "error",
         page.relativePath,
@@ -180,6 +186,7 @@ const checkFences = (page: DocPage, report: Report) => {
         "code-fence",
         `\`${fence.language}\` is not one of the languages this site uses.${hint}`
       );
+
       continue;
     }
 
@@ -230,6 +237,7 @@ const checkLinks = (
         "link",
         `\`${target}\` is a relative file link. Write the absolute site path, without an extension.`
       );
+
       continue;
     }
 
@@ -254,6 +262,7 @@ const checkLinks = (
           .slice(1)
           .join("/")}\`, which resolves inside the version the reader is on.`
       );
+
       continue;
     }
 
@@ -271,6 +280,7 @@ const checkLinks = (
         "link",
         `\`${target}\` resolves to no page.`
       );
+
       continue;
     }
 
@@ -298,6 +308,7 @@ const checkRepoLinksArePinned = (page: DocPage, report: Report) => {
       "link",
       `a repository link names \`${gitConfig.branch}\`. A released page pins it: \`/blob/v${versionOf(page.relativePath)}.0/\`, or whichever patch tag holds the code the page describes.`
     );
+
     index = page.raw.indexOf(
       movingBranchLinkTarget,
       index + movingBranchLinkTarget.length
@@ -317,6 +328,7 @@ const checkVersionExamplesArePinned = (page: DocPage, report: Report) => {
       "version",
       `\`FREENARY_VERSION=main\` names the moving branch. A released page pins it: \`FREENARY_VERSION=${versionOf(page.relativePath)}\`.`
     );
+
     index = page.raw.indexOf(
       movingVersionExampleLine,
       index + movingVersionExampleLine.length
@@ -342,6 +354,7 @@ const checkMeta = (
     const tail = page.relativePath
       .slice(prefix.length)
       .replace(PAGE_EXTENSION, "");
+
     const [head, ...rest] = tail.split("/");
 
     if (rest.length === 0) {
@@ -415,6 +428,7 @@ const checkPhrases = (page: DocPage, report: Report) => {
         rule,
         message(match[0])
       );
+
       match = pattern.exec(maskedProse);
     }
   };
@@ -615,6 +629,7 @@ const checkVersions = async (
         "version",
         `\`${entry.name}\` is not a version. A folder under content/docs is \`${NEXT_VERSION}\` or \`X.Y\`.`
       );
+
       continue;
     }
 
@@ -640,6 +655,7 @@ const checkVersions = async (
         "version",
         `\`${entry.name}\` has no meta.json.`
       );
+
       continue;
     }
 
@@ -679,6 +695,7 @@ if (pages.length === 0) {
   console.error(
     `No .mdx pages under ${CONTENT_DIR}. Run this from apps/fumadocs.`
   );
+
   process.exit(1);
 }
 
@@ -729,6 +746,7 @@ for (const [index, finding] of findings.entries()) {
 const errors = findings.filter(
   (finding) => finding.severity === "error"
 ).length;
+
 const warnings = findings.length - errors;
 
 console.log(

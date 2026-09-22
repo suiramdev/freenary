@@ -100,9 +100,11 @@ describe("deriveDevIdentity host shapes", () => {
     expect(id.betterAuthUrl).toBe(
       "https://server.feat-projects.freenary.orb.local"
     );
+
     expect(id.viteServerUrl).toBe(
       "https://server.feat-projects.freenary.orb.local"
     );
+
     expect(id.docsHost).toBe("docs.feat-projects.freenary.orb.local");
     expect(id.docsUrl).toBe("https://docs.feat-projects.freenary.orb.local");
     expect(id.mailHost).toBe("mail.feat-projects.freenary.orb.local");
