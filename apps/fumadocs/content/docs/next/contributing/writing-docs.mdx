@@ -62,7 +62,7 @@ To freeze a version by hand:
 cd apps/fumadocs && bun run docs:snapshot 1.2.0
 ```
 
-The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins each repository link in the copy to the release tag. It also pins each `FREENARY_VERSION=main` line in the copy to `X.Y`.
+The script takes the release version and freezes it as the `1.2` folder. It refuses anything else, and it leaves the pages alone when the folder exists. It labels the copy and adds it to the root `meta.json`, which orders the version dropdown. It also pins every moving reference in the copy. A repository link and a download URL take the release tag, and a `FREENARY_VERSION=main` line takes `1.2`. `docs:check` fails a frozen page that still holds one of the three moving forms.
 
 ## The five steps
 
@@ -243,6 +243,8 @@ The array also accepts four special entries: `"---Separator---"`, `"..."`, `"!sl
 | A link that names a version | Passes | Fails |
 | A version folder with no `"root": true`, or a stale title | Passes, drops out of the dropdown | Fails |
 | A `blob/main` repository link inside a frozen version | Passes | Fails |
+| A `raw.githubusercontent.com` download URL that names `main`, inside a frozen version | Passes | Fails |
+| A `FREENARY_VERSION=main` line inside a frozen version | Passes | Fails |
 | A command or a variable inside `guides/` | Passes | Fails |
 | A contraction, a banned word, a plan | Passes | Fails |
 | A sentence over 25 words | Passes | Fails |

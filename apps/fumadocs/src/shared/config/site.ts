@@ -10,3 +10,6 @@ export const gitConfig = {
 
 export const repoBlobUrl = (ref: string) =>
   `https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${ref}/`;
+
+export const repoRawUrl = (ref: string) =>
+  `https://raw.githubusercontent.com/${gitConfig.user}/${gitConfig.repo}/${ref}/`;

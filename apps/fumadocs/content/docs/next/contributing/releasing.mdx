@@ -74,7 +74,7 @@ A maintainer runs it by hand:
 
 ### Snapshot the documentation
 
-On a branch from `dev`, run `cd apps/fumadocs && bun run docs:snapshot X.Y.Z`, then open a pull request against `dev` and merge it. A pre-release skips this step.
+On a branch from `dev`, run `cd apps/fumadocs && bun run docs:snapshot X.Y.Z`, then open a pull request against `dev` and merge it. Make it the last change before the release: a documentation change merged after it reaches `next` alone. A pre-release skips this step, and a patch release finds its folder in place and copies nothing.
 
 </Step>
 
@@ -140,7 +140,9 @@ The documentation site publishes one copy of the pages for each version. `conten
 
 The snapshot lands through a pull request into `dev`. The `tag` job refuses a stable version whose folder is missing. The `main and dev` ruleset admits no push outside a pull request, so the workflow writes no commit.
 
-The copy carries two edits. A repository link names `main`, and the frozen page names the release tag. A `FREENARY_VERSION=main` line names the branch, and the frozen page names `X.Y`. Two rules follow:
+The folder therefore freezes when that pull request merges, and the release comes later. A documentation change merged in between reaches `next` and never reaches the frozen folder, and no gate reports it. Snapshot last, and the window stays empty.
+
+The copy pins every moving reference. A repository link names `main`, and the frozen page names the release tag. A download URL names `main`, and the frozen page names the tag. A `FREENARY_VERSION=main` line names the branch, and the frozen page names `X.Y`. Two rules follow:
 
 - A patch release finds `content/docs/X.Y` in place, and copies nothing. A documentation fix for a released version therefore edits that folder directly.
 - A pre-release copies nothing. Its readers stay on `next`.
