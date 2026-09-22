@@ -1,0 +1,105 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended", ":semanticCommits"],
+
+  // Pull requests target the integration branch, like every other one. Renovate
+  // reads this file from the default branch alone (useBaseBranchConfig defaults
+  // to "none"), so a change here is live once it reaches main.
+  baseBranchPatterns: ["dev"],
+  timezone: "Europe/Paris",
+  schedule: ["before 6am on monday"],
+  labels: ["dependencies"],
+  prConcurrentLimit: 10,
+
+  // A release that is pulled or patched within three days never reaches a
+  // branch here, which is what makes the automerge below safe to leave on.
+  minimumReleaseAge: "3 days",
+
+  // .github/workflows/renovate-lockfile.yml commits bun.lock on Renovate's own
+  // branches. Without this, Renovate reads that commit as a branch someone else
+  // changed and stops updating and merging the pull request.
+  gitIgnoredAuthors: ["41898282+github-actions[bot]@users.noreply.github.com"],
+
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 6am on the first day of the month"],
+  },
+
+  vulnerabilityAlerts: {
+    labels: ["dependencies", "security"],
+    schedule: ["at any time"],
+    minimumReleaseAge: null,
+  },
+
+  customManagers: [
+    {
+      // Renovate has no Bun catalog support yet, so the 20 shared versions in
+      // workspaces.catalog are extracted by hand. docs/engineering/platform.md
+      // carries why, and what to delete once upstream lands it.
+      description: "The Bun workspace catalog in the root package.json",
+      customType: "regex",
+      managerFilePatterns: ["/^package\\.json$/"],
+      matchStringsStrategy: "recursive",
+      matchStrings: [
+        '"catalog"\\s*:\\s*\\{[^}]*\\}',
+        '"(?<depName>[^"]+)"\\s*:\\s*"(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: "npm",
+      versioningTemplate: "npm",
+    },
+  ],
+
+  packageRules: [
+    {
+      description: "Everything below a major lands on its own once CI is green",
+      matchUpdateTypes: ["minor", "patch", "pin", "digest"],
+      automerge: true,
+    },
+    {
+      description: "A catalog pull request needs the bun.lock job to run on it",
+      matchManagers: ["custom.regex"],
+      addLabels: ["catalog"],
+    },
+    {
+      description: "Freenary publishes these two images itself. Both compose entries carry a ${FREENARY_VERSION} variable today, which Renovate skips on its own; this holds if either is ever pinned to a literal tag",
+      matchDatasources: ["docker"],
+      matchPackageNames: [
+        "ghcr.io/suiramdev/freenary-server",
+        "ghcr.io/suiramdev/freenary-web",
+      ],
+      enabled: false,
+    },
+    {
+      description: "A PostgreSQL major needs a dump and a restore, so it waits on the dashboard instead of opening a pull request",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["postgres"],
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+    },
+    {
+      description: "better-auth and its plugins are pinned to one exact version",
+      groupName: "better-auth",
+      matchPackageNames: ["better-auth", "@better-auth/**"],
+    },
+    {
+      description: "The pinned Bun version: the packageManager field and the images that must match it. oven-sh/setup-bun is the action version, not the Bun version, so it stays with the other actions",
+      groupName: "bun",
+      matchPackageNames: ["bun", "oven/bun"],
+    },
+    {
+      // effect sits at 4.0.0-rc.115, and Renovate reads rc.115 to rc.116 as a
+      // patch. CI runs no tests, so an unstable version of a library the API is
+      // built on must not reach dev on the build alone.
+      description: "A package pinned to a prerelease stays under review, whatever the update type says",
+      matchDatasources: ["npm"],
+      matchCurrentValue: "/-(?:alpha|beta|canary|dev|next|nightly|pre|rc)\\b/",
+      automerge: false,
+    },
+    {
+      description: "The workflow actions move together",
+      matchManagers: ["github-actions"],
+      groupName: "github actions",
+      semanticCommitType: "ci",
+    },
+  ],
+}
