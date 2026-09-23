@@ -11,14 +11,14 @@ Thanks for contributing to Freenary.
 
 ## Local Setup
 
-Containerised stack (needs [OrbStack](https://orbstack.dev), applies the migrations for you):
+Containerised stack (needs Docker and a free port 80, applies the migrations for you):
 
 ```bash
 bun install
 bun run dev:up            # PostgreSQL, migrations, API server, web app, docs site
 ```
 
-Local stack, without OrbStack:
+Local stack, with the applications on your host:
 
 ```bash
 bun install
@@ -56,7 +56,7 @@ bun run build         # every app
 
 Most lint/format issues are auto-fixable with `bun run fix`.
 
-CI runs one more job that no root script covers: it parses both Compose files with `docker compose config --quiet`, and it asserts that `docker-compose.yml` still refuses an empty `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Reproduce it before you change either file.
+CI runs one more job that no root script covers: it parses every Compose file with `docker compose config --quiet`, and it asserts that `docker-compose.yml` still refuses an empty `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Reproduce it before you change either file.
 
 CI runs no tests, and there is no root `test` script. Run the test files your change touches by hand with `bun test <path>`.
 
