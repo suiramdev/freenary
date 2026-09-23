@@ -4,11 +4,13 @@ import { createContext } from "@freenary/api/context";
 import { appRouter } from "@freenary/api/routers/index";
 import { auth } from "@freenary/auth";
 import { env } from "@freenary/env/server";
+import { issueSetupToken } from "@freenary/instance-config";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { Effect, Option } from "effect";
 import { Elysia } from "elysia";
 import { initLogger } from "evlog";
 import { createAuthMiddleware } from "evlog/better-auth";
@@ -142,3 +144,11 @@ new Elysia()
   .listen(env.PORT, () => {
     console.log(`Server is running on http://localhost:${env.PORT}`);
   });
+
+const setupToken = await Effect.runPromise(issueSetupToken());
+
+if (Option.isSome(setupToken)) {
+  console.log(
+    `This instance is unclaimed. Open ${env.CORS_ORIGIN}/setup and enter this setup token: ${setupToken.value}`
+  );
+}

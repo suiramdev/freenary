@@ -7,38 +7,38 @@ import { cn } from "@freenary/ui/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment } from "react";
 
-import { m } from "@/paraglide/messages.js";
+const LABELS_FIT_UP_TO = 3;
 
-interface OnboardingStepperProps {
+interface WizardStepperProps {
   current: number;
+  label: string;
   steps: readonly (() => string)[];
 }
 
-export const OnboardingStepper = ({
+export const WizardStepper = ({
   current,
+  label,
   steps,
-}: OnboardingStepperProps) => {
+}: WizardStepperProps) => {
   const CheckIcon = useIcon("check");
   const size = useSize();
   const substrate = useSurface();
+  const showsEveryLabel = steps.length <= LABELS_FIT_UP_TO;
 
   return (
-    <ol
-      aria-label={m.onboarding_progress_label()}
-      className="flex items-center justify-center"
-    >
+    <ol aria-label={label} className="flex items-center justify-center">
       {steps.map((step, index) => {
-        const label = step();
+        const stepName = step();
         const isComplete = index < current;
         const isCurrent = index === current;
 
         return (
-          <Fragment key={label}>
+          <Fragment key={stepName}>
             <li className="flex items-center gap-2.5">
               <motion.span
                 aria-current={isCurrent ? "step" : undefined}
                 className={cn(
-                  "flex aspect-square shrink-0 items-center justify-center ring-1",
+                  "flex aspect-square shrink-0 items-center justify-center rounded-full ring-1",
                   size.control,
                   size.text,
                   isComplete &&
@@ -76,14 +76,16 @@ export const OnboardingStepper = ({
                   )}
                 </AnimatePresence>
               </motion.span>
-              <span
-                className={cn(
-                  size.text,
-                  isCurrent ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {label}
-              </span>
+              {showsEveryLabel || isCurrent ? (
+                <span
+                  className={cn(
+                    size.text,
+                    isCurrent ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {stepName}
+                </span>
+              ) : null}
             </li>
             {index < steps.length - 1 && (
               <span
