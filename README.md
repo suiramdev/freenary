@@ -88,7 +88,7 @@ bun install
 bun run dev:up
 ```
 
-`dev:up` runs the full stack in Docker behind [OrbStack](https://orbstack.dev) hostnames. Without OrbStack:
+`dev:up` runs the full stack in Docker, one stack per worktree, at `http://web.<slug>.freenary.localhost` and its siblings. A shared [Traefik](https://traefik.io) proxy on port 80 routes every name. Without Docker for the apps:
 
 ```bash
 cp .env.example .env

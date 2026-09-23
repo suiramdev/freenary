@@ -308,10 +308,10 @@ More Compose-only variables belong to the development stack alone. The productio
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `FREENARY_SLUG` | the git branch, else the directory name, else `dev` | Names the Compose project and every hostname of one worktree stack. It reaches Compose through the `-p` flag. |
-| `SERVER_HOST` | `server.<slug>.freenary.orb.local` | The API server hostname. It fills `BETTER_AUTH_URL`. |
-| `WEB_HOST` | `web.<slug>.freenary.orb.local` | The web app hostname. It fills `CORS_ORIGIN`. |
-| `DOCS_HOST` | `docs.<slug>.freenary.orb.local` | The documentation hostname, in the OrbStack label alone. |
-| `MAIL_HOST` | `mail.<slug>.freenary.orb.local` | The Mailpit inbox hostname, in the OrbStack label alone. It applies to `bun run dev:mail`. |
+| `SERVER_HOST` | `server.<slug>.freenary.localhost` | The API server hostname. It fills `BETTER_AUTH_URL`. |
+| `WEB_HOST` | `web.<slug>.freenary.localhost` | The web app hostname. It fills `CORS_ORIGIN`. |
+| `DOCS_HOST` | `docs.<slug>.freenary.localhost` | The documentation hostname, in the Traefik route alone. |
+| `MAIL_HOST` | `mail.<slug>.freenary.localhost` | The Mailpit inbox hostname, in the Traefik route alone. It applies to `bun run dev:mail`. |
 | `DOCS_PORT` | `4000` | The documentation port inside its own container. |
 
 {/* env-sync:end */}
