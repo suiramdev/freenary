@@ -4,11 +4,13 @@ import { createContext } from "@freenary/api/context";
 import { appRouter } from "@freenary/api/routers/index";
 import { auth } from "@freenary/auth";
 import { env } from "@freenary/env/server";
+import { issueSetupToken } from "@freenary/instance-config";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { Effect, Option } from "effect";
 import { Elysia } from "elysia";
 import { initLogger } from "evlog";
 import { createAuthMiddleware } from "evlog/better-auth";
@@ -142,3 +144,18 @@ new Elysia()
   .listen(env.PORT, () => {
     console.log(`Server is running on ${env.BETTER_AUTH_URL}`);
   });
+
+const issuedSetupToken = await Effect.runPromise(
+  issueSetupToken(env.FREENARY_SETUP_TOKEN)
+);
+
+if (Option.isSome(issuedSetupToken)) {
+  const setupUrl = `${env.CORS_ORIGIN}/setup#token=`;
+  const issued = issuedSetupToken.value;
+
+  console.log(
+    issued.kind === "generated"
+      ? `This instance is unclaimed. Open this link to claim it with its setup token: ${setupUrl}${issued.token}`
+      : `This instance is unclaimed. To claim it with the setup token from FREENARY_SETUP_TOKEN, open ${setupUrl} followed by that value.`
+  );
+}
