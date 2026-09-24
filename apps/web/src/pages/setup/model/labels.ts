@@ -84,6 +84,22 @@ export const stepLabel = (id: string): string => read(STEP_LABELS, id);
 export const stateColour = (id: string): BadgeColor =>
   STATE_COLOURS[id] ?? "gray";
 
+const SETUP_TOKEN_DOCS_PATH = "/self-hosting/setup#get-the-setup-link";
+
+const ENVIRONMENT_DOCS_PATH =
+  "/self-hosting/setup#a-value-in-the-environment-wins";
+
+const RESTART_DOCS_PATH =
+  "/self-hosting/troubleshooting#the-server-does-not-restart-after-setup";
+
+export const setupTokenDocsUrl = (): string =>
+  `${docsUrl()}${SETUP_TOKEN_DOCS_PATH}`;
+
+export const environmentDocsUrl = (): string =>
+  `${docsUrl()}${ENVIRONMENT_DOCS_PATH}`;
+
+export const restartDocsUrl = (): string => `${docsUrl()}${RESTART_DOCS_PATH}`;
+
 export const variantGuideUrl = (id: string): string | null => {
   const path = VARIANT_GUIDE_PATHS[id];
 

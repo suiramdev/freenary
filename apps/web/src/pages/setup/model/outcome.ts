@@ -1,5 +1,7 @@
 import { m } from "@/paraglide/messages.js";
 
+import { fieldLabel } from "./labels";
+
 export interface SaveOutcome {
   checked?: boolean;
   detail?: string;
@@ -18,47 +20,59 @@ const SUCCESS_OUTCOMES: ReadonlySet<string> = new Set([
 export const isFailedOutcome = (outcome: SaveOutcome | undefined): boolean =>
   outcome !== undefined && !SUCCESS_OUTCOMES.has(outcome.outcome);
 
-export const outcomeMessage = (outcome: SaveOutcome): string => {
-  if (outcome.outcome === "saved") {
-    return outcome.checked === true
-      ? m.setup_saved()
-      : m.setup_saved_unchecked();
+const fieldList = (keys: readonly string[] | undefined): string =>
+  (keys ?? []).map(fieldLabel).join(", ");
+
+const probeFailureMessage = (
+  outcome: SaveOutcome,
+  provider: string
+): string => {
+  if (outcome.reason === "rejected") {
+    return m.setup_error_probe_rejected({ provider });
   }
 
+  if (outcome.reason === "invalid") {
+    return m.setup_error_invalid();
+  }
+
+  return m.setup_error_probe_unreachable({ provider });
+};
+
+export const outcomeMessage = (
+  outcome: SaveOutcome,
+  provider: string
+): string => {
   if (outcome.outcome === "verified") {
     return m.setup_verified();
   }
 
-  if (outcome.outcome === "nothing-to-save") {
-    return m.setup_nothing_to_save();
+  if (outcome.outcome === "saved" || outcome.outcome === "nothing-to-save") {
+    return outcome.checked === true
+      ? m.setup_verified()
+      : m.setup_saved_unchecked();
   }
 
   if (outcome.outcome === "missing-fields") {
-    return m.setup_error_missing_fields({
-      keys: (outcome.keys ?? []).join(", "),
-    });
+    return m.setup_error_missing_fields({ keys: fieldList(outcome.keys) });
   }
 
   if (outcome.outcome === "environment-owned") {
-    return m.setup_error_environment_owned({
-      keys: (outcome.keys ?? []).join(", "),
-    });
+    return m.setup_error_environment_owned();
   }
 
   if (outcome.outcome === "invalid") {
-    return m.setup_error_invalid({ detail: outcome.detail ?? "" });
+    return m.setup_error_invalid();
   }
 
-  if (outcome.reason === "rejected") {
-    return m.setup_error_probe_rejected({
-      detail: outcome.detail ?? "",
-      status: outcome.status ?? 0,
-    });
+  return probeFailureMessage(outcome, provider);
+};
+
+export const outcomeDetail = (outcome: SaveOutcome): string | null => {
+  if (outcome.detail === undefined || outcome.detail === "") {
+    return null;
   }
 
-  if (outcome.reason === "invalid") {
-    return m.setup_error_probe_invalid({ detail: outcome.detail ?? "" });
-  }
-
-  return m.setup_error_probe_unreachable({ detail: outcome.detail ?? "" });
+  return outcome.status === null || outcome.status === undefined
+    ? outcome.detail
+    : `${outcome.status}: ${outcome.detail}`;
 };

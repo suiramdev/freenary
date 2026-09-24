@@ -1,8 +1,4 @@
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@freenary/ui/components/field";
+import { Field, FieldLabel } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
 import { Switch } from "@freenary/ui/components/switch";
 import { Textarea } from "@freenary/ui/components/textarea";
@@ -31,7 +27,7 @@ interface SetupFieldProps {
   value: string | undefined;
 }
 
-const isSecret = (kind: string): boolean =>
+export const isSecretKind = (kind: string): boolean =>
   kind === "secret" || kind === "secret-block";
 
 const inputType = (kind: string): string => {
@@ -48,20 +44,9 @@ export const SetupField = ({
   value,
 }: SetupFieldProps) => {
   const inputId = useId();
-  const ownedByEnvironment = descriptor.source === "environment";
-  const hint = ownedByEnvironment
-    ? m.setup_source_environment({ key: descriptor.key })
-    : descriptor.key;
-
-  const secretPlaceholder = () => {
-    if (!isSecret(descriptor.kind) || !descriptor.present) {
-      return;
-    }
-
-    return ownedByEnvironment
-      ? m.setup_secret_from_environment()
-      : m.setup_secret_unchanged_hint();
-  };
+  const secret = isSecretKind(descriptor.kind);
+  const secretPlaceholder =
+    secret && descriptor.present ? m.setup_secret_unchanged_hint() : undefined;
 
   const held = value ?? descriptor.value ?? "";
 
@@ -71,43 +56,35 @@ export const SetupField = ({
         <FieldLabel htmlFor={inputId}>{fieldLabel(descriptor.key)}</FieldLabel>
         <Switch
           checked={held === TRUE}
-          disabled={ownedByEnvironment}
           id={inputId}
           onCheckedChange={(checked) =>
             onChange(descriptor.key, checked ? TRUE : FALSE)
           }
         />
-        <FieldDescription>{hint}</FieldDescription>
       </Field>
     );
   }
 
   return (
     <Field>
-      <FieldLabel htmlFor={inputId}>
-        {fieldLabel(descriptor.key)}
-        {descriptor.required ? null : ` ${m.setup_field_optional()}`}
-      </FieldLabel>
+      <FieldLabel htmlFor={inputId}>{fieldLabel(descriptor.key)}</FieldLabel>
       {descriptor.kind === "secret-block" ? (
         <Textarea
-          disabled={ownedByEnvironment}
           id={inputId}
           onChange={(event) => onChange(descriptor.key, event.target.value)}
-          placeholder={secretPlaceholder()}
+          placeholder={secretPlaceholder}
           rows={SECRET_ROWS}
           value={value ?? ""}
         />
       ) : (
         <Input
-          disabled={ownedByEnvironment}
           id={inputId}
           onChange={(event) => onChange(descriptor.key, event.target.value)}
-          placeholder={secretPlaceholder()}
+          placeholder={secretPlaceholder}
           type={inputType(descriptor.kind)}
-          value={isSecret(descriptor.kind) ? (value ?? "") : held}
+          value={secret ? (value ?? "") : held}
         />
       )}
-      <FieldDescription>{hint}</FieldDescription>
     </Field>
   );
 };

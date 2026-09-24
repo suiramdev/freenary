@@ -4,6 +4,7 @@ import {
   EmptyDescription,
   EmptyTitle,
 } from "@freenary/ui/components/empty";
+import { Spinner } from "@freenary/ui/components/spinner";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,7 +12,7 @@ import { m } from "@/paraglide/messages.js";
 import { WizardShell } from "@/shared/ui/wizard-shell";
 import { WizardStepper } from "@/shared/ui/wizard-stepper";
 
-import { stepLabel } from "../model/labels";
+import { restartDocsUrl, stepLabel } from "../model/labels";
 import type { SaveOutcome } from "../model/outcome";
 import { useSetup } from "../model/use-setup";
 import { ClaimStep } from "./claim-step";
@@ -22,6 +23,7 @@ import { SetupWizardSkeleton } from "./setup-wizard-skeleton";
 
 const CLAIM_STEP = "claim";
 const FINISH_STEP = "finish";
+const SKIP_VARIANT = "disabled";
 
 export const SetupPage = () => {
   const setup = useSetup();
@@ -47,6 +49,7 @@ export const SetupPage = () => {
     if (setup.restartPhase === "reconnecting") {
       return (
         <Empty>
+          <Spinner />
           <EmptyTitle>{m.setup_applying_title()}</EmptyTitle>
           <EmptyDescription>{m.setup_applying_description()}</EmptyDescription>
         </Empty>
@@ -58,6 +61,19 @@ export const SetupPage = () => {
         <Empty>
           <EmptyTitle>{m.setup_stalled_title()}</EmptyTitle>
           <EmptyDescription>{m.setup_stalled_description()}</EmptyDescription>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setup.reconnect()} type="button">
+              {m.setup_try_again()}
+            </Button>
+            <a
+              className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+              href={restartDocsUrl()}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {m.setup_view_troubleshooting()}
+            </a>
+          </div>
         </Empty>
       );
     }
@@ -128,39 +144,63 @@ export const SetupPage = () => {
       );
     }
 
+    const saveValues = (variantId: string, values: Record<string, string>) =>
+      setup.save.mutate(
+        { integrationId, values, variantId },
+        {
+          onSuccess: (outcome) => {
+            recordOutcome(outcome);
+
+            if (outcome.outcome === "saved") {
+              toast.warning(m.setup_saved_unchecked());
+            }
+          },
+        }
+      );
+
+    const checkThenSave = (variantId: string, values: Record<string, string>) =>
+      setup.check.mutate(
+        { integrationId, values, variantId },
+        {
+          onSuccess: (outcome) => {
+            if (outcome.outcome !== "verified") {
+              recordOutcome(outcome);
+
+              return;
+            }
+
+            setup.save.mutate(
+              { integrationId, values, variantId },
+              {
+                onSuccess: (saved) =>
+                  recordOutcome({ ...saved, checked: true }),
+              }
+            );
+          },
+        }
+      );
+
     return (
       <ProviderStep
         descriptor={activeIntegration}
-        isChecking={setup.check.isPending}
+        isBusy={setup.check.isPending || setup.save.isPending}
         isFirstStep={setup.stepIndex === 0}
-        isSaving={setup.save.isPending}
         onBack={setup.handleBack}
-        onCheck={(variantId, values) =>
-          setup.check.mutate(
-            { integrationId, values, variantId },
-            { onSuccess: recordOutcome }
-          )
-        }
         onEdit={clearOutcome}
-        onSave={(variantId, values) => {
-          const checked = outcomes[integrationId]?.outcome === "verified";
-
-          setup.save.mutate(
-            { integrationId, values, variantId },
-            {
-              onSuccess: (outcome) => {
-                recordOutcome({ ...outcome, checked });
-
-                if (outcome.outcome === "saved") {
-                  toast.success(
-                    checked ? m.setup_saved() : m.setup_saved_unchecked()
-                  );
-                }
-              },
-            }
-          );
-        }}
-        onSkip={setup.handleNext}
+        onSave={(variantId, values, checkFirst) =>
+          checkFirst
+            ? checkThenSave(variantId, values)
+            : saveValues(variantId, values)
+        }
+        onSkip={() =>
+          activeIntegration.configuredBy === "instance"
+            ? setup.save.mutate({
+                integrationId,
+                values: {},
+                variantId: SKIP_VARIANT,
+              })
+            : setup.handleNext()
+        }
         outcome={outcomes[integrationId]}
       />
     );

@@ -81,6 +81,26 @@ Do not set `SKIP_ENV_VALIDATION` to get past this report. The flag hides the mis
 
 </Callout>
 
+## The server does not restart after setup
+
+**What you see.** After `Finish setup`, the setup screen waits for one minute, then shows `The server did not restart`.
+
+**Why.** `Finish setup` stops the API server, so that it reads the saved configuration at the next start. A supervisor must start it again. The compose files set `restart: unless-stopped` for this. A server that runs with no supervisor, for example with `bun run dev`, stays stopped. A server that fails at startup also stays down.
+
+**Fix.** Read the log of the server:
+
+```bash
+docker compose logs server
+```
+
+Correct the error that the log names, then start the server:
+
+```bash
+docker compose up -d server
+```
+
+Press `Try again` on the setup screen. It waits for the server again, and opens the app when the server is back.
+
 ## The server refuses a proxy address
 
 **What you see.** The report above names `TRUSTED_PROXIES`, with this message:

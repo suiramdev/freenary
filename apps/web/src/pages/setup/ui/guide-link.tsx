@@ -21,7 +21,7 @@ export const GuideLink = ({ variantId }: GuideLinkProps) => {
 
   return (
     <a
-      className="text-primary inline-flex items-center gap-1 self-start text-sm underline underline-offset-2"
+      className="text-foreground inline-flex items-center gap-1 self-start text-sm underline underline-offset-2"
       href={guideUrl}
       rel="noopener noreferrer"
       target="_blank"

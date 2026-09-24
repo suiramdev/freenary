@@ -11,6 +11,12 @@ import { waitForAppliedServer } from "../api/wait-for-server";
 import { clearLinkedSetupToken } from "../lib/setup-token-link";
 
 const CLAIM_STEP = "claim";
+
+const ADVANCING_OUTCOMES: ReadonlySet<string> = new Set([
+  "saved",
+  "nothing-to-save",
+]);
+
 const FINISH_STEP = "finish";
 
 export const useSetup = () => {
@@ -101,6 +107,9 @@ export const useSetup = () => {
       onSuccess: async (outcome) => {
         if (outcome.outcome === "saved") {
           await refreshConfiguration();
+        }
+
+        if (ADVANCING_OUTCOMES.has(outcome.outcome)) {
           handleNext();
         }
       },
@@ -118,26 +127,30 @@ export const useSetup = () => {
     await navigate({ to: "/" });
   };
 
+  const reconnect = async () => {
+    setRestartPhase("reconnecting");
+
+    const isBack = await waitForAppliedServer();
+
+    if (!isBack) {
+      setRestartPhase("stalled");
+
+      return;
+    }
+
+    await refreshConfiguration();
+    await enterApp();
+  };
+
   const complete = useMutation(
     orpc.instance.complete.mutationOptions({
       onSuccess: async ({ restarting }) => {
-        if (!restarting) {
-          await enterApp();
+        if (restarting) {
+          await reconnect();
 
           return;
         }
 
-        setRestartPhase("reconnecting");
-
-        const isBack = await waitForAppliedServer();
-
-        if (!isBack) {
-          setRestartPhase("stalled");
-
-          return;
-        }
-
-        await refreshConfiguration();
         await enterApp();
       },
     })
@@ -154,6 +167,7 @@ export const useSetup = () => {
     handleSignOut,
     isClaimed,
     isPending: status.isPending || (isClaimed && configuration.isPending),
+    reconnect,
     restartPhase,
     save,
     stepId,

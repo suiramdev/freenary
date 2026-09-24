@@ -1,25 +1,28 @@
 import { Button } from "@freenary/ui/components/button";
 import { Elevated } from "@freenary/ui/lib/elevated";
 import { useIcon } from "@freenary/ui/lib/icon-context";
+import { RiCheckLine } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
+import { remixIcon } from "@/shared/lib/remix-icon";
 import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 
 import {
-  fieldLabel,
+  environmentDocsUrl,
   integrationDescription,
   integrationTitle,
   variantLabel,
 } from "../model/labels";
 import type { SaveOutcome } from "../model/outcome";
-import { GuideLink } from "./guide-link";
 import { OutcomeNotice } from "./outcome-notice";
 import type { SetupIntegrationDescriptor } from "./provider-step";
-import type { SetupFieldDescriptor } from "./setup-field";
+import { ServerValueRow } from "./server-value-row";
 
 const ENVIRONMENT_SOURCE = "environment";
 const SURFACE_RADIUS = "rounded-xl";
 const SURFACE_STEP = 1;
+const READY_ICON_SIZE = 16;
+const CheckIcon = remixIcon(RiCheckLine);
 
 interface EnvironmentSummaryProps {
   descriptor: SetupIntegrationDescriptor;
@@ -30,17 +33,6 @@ interface EnvironmentSummaryProps {
   onNext: () => void;
   outcome: SaveOutcome | undefined;
 }
-
-const isSecretKind = (kind: string): boolean =>
-  kind === "secret" || kind === "secret-block";
-
-const readableValueOf = (field: SetupFieldDescriptor): string | null =>
-  field.present && !isSecretKind(field.kind) ? field.value : null;
-
-const placeholderOf = (field: SetupFieldDescriptor): string =>
-  field.present
-    ? m.setup_secret_from_environment()
-    : m.setup_environment_unset();
 
 export const EnvironmentSummary = ({
   descriptor,
@@ -53,6 +45,7 @@ export const EnvironmentSummary = ({
 }: EnvironmentSummaryProps) => {
   const ArrowLeftIcon = useIcon("arrow-left");
   const variantId = descriptor.selectedVariantId;
+  const provider = variantLabel(variantId);
   const variant = descriptor.variants.find((entry) => entry.id === variantId);
   const fields = variant?.fields ?? [];
   const providerIsDefault =
@@ -73,47 +66,60 @@ export const EnvironmentSummary = ({
       />
 
       <Elevated className={SURFACE_RADIUS} offset={SURFACE_STEP}>
-        <dl className="divide-border flex flex-col divide-y px-4">
-          <div className="flex items-center justify-between gap-3 py-3">
-            <dt className="text-sm">{m.setup_variant_label()}</dt>
-            <dd className="text-sm font-medium">{variantLabel(variantId)}</dd>
-          </div>
-          {fields.map((field) => (
-            <div
-              className="flex items-center justify-between gap-3 py-3"
-              key={field.key}
-            >
-              <dt className="text-sm">{fieldLabel(field.key)}</dt>
-              <dd className="text-muted-foreground text-sm">
-                {readableValueOf(field) === null ? (
-                  placeholderOf(field)
-                ) : (
-                  <code className="font-mono">{readableValueOf(field)}</code>
-                )}
-              </dd>
+        <div className="flex flex-col gap-3 p-4">
+          <div className="flex items-start gap-3">
+            <span className="bg-primary text-primary-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full">
+              <CheckIcon size={READY_ICON_SIZE} />
+            </span>
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">
+                {m.setup_environment_ready({ provider })}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {m.setup_environment_line()}{" "}
+                <a
+                  className="text-foreground underline underline-offset-2"
+                  href={environmentDocsUrl()}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {m.setup_environment_learn_more()}
+                </a>
+              </p>
             </div>
-          ))}
-        </dl>
-      </Elevated>
+          </div>
 
-      <Elevated className={SURFACE_RADIUS} offset={SURFACE_STEP}>
-        <aside className="flex flex-col gap-2 p-4 text-sm">
-          <p>
-            {m.setup_environment_note({ keys: environmentKeys.join(", ") })}
-          </p>
-          {providerIsDefault ? (
-            <p className="text-muted-foreground">
-              {m.setup_environment_default_provider({
-                key: descriptor.discriminantKey,
-                provider: variantLabel(variantId),
+          <details className="ps-9">
+            <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-sm select-none">
+              {m.setup_show_details()}
+            </summary>
+            <dl className="divide-border mt-2 flex flex-col divide-y">
+              {fields.map((field) => (
+                <ServerValueRow
+                  descriptor={field}
+                  key={field.key}
+                  showsSource={false}
+                />
+              ))}
+            </dl>
+            <p className="text-muted-foreground mt-2 font-mono text-xs break-words">
+              {m.setup_environment_variables({
+                keys: environmentKeys.join(", "),
               })}
             </p>
-          ) : null}
-          <GuideLink variantId={variantId} />
-        </aside>
+            {providerIsDefault ? (
+              <p className="text-muted-foreground mt-1 text-xs">
+                {m.setup_environment_default_provider({
+                  key: descriptor.discriminantKey,
+                  provider,
+                })}
+              </p>
+            ) : null}
+          </details>
+        </div>
       </Elevated>
 
-      <OutcomeNotice outcome={outcome} />
+      <OutcomeNotice outcome={outcome} provider={provider} />
 
       <div className="flex items-center justify-between gap-3">
         {isFirstStep ? (
@@ -133,12 +139,12 @@ export const EnvironmentSummary = ({
             loading={isChecking}
             onClick={() => onCheck(variantId)}
             type="button"
-            variant="secondary"
+            variant="ghost"
           >
-            {m.setup_check()}
+            {m.setup_test_connection()}
           </Button>
           <Button onClick={onNext} type="button">
-            {m.setup_next()}
+            {m.setup_continue()}
           </Button>
         </div>
       </div>

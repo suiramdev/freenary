@@ -56,7 +56,7 @@ export const FinishStep = ({
                 )}
                 {integration.configuredBy === "environment" ? (
                   <span className="text-muted-foreground text-xs">
-                    {m.setup_recap_from_environment()}
+                    {m.setup_set_by_server()}
                   </span>
                 ) : null}
                 <Badge color={stateColour(integration.state)}>

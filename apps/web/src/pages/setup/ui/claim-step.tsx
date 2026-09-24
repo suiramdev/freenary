@@ -1,9 +1,5 @@
 import { Button } from "@freenary/ui/components/button";
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@freenary/ui/components/field";
+import { Field, FieldLabel } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
 import { useEffect, useId, useState } from "react";
 
@@ -14,6 +10,7 @@ import {
   readLinkedSetupToken,
   subscribeToSetupTokenLink,
 } from "../lib/setup-token-link";
+import { setupTokenDocsUrl } from "../model/labels";
 
 interface ClaimStepProps {
   isSubmitting: boolean;
@@ -45,9 +42,16 @@ export const ClaimStep = ({ isSubmitting, onClaim }: ClaimStepProps) => {
           onChange={(event) => setToken(event.target.value)}
           value={token}
         />
-        <FieldDescription>{m.setup_claim_token_hint()}</FieldDescription>
       </Field>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <a
+          className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+          href={setupTokenDocsUrl()}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {m.setup_claim_token_help()}
+        </a>
         <Button
           disabled={trimmed.length === 0}
           loading={isSubmitting}

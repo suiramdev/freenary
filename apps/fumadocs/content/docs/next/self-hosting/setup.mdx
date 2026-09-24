@@ -80,9 +80,9 @@ After the claim, the server ignores the variable. You can remove the line from `
 
 ## Walk the steps
 
-The wizard runs `Claim`, then one step per integration, then `Done`. Each integration step holds a provider list and the fields of the provider you pick. A link opens the setup guide of that provider. The buttons are `Skip`, `Check` and `Save`.
+The wizard runs `Claim`, then one step per integration, then `Done`. Each integration step has two screens. The first screen asks which provider to use. The second screen asks for the credentials of that provider.
 
-**Every integration step is optional.** `Skip` moves to the next step and writes nothing. An operator who wants email alone therefore passes the bank step, and comes back later. `Back` returns to the last step, and a skipped step changes no row.
+**Every integration step is optional.** Pick `Skip for now` and press `Continue` to go to the next step. When the app holds no provider for that integration, a skip writes nothing. When it holds one, a skip clears it. `Back` returns to the last screen.
 
 <Steps>
 
@@ -90,15 +90,17 @@ The wizard runs `Claim`, then one step per integration, then `Done`. Each integr
 
 ### Pick the provider
 
-**Bank provider** offers Powens and Enable Banking. **Email delivery** offers Resend and SMTP. Both offer `Not connected`, which clears the credentials and turns the integration off.
+**Bank provider** offers Powens and Enable Banking. **Email delivery** offers Resend and SMTP. The screen selects a provider for you: the one already in use, or else the first one. Press `Continue`.
 
 </Step>
 
 <Step>
 
-### Fill the fields, then press `Check`
+### Fill the fields, then press `Save and continue`
 
-`Check` calls the service with the credentials that the server would use:
+The screen shows the required fields. The optional fields, such as the SMTP port or user, are under `More options`. A link opens the setup guide of the provider.
+
+`Save and continue` first calls the service with the credentials that the server would use:
 
 | Integration    | The call it makes                                           |
 | -------------- | ----------------------------------------------------------- |
@@ -107,31 +109,21 @@ The wizard runs `Claim`, then one step per integration, then `Done`. Each integr
 | Resend         | Reads the domain list of the account                        |
 | SMTP           | Opens the connection and signs in, and sends no message     |
 
-A failed call names what happened. The service was unreachable, the service refused the credentials, or a value has the wrong shape. `Check` writes nothing, whatever the result.
+When the call succeeds, the screen saves the values and goes to the next step. When the call fails, the screen tells you what to change and saves nothing. `Show details` gives the exact answer of the service.
+
+After a failed call, the screen also offers `Save anyway`. It stores the values with no call, for a service that you cannot reach from the server yet. Such a save can hold a wrong credential. Come back and save again when the service is available.
 
 </Step>
 
 <Step>
 
-### Press `Save`
-
-`Save` stores the values. It makes no call to the service, so it also works when the service is unreachable. The message after a save tells you if the values had a successful check first. A save with no check can hold a wrong credential, so press `Check` when the service is available again.
-
-</Step>
-
-<Step>
-
-### Read the recap, then press `Finish setup`
+### Review, then press `Finish setup`
 
 The last step shows each integration, the provider in use, and its state: `Configured`, `Incomplete` or `Off`.
 
 The API server reads its configuration one time, at startup. When you saved a value that the server does not use yet, `Finish setup` restarts the server. The screen then waits, and opens the app when the server is back. When nothing changed, `Finish setup` opens the app at once.
 
-The restart needs a supervisor that starts the server again. The compose files set `restart: unless-stopped` for this. When the server does not answer within one minute, the screen tells you to read its log. To restart the server yourself, use this command:
-
-```bash
-docker compose restart server
-```
+The restart needs a supervisor that starts the server again. The compose files set `restart: unless-stopped` for this. If the server does not come back within one minute, read [the restart fix](/docs/self-hosting/troubleshooting#the-server-does-not-restart-after-setup).
 
 After `Finish setup`, the instance stops sending visitors to `/setup`. The screen stays open for a later change.
 
@@ -141,11 +133,10 @@ After `Finish setup`, the instance stops sending visitors to `/setup`. The scree
 
 ## A value in the environment wins
 
-A variable set in the environment always beats the same value in the database. The screen therefore locks such a field, and marks it as owned by the environment.
+A variable set in the environment always beats the same value in the database. The screen therefore shows such a value as read-only, with the tag `Set by your server`.
 
-- `Check` tests the environment values together with the values you typed. You can check an integration that the file sets in full.
-- `Save` stores only the fields that the environment does not set. When the environment sets every field, `Save` stays off.
-- The environment can configure a provider in full. This is true when the app holds no provider for that integration, and the environment sets every required field. The step then shows a summary in place of the form. The summary names the provider, the values and the variables they come from. It also says when the provider is the default, because `BANKING_PROVIDER` is not set.
+- `Save and continue` tests the environment values together with the values you typed. It stores only the fields that the environment does not set.
+- The environment can configure a provider in full. This is true when the app holds no provider for that integration, and the environment sets every required field. The step then shows a card, for example `Powens is ready`, in place of the two screens. `Show details` lists the values and the variables they come from. It also says when the provider is the default, because `BANKING_PROVIDER` is not set. `Test connection` calls the service with those values.
 - The screen shows the first four and the last four characters of a value from the environment. A value of eight characters or fewer shows as `…`. The screen never shows a secret from the environment.
 
 This keeps two habits working. An operator who holds secrets in Kubernetes, in Vault or in the file keeps that setup. The screen never fights it. An operator who wants the screen to own a value removes the line from `.env`, then runs `docker compose up -d`.
