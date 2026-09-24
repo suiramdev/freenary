@@ -303,7 +303,13 @@ export const instanceRouter = {
   complete: operatorProcedure.handler(async () => {
     await Effect.runPromise(markSetupComplete());
 
-    return { completed: true as const };
+    const restarting = hasUnappliedChange(await readCurrentSettings());
+
+    if (restarting) {
+      setTimeout(() => process.exit(0), RESTART_GRACE_MS);
+    }
+
+    return { completed: true as const, restarting };
   }),
 
   describe: operatorProcedure.handler(async () => {
@@ -319,12 +325,6 @@ export const instanceRouter = {
       ),
       restartRequired: hasUnappliedChange(stored),
     };
-  }),
-
-  restart: operatorProcedure.handler(() => {
-    setTimeout(() => process.exit(0), RESTART_GRACE_MS);
-
-    return { restarting: true as const };
   }),
 
   save: operatorProcedure

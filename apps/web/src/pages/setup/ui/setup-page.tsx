@@ -43,11 +43,20 @@ export const SetupPage = () => {
   );
 
   const body = () => {
-    if (setup.isReconnecting) {
+    if (setup.restartPhase === "reconnecting") {
       return (
         <Empty>
-          <EmptyTitle>{m.setup_restart_title()}</EmptyTitle>
-          <EmptyDescription>{m.setup_restart_pending()}</EmptyDescription>
+          <EmptyTitle>{m.setup_applying_title()}</EmptyTitle>
+          <EmptyDescription>{m.setup_applying_description()}</EmptyDescription>
+        </Empty>
+      );
+    }
+
+    if (setup.restartPhase === "stalled") {
+      return (
+        <Empty>
+          <EmptyTitle>{m.setup_stalled_title()}</EmptyTitle>
+          <EmptyDescription>{m.setup_stalled_description()}</EmptyDescription>
         </Empty>
       );
     }
@@ -77,11 +86,8 @@ export const SetupPage = () => {
         <FinishStep
           integrations={integrations}
           isCompleting={setup.complete.isPending}
-          isRestarting={setup.restart.isPending}
           onBack={setup.handleBack}
           onFinish={() => setup.complete.mutate({})}
-          onRestart={() => setup.restart.mutate({})}
-          restartRequired={setup.restartRequired}
         />
       );
     }

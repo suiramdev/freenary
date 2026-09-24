@@ -1,30 +1,32 @@
+import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import { useIcon } from "@freenary/ui/lib/icon-context";
 
 import { m } from "@/paraglide/messages.js";
 import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 
-import { integrationTitle, stateLabel } from "../model/labels";
+import {
+  integrationTitle,
+  stateColour,
+  stateLabel,
+  variantLabel,
+} from "../model/labels";
 import type { SetupIntegrationDescriptor } from "./provider-step";
+
+const DISABLED_STATE = "disabled";
 
 interface FinishStepProps {
   integrations: SetupIntegrationDescriptor[];
   isCompleting: boolean;
-  isRestarting: boolean;
   onBack: () => void;
   onFinish: () => void;
-  onRestart: () => void;
-  restartRequired: boolean;
 }
 
 export const FinishStep = ({
   integrations,
   isCompleting,
-  isRestarting,
   onBack,
   onFinish,
-  onRestart,
-  restartRequired,
 }: FinishStepProps) => {
   const ArrowLeftIcon = useIcon("arrow-left");
 
@@ -42,29 +44,19 @@ export const FinishStep = ({
             key={integration.id}
           >
             <dt className="text-sm">{integrationTitle(integration.id)}</dt>
-            <dd className="text-muted-foreground text-sm">
-              {stateLabel(integration.state)}
+            <dd className="flex items-center gap-2">
+              {integration.state === DISABLED_STATE ? null : (
+                <span className="text-muted-foreground text-sm">
+                  {variantLabel(integration.selectedVariantId)}
+                </span>
+              )}
+              <Badge color={stateColour(integration.state)}>
+                {stateLabel(integration.state)}
+              </Badge>
             </dd>
           </div>
         ))}
       </dl>
-
-      {restartRequired ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-muted-foreground text-sm">
-            {m.setup_restart_description()}
-          </p>
-          <Button
-            className="self-start"
-            loading={isRestarting}
-            onClick={onRestart}
-            type="button"
-            variant="secondary"
-          >
-            {m.setup_restart_action()}
-          </Button>
-        </div>
-      ) : null}
 
       <div className="flex items-center justify-between gap-3">
         <Button

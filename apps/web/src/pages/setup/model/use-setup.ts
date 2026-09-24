@@ -7,16 +7,19 @@ import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/shared/api";
 import { authClient } from "@/shared/auth";
 
+import { waitForAppliedServer } from "../api/wait-for-server";
 import { clearLinkedSetupToken } from "../lib/setup-token-link";
 
-const RECONNECT_POLL_MS = 2000;
 const CLAIM_STEP = "claim";
 const FINISH_STEP = "finish";
 
 export const useSetup = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [restartAsked, setRestartAsked] = useState(false);
+  const [restartPhase, setRestartPhase] = useState<
+    "idle" | "reconnecting" | "stalled"
+  >("idle");
+
   const [chosenStep, setChosenStep] = useState<string | null>(null);
   const [direction, setDirection] = useState<1 | -1>(1);
 
@@ -26,11 +29,7 @@ export const useSetup = () => {
 
   const configuration = useQuery(
     orpc.instance.describe.queryOptions({
-      enabled: isClaimed,
-      refetchInterval: (query) =>
-        restartAsked && query.state.data?.restartRequired !== false
-          ? RECONNECT_POLL_MS
-          : false,
+      enabled: isClaimed && restartPhase === "idle",
       retry: false,
     })
   );
@@ -46,7 +45,6 @@ export const useSetup = () => {
 
   const stepId = chosenStep ?? steps[0] ?? CLAIM_STEP;
   const stepIndex = Math.max(steps.indexOf(stepId), 0);
-  const restartRequired = configuration.data?.restartRequired ?? false;
 
   const goTo = (next: string, heading: 1 | -1) => {
     setDirection(heading);
@@ -102,8 +100,6 @@ export const useSetup = () => {
     orpc.instance.save.mutationOptions({
       onSuccess: async (outcome) => {
         if (outcome.outcome === "saved") {
-          setRestartAsked(false);
-
           await refreshConfiguration();
           handleNext();
         }
@@ -113,24 +109,36 @@ export const useSetup = () => {
 
   const check = useMutation(orpc.instance.check.mutationOptions());
 
-  const restart = useMutation(
-    orpc.instance.restart.mutationOptions({
-      onSuccess: () => {
-        setRestartAsked(true);
-        toast.success(m.setup_restart_pending());
-      },
-    })
-  );
+  const enterApp = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: orpc.instance.status.queryOptions().queryKey,
+    });
+
+    toast.success(m.setup_completed_toast());
+    await navigate({ to: "/" });
+  };
 
   const complete = useMutation(
     orpc.instance.complete.mutationOptions({
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: orpc.instance.status.queryOptions().queryKey,
-        });
+      onSuccess: async ({ restarting }) => {
+        if (!restarting) {
+          await enterApp();
 
-        toast.success(m.setup_completed_toast());
-        await navigate({ to: "/" });
+          return;
+        }
+
+        setRestartPhase("reconnecting");
+
+        const isBack = await waitForAppliedServer();
+
+        if (!isBack) {
+          setRestartPhase("stalled");
+
+          return;
+        }
+
+        await refreshConfiguration();
+        await enterApp();
       },
     })
   );
@@ -146,9 +154,7 @@ export const useSetup = () => {
     handleSignOut,
     isClaimed,
     isPending: status.isPending || (isClaimed && configuration.isPending),
-    isReconnecting: restartAsked && restartRequired,
-    restart,
-    restartRequired,
+    restartPhase,
     save,
     stepId,
     stepIndex,

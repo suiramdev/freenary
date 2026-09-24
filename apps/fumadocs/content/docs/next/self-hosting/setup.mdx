@@ -121,15 +121,19 @@ A failed call names what happened. The service was unreachable, the service refu
 
 <Step>
 
-### Restart the server, then finish
+### Read the recap, then press `Finish setup`
 
-The API server reads its configuration one time, at startup. A saved credential reaches the running process only after a restart. The last step offers `Restart now`, and the screen waits for the server to come back on its own.
+The last step shows each integration, the provider in use, and its state: `Configured`, `Incomplete` or `Off`.
+
+The API server reads its configuration one time, at startup. When you saved a value that the server does not use yet, `Finish setup` restarts the server. The screen then waits, and opens the app when the server is back. When nothing changed, `Finish setup` opens the app at once.
+
+The restart needs a supervisor that starts the server again. The compose files set `restart: unless-stopped` for this. When the server does not answer within one minute, the screen tells you to read its log. To restart the server yourself, use this command:
 
 ```bash
 docker compose restart server
 ```
 
-The command above does the same thing from a shell. Press `Finish setup` to end the wizard. The instance then stops sending visitors to `/setup`, and the screen stays open for a later change.
+After `Finish setup`, the instance stops sending visitors to `/setup`. The screen stays open for a later change.
 
 </Step>
 
