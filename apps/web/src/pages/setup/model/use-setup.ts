@@ -7,6 +7,8 @@ import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/shared/api";
 import { authClient } from "@/shared/auth";
 
+import { clearLinkedSetupToken } from "../lib/setup-token-link";
+
 const RECONNECT_POLL_MS = 2000;
 const CLAIM_STEP = "claim";
 const FINISH_STEP = "finish";
@@ -82,6 +84,7 @@ export const useSetup = () => {
     orpc.instance.claim.mutationOptions({
       onError: () => toast.error(m.setup_claim_error()),
       onSuccess: async () => {
+        clearLinkedSetupToken();
         toast.success(m.setup_claim_success());
 
         await queryClient.invalidateQueries({

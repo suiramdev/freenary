@@ -5,10 +5,15 @@ import {
   FieldLabel,
 } from "@freenary/ui/components/field";
 import { Input } from "@freenary/ui/components/input";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
+
+import {
+  readLinkedSetupToken,
+  subscribeToSetupTokenLink,
+} from "../lib/setup-token-link";
 
 interface ClaimStepProps {
   isSubmitting: boolean;
@@ -17,7 +22,13 @@ interface ClaimStepProps {
 
 export const ClaimStep = ({ isSubmitting, onClaim }: ClaimStepProps) => {
   const inputId = useId();
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(readLinkedSetupToken);
+
+  useEffect(
+    () => subscribeToSetupTokenLink(() => setToken(readLinkedSetupToken())),
+    []
+  );
+
   const trimmed = token.trim();
 
   return (

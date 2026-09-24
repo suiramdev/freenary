@@ -145,10 +145,17 @@ new Elysia()
     console.log(`Server is running on http://localhost:${env.PORT}`);
   });
 
-const setupToken = await Effect.runPromise(issueSetupToken());
+const issuedSetupToken = await Effect.runPromise(
+  issueSetupToken(env.FREENARY_SETUP_TOKEN)
+);
 
-if (Option.isSome(setupToken)) {
+if (Option.isSome(issuedSetupToken)) {
+  const setupUrl = `${env.CORS_ORIGIN}/setup#token=`;
+  const issued = issuedSetupToken.value;
+
   console.log(
-    `This instance is unclaimed. Open ${env.CORS_ORIGIN}/setup and enter this setup token: ${setupToken.value}`
+    issued.kind === "generated"
+      ? `This instance is unclaimed. Open this link to claim it with its setup token: ${setupUrl}${issued.token}`
+      : `This instance is unclaimed. To claim it with the setup token from FREENARY_SETUP_TOKEN, open ${setupUrl} followed by that value.`
   );
 }

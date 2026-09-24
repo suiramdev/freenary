@@ -61,13 +61,17 @@ openssl rand -hex 32   # BETTER_AUTH_SECRET
 
 ## The setup token and the operator
 
-A new instance is unclaimed, and it prints a setup token to its own log at each start. The first account to enter that token at `/setup` becomes the operator, and the token then stops working.
+A new instance is unclaimed, and it prints a setup link to its own log at each start. The link carries a setup token after its `#`. The first account to enter that token at `/setup` becomes the operator, and the token then stops working.
 
-An unclaimed instance on a public origin is claimable by anybody who signs up and reads `/setup`. The token is what stops them, because it never leaves the server log. Claim the instance in the same sitting as the install.
+An unclaimed instance on a public origin is claimable by anybody who signs up and reads `/setup`. The token is what stops them, because only the operator can read the server log. Claim the instance in the same sitting as the install.
+
+`FREENARY_SETUP_TOKEN` replaces the printed token with a value you choose. Keep it as secret as `BETTER_AUTH_SECRET` until the claim. After the claim, the server ignores it.
 
 | Rule | Detail |
 | --- | --- |
-| Where the token appears | `docker compose logs server`, and nowhere else |
+| Where a printed token appears | `docker compose logs server`. After you open the link, also the browser history and the `sessionStorage` of that tab, until the claim |
+| Where a chosen token appears | `.env` and the environment of the `server` container. The server never prints it |
+| What the reverse proxy sees | The request, but not the token. A browser does not send the part of a link after `#` |
 | What the database holds | The SHA-256 hash of the token, never the token |
 | How many operators | One. No screen and no endpoint grants the role a second time |
 | Rate limit on the claim | 5 attempts per caller address every 5 minutes |

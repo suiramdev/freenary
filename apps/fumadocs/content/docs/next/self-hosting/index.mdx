@@ -190,13 +190,15 @@ The wizard that opens proves the bank provider. It asks for a tax residency, the
 
 ### Claim the instance
 
-The account you made is an ordinary user until it claims the instance. Read the setup token from the server log:
+The account you made is an ordinary user until it claims the instance. Freenary opens `/setup` for it. Read the setup link from the server log:
 
 ```bash
 docker compose logs server | grep "setup token"
 ```
 
-Open `/setup` on the web app origin, and enter the token. That account becomes the operator, and no second account can take the role. An unclaimed instance on a public origin is claimable by anybody who finds it. Do this in the same sitting.
+Open the link, and press `Claim`. That account becomes the operator, and no second account can take the role. An unclaimed instance on a public origin is claimable by anybody who finds it. Do this in the same sitting.
+
+To know the token before the first start, set `FREENARY_SETUP_TOKEN`. [The setup screen](/docs/self-hosting/setup#choose-the-token-in-advance) tells how.
 
 The setup screen is where the bank and email credentials go. [The setup screen](/docs/self-hosting/setup) walks each card and the restart that applies it.
 

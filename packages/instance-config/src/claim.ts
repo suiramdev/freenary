@@ -35,15 +35,20 @@ export const readSetupState = Effect.fn("instanceConfig.readSetupState")(
   }
 );
 
+export type IssuedSetupToken =
+  | { readonly kind: "chosen" }
+  | { readonly kind: "generated"; readonly token: string };
+
 export const issueSetupToken = Effect.fn("instanceConfig.issueSetupToken")(
-  function* issueSetupToken() {
+  function* issueSetupToken(chosenToken: string | undefined) {
     const { claimed } = yield* readSetupState();
 
     if (claimed) {
-      return Option.none<string>();
+      return Option.none<IssuedSetupToken>();
     }
 
-    const token = randomBytes(SETUP_TOKEN_BYTES).toString("base64url");
+    const token =
+      chosenToken ?? randomBytes(SETUP_TOKEN_BYTES).toString("base64url");
 
     yield* Effect.promise(() =>
       prisma.instanceSetup.upsert({
@@ -53,7 +58,12 @@ export const issueSetupToken = Effect.fn("instanceConfig.issueSetupToken")(
       })
     );
 
-    return Option.some(token);
+    const issued: IssuedSetupToken =
+      chosenToken === undefined
+        ? { kind: "generated", token }
+        : { kind: "chosen" };
+
+    return Option.some(issued);
   }
 );
 
