@@ -1,5 +1,6 @@
 import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
+import { Elevated } from "@freenary/ui/lib/elevated";
 import { useIcon } from "@freenary/ui/lib/icon-context";
 
 import { m } from "@/paraglide/messages.js";
@@ -14,6 +15,8 @@ import {
 import type { SetupIntegrationDescriptor } from "./provider-step";
 
 const DISABLED_STATE = "disabled";
+const SURFACE_RADIUS = "rounded-xl";
+const SURFACE_STEP = 1;
 
 interface FinishStepProps {
   integrations: SetupIntegrationDescriptor[];
@@ -37,31 +40,33 @@ export const FinishStep = ({
         title={m.setup_finish_title()}
       />
 
-      <dl className="border-border flex flex-col gap-3 rounded-lg border p-4">
-        {integrations.map((integration) => (
-          <div
-            className="flex items-center justify-between gap-3"
-            key={integration.id}
-          >
-            <dt className="text-sm">{integrationTitle(integration.id)}</dt>
-            <dd className="flex items-center gap-2">
-              {integration.state === DISABLED_STATE ? null : (
-                <span className="text-muted-foreground text-sm">
-                  {variantLabel(integration.selectedVariantId)}
-                </span>
-              )}
-              {integration.configuredBy === "environment" ? (
-                <span className="text-muted-foreground text-xs">
-                  {m.setup_recap_from_environment()}
-                </span>
-              ) : null}
-              <Badge color={stateColour(integration.state)}>
-                {stateLabel(integration.state)}
-              </Badge>
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <Elevated className={SURFACE_RADIUS} offset={SURFACE_STEP}>
+        <dl className="divide-border flex flex-col divide-y px-4">
+          {integrations.map((integration) => (
+            <div
+              className="flex items-center justify-between gap-3 py-3"
+              key={integration.id}
+            >
+              <dt className="text-sm">{integrationTitle(integration.id)}</dt>
+              <dd className="flex items-center gap-2">
+                {integration.state === DISABLED_STATE ? null : (
+                  <span className="text-muted-foreground text-sm">
+                    {variantLabel(integration.selectedVariantId)}
+                  </span>
+                )}
+                {integration.configuredBy === "environment" ? (
+                  <span className="text-muted-foreground text-xs">
+                    {m.setup_recap_from_environment()}
+                  </span>
+                ) : null}
+                <Badge color={stateColour(integration.state)}>
+                  {stateLabel(integration.state)}
+                </Badge>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Elevated>
 
       <div className="flex items-center justify-between gap-3">
         <Button

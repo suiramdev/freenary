@@ -15,11 +15,11 @@ import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 import {
   integrationDescription,
   integrationTitle,
-  variantGuideUrl,
   variantLabel,
 } from "../model/labels";
 import type { SaveOutcome } from "../model/outcome";
-import { isFailedOutcome, outcomeMessage } from "../model/outcome";
+import { GuideLink } from "./guide-link";
+import { OutcomeNotice } from "./outcome-notice";
 import type { SetupFieldDescriptor } from "./setup-field";
 import { SetupField } from "./setup-field";
 
@@ -86,14 +86,11 @@ export const ProviderStep = ({
 
   const variant = descriptor.variants.find((entry) => entry.id === variantId);
   const lockedByEnvironment = descriptor.discriminantSource === "environment";
-  const isFailure = isFailedOutcome(outcome);
 
   const isVerified = outcome?.outcome === "verified";
   const whollyFromEnvironment =
     lockedByEnvironment &&
     (variant?.fields ?? []).every((field) => field.source === "environment");
-
-  const guideUrl = variantGuideUrl(variantId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -137,16 +134,7 @@ export const ProviderStep = ({
           </SelectContent>
         </Select>
 
-        {guideUrl === null ? null : (
-          <a
-            className="text-primary self-start text-sm underline underline-offset-2"
-            href={guideUrl}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            {m.setup_variant_guide({ provider: variantLabel(variantId) })}
-          </a>
-        )}
+        <GuideLink variantId={variantId} />
 
         {variant?.fields.map((field) => (
           <SetupField
@@ -161,18 +149,7 @@ export const ProviderStep = ({
         ))}
       </div>
 
-      {outcome ? (
-        <p
-          className={
-            isFailure
-              ? "text-destructive text-sm"
-              : "text-muted-foreground text-sm"
-          }
-          role={isFailure ? "alert" : "status"}
-        >
-          {outcomeMessage(outcome)}
-        </p>
-      ) : null}
+      <OutcomeNotice outcome={outcome} />
 
       <div className="flex items-center justify-between gap-3">
         {isFirstStep ? (

@@ -8,6 +8,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Fragment } from "react";
 
 const LABELS_FIT_UP_TO = 3;
+const ICON_SWAP = { bounce: 0, duration: 0.3, type: "spring" } as const;
+const ICON_HIDDEN = { filter: "blur(4px)", opacity: 0, scale: 0.25 };
+const ICON_SHOWN = { filter: "blur(0px)", opacity: 1, scale: 1 };
 
 interface WizardStepperProps {
   current: number;
@@ -43,7 +46,7 @@ export const WizardStepper = ({
                   size.text,
                   isComplete &&
                     "bg-primary text-primary-foreground ring-primary",
-                  isCurrent && "bg-secondary text-primary ring-primary",
+                  isCurrent && "bg-secondary text-foreground ring-primary",
                   !(isComplete || isCurrent) &&
                     cn(
                       SURFACE_BG[substrate],
@@ -55,21 +58,21 @@ export const WizardStepper = ({
                 <AnimatePresence initial={false} mode="wait">
                   {isComplete ? (
                     <motion.span
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, transition: spring.fast.exit }}
-                      initial={{ opacity: 0, scale: 0.75 }}
+                      animate={ICON_SHOWN}
+                      exit={ICON_HIDDEN}
+                      initial={ICON_HIDDEN}
                       key="check"
-                      transition={spring.fast}
+                      transition={ICON_SWAP}
                     >
                       <CheckIcon size={size.icon} />
                     </motion.span>
                   ) : (
                     <motion.span
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0, transition: spring.fast.exit }}
-                      initial={{ opacity: 0 }}
+                      animate={ICON_SHOWN}
+                      exit={ICON_HIDDEN}
+                      initial={ICON_HIDDEN}
                       key="index"
-                      transition={spring.fast}
+                      transition={ICON_SWAP}
                     >
                       {index + 1}
                     </motion.span>
