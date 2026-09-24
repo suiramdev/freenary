@@ -15,6 +15,7 @@ import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 import {
   integrationDescription,
   integrationTitle,
+  variantGuideUrl,
   variantLabel,
 } from "../model/labels";
 import type { SetupFieldDescriptor } from "./setup-field";
@@ -34,6 +35,7 @@ export interface SetupIntegrationDescriptor {
 }
 
 export interface SaveOutcome {
+  checked?: boolean;
   detail?: string;
   keys?: string[];
   outcome: string;
@@ -43,26 +45,47 @@ export interface SaveOutcome {
 
 interface ProviderStepProps {
   descriptor: SetupIntegrationDescriptor;
+  isChecking: boolean;
   isFirstStep: boolean;
   isSaving: boolean;
   onBack: () => void;
+  onCheck: (variantId: string, values: Record<string, string>) => void;
+  onEdit: () => void;
   onSave: (variantId: string, values: Record<string, string>) => void;
   onSkip: () => void;
   outcome: SaveOutcome | undefined;
 }
+
+const SUCCESS_OUTCOMES: ReadonlySet<string> = new Set([
+  "saved",
+  "verified",
+  "nothing-to-save",
+]);
 
 const filledValuesOf = (
   variant: SetupVariantDescriptor | undefined
 ): Record<string, string> =>
   Object.fromEntries(
     (variant?.fields ?? []).flatMap((field) =>
-      field.value === null ? [] : [[field.key, field.value]]
+      field.value === null || field.source === "environment"
+        ? []
+        : [[field.key, field.value]]
     )
   );
 
 const outcomeMessage = (outcome: SaveOutcome): string => {
   if (outcome.outcome === "saved") {
-    return m.setup_saved();
+    return outcome.checked === true
+      ? m.setup_saved()
+      : m.setup_saved_unchecked();
+  }
+
+  if (outcome.outcome === "verified") {
+    return m.setup_verified();
+  }
+
+  if (outcome.outcome === "nothing-to-save") {
+    return m.setup_nothing_to_save();
   }
 
   if (outcome.outcome === "missing-fields") {
@@ -97,9 +120,12 @@ const outcomeMessage = (outcome: SaveOutcome): string => {
 
 export const ProviderStep = ({
   descriptor,
+  isChecking,
   isFirstStep,
   isSaving,
   onBack,
+  onCheck,
+  onEdit,
   onSave,
   onSkip,
   outcome,
@@ -116,7 +142,15 @@ export const ProviderStep = ({
 
   const variant = descriptor.variants.find((entry) => entry.id === variantId);
   const lockedByEnvironment = descriptor.discriminantSource === "environment";
-  const isFailure = outcome !== undefined && outcome.outcome !== "saved";
+  const isFailure =
+    outcome !== undefined && !SUCCESS_OUTCOMES.has(outcome.outcome);
+
+  const isVerified = outcome?.outcome === "verified";
+  const whollyFromEnvironment =
+    lockedByEnvironment &&
+    (variant?.fields ?? []).every((field) => field.source === "environment");
+
+  const guideUrl = variantGuideUrl(variantId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -135,6 +169,7 @@ export const ProviderStep = ({
         <Select
           disabled={lockedByEnvironment}
           onValueChange={(chosen) => {
+            onEdit();
             setVariantId(chosen);
             setValues(
               filledValuesOf(
@@ -159,13 +194,25 @@ export const ProviderStep = ({
           </SelectContent>
         </Select>
 
+        {guideUrl === null ? null : (
+          <a
+            className="text-primary self-start text-sm underline underline-offset-2"
+            href={guideUrl}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {m.setup_variant_guide({ provider: variantLabel(variantId) })}
+          </a>
+        )}
+
         {variant?.fields.map((field) => (
           <SetupField
             descriptor={field}
             key={field.key}
-            onChange={(key, next) =>
-              setValues((held) => ({ ...held, [key]: next }))
-            }
+            onChange={(key, next) => {
+              onEdit();
+              setValues((held) => ({ ...held, [key]: next }));
+            }}
             value={values[field.key]}
           />
         ))}
@@ -198,11 +245,20 @@ export const ProviderStep = ({
           </Button>
         )}
         <div className="flex items-center gap-2">
-          <Button onClick={onSkip} type="button" variant="secondary">
-            {m.setup_skip()}
+          <Button onClick={onSkip} type="button" variant="ghost">
+            {isVerified ? m.setup_next() : m.setup_skip()}
           </Button>
           <Button
-            disabled={lockedByEnvironment}
+            disabled={isSaving}
+            loading={isChecking}
+            onClick={() => onCheck(variantId, values)}
+            type="button"
+            variant="secondary"
+          >
+            {m.setup_check()}
+          </Button>
+          <Button
+            disabled={whollyFromEnvironment || isChecking}
             loading={isSaving}
             onClick={() => onSave(variantId, values)}
             type="button"

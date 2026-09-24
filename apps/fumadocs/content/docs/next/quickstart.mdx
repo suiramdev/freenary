@@ -144,7 +144,7 @@ docker compose logs server | grep "setup token"
 
 Open the link, and press `Claim`. The link puts the token into the field for you. That account becomes the operator of this instance, and no second account can take the role.
 
-Now open the **Bank provider** card, pick `Powens`, and type the three values from the console. Press `Check and save`. Freenary calls your Powens domain with the credentials, and saves them only when the call succeeds.
+Now open the **Bank provider** card, pick `Powens`, and type the three values from the console. Press `Check`. Freenary calls your Powens domain with the credentials. When the call succeeds, press `Save`.
 
 Press `Restart now`. The API server reads its configuration one time, at startup, so the credentials reach it after that restart.
 

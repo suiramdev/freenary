@@ -8,7 +8,7 @@ A new instance serves a setup screen at `/setup`. It is a wizard with one step p
 
 **An instance that has not finished the wizard sends every signed-in visitor there.** The web app reads the setup state before it renders any protected screen. A fresh deployment therefore opens on the wizard, and not on an empty home screen. The redirect stops when an operator presses `Finish setup`.
 
-The screen checks each credential against the real service before it saves anything. A credential the service refuses is never written.
+The screen can test each credential against the real service. `Check` makes the call and writes nothing. `Save` stores the values and makes no call.
 
 ## What the screen owns, and what stays in the file
 
@@ -80,7 +80,7 @@ After the claim, the server ignores the variable. You can remove the line from `
 
 ## Walk the steps
 
-The wizard runs `Claim`, then one step per integration, then `Done`. Each integration step holds a provider list, the fields of the provider you pick, and three buttons.
+The wizard runs `Claim`, then one step per integration, then `Done`. Each integration step holds a provider list and the fields of the provider you pick. A link opens the setup guide of that provider. The buttons are `Skip`, `Check` and `Save`.
 
 **Every integration step is optional.** `Skip` moves to the next step and writes nothing. An operator who wants email alone therefore passes the bank step, and comes back later. `Back` returns to the last step, and a skipped step changes no row.
 
@@ -96,9 +96,9 @@ The wizard runs `Claim`, then one step per integration, then `Done`. Each integr
 
 <Step>
 
-### Fill the fields, then press `Check and save`
+### Fill the fields, then press `Check`
 
-Freenary calls the service with the credentials you typed:
+`Check` calls the service with the credentials that the server would use:
 
 | Integration    | The call it makes                                           |
 | -------------- | ----------------------------------------------------------- |
@@ -107,7 +107,15 @@ Freenary calls the service with the credentials you typed:
 | Resend         | Reads the domain list of the account                        |
 | SMTP           | Opens the connection and signs in, and sends no message     |
 
-A failed call names what happened. The service was unreachable, the service refused the credentials, or a value has the wrong shape. Nothing is saved until the call succeeds.
+A failed call names what happened. The service was unreachable, the service refused the credentials, or a value has the wrong shape. `Check` writes nothing, whatever the result.
+
+</Step>
+
+<Step>
+
+### Press `Save`
+
+`Save` stores the values. It makes no call to the service, so it also works when the service is unreachable. The message after a save tells you if the values had a successful check first. A save with no check can hold a wrong credential, so press `Check` when the service is available again.
 
 </Step>
 
@@ -129,7 +137,11 @@ The command above does the same thing from a shell. Press `Finish setup` to end 
 
 ## A value in the environment wins
 
-A variable set in the environment always beats the same value in the database. The card marks such a field as owned by the environment. It also refuses to save the integration while any of its variables come from the file.
+A variable set in the environment always beats the same value in the database. The screen therefore locks such a field, and marks it as owned by the environment.
+
+- `Check` tests the environment values together with the values you typed. You can check an integration that the file sets in full.
+- `Save` stores only the fields that the environment does not set. When the environment sets every field, `Save` stays off.
+- The screen shows the first four and the last four characters of a value from the environment. A value of eight characters or fewer shows as `…`. The screen never shows a secret from the environment.
 
 This keeps two habits working. An operator who holds secrets in Kubernetes, in Vault or in the file keeps that setup. The screen never fights it. An operator who wants the screen to own a value removes the line from `.env`, then runs `docker compose up -d`.
 

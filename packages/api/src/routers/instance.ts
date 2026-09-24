@@ -15,7 +15,6 @@ import {
   instanceConfigurableKeys,
   integrations,
   isSecretField,
-  keysOf,
   markSetupComplete,
   readSetupState,
   readStoredSettings,
@@ -34,7 +33,13 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "../index";
-import { candidateOf, writesOf } from "../instance/merge";
+import { maskEnvironmentValue } from "../instance/mask";
+import {
+  candidateOf,
+  isWhollyOwnedByEnvironment,
+  missingKeysOf,
+  writesOf,
+} from "../instance/merge";
 import { findProbe } from "../instance/probes";
 import { callerBucket, consumeRateLimit } from "../lib/rate-limit";
 
@@ -93,8 +98,25 @@ const isVariantComplete = (
     (field) => !field.required || heldValue(field.key, stored) !== null
   );
 
+const MASKED_KINDS: ReadonlySet<IntegrationField["kind"]> = new Set([
+  "text",
+  "url",
+]);
+
+const shownValueOf = (
+  field: IntegrationField,
+  held: string | null
+): string | null => {
+  if (held === null || isSecretField(field.kind)) {
+    return null;
+  }
+
+  return environmentOwns(field.key) && MASKED_KINDS.has(field.kind)
+    ? maskEnvironmentValue(held)
+    : held;
+};
+
 const describeField = (field: IntegrationField, stored: StoredSettings) => {
-  const secret = isSecretField(field.kind);
   const held = heldValue(field.key, stored);
 
   return {
@@ -103,7 +125,7 @@ const describeField = (field: IntegrationField, stored: StoredSettings) => {
     present: held !== null,
     required: field.required,
     source: sourceFor(field.key, stored),
-    value: secret ? null : held,
+    value: shownValueOf(field, held),
   };
 };
 
@@ -148,7 +170,114 @@ const hasUnappliedChange = (stored: StoredSettings): boolean => {
   return false;
 };
 
+const integrationInput = z.object({
+  integrationId: z.string(),
+  values: z.record(z.string(), z.string()),
+  variantId: z.string(),
+});
+
+type IntegrationRequest = z.infer<typeof integrationInput>;
+
+const environmentPicksAnotherVariant = (
+  integration: Integration,
+  variant: IntegrationVariant
+): boolean =>
+  environmentOwns(integration.discriminantKey) &&
+  process.env[integration.discriminantKey] !== variant.discriminantValue;
+
+const prepareIntegration = async (request: IntegrationRequest) => {
+  const integration = Option.getOrThrowWith(
+    findIntegration(request.integrationId),
+    () => new ORPCError("NOT_FOUND", { message: "Unknown integration" })
+  );
+
+  const variant = Option.getOrThrowWith(
+    findVariant(integration, request.variantId),
+    () => new ORPCError("NOT_FOUND", { message: "Unknown variant" })
+  );
+
+  if (environmentPicksAnotherVariant(integration, variant)) {
+    return {
+      kind: "refused" as const,
+      refusal: {
+        keys: [integration.discriminantKey],
+        outcome: "environment-owned" as const,
+      },
+    };
+  }
+
+  const stored = await readCurrentSettings();
+  const candidate = candidateOf(
+    integration,
+    variant,
+    request.values,
+    stored,
+    environmentOwns
+  );
+
+  const missing = missingKeysOf(variant, candidate, environmentOwns);
+
+  if (missing.length > 0) {
+    return {
+      kind: "refused" as const,
+      refusal: { keys: missing, outcome: "missing-fields" as const },
+    };
+  }
+
+  const validated = validateSettings(candidate);
+
+  if (Result.isFailure(validated)) {
+    return {
+      kind: "refused" as const,
+      refusal: {
+        detail: validated.failure.detail,
+        outcome: "invalid" as const,
+      },
+    };
+  }
+
+  return {
+    candidate,
+    integration,
+    kind: "ready" as const,
+    validated: validated.success,
+    variant,
+  };
+};
+
 export const instanceRouter = {
+  check: operatorProcedure
+    .input(integrationInput)
+    .handler(async ({ input }) => {
+      const prepared = await prepareIntegration(input);
+
+      if (prepared.kind === "refused") {
+        return prepared.refusal;
+      }
+
+      const probe = Option.getOrThrowWith(
+        findProbe(prepared.integration.id, prepared.variant.id),
+        () => new ORPCError("NOT_IMPLEMENTED", { message: "No check exists" })
+      );
+
+      const probed = await Effect.runPromise(
+        Effect.result(probe(prepared.validated))
+      );
+
+      if (Result.isFailure(probed)) {
+        const { reason } = probed.failure;
+
+        return {
+          detail: reason.detail,
+          outcome: "probe-failed" as const,
+          reason: reason.kind,
+          status: reason.kind === "rejected" ? reason.status : null,
+        };
+      }
+
+      return { outcome: "verified" as const };
+    }),
+
   claim: protectedProcedure
     .input(z.object({ token: z.string().min(1) }))
     .handler(async ({ context, input }) => {
@@ -199,74 +328,28 @@ export const instanceRouter = {
   }),
 
   save: operatorProcedure
-    .input(
-      z.object({
-        integrationId: z.string(),
-        values: z.record(z.string(), z.string()),
-        variantId: z.string(),
-      })
-    )
+    .input(integrationInput)
     .handler(async ({ context, input }) => {
-      const integration = Option.getOrThrowWith(
-        findIntegration(input.integrationId),
-        () => new ORPCError("NOT_FOUND", { message: "Unknown integration" })
-      );
+      const prepared = await prepareIntegration(input);
 
-      const variant = Option.getOrThrowWith(
-        findVariant(integration, input.variantId),
-        () => new ORPCError("NOT_FOUND", { message: "Unknown variant" })
-      );
-
-      const owned = keysOf(integration).filter(environmentOwns);
-
-      if (owned.length > 0) {
-        return { keys: owned, outcome: "environment-owned" as const };
+      if (prepared.kind === "refused") {
+        return prepared.refusal;
       }
 
-      const stored = await readCurrentSettings();
-      const candidate = candidateOf(integration, variant, input.values, stored);
-
-      const missing = variant.fields.flatMap((field) =>
-        field.required && candidate[field.key] === undefined ? [field.key] : []
-      );
-
-      if (missing.length > 0) {
-        return { keys: missing, outcome: "missing-fields" as const };
-      }
-
-      const validated = validateSettings(candidate);
-
-      if (Result.isFailure(validated)) {
-        return {
-          detail: validated.failure.detail,
-          outcome: "invalid" as const,
-        };
-      }
-
-      const probe = Option.getOrThrowWith(
-        findProbe(integration.id, variant.id),
-        () => new ORPCError("NOT_IMPLEMENTED", { message: "No check exists" })
-      );
-
-      const probed = await Effect.runPromise(
-        Effect.result(probe(validated.success))
-      );
-
-      if (Result.isFailure(probed)) {
-        const { reason } = probed.failure;
-
-        return {
-          detail: reason.detail,
-          outcome: "probe-failed" as const,
-          reason: reason.kind,
-          status: reason.kind === "rejected" ? reason.status : null,
-        };
+      if (
+        isWhollyOwnedByEnvironment(
+          prepared.integration,
+          prepared.variant,
+          environmentOwns
+        )
+      ) {
+        return { outcome: "nothing-to-save" as const };
       }
 
       await Effect.runPromise(
         writeStoredSettings(
           settings.BETTER_AUTH_SECRET,
-          writesOf(integration, candidate),
+          writesOf(prepared.integration, prepared.candidate, environmentOwns),
           context.session.user.id
         )
       );

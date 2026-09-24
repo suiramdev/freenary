@@ -5,6 +5,7 @@ import {
   EmptyTitle,
 } from "@freenary/ui/components/empty";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { m } from "@/paraglide/messages.js";
 import { WizardShell } from "@/shared/ui/wizard-shell";
@@ -89,26 +90,52 @@ export const SetupPage = () => {
       return null;
     }
 
+    const integrationId = activeIntegration.id;
+
+    const recordOutcome = (outcome: SaveOutcome) =>
+      setOutcomes((held) => ({ ...held, [integrationId]: outcome }));
+
+    const clearOutcome = () =>
+      setOutcomes((held) =>
+        Object.fromEntries(
+          Object.entries(held).filter(([id]) => id !== integrationId)
+        )
+      );
+
     return (
       <ProviderStep
         descriptor={activeIntegration}
+        isChecking={setup.check.isPending}
         isFirstStep={setup.stepIndex === 0}
         isSaving={setup.save.isPending}
         onBack={setup.handleBack}
-        onSave={(variantId, values) =>
-          setup.save.mutate(
-            { integrationId: activeIntegration.id, values, variantId },
-            {
-              onSuccess: (outcome) =>
-                setOutcomes((held) => ({
-                  ...held,
-                  [activeIntegration.id]: outcome,
-                })),
-            }
+        onCheck={(variantId, values) =>
+          setup.check.mutate(
+            { integrationId, values, variantId },
+            { onSuccess: recordOutcome }
           )
         }
+        onEdit={clearOutcome}
+        onSave={(variantId, values) => {
+          const checked = outcomes[integrationId]?.outcome === "verified";
+
+          setup.save.mutate(
+            { integrationId, values, variantId },
+            {
+              onSuccess: (outcome) => {
+                recordOutcome({ ...outcome, checked });
+
+                if (outcome.outcome === "saved") {
+                  toast.success(
+                    checked ? m.setup_saved() : m.setup_saved_unchecked()
+                  );
+                }
+              },
+            }
+          );
+        }}
         onSkip={setup.handleNext}
-        outcome={outcomes[activeIntegration.id]}
+        outcome={outcomes[integrationId]}
       />
     );
   };

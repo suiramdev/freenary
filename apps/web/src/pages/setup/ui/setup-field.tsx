@@ -53,10 +53,15 @@ export const SetupField = ({
     ? m.setup_source_environment({ key: descriptor.key })
     : descriptor.key;
 
-  const secretPlaceholder =
-    isSecret(descriptor.kind) && descriptor.present
-      ? m.setup_secret_unchanged_hint()
-      : undefined;
+  const secretPlaceholder = () => {
+    if (!isSecret(descriptor.kind) || !descriptor.present) {
+      return;
+    }
+
+    return ownedByEnvironment
+      ? m.setup_secret_from_environment()
+      : m.setup_secret_unchanged_hint();
+  };
 
   const held = value ?? descriptor.value ?? "";
 
@@ -88,7 +93,7 @@ export const SetupField = ({
           disabled={ownedByEnvironment}
           id={inputId}
           onChange={(event) => onChange(descriptor.key, event.target.value)}
-          placeholder={secretPlaceholder}
+          placeholder={secretPlaceholder()}
           rows={SECRET_ROWS}
           value={value ?? ""}
         />
@@ -97,7 +102,7 @@ export const SetupField = ({
           disabled={ownedByEnvironment}
           id={inputId}
           onChange={(event) => onChange(descriptor.key, event.target.value)}
-          placeholder={secretPlaceholder}
+          placeholder={secretPlaceholder()}
           type={inputType(descriptor.kind)}
           value={isSecret(descriptor.kind) ? (value ?? "") : held}
         />

@@ -1,6 +1,7 @@
 import type { BadgeColor } from "@freenary/ui/components/badge";
 
 import { m } from "@/paraglide/messages.js";
+import { docsUrl } from "@/shared/config";
 
 type Label = () => string;
 
@@ -50,6 +51,13 @@ const VARIANT_LABELS = {
   smtp: m.setup_variant_smtp,
 } satisfies Record<string, Label>;
 
+const VARIANT_GUIDE_PATHS: Record<string, string> = {
+  "enable-banking": "/self-hosting/bank-providers#enable-banking",
+  powens: "/self-hosting/bank-providers#powens",
+  resend: "/self-hosting/email#resend",
+  smtp: "/self-hosting/email#smtp",
+};
+
 const STATE_COLOURS: Record<string, BadgeColor> = {
   configured: "green",
   disabled: "gray",
@@ -75,3 +83,9 @@ export const stepLabel = (id: string): string => read(STEP_LABELS, id);
 
 export const stateColour = (id: string): BadgeColor =>
   STATE_COLOURS[id] ?? "gray";
+
+export const variantGuideUrl = (id: string): string | null => {
+  const path = VARIANT_GUIDE_PATHS[id];
+
+  return path === undefined ? null : `${docsUrl()}${path}`;
+};

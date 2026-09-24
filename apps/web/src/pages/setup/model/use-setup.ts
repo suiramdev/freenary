@@ -111,6 +111,8 @@ export const useSetup = () => {
     })
   );
 
+  const check = useMutation(orpc.instance.check.mutationOptions());
+
   const restart = useMutation(
     orpc.instance.restart.mutationOptions({
       onSuccess: () => {
@@ -134,6 +136,7 @@ export const useSetup = () => {
   );
 
   return {
+    check,
     claim,
     complete,
     configuration,
