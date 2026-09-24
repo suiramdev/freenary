@@ -36,6 +36,7 @@ import {
 import { maskEnvironmentValue } from "../instance/mask";
 import {
   candidateOf,
+  environmentVariantOf,
   isWhollyOwnedByEnvironment,
   missingKeysOf,
   writesOf,
@@ -129,14 +130,44 @@ const describeField = (field: IntegrationField, stored: StoredSettings) => {
   };
 };
 
+const providerFromEnvironment = (key: ServerSettingKey): string | undefined => {
+  const resolved = Result.getOrUndefined(validateSettings({}))?.[key];
+
+  return resolved === undefined ? undefined : String(resolved);
+};
+
+const configuredByOf = (
+  integration: Integration,
+  stored: StoredSettings,
+  environmentVariant: IntegrationVariant | null
+) => {
+  if (environmentVariant !== null) {
+    return "environment" as const;
+  }
+
+  return stored[integration.discriminantKey] === undefined
+    ? null
+    : ("instance" as const);
+};
+
 const describeIntegration = (
   integration: Integration,
   stored: StoredSettings
 ) => {
-  const selectedVariantId = selectedVariantOf(integration, stored);
+  const environmentVariant = environmentVariantOf(
+    integration,
+    stored[integration.discriminantKey],
+    providerFromEnvironment(integration.discriminantKey),
+    environmentOwns
+  );
+
+  const selectedVariantId =
+    environmentVariant?.id ?? selectedVariantOf(integration, stored);
+
   const selected = findVariant(integration, selectedVariantId);
 
   return {
+    configuredBy: configuredByOf(integration, stored, environmentVariant),
     discriminantKey: integration.discriminantKey,
     discriminantSource: sourceFor(integration.discriminantKey, stored),
     id: integration.id,

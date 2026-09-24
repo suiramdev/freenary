@@ -145,6 +145,7 @@ A variable set in the environment always beats the same value in the database. T
 
 - `Check` tests the environment values together with the values you typed. You can check an integration that the file sets in full.
 - `Save` stores only the fields that the environment does not set. When the environment sets every field, `Save` stays off.
+- The environment can configure a provider in full. This is true when the app holds no provider for that integration, and the environment sets every required field. The step then shows a summary in place of the form. The summary names the provider, the values and the variables they come from. It also says when the provider is the default, because `BANKING_PROVIDER` is not set.
 - The screen shows the first four and the last four characters of a value from the environment. A value of eight characters or fewer shows as `…`. The screen never shows a secret from the environment.
 
 This keeps two habits working. An operator who holds secrets in Kubernetes, in Vault or in the file keeps that setup. The screen never fights it. An operator who wants the screen to own a value removes the line from `.env`, then runs `docker compose up -d`.

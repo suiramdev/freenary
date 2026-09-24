@@ -85,3 +85,33 @@ export const writesOf = (
 
   return writes;
 };
+
+export const environmentVariantOf = (
+  integration: Integration,
+  storedProvider: string | undefined,
+  providerFromEnvironment: string | undefined,
+  ownedByEnvironment: OwnedByEnvironment
+): IntegrationVariant | null => {
+  if (
+    storedProvider !== undefined &&
+    !ownedByEnvironment(integration.discriminantKey)
+  ) {
+    return null;
+  }
+
+  const inForce = integration.variants.find(
+    (variant) =>
+      variant.discriminantValue !== null &&
+      variant.discriminantValue === providerFromEnvironment
+  );
+
+  if (inForce === undefined) {
+    return null;
+  }
+
+  const fullyOwned = inForce.fields.every(
+    (field) => !field.required || ownedByEnvironment(field.key)
+  );
+
+  return fullyOwned ? inForce : null;
+};

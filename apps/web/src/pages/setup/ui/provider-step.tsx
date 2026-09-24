@@ -18,6 +18,8 @@ import {
   variantGuideUrl,
   variantLabel,
 } from "../model/labels";
+import type { SaveOutcome } from "../model/outcome";
+import { isFailedOutcome, outcomeMessage } from "../model/outcome";
 import type { SetupFieldDescriptor } from "./setup-field";
 import { SetupField } from "./setup-field";
 
@@ -27,20 +29,13 @@ export interface SetupVariantDescriptor {
 }
 
 export interface SetupIntegrationDescriptor {
+  configuredBy: string | null;
+  discriminantKey: string;
   discriminantSource: string;
   id: string;
   selectedVariantId: string;
   state: string;
   variants: SetupVariantDescriptor[];
-}
-
-export interface SaveOutcome {
-  checked?: boolean;
-  detail?: string;
-  keys?: string[];
-  outcome: string;
-  reason?: string;
-  status?: number | null;
 }
 
 interface ProviderStepProps {
@@ -56,12 +51,6 @@ interface ProviderStepProps {
   outcome: SaveOutcome | undefined;
 }
 
-const SUCCESS_OUTCOMES: ReadonlySet<string> = new Set([
-  "saved",
-  "verified",
-  "nothing-to-save",
-]);
-
 const filledValuesOf = (
   variant: SetupVariantDescriptor | undefined
 ): Record<string, string> =>
@@ -72,51 +61,6 @@ const filledValuesOf = (
         : [[field.key, field.value]]
     )
   );
-
-const outcomeMessage = (outcome: SaveOutcome): string => {
-  if (outcome.outcome === "saved") {
-    return outcome.checked === true
-      ? m.setup_saved()
-      : m.setup_saved_unchecked();
-  }
-
-  if (outcome.outcome === "verified") {
-    return m.setup_verified();
-  }
-
-  if (outcome.outcome === "nothing-to-save") {
-    return m.setup_nothing_to_save();
-  }
-
-  if (outcome.outcome === "missing-fields") {
-    return m.setup_error_missing_fields({
-      keys: (outcome.keys ?? []).join(", "),
-    });
-  }
-
-  if (outcome.outcome === "environment-owned") {
-    return m.setup_error_environment_owned({
-      keys: (outcome.keys ?? []).join(", "),
-    });
-  }
-
-  if (outcome.outcome === "invalid") {
-    return m.setup_error_invalid({ detail: outcome.detail ?? "" });
-  }
-
-  if (outcome.reason === "rejected") {
-    return m.setup_error_probe_rejected({
-      detail: outcome.detail ?? "",
-      status: outcome.status ?? 0,
-    });
-  }
-
-  if (outcome.reason === "invalid") {
-    return m.setup_error_probe_invalid({ detail: outcome.detail ?? "" });
-  }
-
-  return m.setup_error_probe_unreachable({ detail: outcome.detail ?? "" });
-};
 
 export const ProviderStep = ({
   descriptor,
@@ -142,8 +86,7 @@ export const ProviderStep = ({
 
   const variant = descriptor.variants.find((entry) => entry.id === variantId);
   const lockedByEnvironment = descriptor.discriminantSource === "environment";
-  const isFailure =
-    outcome !== undefined && !SUCCESS_OUTCOMES.has(outcome.outcome);
+  const isFailure = isFailedOutcome(outcome);
 
   const isVerified = outcome?.outcome === "verified";
   const whollyFromEnvironment =

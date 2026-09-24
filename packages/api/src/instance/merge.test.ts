@@ -10,6 +10,7 @@ import { Option } from "effect";
 import type { OwnedByEnvironment } from "./merge";
 import {
   candidateOf,
+  environmentVariantOf,
   isWhollyOwnedByEnvironment,
   missingKeysOf,
   writesOf,
@@ -227,5 +228,73 @@ describe("environment ownership", () => {
     const owned = ownedKeys("BANKING_PROVIDER", "POWENS_DOMAIN");
 
     expect(isWhollyOwnedByEnvironment(banking, powens, owned)).toBe(false);
+  });
+});
+
+describe("environmentVariantOf", () => {
+  const powensFields = ownedKeys(
+    "POWENS_DOMAIN",
+    "POWENS_CLIENT_ID",
+    "POWENS_CLIENT_SECRET"
+  );
+
+  test("finds the default provider when the environment holds its fields", () => {
+    const found = environmentVariantOf(
+      banking,
+      undefined,
+      "powens",
+      powensFields
+    );
+
+    expect(found?.id).toBe("powens");
+  });
+
+  test("finds the provider the environment names", () => {
+    const found = environmentVariantOf(
+      banking,
+      undefined,
+      "powens",
+      ownedKeys(
+        "BANKING_PROVIDER",
+        "POWENS_DOMAIN",
+        "POWENS_CLIENT_ID",
+        "POWENS_CLIENT_SECRET"
+      )
+    );
+
+    expect(found?.id).toBe("powens");
+  });
+
+  test("defers to a provider saved in the app", () => {
+    const found = environmentVariantOf(
+      banking,
+      "enable-banking",
+      "powens",
+      powensFields
+    );
+
+    expect(found).toBeNull();
+  });
+
+  test("ignores a provider with a required field left to the app", () => {
+    const found = environmentVariantOf(
+      banking,
+      undefined,
+      "powens",
+      ownedKeys("POWENS_DOMAIN")
+    );
+
+    expect(found).toBeNull();
+  });
+
+  test("finds nothing when no provider is in force", () => {
+    const found = environmentVariantOf(
+      email,
+      undefined,
+      undefined,
+      ownedKeys("EMAIL_FROM")
+    );
+
+    expect(found).toBeNull();
   });
 });

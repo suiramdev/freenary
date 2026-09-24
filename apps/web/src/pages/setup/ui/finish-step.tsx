@@ -50,6 +50,11 @@ export const FinishStep = ({
                   {variantLabel(integration.selectedVariantId)}
                 </span>
               )}
+              {integration.configuredBy === "environment" ? (
+                <span className="text-muted-foreground text-xs">
+                  {m.setup_recap_from_environment()}
+                </span>
+              ) : null}
               <Badge color={stateColour(integration.state)}>
                 {stateLabel(integration.state)}
               </Badge>

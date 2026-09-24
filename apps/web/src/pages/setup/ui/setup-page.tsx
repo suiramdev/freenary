@@ -12,10 +12,11 @@ import { WizardShell } from "@/shared/ui/wizard-shell";
 import { WizardStepper } from "@/shared/ui/wizard-stepper";
 
 import { stepLabel } from "../model/labels";
+import type { SaveOutcome } from "../model/outcome";
 import { useSetup } from "../model/use-setup";
 import { ClaimStep } from "./claim-step";
+import { EnvironmentSummary } from "./environment-summary";
 import { FinishStep } from "./finish-step";
-import type { SaveOutcome } from "./provider-step";
 import { ProviderStep } from "./provider-step";
 import { SetupWizardSkeleton } from "./setup-wizard-skeleton";
 
@@ -107,6 +108,25 @@ export const SetupPage = () => {
           Object.entries(held).filter(([id]) => id !== integrationId)
         )
       );
+
+    if (activeIntegration.configuredBy === "environment") {
+      return (
+        <EnvironmentSummary
+          descriptor={activeIntegration}
+          isChecking={setup.check.isPending}
+          isFirstStep={setup.stepIndex === 0}
+          onBack={setup.handleBack}
+          onCheck={(variantId) =>
+            setup.check.mutate(
+              { integrationId, values: {}, variantId },
+              { onSuccess: recordOutcome }
+            )
+          }
+          onNext={setup.handleNext}
+          outcome={outcomes[integrationId]}
+        />
+      );
+    }
 
     return (
       <ProviderStep
