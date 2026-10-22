@@ -1,0 +1,395 @@
+
+## settings en light
+desc: Categories are grouped, and the groups are fixed. Each built-in category has its own color. Your own categories can be renamed, reordered or removed, and nested under a group or under one of your top-level categories. Nesting stops at one level.
+Salary & wages | text-category-blue | oklch(0.55 0.2 260) | op=0.6
+Self-employment & business income | text-category-orange | oklch(0.64 0.16 52) | op=0.6
+Investment income | text-category-teal | oklch(0.58 0.1 190) | op=0.6
+Rental income | text-category-pink | oklch(0.58 0.2 345) | op=0.6
+Benefits & pension | text-category-purple | oklch(0.55 0.22 300) | op=0.6
+Refunds & reimbursements | text-category-yellow | oklch(0.65 0.13 88) | op=0.6
+Other income | text-category-green | oklch(0.58 0.15 145) | op=0.6
+Groceries | text-category-orange | oklch(0.64 0.16 52) | op=0.6
+Restaurants & going out | text-category-teal | oklch(0.58 0.1 190) | op=0.6
+Rent & mortgage | text-category-blue | oklch(0.55 0.2 260) | op=0.6
+Bills & utilities | text-category-pink | oklch(0.58 0.2 345) | op=0.6
+Car & fuel | text-category-green | oklch(0.58 0.15 145) | op=0.6
+Transport & travel | text-category-purple | oklch(0.55 0.22 300) | op=0.6
+Shopping | text-category-yellow | oklch(0.65 0.13 88) | op=0.6
+Entertainment & leisure | text-category-blue-alt | oklch(0.42 0.15 265) | op=0.6
+Subscriptions | text-category-orange-alt | oklch(0.52 0.125 60) | op=0.6
+Health & medical | text-category-brown | oklch(0.5 0.06 40) | op=0.6
+Family & education | text-category-teal-alt | oklch(0.44 0.075 205) | op=0.6
+Taxes | text-category-pink-alt | oklch(0.46 0.16 355) | op=0.6
+Loans & bank fees | text-category-purple-alt | oklch(0.42 0.17 295) | op=0.6
+People | text-category-yellow-alt | oklch(0.55 0.11 105) | op=0.6
+Cash withdrawal | text-category-green-alt | oklch(0.43 0.11 150) | op=0.6
+Other | text-category-grey | oklch(0.552 0.016 285.938) | op=0.6
+
+## settings en dark
+desc: Categories are grouped, and the groups are fixed. Each built-in category has its own color. Your own categories can be renamed, reordered or removed, and nested under a group or under one of your top-level categories. Nesting stops at one level.
+Salary & wages | text-category-blue | oklch(0.7 0.15 255) | op=0.6
+Self-employment & business income | text-category-orange | oklch(0.74 0.15 55) | op=0.6
+Investment income | text-category-teal | oklch(0.74 0.12 185) | op=0.6
+Rental income | text-category-pink | oklch(0.72 0.17 342) | op=0.6
+Benefits & pension | text-category-purple | oklch(0.7 0.18 300) | op=0.6
+Refunds & reimbursements | text-category-yellow | oklch(0.84 0.15 90) | op=0.6
+Other income | text-category-green | oklch(0.75 0.17 148) | op=0.6
+Groceries | text-category-orange | oklch(0.74 0.15 55) | op=0.6
+Restaurants & going out | text-category-teal | oklch(0.74 0.12 185) | op=0.6
+Rent & mortgage | text-category-blue | oklch(0.7 0.15 255) | op=0.6
+Bills & utilities | text-category-pink | oklch(0.72 0.17 342) | op=0.6
+Car & fuel | text-category-green | oklch(0.75 0.17 148) | op=0.6
+Transport & travel | text-category-purple | oklch(0.7 0.18 300) | op=0.6
+Shopping | text-category-yellow | oklch(0.84 0.15 90) | op=0.6
+Entertainment & leisure | text-category-blue-alt | oklch(0.83 0.09 240) | op=0.6
+Subscriptions | text-category-orange-alt | oklch(0.86 0.08 60) | op=0.6
+Health & medical | text-category-brown | oklch(0.62 0.06 45) | op=0.6
+Family & education | text-category-teal-alt | oklch(0.88 0.1 190) | op=0.6
+Taxes | text-category-pink-alt | oklch(0.84 0.1 350) | op=0.6
+Loans & bank fees | text-category-purple-alt | oklch(0.8 0.11 300) | op=0.6
+People | text-category-yellow-alt | oklch(0.93 0.09 100) | op=0.6
+Cash withdrawal | text-category-green-alt | oklch(0.87 0.13 140) | op=0.6
+Other | text-category-grey | oklch(0.705 0.015 286.067) | op=0.6
+
+## settings fr light
+desc: Les catégories sont regroupées et les groupes sont fixes. Chaque catégorie prédéfinie a sa propre couleur. Vos propres catégories peuvent être renommées, réordonnées ou supprimées, et rattachées à un groupe ou à l’une de vos catégories de premier niveau. L’imbrication s’arrête à un niveau.
+  "A Freenary",
+  "A Accueil",
+  "A Portefeuille",
+  "BUTTON:submit Budget",
+  "A Analyse",
+  "A Objectifs",
+  "A Paramètres",
+  "A Connecter votre banque Fait",
+  "A Définir votre budget À faire",
+  "A Protéger votre compte À faire",
+  "BUTTON:button NQ Noah QA noah.qa84@example.test",
+  "BUTTON:button Redimensionner ou masquer la barre latérale",
+  "BUTTON:button Afficher ou masquer la barre latérale",
+  "A Apparence",
+  "A Connexions",
+  "A Budget",
+  "A Sécurité",
+  "BUTTON:button Ajouter une ligne",
+  "BUTTON:button Nouvelle catégorie",
+  "BUTTON:button Revenus",
+  "BUTTON:button Épargne et placements",
+  "BUTTON:button Dépenses",
+  "BUTTON:button Copy value to clipboard"
+
+## donut light 1M
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.552 0.016 285.938)
+Groceries=oklch(0.64 0.16 52)
+Shopping=oklch(0.65 0.13 88)
+Entertainment & leisure=oklch(0.42 0.15 265)
+Restaurants & going out=oklch(0.58 0.1 190)
+Car & fuel=oklch(0.58 0.15 145)
+Subscriptions=oklch(0.52 0.125 60)
+Transport & travel=oklch(0.55 0.22 300)
+slice fills: oklch(0.552 0.016 285.938) ; oklch(0.64 0.16 52) ; oklch(0.65 0.13 88) ; oklch(0.42 0.15 265) ; oklch(0.58 0.1 190) ; oklch(0.58 0.15 145) ; oklch(0.52 0.125 60) ; oklch(0.55 0.22 300)
+
+## donut light 3M
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.552 0.016 285.938)
+Groceries=oklch(0.64 0.16 52)
+Transport & travel=oklch(0.55 0.22 300)
+Restaurants & going out=oklch(0.58 0.1 190)
+Shopping=oklch(0.65 0.13 88)
+Entertainment & leisure=oklch(0.42 0.15 265)
+Car & fuel=oklch(0.58 0.15 145)
+Health & medical=oklch(0.5 0.06 40)
+Subscriptions=oklch(0.52 0.125 60)
+Cash withdrawal=oklch(0.43 0.11 150)
+slice fills: oklch(0.552 0.016 285.938) ; oklch(0.64 0.16 52) ; oklch(0.55 0.22 300) ; oklch(0.58 0.1 190) ; oklch(0.65 0.13 88) ; oklch(0.42 0.15 265) ; oklch(0.58 0.15 145) ; oklch(0.5 0.06 40) ; oklch(0.52 0.125 60) ; oklch(0.43 0.11 150)
+
+## donut light 1Y
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.552 0.016 285.938)
+Groceries=oklch(0.64 0.16 52)
+Transport & travel=oklch(0.55 0.22 300)
+Restaurants & going out=oklch(0.58 0.1 190)
+Shopping=oklch(0.65 0.13 88)
+Entertainment & leisure=oklch(0.42 0.15 265)
+Car & fuel=oklch(0.58 0.15 145)
+Health & medical=oklch(0.5 0.06 40)
+Subscriptions=oklch(0.52 0.125 60)
+Cash withdrawal=oklch(0.43 0.11 150)
+slice fills: oklch(0.552 0.016 285.938) ; oklch(0.64 0.16 52) ; oklch(0.55 0.22 300) ; oklch(0.58 0.1 190) ; oklch(0.65 0.13 88) ; oklch(0.42 0.15 265) ; oklch(0.58 0.15 145) ; oklch(0.5 0.06 40) ; oklch(0.52 0.125 60) ; oklch(0.43 0.11 150)
+
+## sankey light
+=var(--chart-green)
+=var(--chart-blue)
+=var(--category-grey)
+=var(--category-orange)
+=var(--category-yellow)
+=var(--category-blue-alt)
+=var(--category-teal)
+=var(--category-green)
+=var(--category-orange-alt)
+=var(--category-purple)
+
+## transaction chips light
+text-category-orange: BOULANGERIE PAUL, LIDL, MONOPRIX, INTERMARCHE, FRANPRIX, CARREFOUR MARKET
+text-category-teal: MCDONALDS, DELIVEROO
+text-category-green: TOTALENERGIES
+text-category-orange-alt: SPOTIFY, NETFLIX.COM
+text-category-blue-alt: DECATHLON, PATHE CINEMAS
+text-category-grey: SUMUP *FERNANDEZ, EDF, FNAC, ORANGE SA, LIETALD DUPUY, SUMUP *PIERRE
+text-category-yellow: ZARA
+text-category-purple: UBER TRIP
+
+## recurring light
+Groceries=background-color: var(--category-orange); width: 100%;
+Restaurants & going out=background-color: var(--category-teal); width: 22.042%;
+Other=background-color: var(--category-grey); width: 19.2409%;
+Health & medical=background-color: var(--category-brown); width: 7.51732%;
+Transport & travel=background-color: var(--category-purple); width: 7.05163%;
+Subscriptions=background-color: var(--category-orange-alt); width: 2.93032%;
+
+## donut dark 1M
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.705 0.015 286.067)
+Groceries=oklch(0.74 0.15 55)
+Shopping=oklch(0.84 0.15 90)
+Entertainment & leisure=oklch(0.83 0.09 240)
+Restaurants & going out=oklch(0.74 0.12 185)
+Car & fuel=oklch(0.75 0.17 148)
+Subscriptions=oklch(0.86 0.08 60)
+Transport & travel=oklch(0.7 0.18 300)
+slice fills: oklch(0.705 0.015 286.067) ; oklch(0.74 0.15 55) ; oklch(0.84 0.15 90) ; oklch(0.83 0.09 240) ; oklch(0.74 0.12 185) ; oklch(0.75 0.17 148) ; oklch(0.86 0.08 60) ; oklch(0.7 0.18 300)
+
+## donut dark 3M
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.705 0.015 286.067)
+Groceries=oklch(0.74 0.15 55)
+Transport & travel=oklch(0.7 0.18 300)
+Restaurants & going out=oklch(0.74 0.12 185)
+Shopping=oklch(0.84 0.15 90)
+Entertainment & leisure=oklch(0.83 0.09 240)
+Car & fuel=oklch(0.75 0.17 148)
+Health & medical=oklch(0.62 0.06 45)
+Subscriptions=oklch(0.86 0.08 60)
+Cash withdrawal=oklch(0.87 0.13 140)
+slice fills: oklch(0.705 0.015 286.067) ; oklch(0.74 0.15 55) ; oklch(0.7 0.18 300) ; oklch(0.74 0.12 185) ; oklch(0.84 0.15 90) ; oklch(0.83 0.09 240) ; oklch(0.75 0.17 148) ; oklch(0.62 0.06 45) ; oklch(0.86 0.08 60) ; oklch(0.87 0.13 140)
+
+## donut dark 1Y
+Budget=rgba(0, 0, 0, 0)
+NQ Noah QA noah.qa84@example.test=rgba(0, 0, 0, 0)
+Other=oklch(0.705 0.015 286.067)
+Groceries=oklch(0.74 0.15 55)
+Transport & travel=oklch(0.7 0.18 300)
+Restaurants & going out=oklch(0.74 0.12 185)
+Shopping=oklch(0.84 0.15 90)
+Entertainment & leisure=oklch(0.83 0.09 240)
+Car & fuel=oklch(0.75 0.17 148)
+Health & medical=oklch(0.62 0.06 45)
+Subscriptions=oklch(0.86 0.08 60)
+Cash withdrawal=oklch(0.87 0.13 140)
+slice fills: oklch(0.705 0.015 286.067) ; oklch(0.74 0.15 55) ; oklch(0.7 0.18 300) ; oklch(0.74 0.12 185) ; oklch(0.84 0.15 90) ; oklch(0.83 0.09 240) ; oklch(0.75 0.17 148) ; oklch(0.62 0.06 45) ; oklch(0.86 0.08 60) ; oklch(0.87 0.13 140)
+
+## sankey dark
+=var(--chart-green)
+=var(--chart-blue)
+=var(--category-grey)
+=var(--category-orange)
+=var(--category-yellow)
+=var(--category-blue-alt)
+=var(--category-teal)
+=var(--category-green)
+=var(--category-orange-alt)
+=var(--category-purple)
+
+## transaction chips dark
+text-category-orange: BOULANGERIE PAUL, LIDL, MONOPRIX, INTERMARCHE, FRANPRIX, CARREFOUR MARKET
+text-category-teal: MCDONALDS, DELIVEROO
+text-category-green: TOTALENERGIES
+text-category-orange-alt: SPOTIFY, NETFLIX.COM
+text-category-blue-alt: DECATHLON, PATHE CINEMAS
+text-category-grey: SUMUP *FERNANDEZ, EDF, FNAC, ORANGE SA, LIETALD DUPUY, SUMUP *PIERRE
+text-category-yellow: ZARA
+text-category-purple: UBER TRIP
+
+## recurring dark
+Groceries=background-color: var(--category-orange); width: 100%;
+Restaurants & going out=background-color: var(--category-teal); width: 22.042%;
+Other=background-color: var(--category-grey); width: 19.2409%;
+Health & medical=background-color: var(--category-brown); width: 7.51732%;
+Transport & travel=background-color: var(--category-purple); width: 7.05163%;
+Subscriptions=background-color: var(--category-orange-alt); width: 2.93032%;
+  "A Freenary",
+  "A Home",
+  "A Portfolio",
+  "BUTTON:submit Budget",
+  "A Transactions",
+  "A Recurring",
+  "A Analysis",
+  "A Goals",
+  "A Settings",
+  "A Connect your bank Done",
+  "A Set up your budget To do",
+  "A Protect your account To do",
+  "BUTTON:button NQ Noah QA noah.qa84@example.test",
+  "BUTTON:button Resize or collapse sidebar",
+  "BUTTON:button Toggle sidebar",
+  "BUTTON:button Sync transactions",
+  "BUTTON:button Over time",
+  "BUTTON:button Forecast",
+  "BUTTON:button Cost vs. frequency",
+  "BUTTON:button By category",
+  "INPUT:search Search companies…",
+  "BUTTON:button Dearest",
+  "BUTTON:button Soonest",
+  "BUTTON:button Cost",
+  "BUTTON:button Recurrence",
+  "INPUT:text Category",
+  "BUTTON:button Open",
+  "BUTTON:button Commitments · €212.47",
+  "BUTTON:button Patterns · €1,151.39"
+trigger: Fixed vs. variable
+menu: Fixed vs. variable
+Budget vs. actual
+
+## bva light
+Budget vs. actual | Actual | / | Planned | Groceries | €431.05 over | €731.05 / €300.00 | Shopping | €105.18 left | €144.82 / €250.00 | Restaurants & going out | €114.83 left | €85.17 / €200.00 | Car & fuel | €72.79 left | €47.21 / €120.00 | Transport & travel | €74.69 left | €25.31 / €100.00 | Subscriptions | €24.37 left | €25.63 / €50.00 | Other | Unplanned | €1,703.17 | Entertainment & leisure | Unplanned | €143.10
+background-color: var(--destructive); width: 42.9229%; fill=
+background-color: var(--category-yellow); width: 8.50297%; fill=
+background-color: var(--category-teal); width: 5.00068%; fill=
+background-color: var(--category-green); width: 2.77189%; fill=
+background-color: var(--category-purple); width: 1.48605%; fill=
+background-color: var(--category-orange-alt); width: 1.50484%; fill=
+background-color: var(--category-grey); width: 100%; fill=
+background-color: var(--category-blue-alt); width: 8.40198%; fill=
+
+## contrast light card=oklch(1 0 0) destructive=oklch(0.577 0.245 27.325)
+blue: oklch(0.55 0.2 260) rgb(28,105,227) contrast=5.02 distToDestructive=314
+blue-alt: oklch(0.42 0.15 265) rgb(35,69,157) contrast=8.72 distToDestructive=254
+orange: oklch(0.64 0.16 52) rgb(213,106,16) contrast=3.56 distToDestructive=108
+orange-alt: oklch(0.52 0.125 60) rgb(155,84,0) contrast=5.73 distToDestructive=114
+teal: oklch(0.58 0.1 190) rgb(1,141,135) contrast=4.07 distToDestructive=297
+teal-alt: oklch(0.44 0.075 205) rgb(0,94,102) contrast=7.52 distToDestructive=265
+pink: oklch(0.58 0.2 345) rgb(198,56,149) contrast=4.77 distToDestructive=153
+pink-alt: oklch(0.46 0.16 355) rgb(150,34,92) contrast=7.84 distToDestructive=119
+purple: oklch(0.55 0.22 300) rgb(136,67,219) contrast=5.42 distToDestructive=238
+purple-alt: oklch(0.42 0.17 295) rgb(87,46,157) contrast=9.20 distToDestructive=210
+yellow: oklch(0.65 0.13 88) rgb(176,137,14) contrast=3.27 distToDestructive=148
+yellow-alt: oklch(0.55 0.11 105) rgb(123,116,20) contrast=4.83 distToDestructive=159
+green: oklch(0.58 0.15 145) rgb(51,144,60) contrast=4.04 distToDestructive=236
+green-alt: oklch(0.43 0.11 150) rgb(16,96,45) contrast=7.68 distToDestructive=238
+brown: oklch(0.5 0.06 40) rgb(129,88,73) contrast=6.13 distToDestructive=148
+brown-alt: oklch(0.38 0.045 55) rgb(85,60,43) contrast=10.16 distToDestructive=161
+grey: oklch(0.552 0.016 285.938) rgb(113,113,123) contrast=4.83 distToDestructive=198
+blue vs blue-alt: 1.73:1
+orange vs orange-alt: 1.61:1
+teal vs teal-alt: 1.85:1
+pink vs pink-alt: 1.64:1
+purple vs purple-alt: 1.70:1
+yellow vs yellow-alt: 1.48:1
+green vs green-alt: 1.90:1
+brown vs brown-alt: 1.66:1
+trigger: Fixed vs. variable
+menu: Fixed vs. variable
+Budget vs. actual
+
+## bva dark
+Budget vs. actual | Actual | / | Planned | Groceries | €431.05 over | €731.05 / €300.00 | Shopping | €105.18 left | €144.82 / €250.00 | Restaurants & going out | €114.83 left | €85.17 / €200.00 | Car & fuel | €72.79 left | €47.21 / €120.00 | Transport & travel | €74.69 left | €25.31 / €100.00 | Subscriptions | €24.37 left | €25.63 / €50.00 | Other | Unplanned | €1,703.17 | Entertainment & leisure | Unplanned | €143.10
+background-color: var(--destructive); width: 42.9229%; fill=
+background-color: var(--category-yellow); width: 8.50297%; fill=
+background-color: var(--category-teal); width: 5.00068%; fill=
+background-color: var(--category-green); width: 2.77189%; fill=
+background-color: var(--category-purple); width: 1.48605%; fill=
+background-color: var(--category-orange-alt); width: 1.50484%; fill=
+background-color: var(--category-grey); width: 100%; fill=
+background-color: var(--category-blue-alt); width: 8.40198%; fill=
+
+## contrast dark card=oklch(0.205 0 0) destructive=oklch(0.704 0.191 22.216)
+blue: oklch(0.7 0.15 255) rgb(89,160,249) contrast=6.68 distToDestructive=229
+blue-alt: oklch(0.83 0.09 240) rgb(144,208,252) contrast=10.77 distToDestructive=215
+orange: oklch(0.74 0.15 55) rgb(242,142,66) contrast=7.45 distToDestructive=57
+orange-alt: oklch(0.86 0.08 60) rgb(249,197,156) contrast=11.52 distToDestructive=111
+teal: oklch(0.74 0.12 185) rgb(49,195,181) contrast=8.20 distToDestructive=240
+teal-alt: oklch(0.88 0.1 190) rgb(130,237,230) contrast=12.98 distToDestructive=225
+pink: oklch(0.72 0.17 342) rgb(234,117,194) contrast=6.68 distToDestructive=95
+pink-alt: oklch(0.84 0.1 350) rgb(253,176,212) contrast=10.53 distToDestructive=133
+purple: oklch(0.7 0.18 300) rgb(177,128,252) contrast=6.29 distToDestructive=170
+purple-alt: oklch(0.8 0.11 300) rgb(200,174,250) contrast=9.30 distToDestructive=174
+yellow: oklch(0.84 0.15 90) rgb(240,197,67) contrast=10.90 distToDestructive=105
+yellow-alt: oklch(0.93 0.09 100) rgb(245,234,164) contrast=14.67 distToDestructive=148
+green: oklch(0.75 0.17 148) rgb(83,202,109) contrast=8.57 distToDestructive=200
+green-alt: oklch(0.87 0.13 140) rgb(166,233,151) contrast=12.57 distToDestructive=167
+brown: oklch(0.62 0.06 45) rgb(165,123,104) contrast=4.81 distToDestructive=93
+brown-alt: oklch(0.78 0.05 55) rgb(209,176,153) contrast=8.86 distToDestructive=102
+grey: oklch(0.705 0.015 286.067) rgb(159,159,169) contrast=6.84 distToDestructive=131
+blue vs blue-alt: 1.61:1
+orange vs orange-alt: 1.55:1
+teal vs teal-alt: 1.58:1
+pink vs pink-alt: 1.58:1
+purple vs purple-alt: 1.48:1
+yellow vs yellow-alt: 1.35:1
+green vs green-alt: 1.47:1
+brown vs brown-alt: 1.84:1
+  "A Freenary",
+  "A Home",
+  "A Portfolio",
+  "BUTTON:submit Budget",
+  "A Transactions",
+  "A Recurring",
+  "A Analysis",
+  "A Goals",
+  "A Settings",
+  "A Connect your bank Done",
+  "A Set up your budget Done",
+  "A Protect your account To do",
+  "BUTTON:button NQ Noah QA noah.qa84@example.test",
+  "BUTTON:button Resize or collapse sidebar",
+  "BUTTON:button Toggle sidebar",
+  "BUTTON:button Sync transactions",
+  "BUTTON:button Previous period",
+  "BUTTON:button October 2026",
+  "BUTTON:button Next period",
+  "BUTTON:button 1M",
+  "BUTTON:button 3M",
+  "BUTTON:button 1Y",
+  "BUTTON:button Flow",
+  "BUTTON:button Categories",
+  "BUTTON:button Other €1,703.17",
+  "BUTTON:button Groceries €731.05",
+  "BUTTON:button Shopping €144.82",
+  "BUTTON:button Entertainment & leisure €143.10",
+  "BUTTON:button Restaurants & going out €85.17",
+  "BUTTON:button Car & fuel €47.21",
+  "BUTTON:button Subscriptions €25.63",
+  "BUTTON:button Transport & travel €25.31",
+  "BUTTON:button Budget vs. actual",
+  "BUTTON:button Groceries €431.05 over €731.05 / €300.00",
+  "BUTTON:button Shopping €105.18 left €144.82 / €250.00",
+  "BUTTON:button Restaurants & going out €114.83 left €85.17 / €200",
+  "BUTTON:button Car & fuel €72.79 left €47.21 / €120.00",
+  "BUTTON:button Transport & travel €74.69 left €25.31 / €100.00",
+  "BUTTON:button Subscriptions €24.37 left €25.63 / €50.00",
+  "BUTTON:button Other Unplanned €1,703.17",
+  "BUTTON:button Entertainment & leisure Unplanned €143.10",
+  "INPUT:text Search and filter transactions",
+  "BUTTON:button Saved filters",
+  "BUTTON:button Newest",
+  "BUTTON:button Largest",
+  "BUTTON:button Outgoing · €2,905.46",
+  "BUTTON:button Incoming · €400.00",
+  "BUTTON:button PAIEMENT CB 2210 BOULANGERIE PAUL CARTE 7514 −€9.6",
+  "BUTTON:button PAIEMENT CB 2210 BOULANGERIE PAUL CARTE 7514 −€6.8",
+  "BUTTON:button PAIEMENT CB 2210 MCDONALDS CARTE 7514 −€14.54",
+  "BUTTON:button PAIEMENT CB 2110 TOTALENERGIES CARTE 7514 −€47.21",
+  "BUTTON:button PAIEMENT CB 2010 SPOTIFY CARTE 7514 −€12.14",
+  "BUTTON:button PAIEMENT CB 1910 BOULANGERIE PAUL CARTE 7514 −€11.",
+  "BUTTON:button PAIEMENT CB 1910 BOULANGERIE PAUL CARTE 7514 −€6.5",
+  "BUTTON:button PAIEMENT CB 1910 LIDL CARTE 7514 −€35.94",
+  "BUTTON:button PAIEMENT CB 1810 DECATHLON CARTE 7514 −€48.18",
+  "BUTTON:button PAIEMENT CB 1810 MONOPRIX CARTE 7514 −€51.50",
+  "BUTTON:button PAIEMENT CB 1810 INTERMARCHE CARTE 7514 −€107.16",
+  "BUTTON:button PAIEMENT CB 1710 LIDL CARTE 7514 −€77.41",
+  "BUTTON:button PAIEMENT CB 1710 SUMUP *FERNANDEZ CARTE 7514 −€29."
