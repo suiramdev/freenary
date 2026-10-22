@@ -1,0 +1,185 @@
+url: http://localhost:3101/budget/transactions?view=categories
+
+## real 1M
+slices=7 opacity=1,1,1,1,1,1,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[]
+pressed=[]
+list outgoing=?
+filter bar=?
+tooltip[0] Other €1,703.17 (59%)
+tooltip[1] Groceries €731.05 (25%)
+tooltip[2] Shopping €144.82 (5%)
+tooltip[3] Entertainment & leisure €143.10 (5%)
+tooltip[4] Restaurants & going out €85.17 (3%)
+tooltip[5] Car & fuel €47.21 (2%)
+tooltip[6] Other (2) €50.94 (2%)
+
+## real: click Other slice
+slices=7 opacity=0.3,0.3,0.3,0.3,0.3,0.3,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[Subscriptions €25.63 | Transport & travel €25.31]
+pressed=[Other (2) €50.94 | Subscriptions €25.63 | Transport & travel €25.31]
+list outgoing=?
+filter bar=?
+url: http://localhost:3101/budget/transactions?view=categories&filters=%5B%7B%22field%22%3A%22category%22%2C%22operator%22%3A%22isAnyOf%22%2C%22values%22%3A%5B%22subscriptions%22%2C%22transport-travel%22%5D%7D%5D
+
+## real: click Other slice again
+slices=7 opacity=1,1,1,1,1,1,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[]
+pressed=[]
+list outgoing=?
+filter bar=?
+
+## real: click Other chip
+slices=7 opacity=0.3,0.3,0.3,0.3,0.3,0.3,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[Subscriptions €25.63 | Transport & travel €25.31]
+pressed=[Other (2) €50.94 | Subscriptions €25.63 | Transport & travel €25.31]
+list outgoing=?
+filter bar=?
+
+## real: click first sub-list item
+slices=7 opacity=0.3,0.3,0.3,0.3,0.3,0.3,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[Subscriptions €25.63 | Transport & travel €25.31]
+pressed=[Other (2) €50.94 | Subscriptions €25.63]
+list outgoing=?
+filter bar=?
+
+## real: Other twice (expect cleared)
+slices=7 opacity=1,1,1,1,1,1,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €1,703.17 | Groceries €731.05 | Shopping €144.82 | Entertainment & leisure €143.10 | Restaurants & going out €85.17 | Car & fuel €47.21 | Other (2) €50.94]
+sub=[]
+pressed=[]
+list outgoing=?
+filter bar=?
+
+## real 3M
+slices=7 opacity=1,1,1,1,1,1,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €4,890.79 | Groceries €2,591.23 | Transport & travel €373.71 | Restaurants & going out €308.56 | Shopping €256.75 | Entertainment & leisure €230.04 | Other (4) €403.90]
+sub=[]
+pressed=[]
+list outgoing=?
+filter bar=?
+
+## real 1Y
+slices=7 opacity=1,1,1,1,1,1,1
+legend=[Budget | NQ Noah QA noah.qa84@example.test | Other €4,890.79 | Groceries €2,851.49 | Transport & travel €373.71 | Restaurants & going out €333.97 | Shopping €256.75 | Entertainment & leisure €230.04 | Other (4) €470.37]
+sub=[]
+pressed=[]
+list outgoing=?
+filter bar=?
+  "A Freenary",
+  "A Home",
+  "A Portfolio",
+  "BUTTON:submit Budget",
+  "A Transactions",
+  "A Recurring",
+  "A Analysis",
+  "A Goals",
+  "A Settings",
+  "A Connect your bank Done",
+  "A Set up your budget To do",
+  "A Protect your account To do",
+  "BUTTON:button NQ Noah QA noah.qa84@example.test",
+  "BUTTON:button Resize or collapse sidebar",
+  "BUTTON:button Toggle sidebar",
+  "BUTTON:button Sync transactions",
+  "BUTTON:button Previous period",
+  "BUTTON:button 2026",
+  "BUTTON:button Next period",
+  "BUTTON:button Total",
+  "BUTTON:button 1M",
+  "BUTTON:button 3M",
+  "BUTTON:button 1Y",
+  "BUTTON:button Flow",
+  "BUTTON:button Categories",
+  "BUTTON:button Other €4,890.79",
+  "BUTTON:button Groceries €2,851.49",
+  "BUTTON:button Transport & travel €373.71",
+  "BUTTON:button Restaurants & going out €333.97",
+  "BUTTON:button Shopping €256.75",
+  "BUTTON:button Entertainment & leisure €230.04",
+  "BUTTON:button Other (4) €470.37",
+  "BUTTON:button Fixed vs. variable",
+  "INPUT:text Search and filter transactions",
+  "BUTTON:button Saved filters",
+  "BUTTON:button Newest",
+  "BUTTON:button Largest",
+  "BUTTON:button Outgoing · €9,407.12",
+  "BUTTON:button Incoming · €9,778.30",
+  "BUTTON:button PAIEMENT CB 2210 BOULANGERIE PAUL CARTE 7514 −€9.6",
+  "BUTTON:button PAIEMENT CB 2210 BOULANGERIE PAUL CARTE 7514 −€6.8",
+  "BUTTON:button PAIEMENT CB 2210 MCDONALDS CARTE 7514 −€14.54",
+  "BUTTON:button PAIEMENT CB 2110 TOTALENERGIES CARTE 7514 −€47.21",
+  "BUTTON:button PAIEMENT CB 2010 SPOTIFY CARTE 7514 −€12.14",
+  "BUTTON:button PAIEMENT CB 1910 BOULANGERIE PAUL CARTE 7514 −€11.",
+  "BUTTON:button PAIEMENT CB 1910 BOULANGERIE PAUL CARTE 7514 −€6.5",
+  "BUTTON:button PAIEMENT CB 1910 LIDL CARTE 7514 −€35.94",
+  "BUTTON:button PAIEMENT CB 1810 DECATHLON CARTE 7514 −€48.18",
+  "BUTTON:button PAIEMENT CB 1810 MONOPRIX CARTE 7514 −€51.50",
+  "BUTTON:button PAIEMENT CB 1810 INTERMARCHE CARTE 7514 −€107.16",
+  "BUTTON:button PAIEMENT CB 1710 LIDL CARTE 7514 −€77.41",
+  "BUTTON:button PAIEMENT CB 1710 SUMUP *FERNANDEZ CARTE 7514 −€29.",
+  "BUTTON:button PAIEMENT CB 1710 INTERMARCHE CARTE 7514 −€19.17",
+  "BUTTON:button PAIEMENT CB 1510 LIDL CARTE 7514 −€38.32",
+  "BUTTON:button PAIEMENT CB 1510 NETFLIX.COM CARTE 7514 −€13.49",
+  "BUTTON:button PAIEMENT CB 1410 DECATHLON CARTE 7514 −€65.84",
+  "BUTTON:button PAIEMENT CB 1310 MCDONALDS CARTE 7514 −€14.64",
+  "BUTTON:button PAIEMENT CB 1310 ZARA CARTE 7514 −€70.74",
+  "BUTTON:button PAIEMENT CB 1210 FRANPRIX CARTE 7514 −€5.76",
+  "BUTTON:button PAIEMENT CB 1210 CARREFOUR MARKET CARTE 7514 −€86."
+viewport 1280: sub top=578 bottom=598; viewport 498-580; fullyVisible=false
+viewport 1440: sub top=578 bottom=598; viewport 498-580; fullyVisible=false
+viewport 1920: sub top=578 bottom=598; viewport 498-580; fullyVisible=false
+dark class: dark
+legend fr: Autre 1 703,17 € | Courses 731,05 € | Achats 144,82 € | Loisirs et divertissement 143,10 € | Restaurants et sorties 85,17 € | Voiture et carburant 47,21 € | Autres (2) 50,94 € | Abonnements 25,63 € | Transports et voyages 25,31 €
+sub aria-label: Catégories dans Autres
+  "A Freenary",
+  "A Accueil",
+  "A Portefeuille",
+  "BUTTON:submit Budget",
+  "A Transactions",
+  "A Récurrent",
+  "A Analyse",
+  "A Objectifs",
+  "A Paramètres",
+  "A Connecter votre banque Fait",
+  "A Définir votre budget À faire",
+  "A Protéger votre compte À faire",
+  "BUTTON:button NQ Noah QA noah.qa84@example.test",
+  "BUTTON:button Redimensionner ou masquer la barre latérale",
+  "BUTTON:button Afficher ou masquer la barre latérale",
+  "BUTTON:button Synchroniser les transactions",
+  "BUTTON:button Période précédente",
+  "BUTTON:button octobre 2026",
+  "BUTTON:button Période suivante",
+  "BUTTON:button 1M",
+  "BUTTON:button 3M",
+  "BUTTON:button 1Y",
+  "BUTTON:button Flux",
+  "BUTTON:button Catégories",
+  "BUTTON:button Autre 1 703,17 €",
+  "BUTTON:button Courses 731,05 €",
+  "BUTTON:button Achats 144,82 €",
+  "BUTTON:button Loisirs et divertissement 143,10 €",
+  "BUTTON:button Restaurants et sorties 85,17 €",
+  "BUTTON:button Voiture et carburant 47,21 €",
+  "BUTTON:button Autres (2) 50,94 €",
+  "BUTTON:button Abonnements 25,63 €",
+  "BUTTON:button Transports et voyages 25,31 €",
+  "BUTTON:button Fixe / variable",
+  "BUTTON:button Retirer le filtre : Catégorie est l’une de Abonnem",
+  "INPUT:text Rechercher et filtrer les transactions",
+  "BUTTON:button Effacer la recherche et les filtres",
+  "BUTTON:button Filtres enregistrés",
+  "BUTTON:button Les plus récentes",
+  "BUTTON:button Les plus élevées",
+  "BUTTON:button Sorties · 50,94 €",
+  "BUTTON:button Entrées · 0,00 €",
+  "BUTTON:button PAIEMENT CB 2010 SPOTIFY CARTE 7514 −12,14 €",
+  "BUTTON:button PAIEMENT CB 1510 NETFLIX.COM CARTE 7514 −13,49 €",
+  "BUTTON:button PAIEMENT CB 0310 UBER TRIP CARTE 7514 −25,31 €",
+  "BUTTON:button Copy value to clipboard"

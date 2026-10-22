@@ -1,0 +1,264 @@
+
+## case=5 light
+slices=5
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1
+filters=[]
+sum=1885 €
+
+## case=7 light
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Subscriptions €61.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.58476 -0.0348137 -0.193778)@1
+filters=[]
+sum=2044 €
+
+## case=8 light
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (2) €103.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2086 €
+
+## case=10 light
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2132 €
+14 |   const sub = await page.locator("ul[aria-label] button").allInnerTexts();
+15 |   const pressed = await page.locator("button[aria-pressed=true]").allInnerTexts();
+16 |   log(`\n## ${label}\nslices=${n}\nlegend=[${top.map((c) => c.replace(/\s+/g, " ")).join(" | ")}]\nsub-list=[${sub.map((c) => c.replace(/\s+/g, " ")).join(" | ")}]\npressed=[${pressed.map((c) => c.replace(/\s+/g, " ")).join(" | ")}]\nfills=${fills.join(", ")}\nfilters=${await filters()}\nsum=${await sum()}`);
+17 | };
+18 | const shot = (name) => page.screenshot({ path: `${OUT}${name}.png`, fullPage: true });
+19 | const tooltipOf = async (i) => { await sectors().nth(i).hover(); await page.waitForTimeout(300); return (await page.locator(".recharts-tooltip-wrapper").innerText()).replace(/\s+/g, " "); };
+                                                             ^
+TimeoutError: hover: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('.recharts-pie-sector path').first()
+    - locator resolved to <path cx="88" cy="88" stroke="#fff" tabindex="-1" name="category" fill-opacity="1" data-recharts-item-index="0" class="recharts-sector cursor-pointer" data-recharts-item-id="recharts-pie-_r_2_" fill="color-mix(in oklab, var(--chart-blue) 76%, var(--background))" d="M 171,88↵    A 83,83,0,↵    0,0,↵    12.5653,53.379↵  L 46.5109,68.9585↵            A 45.65,45.65,0,↵            0,1,↵            133.65,88 Z"></path>
+  - attempting hover action
+    2 × waiting for element to be visible and stable
+      - element is visible and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <svg cx="50%" cy="50%" width="176" tabindex="0" height="176" role="application" viewBox="0 0 176 176" class="recharts-surface">…</svg> intercepts pointer events
+    - retrying hover action
+    - waiting 20ms
+    2 × waiting for element to be visible and stable
+      - element is visible and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <svg cx="50%" cy="50%" width="176" tabindex="0" height="176" role="application" viewBox="0 0 176 176" class="recharts-surface">…</svg> intercepts pointer events
+    - retrying hover action
+      - waiting 100ms
+    57 × waiting for element to be visible and stable
+       - element is visible and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <svg cx="50%" cy="50%" width="176" tabindex="0" height="176" role="application" viewBox="0 0 176 176" class="recharts-surface">…</svg> intercepts pointer events
+     - retrying hover action
+       - waiting 500ms
+
+      at /home/dev/OpenBot/Agents/agent-78b29673-21c5-4878-9f3f-5717f76a13c9/qa84/qa.mjs:19:57
+
+Bun v1.4.4 (Linux x64)
+tooltip[0] Rent & mortgage €920.00 (43%)
+tooltip[1] Groceries €410.00 (19%)
+tooltip[2] Transport & travel €230.00 (11%)
+tooltip[3] Restaurants & going out €185.00 (9%)
+tooltip[4] Bills & utilities €140.00 (7%)
+tooltip[5] Shopping €98.00 (5%)
+tooltip[6] Other (4) €149.00 (7%)
+
+## case=10 dark
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.57212 -0.0332501 -0.120912)@1, oklab(0.5103 -0.0284376 -0.103411)@1, oklab(0.66204 -0.0402501 -0.146367)@1, oklab(0.5384 -0.0306251 -0.111366)@1, oklab(0.60022 -0.0354376 -0.128866)@1, oklab(0.69014 -0.0424377 -0.154321)@1, oklab(0.887 0.00145299 -0.00504493)@1
+filters=[]
+sum=2132 €
+
+## AC5 click Other SLICE
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "isAnyOf", "values": [ "subscriptions", "health", "entertainment", "taxes" ] } ]
+sum=2132 €
+
+## AC5 click Other SLICE again
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2132 €
+
+## AC5 click Other CHIP
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "isAnyOf", "values": [ "subscriptions", "health", "entertainment", "taxes" ] } ]
+sum=2132 €
+
+## AC6 click Health in sub-list
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Health & medical €42.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "is", "values": [ "health" ] } ]
+sum=2132 €
+
+## Other chip while Health selected
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "isAnyOf", "values": [ "subscriptions", "health", "entertainment", "taxes" ] } ]
+sum=2132 €
+
+## Other chip again
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2132 €
+51 |     if (error.value === void 0)
+52 |       throw new Error("Serialized error must have either an error or a value");
+53 |     return (0, import_serializers.parseSerializedValue)(error.value, void 0);
+54 |   }
+55 |   if (error.error.name === "TimeoutError") {
+56 |     const e2 = new TimeoutError(error.error.message);
+                        ^
+TimeoutError: click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('body')
+    - locator resolved to <body class="bg-background text-foreground">…</body>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <html lang="en">…</html> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <html lang="en">…</html> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <html lang="en">…</html> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+      at /home/dev/OpenBot/Agents/agent-78b29673-21c5-4878-9f3f-5717f76a13c9/qa84/node_modules/playwright-core/lib/client/errors.js:56:20
+
+Bun v1.4.4 (Linux x64)
+
+keyboard: Other focused after 9 Tab
+
+## keyboard Enter on Other
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "isAnyOf", "values": [ "subscriptions", "health", "entertainment", "taxes" ] } ]
+sum=2132 €
+
+## keyboard Space on Other
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2132 €
+
+## page filter inside Other (entertainment)
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[Subscriptions €61.00 | Health & medical €42.00 | Entertainment & leisure €31.00 | Taxes €15.00]
+pressed=[Other (4) €149.00 | Entertainment & leisure €31.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "is", "values": [ "entertainment" ] } ]
+sum=2132 €
+
+## page filter on top-6 (groceries)
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Shopping €98.00 | Other (4) €149.00]
+sub-list=[]
+pressed=[Groceries €410.00]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@0.3
+filters=[ { "field": "category", "operator": "is", "values": [ "groceries" ] } ]
+sum=2132 €
+
+## uncat top6 (before #72)
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Other €300.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Other (4) €232.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.4079 -0.0208125 -0.115845)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2417 €
+
+## uncat top6 after72 light
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Other €300.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Other (4) €232.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklch(0.552 0.016 285.938)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2417 €
+
+## uncat top6 after72 dark
+slices=7
+legend=[Rent & mortgage €920.00 | Groceries €410.00 | Other €300.00 | Transport & travel €230.00 | Restaurants & going out €185.00 | Bills & utilities €140.00 | Other (4) €232.00]
+sub-list=[]
+pressed=[]
+fills=oklab(0.57212 -0.0332501 -0.120912)@1, oklab(0.5103 -0.0284376 -0.103411)@1, oklch(0.705 0.015 286.067)@1, oklab(0.66204 -0.0402501 -0.146367)@1, oklab(0.5384 -0.0306251 -0.111366)@1, oklab(0.60022 -0.0354376 -0.128866)@1, oklab(0.887 0.00145299 -0.00504493)@1
+filters=[]
+sum=2417 €
+
+## fr
+slices=7
+legend=[Loyer et crédit immobilier 920,00 € | Courses 410,00 € | Transports et voyages 230,00 € | Restaurants et sorties 185,00 € | Factures et charges 140,00 € | Achats 98,00 € | Autres (4) 149,00 €]
+sub-list=[]
+pressed=[]
+fills=oklab(0.71348 -0.0287591 -0.160077)@1, oklab(0.75495 -0.0245966 -0.136908)@1, oklab(0.65316 -0.0348137 -0.193778)@1, oklab(0.7361 -0.0264887 -0.147439)@1, oklab(0.69463 -0.0306512 -0.170609)@1, oklab(0.63431 -0.0367057 -0.204309)@1, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[]
+sum=2132 €
+tooltip fr Autres (4) 149,00 € (7%)
+
+## fr Other open
+slices=7
+legend=[Loyer et crédit immobilier 920,00 € | Courses 410,00 € | Transports et voyages 230,00 € | Restaurants et sorties 185,00 € | Factures et charges 140,00 € | Achats 98,00 € | Autres (4) 149,00 €]
+sub-list=[Abonnements 61,00 € | Santé 42,00 € | Loisirs et divertissement 31,00 € | Impôts et taxes 15,00 €]
+pressed=[Autres (4) 149,00 € | Abonnements 61,00 € | Santé 42,00 € | Loisirs et divertissement 31,00 € | Impôts et taxes 15,00 €]
+fills=oklab(0.71348 -0.0287591 -0.160077)@0.3, oklab(0.75495 -0.0245966 -0.136908)@0.3, oklab(0.65316 -0.0348137 -0.193778)@0.3, oklab(0.7361 -0.0264887 -0.147439)@0.3, oklab(0.69463 -0.0306512 -0.170609)@0.3, oklab(0.63431 -0.0367057 -0.204309)@0.3, oklab(0.28745 0.00153774 -0.00538473)@1
+filters=[ { "field": "category", "operator": "isAnyOf", "values": [ "subscriptions", "health", "entertainment", "taxes" ] } ]
+sum=2132 €
