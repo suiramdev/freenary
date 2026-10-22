@@ -9,7 +9,7 @@ import {
 } from "@freenary/ui/hooks/use-fluid-hover";
 import { cn } from "@freenary/ui/lib/utils";
 import { motion } from "motion/react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { Cell, Pie, PieChart } from "recharts";
 import type { PieSectorDataItem } from "recharts";
@@ -44,6 +44,23 @@ interface SpendingBreakdownChartProps {
 const UNSELECTED_OPACITY = 0.3;
 const OTHER_SLICE_KEY = "other";
 const OTHER_SLICE_COLOR = `color-mix(in oklab, ${CHART_COLOR_VARS.grey} 35%, var(--foreground))`;
+
+const LEGEND_VIEWPORT_SELECTOR = '[data-slot="scroll-area-viewport"]';
+
+const revealOtherContents = (contents: HTMLElement | null) => {
+  const otherChip = contents?.previousElementSibling;
+  const viewport = contents?.closest(LEGEND_VIEWPORT_SELECTOR);
+
+  if (!(otherChip instanceof HTMLElement && viewport instanceof HTMLElement)) {
+    return;
+  }
+
+  const otherChipOffset =
+    otherChip.getBoundingClientRect().top -
+    viewport.getBoundingClientRect().top;
+
+  viewport.scrollTo({ top: viewport.scrollTop + otherChipOffset });
+};
 
 const sliceKey = (slice: BreakdownSlice): string =>
   slice.kind === "other" ? OTHER_SLICE_KEY : slice.category;
@@ -102,7 +119,7 @@ const SpendingBreakdownTooltip = ({
             className="size-2.5 shrink-0 rounded-[2px]"
             style={{ backgroundColor: config[key]?.color }}
           />
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground whitespace-nowrap">
             {config[key]?.label ?? key}
           </span>
         </span>
@@ -182,6 +199,15 @@ export const SpendingBreakdownChart = ({
       ? otherSlice
       : undefined;
 
+  const isOtherOpen = openOther !== undefined;
+  const otherContentsRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (isOtherOpen) {
+      revealOtherContents(otherContentsRef.current);
+    }
+  }, [isOtherOpen]);
+
   const selectSlice = useCallback(
     (_sector: PieSectorDataItem, index: number) => {
       const slice = slices[index];
@@ -259,7 +285,7 @@ export const SpendingBreakdownChart = ({
             />
           ))}
           {openOther ? (
-            <li className="basis-full">
+            <li className="basis-full" ref={otherContentsRef}>
               <ul
                 aria-label={m.budget_breakdown_other_contents()}
                 className="border-border flex flex-wrap gap-x-4 gap-y-1.5 border-l pl-2"
