@@ -381,6 +381,8 @@
   "budget_aggregation_total": "Total",
   "budget_breakdown_empty": "Nothing spent in this period.",
   "budget_breakdown_loading": "Loading spending breakdown",
+  "budget_breakdown_other": "Other ({count})",
+  "budget_breakdown_other_contents": "Categories in Other",
   "budget_breakdown_title": "Spending Breakdown",
   "budget_cash_flow_chart_label": "Cash flow from income sources to category groups and their categories",
   "budget_cash_flow_empty": "No money moved in this period.",
