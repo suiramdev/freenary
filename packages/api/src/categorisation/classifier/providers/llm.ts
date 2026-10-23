@@ -80,8 +80,7 @@ const LLM_SAMPLING_TEMPERATURE = 0;
 const COMPLETIONS_PATH = "/chat/completions";
 const TRAILING_SLASHES = /\/+$/u;
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const TOKEN_LETTER = /^\(?(?<letter>[a-z])\)?$/iu;
-const ANSWER_LETTER = /^\(?(?<letter>[a-z])(?![a-z])/iu;
+const LEADING_LETTER = /^\(?(?<letter>[a-z])(?![a-z])/iu;
 
 const ANSWER_RULE =
   "Answer with the letter of one option and nothing else. Write no punctuation, no category name and no explanation.";
@@ -166,7 +165,7 @@ const rankLetters = (
 
   for (const entry of entries ?? []) {
     const letter = (
-      TOKEN_LETTER.exec(entry.token.trim())?.groups?.letter ?? ""
+      LEADING_LETTER.exec(entry.token.trim())?.groups?.letter ?? ""
     ).toUpperCase();
 
     const known = mass.get(letter);
@@ -198,7 +197,7 @@ const readLetter = (
     return {
       confidence: UNDISTRIBUTED_CONFIDENCE,
       letter: (
-        ANSWER_LETTER.exec((choice.message?.content ?? "").trim())?.groups
+        LEADING_LETTER.exec((choice.message?.content ?? "").trim())?.groups
           ?.letter ?? ""
       ).toUpperCase(),
     };

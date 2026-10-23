@@ -342,6 +342,26 @@ describe("createLlmClassifier", () => {
     expect(prediction?.category).toBe("crypto");
   });
 
+  it("reads a first token that trails punctuation after the letter", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(
+        completion(
+          [
+            { logprob: -0.4, token: `${CRYPTO_LETTER}.` },
+            { logprob: -0.3, token: BILLS_UTILITIES_LETTER },
+            { logprob: -0.5, token: `${CRYPTO_LETTER}:` },
+          ],
+          `${CRYPTO_LETTER}.`
+        )
+      )
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("crypto");
+  });
+
   it("adds the mass of every spelling of one letter before ranking it", async () => {
     const classifier = createLlmClassifier(
       settings,
