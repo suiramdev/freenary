@@ -9,9 +9,9 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SETTINGS_SECTION = "appearance" satisfies SettingsSection;
 
-const MERGED_SETTINGS_SECTIONS: Readonly<Record<string, SettingsSection>> = {
-  integrations: "connections",
-};
+const MERGED_SETTINGS_SECTIONS: ReadonlyMap<string, SettingsSection> = new Map([
+  ["integrations", "connections"],
+]);
 
 export const isSettingsSection = (
   value: string | undefined
@@ -25,5 +25,5 @@ export const settingsSectionOf = (
     return value;
   }
 
-  return MERGED_SETTINGS_SECTIONS[value];
+  return MERGED_SETTINGS_SECTIONS.get(value);
 };

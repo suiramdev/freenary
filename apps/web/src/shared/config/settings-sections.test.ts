@@ -16,4 +16,10 @@ describe("settingsSectionOf", () => {
     expect(settingsSectionOf("billing")).toBeUndefined();
     expect(settingsSectionOf(undefined)).toBeUndefined();
   });
+
+  it("ignores a name inherited from Object", () => {
+    expect(settingsSectionOf("toString")).toBeUndefined();
+    expect(settingsSectionOf("constructor")).toBeUndefined();
+    expect(settingsSectionOf("__proto__")).toBeUndefined();
+  });
 });
