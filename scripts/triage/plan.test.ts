@@ -205,9 +205,27 @@ describe("derivePriority", () => {
     expect(derivePriority(undefined, [])).toBeUndefined();
   });
 
-  it("raises priority to high for security and regressions", () => {
+  it("gives a security risk priority high, with or without an impact", () => {
     expect(derivePriority("impact: low", ["security"])).toBe("priority: high");
-    expect(derivePriority(undefined, ["regression"])).toBe("priority: high");
+    expect(derivePriority(undefined, ["security"])).toBe("priority: high");
+  });
+
+  it("raises the priority of an impact by one level for a regression", () => {
+    expect(derivePriority("impact: low", ["regression"])).toBe(
+      "priority: medium"
+    );
+
+    expect(derivePriority("impact: medium", ["regression"])).toBe(
+      "priority: high"
+    );
+
+    expect(derivePriority("impact: high", ["regression"])).toBe(
+      "priority: high"
+    );
+  });
+
+  it("gives a regression with no impact no priority", () => {
+    expect(derivePriority(undefined, ["regression"])).toBeUndefined();
   });
 });
 

@@ -274,7 +274,7 @@ export const openItemsToDefine = (body: string): string[] => {
 
 export const stillToDefineGaps = (body: string): Gap[] =>
   openItemsToDefine(body).length > 0
-    ? [{ owner: "author", text: STILL_TO_DEFINE_GAP_TEXT }]
+    ? [{ owner: "maintainer", text: STILL_TO_DEFINE_GAP_TEXT }]
     : [];
 
 export const REQUIRED_CHECKS = ["ci", "compose"] as const;

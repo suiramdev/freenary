@@ -40,9 +40,9 @@ Impact describes the problem, priority schedules the fix. They often agree, and 
 The `Triage` workflow reads the title, the description and the author's replies when an issue or pull request is opened, reopened, edited or answered. It skips closed items, draft pull requests and anything a bot triggered. The rules:
 
 - **Type.** It applies its best answer, whatever its confidence, because a wrong type costs a relabel and no wrong decision.
-- **Impact and priority, on issues only.** It applies an impact only when the model is at least 0.80 confident, and a priority only when that impact, or a confident security or regression signal, supports it: `impact: high`, `medium` and `low` give `priority: high`, `medium` and `low`, and a security risk or a regression gives `priority: high`. Below the threshold, or with no answer, it applies neither and says so in its run summary. An item with no impact and no priority is waiting for a maintainer. The workflow never guesses.
-- **`good first issue`, on issues only.** It applies the label only when the model is at least 0.95 confident that a newcomer could finish the work, and only when the spec is complete: no gap in the checklist below, no open item under **Still to define**, not blocked. When the spec stops being complete, the workflow removes the `good first issue` label it applied.
-- **`help wanted`.** The workflow never applies it. A maintainer adds it when the spec is complete and the work is open to anyone. Adding it also closes the workflow's list of gaps.
+- **Impact and priority, on issues only.** It applies an impact only when the model is at least 0.80 confident. Priority follows the impact: `impact: high`, `medium` and `low` give `priority: high`, `medium` and `low`. A regression raises that priority by one level and never sets one on its own. A security risk gives `priority: high`, with or without an impact. Below the threshold, or with no answer, it applies neither and says so in its run summary. An item with no impact and no priority is waiting for a maintainer. The workflow never guesses.
+- **`good first issue`, on issues only.** It applies the label only when the model is at least 0.95 confident that a newcomer could finish the work, and only when the spec is complete: no gap in the checklist below, no open item under **Still to define**, not blocked. When the spec stops being complete, the workflow removes the `good first issue` label it applied. While an item is open under **Still to define**, it also removes `good first issue` and `help wanted` whoever added them, and adds a gap for a maintainer.
+- **`help wanted`.** The workflow never applies it. A maintainer adds it when the spec is complete and the work is open to anyone.
 - **Never over a maintainer.** It does not replace a group a maintainer already labelled, never adds back a label that someone else removed, and recomputes a `priority:` label only when it set that label itself.
 
 A pull request gets a `type:` label and nothing else: impact, priority and the contribution labels belong to the issue it closes.
@@ -57,7 +57,7 @@ An issue is ready when its spec is complete. The workflow checks the criteria fo
 - A maintenance issue needs what should change and why, and no open design choice.
 - A pull request needs a written Summary, every section of the template filled except the optional Evidence, and passing `ci` and `compose` checks. When it changes documented behaviour and no page under `content/docs/next`, its Notes name the pages or say why none needed a change.
 
-When something is missing, the workflow posts one comment that lists it for the author and for a maintainer, updates it when the list changes, and deletes it when nothing is missing.
+When something is missing, the workflow posts one comment that lists it for the author and for a maintainer, updates it when the list changes, and deletes it when nothing is missing or the item is blocked. A `priority:` label set by a maintainer also closes the comment, unless an item is still open under **Still to define**.
 
 ## Complete specs
 
@@ -74,9 +74,9 @@ When you cannot complete the spec yet, you may still create the issue. Add a **S
 
 Rules for an issue with an open item:
 
-- It does not carry `good first issue` or `help wanted` until every item is ticked or the section is empty. The workflow withholds the first, and a maintainer holds back the second.
+- It does not carry `good first issue` or `help wanted` until every item is ticked or the section is empty. The workflow withholds the first and removes both while an item is open, and a maintainer does not add either.
 - Settling an item means ticking it, or removing it and updating the spec above. Do both in the description, so the workflow runs again.
-- A maintainer owns the list. Anyone may propose an answer in a comment.
+- A maintainer owns the list, so the workflow lists it as a gap for a maintainer. Anyone may propose an answer in a comment.
 
 ## Work the queue
 

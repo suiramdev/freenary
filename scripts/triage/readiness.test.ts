@@ -504,7 +504,7 @@ describe("refused picks and comment wording", () => {
     ]);
 
     expect(comment).toContain(
-      "a maintainer adding `help wanted` closes this list"
+      "a maintainer setting a `priority:` label closes this list"
     );
 
     expect(comment).not.toContain("reply here");
@@ -642,7 +642,7 @@ describe("Still to define", () => {
   it("asks the author to settle the open items", () => {
     expect(stillToDefineGaps(issue("- [ ] Pick the format"))).toEqual([
       {
-        owner: "author",
+        owner: "maintainer",
         text: "Settle the open items under Still to define, and tick or remove each one.",
       },
     ]);
@@ -667,7 +667,8 @@ describe("good first issue", () => {
     });
 
     expect(plan.labels).not.toContain("good first issue");
-    expect(plan.status).toBe("needs-info");
+    expect(plan.status).toBe("needs-triage");
+    expect(plan.stillToDefineOpen).toBe(true);
   });
 
   it("is withheld while any other gap is open", () => {
@@ -700,15 +701,33 @@ describe("good first issue", () => {
     expect(plan.removed).toContain("good first issue");
   });
 
-  it("keeps a label a maintainer set", () => {
+  it("removes a label a maintainer set while an item is open", () => {
     const plan = planFor({
       answers: wantsIt,
-      existingLabels: ["good first issue"],
+      existingLabels: ["good first issue", "help wanted"],
       ruleGaps: stillToDefineGaps("### Still to define\n\n- [ ] A question"),
       workflowGoodFirstIssue: false,
     });
 
-    expect(plan.removed).not.toContain("good first issue");
+    expect(plan.removed.toSorted()).toEqual([
+      "good first issue",
+      "help wanted",
+    ]);
+
+    expect(plan.gaps.map((gap) => gap.owner)).toContain("maintainer");
+  });
+
+  it("keeps a label a maintainer set once the list is empty", () => {
+    const plan = planFor({
+      answers: {
+        ...wantsIt,
+        check_scope: { noul: 0.2, type: "noul" },
+      },
+      existingLabels: ["good first issue", "help wanted"],
+      workflowGoodFirstIssue: false,
+    });
+
+    expect(plan.removed).toEqual([]);
   });
 
   it("is never put on a pull request", () => {

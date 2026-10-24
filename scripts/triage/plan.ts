@@ -5,6 +5,7 @@ import {
   decideReadiness,
   MIN_CRITERION_PROBABILITY,
   sectionGapText,
+  STILL_TO_DEFINE_GAP_TEXT,
   unmetCriteria,
 } from "./readiness";
 import type { Checklist, Gap, ReadinessStatus } from "./readiness";
@@ -12,6 +13,7 @@ import type { Answers } from "./subq";
 import {
   GOOD_FIRST_ISSUE_LABEL,
   GROUP_PREFIXES,
+  HELP_WANTED_LABEL,
   IMPACT_LEVELS,
   PRIORITY_LABELS,
   TYPE_LABELS,
@@ -42,6 +44,7 @@ export interface Plan {
   readonly gaps: Gap[];
   readonly status: ReadinessStatus;
   readonly notes: string[];
+  readonly stillToDefineOpen: boolean;
 }
 
 const SECURITY_SIGNAL = "security";
@@ -272,20 +275,28 @@ const PRIORITY_BY_IMPACT = {
   "impact: medium": PRIORITY_LABELS.medium,
 } as const satisfies Record<(typeof IMPACT_LEVELS)[number], PriorityLabel>;
 
+const RAISED_PRIORITY = {
+  [PRIORITY_LABELS.high]: PRIORITY_LABELS.high,
+  [PRIORITY_LABELS.low]: PRIORITY_LABELS.medium,
+  [PRIORITY_LABELS.medium]: PRIORITY_LABELS.high,
+} as const satisfies Record<PriorityLabel, PriorityLabel>;
+
 export const derivePriority = (
   impact: string | undefined,
   signals: readonly string[]
 ): PriorityLabel | undefined => {
-  if (
-    signals.includes(SECURITY_SIGNAL) ||
-    signals.includes(REGRESSION_SIGNAL)
-  ) {
+  if (signals.includes(SECURITY_SIGNAL)) {
     return PRIORITY_LABELS.high;
   }
 
-  return impact && isKnownKey(PRIORITY_BY_IMPACT, impact)
-    ? PRIORITY_BY_IMPACT[impact]
-    : undefined;
+  const fromImpact =
+    impact && isKnownKey(PRIORITY_BY_IMPACT, impact)
+      ? PRIORITY_BY_IMPACT[impact]
+      : undefined;
+
+  return fromImpact && signals.includes(REGRESSION_SIGNAL)
+    ? RAISED_PRIORITY[fromImpact]
+    : fromImpact;
 };
 
 const planSignals = (input: PlanInput, notes: string[]): string[] =>
@@ -342,6 +353,22 @@ const planImpactAndPriority = (
   );
 
   return { impact, priority };
+};
+
+const removedContributorLabels = (
+  input: PlanInput,
+  specComplete: boolean,
+  stillToDefineOpen: boolean
+): string[] => {
+  if (stillToDefineOpen) {
+    return [GOOD_FIRST_ISSUE_LABEL, HELP_WANTED_LABEL].filter((label) =>
+      input.existingLabels.includes(label)
+    );
+  }
+
+  return input.workflowGoodFirstIssue && !specComplete
+    ? [GOOD_FIRST_ISSUE_LABEL]
+    : [];
 };
 
 export const planLabels = (input: PlanInput): Plan => {
@@ -406,16 +433,26 @@ export const planLabels = (input: PlanInput): Plan => {
     ? undefined
     : priority;
 
+  const stillToDefineOpen = input.ruleGaps.some(
+    (gap) => gap.text === STILL_TO_DEFINE_GAP_TEXT
+  );
+
   const removed = [
     ...input.workflowPriorities.filter((label) => label !== settledPriority),
-    ...(input.workflowGoodFirstIssue && !specComplete
-      ? [GOOD_FIRST_ISSUE_LABEL]
-      : []),
+    ...removedContributorLabels(input, specComplete, stillToDefineOpen),
   ];
 
   const added = [...new Set(labels)].filter(
     (label) => !input.existingLabels.includes(label) && !refused.has(label)
   );
 
-  return { duplicateOf, gaps, labels: added, notes, removed, status };
+  return {
+    duplicateOf,
+    gaps,
+    labels: added,
+    notes,
+    removed,
+    status,
+    stillToDefineOpen,
+  };
 };

@@ -44,7 +44,7 @@ export const renderGapComment = (
     ...sections,
     gaps.some((gap) => gap.owner === "author")
       ? "Edit the description or reply here, and triage runs again."
-      : "Adding a `type:`, `impact:` or `priority:` label runs triage again; a maintainer adding `help wanted` closes this list.",
+      : "Adding a `type:`, `impact:` or `priority:` label runs triage again; a maintainer setting a `priority:` label closes this list.",
   ].join("\n");
 };
 

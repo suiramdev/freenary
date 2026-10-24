@@ -36,11 +36,7 @@ import {
 import type { Gap } from "./readiness";
 import { decide } from "./subq";
 import type { Answers, DecisionState } from "./subq";
-import {
-  GOOD_FIRST_ISSUE_LABEL,
-  GROUP_PREFIXES,
-  HELP_WANTED_LABEL,
-} from "./taxonomy";
+import { GOOD_FIRST_ISSUE_LABEL, GROUP_PREFIXES } from "./taxonomy";
 
 const MAX_BODY_CHARACTERS = 8000;
 const MAX_REPLY_CHARACTERS = 4000;
@@ -148,9 +144,10 @@ const writeRecord = (record: TriageRecord) =>
 const commentBodyFor = (
   kind: SubjectKind,
   plan: Plan,
-  existingLabels: readonly string[]
+  maintainerSetPriority: boolean
 ): string | undefined =>
-  plan.status === "blocked" || existingLabels.includes(HELP_WANTED_LABEL)
+  plan.status === "blocked" ||
+  (maintainerSetPriority && !plan.stillToDefineOpen)
     ? undefined
     : renderGapComment(kind, plan.gaps);
 
@@ -292,7 +289,15 @@ const triage = Effect.fnUntraced(function* triage() {
     client,
     number,
     comments,
-    commentBodyFor(kind, plan, existingLabels)
+    commentBodyFor(
+      kind,
+      plan,
+      existingLabels.some(
+        (label) =>
+          label.startsWith(GROUP_PREFIXES.priority) &&
+          !ownership.workflowPriorities.includes(label)
+      )
+    )
   );
 
   yield* writeRecord({
