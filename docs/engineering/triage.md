@@ -15,7 +15,7 @@ The repository carries twelve labels, defined in `scripts/triage/taxonomy.ts`. T
 | Priority | `priority: high`, `priority: medium`, `priority: low` | When to do it, relative to the rest of the queue |
 | Contribution | `good first issue`, `help wanted` | Open to a newcomer, or open to any outside contributor |
 
-There is no status label, no area label and no label for a duplicate, a question or a reason to close. The state of an item is whether it is open, assigned and linked to a pull request. Use an [issue type](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-types-in-an-organization) (Task, Bug, Feature) for the shape of an issue; `type:` labels classify pull requests and issues alike.
+There is no status label, no area label and no label for a duplicate, a question or a reason to close. The state of an item is whether it is open, assigned and linked to a pull request. The repository is a personal one, so GitHub issue types are not available and the `type:` labels classify issues and pull requests alike.
 
 ### Impact
 

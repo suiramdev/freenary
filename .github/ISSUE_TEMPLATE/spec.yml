@@ -1,6 +1,5 @@
 name: Specified task
 description: A piece of work with a complete spec, ready for someone to build
-type: Task
 body:
   - type: markdown
     attributes:

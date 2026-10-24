@@ -239,7 +239,8 @@ export const STILL_TO_DEFINE_GAP_TEXT =
   "Settle the open items under Still to define, and tick or remove each one.";
 
 export const openItemsToDefine = (body: string): string[] => {
-  const raw = [...blankFences(body).matchAll(TEMPLATE_HEADING)].find(
+  const blanked = blankFences(body);
+  const raw = [...blanked.matchAll(TEMPLATE_HEADING)].find(
     (heading) =>
       heading.groups?.title?.trim().toLowerCase() === STILL_TO_DEFINE_TITLE
   );
@@ -249,7 +250,7 @@ export const openItemsToDefine = (body: string): string[] => {
   }
 
   const start = (raw.index ?? 0) + raw[0].length;
-  const rest = body.slice(start);
+  const rest = blanked.slice(start);
   const next = rest.search(/^#{1,6}[ \t]+/mu);
   const section = (next === -1 ? rest : rest.slice(0, next))
     .replace(HTML_COMMENT, "")

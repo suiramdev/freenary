@@ -639,7 +639,20 @@ describe("Still to define", () => {
     expect(openItemsToDefine(issue("- [x] done"))).toEqual([]);
   });
 
-  it("asks the author to settle the open items", () => {
+  it("is not cut short by a heading inside a code fence", () => {
+    const body =
+      "### Still to define\n\n```md\n# not a heading\n```\n\n- [ ] Pick the format\n";
+
+    expect(openItemsToDefine(body)).toEqual(["Pick the format"]);
+  });
+
+  it("ignores a checkbox inside a code fence", () => {
+    const body = "### Still to define\n\n```md\n- [ ] an example\n```\n";
+
+    expect(openItemsToDefine(body)).toEqual([]);
+  });
+
+  it("asks a maintainer to settle the open items", () => {
     expect(stillToDefineGaps(issue("- [ ] Pick the format"))).toEqual([
       {
         owner: "maintainer",
