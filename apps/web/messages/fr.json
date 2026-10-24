@@ -1020,7 +1020,7 @@
   "settings_integrations_assistant_description": "Permet aux membres de poser des questions sur leurs finances.",
   "settings_integrations_banking_description": "Relie les banques des membres pour que leurs transactions arrivent toutes seules.",
   "settings_integrations_categorisation_description": "Range les nouveaux marchands dans la bonne catégorie pour tout le monde.",
-  "settings_integrations_email_description": "Envoie les codes d'inscription et de réinitialisation, pour que les membres puissent retrouver l'accès à leur compte.",
+  "settings_integrations_email_description": "Envoie les codes d’inscription et de réinitialisation, pour que les membres puissent retrouver l’accès à leur compte.",
   "settings_integrations_load_error": "Impossible de charger les intégrations",
   "settings_integrations_loading": "Chargement des intégrations",
   "settings_integrations_restart_description": "Les réglages enregistrés prennent effet après le redémarrage du serveur. Cette page se reconnecte d’elle-même.",
