@@ -25,7 +25,7 @@
   "assistant_browser_catalog_loading": "Finding the models this device can run…",
   "assistant_browser_load_failed": "The model could not be loaded: {reason}",
   "assistant_browser_loading": "Loading {model}",
-  "assistant_browser_no_webgpu": "This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask the operator to turn the assistant on in Settings › Integrations.",
+  "assistant_browser_no_webgpu": "This browser has no WebGPU, which the assistant needs to run a model on this device. Use a current Chrome, Edge or Safari, or ask the operator to turn the assistant on in Settings › Connections.",
   "assistant_chart_drawing": "Drawing…",
   "assistant_chart_expand": "View larger",
   "assistant_chart_failed": "The chart could not be drawn.",
