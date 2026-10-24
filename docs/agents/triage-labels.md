@@ -1,15 +1,13 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The skills speak in terms of five canonical triage roles. This tracker has no status labels, so each role maps to a label, a missing label, or the state of the item. The labels themselves are listed in [Contribute](../../apps/fumadocs/content/docs/next/contribute.mdx#labels).
 
-| Label in mattpocock/skills | Label in our tracker | Meaning |
+| Label in mattpocock/skills | In our tracker | Meaning |
 | --- | --- | --- |
-| `needs-triage` | `status:needs-triage` | Maintainer needs to evaluate this issue |
-| `needs-info` | `status:needs-info` | Waiting on reporter for more information |
-| `ready-for-agent` | `status:ready` | Fully specified and ready for work. The tracker has one ready label for agents and people alike; the `Triage` workflow sets it, and the assignee decides who picks it up |
-| `ready-for-human` | `status:ready` | Same label as `ready-for-agent`: the tracker does not separate agent work from human work |
-| `wontfix` | `wontfix` | Will not be actioned |
+| `needs-triage` | no `priority:` label | A maintainer has not set a priority yet. The `Triage` workflow sets one only from a justified impact or a security risk |
+| `needs-info` | the `Triage` comment's "For the author" list | Waiting on the reporter for more information |
+| `ready-for-agent` | a `priority:` label and no unchecked item under `Still to define` | Fully specified and ready for work. The tracker does not separate agent work from human work; the assignee decides who picks it up |
+| `ready-for-human` | `help wanted` or `good first issue` | Fully specified and open to outside contributors. Never set while `Still to define` has an unchecked item |
+| `wontfix` | closed as not planned | Will not be actioned. There is no label for it |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Edit the right-hand column to match whatever vocabulary you actually use.
+When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding entry from this table.

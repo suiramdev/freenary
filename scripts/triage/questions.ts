@@ -41,21 +41,17 @@ const typeQuestion = (kind: SubjectKind): Question => ({
           bug: "Something in Freenary crashes, fails or behaves differently from what it should today",
           documentation:
             "A mistake, gap or confusing passage in the documentation site, README or contributor guides",
-          enhancement:
-            "A request to improve, extend or polish something Freenary already does",
-          feature: "A request for a capability Freenary does not have at all",
+          feature:
+            "A request for a capability Freenary does not have, or to improve, extend or polish one it has",
           maintenance:
             "Housekeeping: dependencies, refactoring, tooling, tests, CI or repository chores",
-          question:
-            "The author asks how something works or how to use or run Freenary",
         }
       : {
           bug: "The change fixes something that crashes, fails or behaves incorrectly",
           documentation:
             "The change only edits documentation, guides or code comments",
-          enhancement:
-            "The change improves, extends or polishes something Freenary already does",
-          feature: "The change adds a capability Freenary did not have",
+          feature:
+            "The change adds a capability, or improves, extends or polishes one Freenary already has",
           maintenance:
             "The change updates dependencies, refactors, or touches tooling, tests or CI without changing behaviour",
         },
@@ -66,30 +62,11 @@ const typeQuestion = (kind: SubjectKind): Question => ({
   type: "choice",
 });
 
-const AREA_QUESTION: Question = {
-  criteria: {
-    api: "The oRPC routes of packages/api: their inputs, outputs and permissions",
-    auth: "Sign-in, sign-up, sessions, one-time codes, OAuth or OIDC providers, two-factor authentication",
-    backend:
-      "The API server: bank and email providers, background jobs, transaction categorisation, server configuration",
-    "ci-cd": "GitHub Actions workflows, releases, published images, Renovate",
-    database: "The PostgreSQL schema, Prisma models and migrations",
-    docs: "The documentation site or the contributor documentation",
-    frontend:
-      "The web app interface: screens, components, styling, navigation, translations",
-    infra:
-      "Docker images, compose files, self-hosting, deployment templates, reverse proxies",
-  },
-  instructions: "Which part of Freenary does this concern most?",
-  type: "choice",
-};
-
 const IMPACT_QUESTION: Question = {
   criteria: [
     "Cosmetic, or very few users affected",
     "A feature degrades for some users, and a workaround exists",
-    "A main flow breaks for many users, with no workaround",
-    "Data loss, wrong balances, exposed credentials or an unusable instance",
+    "A main flow breaks for many users with no workaround, or data loss, wrong balances, exposed credentials or an unusable instance",
   ],
   instructions: "How much does this affect the people who use Freenary?",
   type: "score",
@@ -115,16 +92,6 @@ const REGRESSION_QUESTION: Question = {
   type: "noul",
 };
 
-const BREAKING_CHANGE_QUESTION: Question = {
-  criteria: {
-    false: "Existing installs keep working with no action",
-    true: "Operators or users must act: configuration, environment variables, data, API contracts or workflows change incompatibly",
-  },
-  instructions:
-    "Does this change, or the change it asks for, break existing installs, configuration, data or API contracts?",
-  type: "noul",
-};
-
 const SECURITY_QUESTION: Question = {
   criteria: {
     false: "No security or privacy concern",
@@ -135,19 +102,10 @@ const SECURITY_QUESTION: Question = {
   type: "noul",
 };
 
-const PERFORMANCE_QUESTION: Question = {
-  criteria: {
-    false: "Speed and resource usage are not the subject",
-    true: "Slowness, latency, memory, CPU, bundle size or database load is the subject",
-  },
-  instructions: "Is this about speed or resource usage?",
-  type: "noul",
-};
-
 const GOOD_FIRST_ISSUE_QUESTION: Question = {
   criteria: {
     false: "Large, vague, or needs deep knowledge of the architecture",
-    true: "Small, well scoped, and touches few files",
+    true: "Small, fully specified, and touches few files",
   },
   instructions:
     "Could a newcomer to the codebase complete this without deep knowledge of its architecture?",
@@ -197,11 +155,8 @@ export const buildQuestions = (
   candidates: readonly DuplicateCandidate[]
 ): Record<string, Question> => {
   const questions: Record<string, Question> = {
-    area: AREA_QUESTION,
     blocked: BLOCKED_QUESTION,
-    breaking_change: BREAKING_CHANGE_QUESTION,
     impact: IMPACT_QUESTION,
-    performance: PERFORMANCE_QUESTION,
     regression: REGRESSION_QUESTION,
     security: SECURITY_QUESTION,
     type: typeQuestion(kind),

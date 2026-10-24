@@ -11,26 +11,22 @@ describe("samplesFor", () => {
   it("compares each answer with the labels a maintainer kept", () => {
     const samples = samplesFor(
       {
-        area: { choice: "backend", confidence: 0.5, type: "choice" },
+        good_first_issue: { noul: 0.1, type: "noul" },
         impact: { confidence: 0.7, score: 0.2, type: "score" },
         security: { noul: 0.1, type: "noul" },
         type: { choice: "feature", confidence: 0.6, type: "choice" },
       },
-      {
-        labels: ["type:enhancement", "area:backend", "impact:low"],
-        withArea: true,
-      }
+      { labels: ["type: maintenance", "impact: low"] }
     );
 
     expect(samples).toEqual([
       { confidence: 0.6, kind: "label", matches: false, question: "type" },
-      { confidence: 0.5, kind: "label", matches: true, question: "area" },
       { confidence: 0.7, kind: "label", matches: true, question: "impact" },
       {
         kind: "signal",
         present: false,
         probability: 0.1,
-        question: "security",
+        question: "good_first_issue",
       },
     ]);
   });
@@ -39,7 +35,7 @@ describe("samplesFor", () => {
     expect(
       samplesFor(
         { type: { choice: "bug", confidence: 0.9, type: "choice" } },
-        { labels: [], withArea: true }
+        { labels: [] }
       )
     ).toEqual([]);
   });
@@ -79,10 +75,7 @@ describe("measureAgreement", () => {
 
 describe("blindSamples", () => {
   it("skips a run whose input already carried the answer", () => {
-    const item = {
-      labels: ["type:bug", "impact:low"],
-      withArea: false,
-    };
+    const item = { labels: ["type: bug", "impact: low"] };
 
     const samples = blindSamples(
       [
@@ -99,7 +92,7 @@ describe("blindSamples", () => {
             impact: { confidence: 0.9, score: 0, type: "score" },
             type: { choice: "bug", confidence: 0.9, type: "choice" },
           },
-          existingLabels: ["type:bug", "impact:low", "status:ready"],
+          existingLabels: ["type: bug", "impact: low"],
           recordedAt: "2026-10-02T00:00:00Z",
         },
       ],

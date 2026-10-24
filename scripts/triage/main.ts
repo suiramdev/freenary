@@ -3,7 +3,6 @@ import { appendFile, readFile, writeFile } from "node:fs/promises";
 
 import { Data, Effect } from "effect";
 
-import { areasForPaths } from "./areas";
 import { planCommentAction, renderGapComment } from "./comment";
 import {
   addLabels,
@@ -31,12 +30,13 @@ import {
   checklistFor,
   checklistQuestions,
   docsExpected,
+  stillToDefine,
   templateGaps,
 } from "./readiness";
 import type { Gap } from "./readiness";
 import { decide } from "./subq";
 import type { Answers, DecisionState } from "./subq";
-import { GROUP_PREFIXES, SIGNAL_LABELS, STATUS_LABELS } from "./taxonomy";
+import { GROUP_PREFIXES } from "./taxonomy";
 
 const MAX_BODY_CHARACTERS = 8000;
 const MAX_REPLY_CHARACTERS = 4000;
@@ -127,7 +127,7 @@ interface TriageRecord {
   readonly existingLabels: readonly string[];
   readonly labels: readonly string[];
   readonly removed: readonly string[];
-  readonly status: string | undefined;
+  readonly readiness: string;
   readonly gaps: readonly Gap[];
   readonly notes: readonly string[];
 }
@@ -142,9 +142,7 @@ const writeRecord = (record: TriageRecord) =>
   });
 
 const commentBodyFor = (kind: SubjectKind, plan: Plan): string | undefined =>
-  plan.status === undefined || plan.status === STATUS_LABELS.blocked
-    ? undefined
-    : renderGapComment(kind, plan.gaps);
+  plan.comment ? renderGapComment(kind, plan.gaps) : undefined;
 
 const readOwnership = Effect.fnUntraced(function* readOwnership(
   client: GitHubClient,
@@ -165,11 +163,6 @@ const readOwnership = Effect.fnUntraced(function* readOwnership(
     workflowPriorities: existingLabels.filter(
       (label) =>
         label.startsWith(GROUP_PREFIXES.priority) && ownedByWorkflow(label)
-    ),
-    workflowReproduction: ownedByWorkflow(SIGNAL_LABELS.needsReproduction),
-    workflowStatuses: existingLabels.filter(
-      (label) =>
-        label.startsWith(GROUP_PREFIXES.status) && ownedByWorkflow(label)
     ),
   };
 });
@@ -266,16 +259,14 @@ const triage = Effect.fnUntraced(function* triage() {
 
   const plan = planLabels({
     answers,
-    areasFromPaths: areasForPaths(files),
     checklist,
     docsExpected: docsExpected(files),
     existingLabels,
     kind,
     refusedLabels: ownership.refusedLabels,
     ruleGaps,
+    stillToDefine: kind === "issue" ? stillToDefine(body) : [],
     workflowPriorities: ownership.workflowPriorities,
-    workflowReproduction: ownership.workflowReproduction,
-    workflowStatuses: ownership.workflowStatuses,
   });
 
   for (const label of plan.removed) {
@@ -296,9 +287,9 @@ const triage = Effect.fnUntraced(function* triage() {
     labels: plan.labels,
     notes: plan.notes,
     number,
+    readiness: plan.readiness,
     recordedAt: new Date().toISOString(),
     removed: plan.removed,
-    status: plan.status,
   });
 
   yield* writeSummary([
@@ -306,6 +297,7 @@ const triage = Effect.fnUntraced(function* triage() {
     "",
     `Added: ${plan.labels.join(", ") || "nothing"}`,
     `Removed: ${plan.removed.join(", ") || "nothing"}`,
+    `Readiness: ${plan.readiness}`,
     ...(plan.duplicateOf === undefined
       ? []
       : [`Possible duplicate of #${plan.duplicateOf}`]),

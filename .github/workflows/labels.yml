@@ -27,7 +27,7 @@ jobs:
 
       - run: bun install --frozen-lockfile --ignore-scripts
 
-      - name: Create, update and rename the labels
+      - name: Create and update the labels
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bun scripts/triage/sync-labels.ts

@@ -11,6 +11,7 @@ import {
   checklistQuestions,
   decideReadiness,
   docsExpected,
+  stillToDefine,
   templateGaps,
 } from "./readiness";
 import type { Answers } from "./subq";
@@ -18,7 +19,6 @@ import type { Answers } from "./subq";
 const TEMPLATE = readFileSync(".github/pull_request_template.md", "utf-8");
 
 const settled: Answers = {
-  area: { choice: "frontend", confidence: 0.9, type: "choice" },
   blocked: { noul: 0.05, type: "noul" },
   impact: { confidence: 0.8, score: 1, type: "score" },
   type: { choice: "feature", confidence: 0.9, type: "choice" },
@@ -33,16 +33,14 @@ const requestMet: Answers = {
 const planFor = (overrides: Partial<PlanInput>) =>
   planLabels({
     answers: { ...settled, ...requestMet },
-    areasFromPaths: [],
     checklist: "request",
     docsExpected: false,
     existingLabels: [],
     kind: "issue",
     refusedLabels: [],
     ruleGaps: [],
+    stillToDefine: [],
     workflowPriorities: [],
-    workflowReproduction: false,
-    workflowStatuses: [],
     ...overrides,
   });
 
@@ -50,7 +48,7 @@ describe("issue readiness", () => {
   it("marks an issue ready when every criterion is met", () => {
     const plan = planFor({});
 
-    expect(plan.status).toBe("status:ready");
+    expect(plan.readiness).toBe("ready");
     expect(plan.gaps).toEqual([]);
   });
 
@@ -63,7 +61,7 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.status).toBe("status:needs-info");
+    expect(plan.readiness).toBe("needs-info");
     expect(plan.gaps).toEqual([
       { owner: "author", text: "Explain the problem this would solve." },
     ]);
@@ -78,7 +76,7 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.status).toBe("status:needs-triage");
+    expect(plan.readiness).toBe("needs-triage");
     expect(plan.gaps[0]?.owner).toBe("maintainer");
   });
 
@@ -90,51 +88,41 @@ describe("issue readiness", () => {
         type: {
           choice: "feature",
           confidence: 0.4,
-          probabilities: { bug: 0.05, enhancement: 0.35, feature: 0.6 },
+          probabilities: { bug: 0.05, feature: 0.6, maintenance: 0.35 },
           type: "choice",
         },
       },
     });
 
-    expect(plan.labels).toContain("type:feature");
-    expect(plan.status).toBe("status:ready");
+    expect(plan.labels).toContain("type: feature");
+    expect(plan.readiness).toBe("ready");
     expect(plan.gaps).toEqual([]);
   });
 
-  it("applies the rounded impact level of an unsure score", () => {
+  it("applies no impact or priority for an unsure score and stays ready", () => {
     const plan = planFor({
       answers: {
         ...settled,
         ...requestMet,
         impact: {
           confidence: 0.4,
-          probabilities: { "0": 0.5, "1": 0.45, "2": 0.05, "3": 0 },
+          probabilities: { "0": 0.5, "1": 0.45, "2": 0.05 },
           score: 0.55,
           type: "score",
         },
       },
     });
 
-    expect(plan.labels).toContain("impact:medium");
-    expect(plan.labels).toContain("priority:p2");
-    expect(plan.status).toBe("status:ready");
+    expect(plan.labels.some((label) => label.startsWith("impact:"))).toBe(
+      false
+    );
+
+    expect(plan.labels.some((label) => label.startsWith("priority:"))).toBe(
+      false
+    );
+
+    expect(plan.readiness).toBe("ready");
     expect(plan.gaps).toEqual([]);
-  });
-
-  it("leaves a question to a maintainer", () => {
-    const plan = planFor({
-      answers: {
-        ...settled,
-        type: { choice: "question", confidence: 0.9, type: "choice" },
-      },
-      checklist: undefined,
-    });
-
-    expect(plan.status).toBe("status:needs-triage");
-    expect(plan.gaps).toContainEqual({
-      owner: "maintainer",
-      text: "Answer the question.",
-    });
   });
 
   it("puts blocked before every gap", () => {
@@ -146,7 +134,7 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.status).toBe("status:blocked");
+    expect(plan.readiness).toBe("blocked");
   });
 });
 
@@ -160,14 +148,13 @@ describe("pull request readiness", () => {
   const pullRequestFor = (overrides: Partial<PlanInput>) =>
     planFor({
       answers: prAnswers,
-      areasFromPaths: ["frontend"],
       checklist: undefined,
       kind: "pull-request",
       ...overrides,
     });
 
   it("is ready with a summary, notes and passing checks", () => {
-    expect(pullRequestFor({}).status).toBe("status:ready");
+    expect(pullRequestFor({}).readiness).toBe("ready");
   });
 
   it("asks for a summary", () => {
@@ -175,7 +162,7 @@ describe("pull request readiness", () => {
       answers: { ...prAnswers, pr_summary: { noul: 0.1, type: "noul" } },
     });
 
-    expect(plan.status).toBe("status:needs-info");
+    expect(plan.readiness).toBe("needs-info");
   });
 
   it("asks about documentation only when behaviour changed without docs", () => {
@@ -184,10 +171,10 @@ describe("pull request readiness", () => {
       pr_docs: { noul: 0.1, type: "noul" },
     };
 
-    expect(pullRequestFor({ answers: noDocsNote }).status).toBe("status:ready");
+    expect(pullRequestFor({ answers: noDocsNote }).readiness).toBe("ready");
     expect(
-      pullRequestFor({ answers: noDocsNote, docsExpected: true }).status
-    ).toBe("status:needs-info");
+      pullRequestFor({ answers: noDocsNote, docsExpected: true }).readiness
+    ).toBe("needs-info");
   });
 
   it("waits for checks without asking anyone", () => {
@@ -195,7 +182,7 @@ describe("pull request readiness", () => {
       ruleGaps: [{ owner: "waiting", text: "Wait for the `ci` check." }],
     });
 
-    expect(plan.status).toBe("status:needs-triage");
+    expect(plan.readiness).toBe("needs-triage");
     expect(renderGapComment("pull-request", plan.gaps)).toBeUndefined();
   });
 });
@@ -317,9 +304,11 @@ describe("docsExpected", () => {
 
 describe("checklists", () => {
   it("maps types to checklists", () => {
-    expect(checklistFor("type:bug")).toBe("bug");
-    expect(checklistFor("type:enhancement")).toBe("request");
-    expect(checklistFor("type:question")).toBeUndefined();
+    expect(checklistFor("type: bug")).toBe("bug");
+    expect(checklistFor("type: feature")).toBe("request");
+    expect(checklistFor("type: documentation")).toBe("documentation");
+    expect(checklistFor("type: maintenance")).toBe("maintenance");
+    expect(checklistFor("type:enhancement")).toBeUndefined();
   });
 
   it("keeps both rounds within sixteen questions", () => {
@@ -356,7 +345,7 @@ describe("decideReadiness", () => {
 describe("renderGapComment", () => {
   it("groups gaps by owner under the marker", () => {
     const comment = renderGapComment("issue", [
-      { owner: "maintainer", text: "Answer the question." },
+      { owner: "maintainer", text: "Check whether this duplicates #3." },
       { owner: "author", text: "Add the steps that reproduce the bug." },
     ]);
 
@@ -365,7 +354,9 @@ describe("renderGapComment", () => {
       "For the author:\n- Add the steps that reproduce the bug."
     );
 
-    expect(comment).toContain("For a maintainer:\n- Answer the question.");
+    expect(comment).toContain(
+      "For a maintainer:\n- Check whether this duplicates #3."
+    );
   });
 });
 
@@ -378,49 +369,6 @@ describe("checkGaps with reruns", () => {
         { conclusion: "success", id: 4, name: "compose", status: "completed" },
       ])
     ).toEqual([]);
-  });
-});
-
-describe("needs-reproduction", () => {
-  const bugAnswers: Answers = {
-    ...settled,
-    check_environment: { noul: 0.9, type: "noul" },
-    check_expected_actual: { noul: 0.9, type: "noul" },
-    check_steps: { noul: 0.9, type: "noul" },
-    type: { choice: "bug", confidence: 0.9, type: "choice" },
-  };
-
-  it("removes the label it added once the steps are written", () => {
-    const plan = planFor({
-      answers: bugAnswers,
-      checklist: "bug",
-      existingLabels: ["needs-reproduction"],
-      workflowReproduction: true,
-    });
-
-    expect(plan.removed).toContain("needs-reproduction");
-  });
-
-  it("removes the label it added once the type is no longer bug", () => {
-    const plan = planFor({
-      answers: { ...settled, ...requestMet },
-      checklist: "request",
-      existingLabels: ["needs-reproduction"],
-      workflowReproduction: true,
-    });
-
-    expect(plan.removed).toContain("needs-reproduction");
-  });
-
-  it("keeps a label a maintainer added", () => {
-    const plan = planFor({
-      answers: bugAnswers,
-      checklist: "bug",
-      existingLabels: ["needs-reproduction"],
-      workflowReproduction: false,
-    });
-
-    expect(plan.removed).not.toContain("needs-reproduction");
   });
 });
 
@@ -490,32 +438,17 @@ describe("refused labels", () => {
       answers: {
         ...settled,
         ...requestMet,
-        security: { noul: 0.95, type: "noul" },
+        good_first_issue: { noul: 0.99, type: "noul" },
       },
-      refusedLabels: ["security", "type:feature"],
+      refusedLabels: ["good first issue", "type: feature"],
     });
 
-    expect(plan.labels).not.toContain("security");
-    expect(plan.labels).not.toContain("type:feature");
+    expect(plan.labels).not.toContain("good first issue");
+    expect(plan.labels).not.toContain("type: feature");
   });
 });
 
 describe("refused labels and readiness", () => {
-  it("derives no priority from a refused security label", () => {
-    const plan = planFor({
-      answers: {
-        ...settled,
-        ...requestMet,
-        impact: { confidence: 0.9, score: 0, type: "score" },
-        security: { noul: 0.95, type: "noul" },
-      },
-      refusedLabels: ["security"],
-    });
-
-    expect(plan.labels).toContain("priority:p3");
-    expect(plan.labels).not.toContain("priority:p0");
-  });
-
   it("adds no type and asks nothing when the model's type was refused", () => {
     const plan = planFor({
       answers: {
@@ -524,39 +457,15 @@ describe("refused labels and readiness", () => {
         type: {
           choice: "feature",
           confidence: 0.9,
-          probabilities: { enhancement: 0.08, feature: 0.9 },
+          probabilities: { feature: 0.9, maintenance: 0.08 },
           type: "choice",
         },
       },
-      refusedLabels: ["type:feature"],
+      refusedLabels: ["type: feature"],
     });
 
     expect(plan.labels.some((label) => label.startsWith("type:"))).toBe(false);
     expect(plan.gaps).toEqual([]);
-  });
-
-  it("drops the duplicate check once duplicate was refused", () => {
-    const plan = planFor({
-      answers: {
-        ...settled,
-        ...requestMet,
-        duplicate: { choice: "item-3", confidence: 0.95, type: "choice" },
-      },
-      refusedLabels: ["duplicate"],
-    });
-
-    expect(plan.status).toBe("status:ready");
-  });
-
-  it("still sets a status a maintainer once removed", () => {
-    const plan = planFor({
-      existingLabels: ["status:needs-triage"],
-      refusedLabels: ["status:ready"],
-      workflowStatuses: ["status:needs-triage"],
-    });
-
-    expect(plan.labels).toContain("status:ready");
-    expect(plan.removed).toEqual(["status:needs-triage"]);
   });
 });
 
@@ -568,58 +477,23 @@ describe("resolveTypeLabel", () => {
 
     expect(checklistFor(resolveTypeLabel(answers, [], []))).toBe("bug");
     expect(
-      checklistFor(resolveTypeLabel(answers, [], ["type:bug"]))
+      checklistFor(resolveTypeLabel(answers, [], ["type: bug"]))
     ).toBeUndefined();
 
-    expect(resolveTypeLabel(answers, ["type:feature"], ["type:bug"])).toBe(
-      "type:feature"
-    );
-  });
-
-  it("asks no question answer for a refused question type", () => {
-    const plan = planFor({
-      answers: {
-        ...settled,
-        type: { choice: "question", confidence: 0.9, type: "choice" },
-      },
-      checklist: undefined,
-      refusedLabels: ["type:question"],
-    });
-
-    expect(plan.gaps.map((gap) => gap.text)).not.toContain(
-      "Answer the question."
+    expect(resolveTypeLabel(answers, ["type: feature"], ["type: bug"])).toBe(
+      "type: feature"
     );
   });
 });
 
 describe("refused picks and comment wording", () => {
-  it("substitutes no other area for a refused top area", () => {
-    const plan = planFor({
-      answers: {
-        ...settled,
-        ...requestMet,
-        area: {
-          choice: "frontend",
-          confidence: 0.9,
-          probabilities: { backend: 0.08, frontend: 0.9 },
-          type: "choice",
-        },
-      },
-      refusedLabels: ["area:frontend"],
-    });
-
-    expect(plan.labels.some((label) => label.startsWith("area:"))).toBe(false);
-    expect(plan.gaps).toEqual([]);
-    expect(plan.status).toBe("status:ready");
-  });
-
   it("tells a maintainer-only comment that a label reruns triage", () => {
     const comment = renderGapComment("issue", [
-      { owner: "maintainer", text: "Answer the question." },
+      { owner: "maintainer", text: "Check whether this duplicates #3." },
     ]);
 
     expect(comment).toContain(
-      "a `status:` label set by a maintainer closes this list"
+      "a `priority:` label set by a maintainer closes this list"
     );
 
     expect(comment).not.toContain("reply here");
@@ -627,22 +501,10 @@ describe("refused picks and comment wording", () => {
 });
 
 describe("missing answers", () => {
-  it("keeps needs-reproduction while the type has no answer", () => {
-    const { type: _type, ...withoutType } = settled;
-    const plan = planFor({
-      answers: withoutType,
-      checklist: undefined,
-      existingLabels: ["needs-reproduction"],
-      workflowReproduction: true,
-    });
-
-    expect(plan.removed).not.toContain("needs-reproduction");
-  });
-
   it("counts a missing checklist answer as unmet", () => {
     const plan = planFor({ answers: { ...settled } });
 
-    expect(plan.status).toBe("status:needs-info");
+    expect(plan.readiness).toBe("needs-info");
   });
 });
 
@@ -730,5 +592,44 @@ describe("superseded checks", () => {
       { owner: "waiting", text: "Wait for the `ci` check." },
       { owner: "waiting", text: "Wait for the `compose` check." },
     ]);
+  });
+});
+
+describe("stillToDefine", () => {
+  it("lists the unchecked items under the Still to define heading", () => {
+    const body = [
+      "### Context",
+      "",
+      "- [ ] not part of the list",
+      "",
+      "### Still to define",
+      "",
+      "- [x] Pick the export format",
+      "- [ ] Decide who can see it",
+      "* [ ]   Name the setting  ",
+      "<!-- - [ ] an example in a comment -->",
+      "",
+      "### Relevant files",
+      "",
+      "- [ ] apps/web/src/pages/budget",
+    ].join("\n");
+
+    expect(stillToDefine(body)).toEqual([
+      "Decide who can see it",
+      "Name the setting",
+    ]);
+  });
+
+  it("finds nothing once every item is checked or the section is absent", () => {
+    expect(stillToDefine("## Still to define\n\n- [x] Done\n")).toEqual([]);
+    expect(stillToDefine("### Still to define\n\n_No response_\n")).toEqual([]);
+
+    expect(stillToDefine("### Context\n\n- [ ] Something\n")).toEqual([]);
+  });
+
+  it("ignores a heading inside a code fence", () => {
+    const body = "```md\n### Still to define\n- [ ] example\n```\n";
+
+    expect(stillToDefine(body)).toEqual([]);
   });
 });

@@ -1,11 +1,6 @@
-import { SIGNAL_BY_QUESTION } from "./plan";
+import { LABEL_BY_QUESTION } from "./plan";
 import type { Answers } from "./subq";
-import {
-  AREA_LABELS,
-  GROUP_PREFIXES,
-  IMPACT_LEVELS,
-  TYPE_LABELS,
-} from "./taxonomy";
+import { GROUP_PREFIXES, IMPACT_LEVELS, TYPE_LABELS } from "./taxonomy";
 
 export type Sample =
   | {
@@ -32,7 +27,6 @@ export const THRESHOLDS = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95] as const;
 
 export interface ReviewedItem {
   readonly labels: readonly string[];
-  readonly withArea: boolean;
 }
 
 const groupLabel = (
@@ -40,19 +34,11 @@ const groupLabel = (
   prefix: string
 ): string | undefined => labels.find((label) => label.startsWith(prefix));
 
-const choiceSample = (
-  answers: Answers,
-  question: "type" | "area",
-  labels: readonly string[]
-): Sample[] => {
-  const answer = answers[question];
-  const table: Readonly<Record<string, string>> =
-    question === "type" ? TYPE_LABELS : AREA_LABELS;
+const typeSample = (answers: Answers, labels: readonly string[]): Sample[] => {
+  const answer = answers.type;
+  const table: Readonly<Record<string, string>> = TYPE_LABELS;
 
-  const prefix =
-    question === "type" ? GROUP_PREFIXES.type : GROUP_PREFIXES.area;
-
-  if (answer?.type !== "choice" || !groupLabel(labels, prefix)) {
+  if (answer?.type !== "choice" || !groupLabel(labels, GROUP_PREFIXES.type)) {
     return [];
   }
 
@@ -63,7 +49,7 @@ const choiceSample = (
       confidence: answer.confidence,
       kind: "label",
       matches: predicted !== undefined && labels.includes(predicted),
-      question,
+      question: "type",
     },
   ];
 };
@@ -95,7 +81,7 @@ const impactSample = (
 };
 
 const signalSamples = (answers: Answers, item: ReviewedItem): Sample[] =>
-  Object.entries(SIGNAL_BY_QUESTION).flatMap(([question, label]) => {
+  Object.entries(LABEL_BY_QUESTION).flatMap(([question, label]) => {
     const answer = answers[question];
 
     return answer?.type === "noul"
@@ -111,8 +97,7 @@ const signalSamples = (answers: Answers, item: ReviewedItem): Sample[] =>
   });
 
 export const samplesFor = (answers: Answers, item: ReviewedItem): Sample[] => [
-  ...choiceSample(answers, "type", item.labels),
-  ...(item.withArea ? choiceSample(answers, "area", item.labels) : []),
+  ...typeSample(answers, item.labels),
   ...impactSample(answers, item.labels),
   ...signalSamples(answers, item),
 ];
@@ -173,7 +158,6 @@ export interface RecordedRun {
 }
 
 const PREFIX_BY_QUESTION: Readonly<Record<string, string>> = {
-  area: GROUP_PREFIXES.area,
   impact: GROUP_PREFIXES.impact,
   type: GROUP_PREFIXES.type,
 };
@@ -188,7 +172,7 @@ const inputCarriedAnswer = (
     return existingLabels.some((label) => label.startsWith(prefix));
   }
 
-  return Object.entries(SIGNAL_BY_QUESTION).some(
+  return Object.entries(LABEL_BY_QUESTION).some(
     ([signalQuestion, label]) =>
       signalQuestion === question && existingLabels.includes(label)
   );

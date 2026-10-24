@@ -113,7 +113,6 @@ const CRITERIA: Readonly<
 const CHECKLIST_BY_TYPE: Readonly<Record<string, Checklist>> = {
   [TYPE_LABELS.bug]: "bug",
   [TYPE_LABELS.documentation]: "documentation",
-  [TYPE_LABELS.enhancement]: "request",
   [TYPE_LABELS.feature]: "request",
   [TYPE_LABELS.maintenance]: "maintenance",
 };
@@ -197,6 +196,32 @@ export const splitSections = (
   }
 
   return sections;
+};
+
+export const STILL_TO_DEFINE = "Still to define";
+
+const UNCHECKED_ITEM = /^[ \t]*[-*+][ \t]+\[ \][ \t]+(?<text>\S.*?)[ \t]*$/gmu;
+
+export const stillToDefine = (body: string): string[] => {
+  const blanked = blankFences(body);
+  const headings = [...blanked.matchAll(TEMPLATE_HEADING)];
+
+  return headings.flatMap((heading, index) => {
+    if (
+      heading.groups?.title?.trim().toLowerCase() !==
+      STILL_TO_DEFINE.toLowerCase()
+    ) {
+      return [];
+    }
+
+    const start = (heading.index ?? 0) + heading[0].length;
+    const end = headings[index + 1]?.index ?? blanked.length;
+    const section = blanked.slice(start, end).replace(HTML_COMMENT, "");
+
+    return [...section.matchAll(UNCHECKED_ITEM)].map(
+      (item) => item.groups?.text ?? ""
+    );
+  });
 };
 
 export const sectionGapText = (title: string): string =>
