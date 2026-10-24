@@ -205,6 +205,7 @@ export const CredentialSequence = ({
 
       <div className="flex items-center justify-between gap-3">
         <Button
+          disabled={isLast && isBusy}
           leadingIcon={ArrowLeftIcon}
           onClick={goBack}
           type="button"

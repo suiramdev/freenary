@@ -9,8 +9,6 @@ type Label = () => string;
 
 export const POWENS_CLIENT_APPLICATIONS = "Client Applications";
 
-const POWENS_ADD_CLIENT = "Add a client";
-
 const FIELD_LABELS = {
   AI_API_KEY: m.setup_field_ai_api_key,
   AI_BASE_URL: m.setup_field_ai_base_url,
@@ -45,17 +43,13 @@ const FIELD_HELP: Readonly<Record<string, () => MessagePart[]>> = {
     }),
   ENABLE_BANKING_PRIVATE_KEY: () =>
     messageParts(m.setup_field_enable_banking_private_key_help, {}),
-  POWENS_CLIENT_ID: () =>
-    messageParts(m.setup_field_powens_client_help, {
-      section: strong(POWENS_CLIENT_APPLICATIONS),
-    }),
+  POWENS_CLIENT_ID: () => messageParts(m.setup_field_powens_client_help, {}),
   POWENS_CLIENT_SECRET: () =>
     messageParts(m.setup_field_powens_client_secret_help, {}),
   POWENS_DOMAIN: () =>
     messageParts(m.setup_field_powens_domain_help, {
       console: link(m.setup_powens_guide_console_link(), POWENS_REGISTER_URL),
       example: code("acme-sandbox"),
-      scheme: code("https://"),
     }),
 };
 
@@ -64,7 +58,6 @@ const REDIRECT_HELP: Readonly<Record<string, () => MessagePart[]>> = {
     messageParts(m.setup_redirect_enable_banking_help, {}),
   powens: () =>
     messageParts(m.setup_redirect_powens_help, {
-      action: strong(POWENS_ADD_CLIENT),
       section: strong(POWENS_CLIENT_APPLICATIONS),
     }),
 };

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
+import { findIntegration } from "@freenary/instance-config/integrations";
+import { Option } from "effect";
+
 import type { CredentialField } from "./credential-steps";
 import {
   credentialStepsOf,
@@ -82,6 +85,27 @@ describe("credentialStepsOf", () => {
   it("has no sequence for a provider outside the bank", () => {
     expect(credentialStepsOf("smtp", [field("SMTP_HOST")])).toBeNull();
   });
+});
+
+describe("the bank sequences against the provider registry", () => {
+  const banking = Option.getOrThrow(findIntegration("banking"));
+  const withFields = banking.variants.filter(
+    (variant) => variant.fields.length > 0
+  );
+
+  it.each(withFields.map((variant) => [variant.id, variant] as const))(
+    "asks %s for exactly the fields the registry declares",
+    (variantId, variant) => {
+      const steps = credentialStepsOf(
+        variantId,
+        variant.fields.map((entry) => field(entry.key, { kind: entry.kind }))
+      );
+
+      expect(
+        steps?.flatMap((step) => (step.kind === "field" ? [step.key] : []))
+      ).toEqual(variant.fields.map((entry) => entry.key));
+    }
+  );
 });
 
 describe("stepProblem", () => {
