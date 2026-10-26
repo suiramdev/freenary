@@ -9,6 +9,20 @@ Thanks for contributing to Freenary.
 - Keep changes scoped to a clear user-facing improvement, bug fix, or refactor.
 - Follow the code standards in [`AGENTS.md`](../AGENTS.md) — the repo uses Ultracite (Oxlint + Oxfmt) with strict, auto-fixable rules.
 
+## Working on an Issue
+
+Anyone can contribute, and you do not need to be a maintainer or ask first to open a pull request for a fix. For an issue that is already open, this is how work is shared.
+
+**Find something to do.** Issues labelled [`good first issue`](https://github.com/suiramdev/freenary/labels/good%20first%20issue) are small and fully specified, a good place to start. Issues labelled [`help wanted`](https://github.com/suiramdev/freenary/labels/help%20wanted) are fully specified and open to anyone. Both labels mean the spec is complete: the issue states the context, the expected behavior, the acceptance criteria and the files to start from. An issue with a **Still to define** list still has open questions, so it carries neither label yet. You can help by proposing an answer in a comment.
+
+**Claim an issue.** Comment on it to say you will take it. A maintainer assigns it to you, usually within a few days. Wait for the assignment before you invest a lot of time, so two people do not build the same thing. Claim one issue at a time while you are new.
+
+**Keep the claim alive.** Open a draft pull request early, or leave a short update when you are stuck. A claim with no pull request and no update for 14 days is stale: a maintainer asks for news, and if there is none, unassigns you and opens the issue to others. That is routine, and you are welcome to claim it again later.
+
+**Open the pull request.** Follow [Pull Requests](#pull-requests) below. Write `Closes #n` in the Notes of the pull request, and check each acceptance criterion of the issue before you ask for a review. If the spec turns out to be wrong or incomplete, say so in the issue instead of guessing.
+
+**Report something new.** Use the [issue forms](https://github.com/suiramdev/freenary/issues/new/choose). A maintainer sets the labels, and the `Triage` workflow suggests a type and lists what is missing from the description. If you can specify the work completely, use the **Specified task** form. The triage rules are in [`docs/engineering/triage.md`](../docs/engineering/triage.md).
+
 ## Branch Naming
 
 Use a clear, descriptive branch name that reflects the change.
@@ -32,6 +46,7 @@ bun run check-types   # TypeScript
 bun run check:fsd     # Feature-Sliced Design layers and public APIs
 bun run docs:check    # documentation gate
 bun run env:check     # .env.example and the configuration reference match packages/env
+(cd packages/api && bun test)   # api tests, without the downloaded data
 bun run build         # every app
 ```
 
@@ -54,10 +69,10 @@ Follow the [pull request template](pull_request_template.md). Each pull request 
 - open against `dev`; `main` holds released code, and a release is cut from `main` after `dev` merges into it
 - explain the user-visible change
 - stay focused on a single topic when possible
-- include screenshots or screen recordings for new UI or behavior changes
+- show new UI or behavior changes in the optional Evidence section: screenshots or a screen recording dragged into the description so GitHub hosts them, with fake data only, no real keys, tokens or personal data, and no file paths from your machine
 - say which `apps/fumadocs` pages it updated, or state that none needed a change
 
-If there is no visual change, say that explicitly in the PR description.
+Evidence is the only optional section; delete it when it does not apply. If there is no visual change, say so in Notes. Reviewers and QA check Evidence on a pull request that changes the interface, and ask for it when it is missing. No check fails without it.
 
 ## Licensing Your Contribution
 

@@ -4,7 +4,7 @@
 
 The rest of this file covers how to get a working stack, what every change owes the docs and the message catalogs, how to write the pull request, and the code-quality standard.
 
-**Contributing:** follow [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md). When opening or drafting a pull request, use every section of [`.github/pull_request_template.md`](.github/pull_request_template.md) — Summary, Motivation, Drawbacks, Prior art, Notes — and keep each one short.
+**Contributing:** follow [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md). When opening or drafting a pull request, use every section of [`.github/pull_request_template.md`](.github/pull_request_template.md) — Summary, Motivation, Drawbacks, Prior art, Notes, plus the optional Evidence — and keep each one short.
 
 ## Getting a Working Stack
 
@@ -23,9 +23,9 @@ docker compose up -d --wait postgres
 bun run dev                             # web 3001, server 3000, docs 4000
 ```
 
-The dev stack needs no `.env`: the `server` service declares `env_file` with `required: false`, so an optional root `.env` reaches the container line by line, and `environment` carries only the six values the stack derives from the worktree — `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN` and `NODE_ENV` (Compose gives `environment` precedence over `env_file`). It configures no email provider, so the one-time-code flows are off. `bun run dev:mail` layers `docker-compose.mail.yml` over it: that file starts `axllent/mailpit:v1.28` and points the server at it with `EMAIL_PROVIDER=smtp`, `SMTP_HOST=freenary-mailpit`, `SMTP_PORT=1025` and `EMAIL_FROM=Freenary <no-reply@freenary.test>`, and the inbox is a web page at `http://mail.<slug>.freenary.localhost`. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
+The dev stack needs no `.env`: the `server` service declares `env_file` with `required: false`, so an optional root `.env` reaches the container line by line, and `environment` carries only the seven values the stack derives from the worktree — `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN`, `BANKING_PROVIDER` and `NODE_ENV` (Compose gives `environment` precedence over `env_file`). It configures no email provider, so the one-time-code flows are off. `bun run dev:mail` layers `docker-compose.mail.yml` over it: that file starts `axllent/mailpit:v1.28` and points the server at it with `EMAIL_PROVIDER=smtp`, `SMTP_HOST=freenary-mailpit`, `SMTP_PORT=1025` and `EMAIL_FROM=Freenary <no-reply@freenary.test>`, and the inbox is a web page at `http://mail.<slug>.freenary.localhost`. `bun run dev:reset` destroys the volumes and starts over. The `bootstrap` service runs `prisma migrate deploy` before the API server starts.
 
-**There is no seed script.** Create an account through the sign-in screen. Neither `bun run dev:up` nor `bun run dev` configures an email provider, so `requireEmailVerification` stays off, sign-up returns a session at once, and the interface shows no **Forgot password?** link. To work on the one-time-code flows, start the stack with `bun run dev:mail` and read the code in the Mailpit inbox. Bank data needs real bank-provider credentials (`BANKING_PROVIDER`, `POWENS_*` or `ENABLE_BANKING_*`); with none, the bank list reports that bank linking is unavailable and onboarding skips the connect step.
+**There is no seed script.** Create an account through the sign-in screen. Neither `bun run dev:up` nor `bun run dev` configures an email provider, so `requireEmailVerification` stays off, sign-up returns a session at once, and the interface shows no **Forgot password?** link. To work on the one-time-code flows, start the stack with `bun run dev:mail` and read the code in the Mailpit inbox. Bank data needs no credentials on the Docker stack: when the root `.env` sets none of `BANKING_PROVIDER`, `POWENS_CLIENT_ID` and `ENABLE_BANKING_APP_ID`, `scripts/dev.ts` passes `BANKING_PROVIDER=mock`, and the `mock` provider in `packages/api/src/providers/mock` serves made-up banks, a consent page at `/mock-bank/consent` on the API server, and Faker-generated French transactions and holdings, seeded so a day's data is the same on every sync. The local path needs `BANKING_PROVIDER=mock` in `apps/server/.env`. The env schema refuses `mock` when `NODE_ENV` is `production`. Onboarding cannot finish without a connected bank.
 
 The production stack is `docker-compose.yml` (`bun run docker:up`, which is `docker compose up -d`). It runs the published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images, and applies the migrations itself through its one-shot `migrate` service. Its root `.env` carries `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET` and `FREENARY_VERSION`. The compose default is `latest`, the newest release; the other published tags are `X.Y.Z`, `X.Y`, `X`, `main`, `dev` and `sha-<7 characters>`.
 
@@ -122,12 +122,13 @@ Pull requests target `dev`, the integration branch; `main` holds released code, 
 
 ## Pull Request Descriptions: Complete, Then Brief
 
-- **Reviewers skim.** A description they have to scroll does not get read, so keep the whole body under ~400 words. Fill every section; pad none.
+- **Reviewers skim.** A description they have to scroll does not get read, so keep the whole body under ~400 words; images and video don't count. Fill every section except the optional Evidence; pad none.
 - **Summary:** at most four sentences — what changed, and what to look at first.
 - **Motivation, Drawbacks, Prior art:** at most four short bullets each. Drawbacks and Prior art carry the honest costs and the rejected alternatives, not a sales pitch.
 - **Notes:** one line per fact — `Closes #n`, the visual change (or explicitly none), the tests added, the `apps/fumadocs` pages updated (or explicitly none, and why), and any migration, breaking change, or merge-order constraint.
 - Don't restate the issue, list changed files, narrate the implementation, or paste command output — reviewers open the diff and the linked issue for that.
-- Evidence a reviewer may want but need not read (verification logs, benchmark runs) belongs in a PR comment, not the description.
+- **Evidence:** optional, and expected on a pull request that changes the interface. Drag screenshots or a screen recording into the description so GitHub hosts them; never reference a local file. Fake data only: no real keys, tokens or personal data, and no host or local paths in images or text. Reviewers and QA check it and ask for it when a UI pull request has none. Delete the section when it does not apply; "no visual change" still goes in Notes.
+- Evidence a reviewer may want but need not read (verification logs, benchmark runs) belongs in a PR comment, not the description; the Evidence section links to it.
 - A section that needs a table or a code block is a smell: that detail belongs in the issue, the code, or a comment.
 
 **Review gate.** This rule binds the top-level agent that owns an integration. A subagent returns its result to whoever spawned it and never runs the gate itself; the `reviewer` never invokes another reviewer.

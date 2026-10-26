@@ -18,12 +18,13 @@ src/
     routes/       # file routes: framework wiring only (createFileRoute, beforeLoad, …)
     router/       # router.tsx — createRouter plus the SSR query integration
     api/          # get-viewer.ts, the server function the root route's beforeLoad calls
-    shell/        # the signed-in frame: auth-layout, app-sidebar, sidebar-*,
+    shell/        # the signed-in frame: auth-layout, app-sidebar, sidebar-*, sync-progress-toast,
                   # user-identity, nav-items, first-steps
     styles/       # index.css — imports @freenary/ui/globals.css
   pages/          # one slice per screen: analysis, brand-avatar, budget, callback, goals,
                   # home, login, onboarding, portfolio, settings
-  features/       # a reused interaction with its own state: auth-gate, bank-connection
+  features/       # a reused interaction with its own state: account-sync, auth-gate, bank-connection,
+                  # instance-integration
   entities/       # a reused domain object: category
   shared/         # anything with no domain knowledge, per segment:
                   # api/ auth/ config/ i18n/ lib/ ui/
@@ -52,6 +53,8 @@ There is no `main.tsx`: the Start plugin builds both entries from `src/app/route
 
 - `features/auth-gate` — the live session gate, used by `app/shell/auth-layout.tsx`, `pages/login` and `pages/onboarding`.
 - `features/bank-connection` — the bank list, its card, panel and disconnect dialog, used by `pages/onboarding` and `pages/settings`.
+- `features/account-sync` — the sync mutation and its toasts, used by `app/shell` for the background sync and by `pages/budget` for `Sync transactions`.
+- `features/instance-integration` — the provider step, its credentials form and outcome notice, and the save, check and complete mutations with the post-restart reconnect, used by `pages/setup` and `pages/settings`.
 - `entities/category` — the spending taxonomy: labels, selection, search and `CategoryIcon`, used across `pages/budget`, `pages/settings` and `pages/home`.
 
 ## Conventions

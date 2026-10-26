@@ -8,7 +8,7 @@ import {
   softmax,
   UNDISTRIBUTED_CONFIDENCE,
 } from "../confidence";
-import { CLASSIFIER_REQUEST_TIMEOUT_MS, endpointHeaders } from "../endpoint";
+import { endpointHeaders, unreachableDetail } from "../endpoint";
 import {
   CATEGORY_CRITERIA,
   CATEGORY_INSTRUCTIONS,
@@ -26,6 +26,7 @@ export interface LlmSettings {
   apiKey: string | undefined;
   model: string;
   temperature: number;
+  timeoutMs: number;
   url: string;
 }
 
@@ -80,6 +81,7 @@ const LLM_SAMPLING_TEMPERATURE = 0;
 const COMPLETIONS_PATH = "/chat/completions";
 const TRAILING_SLASHES = /\/+$/u;
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LEADING_LETTER = /^\(?(?<letter>[a-z])(?![a-z])/iu;
 
 const ANSWER_RULE =
   "Answer with the letter of one option and nothing else. Write no punctuation, no category name and no explanation.";
@@ -153,26 +155,33 @@ type LlmChoice = typeof ChoiceSchema.Type;
 
 type TopLogprob = typeof TopLogprobSchema.Type;
 
+const addLogprobs = (left: number, right: number): number =>
+  Math.max(left, right) + Math.log1p(Math.exp(-Math.abs(left - right)));
+
 const rankLetters = (
   entries: readonly TopLogprob[] | null | undefined,
   table: DirectionTable
 ): LetterDistribution => {
-  const highest = new Map<string, number>();
+  const mass = new Map<string, number>();
 
   for (const entry of entries ?? []) {
-    const letter = entry.token.trim().charAt(0).toUpperCase();
-    const known = highest.get(letter);
+    const letter = (
+      LEADING_LETTER.exec(entry.token.trim())?.groups?.letter ?? ""
+    ).toUpperCase();
+
+    const known = mass.get(letter);
 
     if (table.categoryByLetter[letter] === undefined) {
       continue;
     }
 
-    if (known === undefined || entry.logprob > known) {
-      highest.set(letter, entry.logprob);
-    }
+    mass.set(
+      letter,
+      known === undefined ? entry.logprob : addLogprobs(known, entry.logprob)
+    );
   }
 
-  return { letters: [...highest.keys()], logprobs: [...highest.values()] };
+  return { letters: [...mass.keys()], logprobs: [...mass.values()] };
 };
 
 const readLetter = (
@@ -188,7 +197,10 @@ const readLetter = (
   if (ranked.letters.length === 0) {
     return {
       confidence: UNDISTRIBUTED_CONFIDENCE,
-      letter: (choice.message?.content ?? "").trim().charAt(0).toUpperCase(),
+      letter: (
+        LEADING_LETTER.exec((choice.message?.content ?? "").trim())?.groups
+          ?.letter ?? ""
+      ).toUpperCase(),
     };
   }
 
@@ -214,7 +226,10 @@ const readCompletion = Effect.fnUntraced(function* readCompletion(
   const response = yield* Effect.tryPromise({
     catch: (cause) =>
       new LlmClassificationFailed({
-        reason: { detail: String(cause), kind: "unreachable" },
+        reason: {
+          detail: unreachableDetail(cause, settings.timeoutMs),
+          kind: "unreachable",
+        },
       }),
     try: () =>
       transport(
@@ -233,7 +248,7 @@ const readCompletion = Effect.fnUntraced(function* readCompletion(
           }),
           headers: endpointHeaders(settings.apiKey),
           method: "POST",
-          signal: AbortSignal.timeout(CLASSIFIER_REQUEST_TIMEOUT_MS),
+          signal: AbortSignal.timeout(settings.timeoutMs),
         }
       ),
   });
@@ -242,7 +257,10 @@ const readCompletion = Effect.fnUntraced(function* readCompletion(
     const body = yield* Effect.tryPromise({
       catch: (cause) =>
         new LlmClassificationFailed({
-          reason: { detail: String(cause), kind: "unreachable" },
+          reason: {
+            detail: unreachableDetail(cause, settings.timeoutMs),
+            kind: "unreachable",
+          },
         }),
       try: () => response.text(),
     });

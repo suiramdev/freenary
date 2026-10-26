@@ -13,7 +13,7 @@ Two paths run Freenary on your machine. The containerised path runs every part i
 
 `bun run dev:up` is `bun scripts/dev.ts up --build --watch`. One command builds the images, applies the migrations and starts five services. `bun run dev:mail` adds a sixth service, Mailpit.
 
-The stack needs no `.env` file. The `server` service declares `env_file` with `path: .env` and `required: false`, so an absent file is valid. Its `environment` block holds the six values the stack derives: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN` and `NODE_ENV`. Compose gives `environment` precedence over `env_file`, so those six always win. Every other variable of a root `.env` reaches the container.
+The stack needs no `.env` file. The `server` service declares `env_file` with `path: .env` and `required: false`, so an absent file is valid. Its `environment` block holds the seven values the stack derives: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `AUTH_COOKIE_DOMAIN`, `BANKING_PROVIDER` and `NODE_ENV`. Compose gives `environment` precedence over `env_file`, so those seven always win. `BANKING_PROVIDER` is the one that can be empty: `scripts/dev.ts` sets `mock` when the root `.env` names no bank provider, and otherwise passes the `.env` value, so an empty value leaves the schema default and the setup screen in charge. Every other variable of a root `.env` reaches the container.
 
 ### The services
 
@@ -301,7 +301,7 @@ The `compose` job needs no Bun and no install. It runs `docker compose config --
 
 That job is the one CI check no root script covers. Reproduce it from `.github/workflows/ci.yml` before you change any of these compose files.
 
-> [!WARNING] `bun run check-types` reaches two workspaces only. `apps/server` and `@freenary/ui` declare the script. `apps/web` declares none. `apps/fumadocs` names its own script `types:check`, so `turbo run check-types` skips it. Type-check those two workspaces by hand before you push.
+> [!WARNING] `bun run check-types` reaches every workspace, `apps/web` included, which checks its test files too. The web check runs after its `build`, because the build generates `src/routeTree.gen.ts` and `src/paraglide/`, so the first run in a fresh checkout takes as long as a web build.
 
 ### Tests run by hand, one file at a time
 
@@ -384,7 +384,7 @@ The license text is `LICENSE`, and the notices of the bundled third-party softwa
 
 ### The pull request body
 
-`.github/pull_request_template.md` declares five headings. Fill each one, and keep each one short. The whole body stays near 400 words. The summary stays near four sentences, and the middle three sections near four bullets each.
+`.github/pull_request_template.md` declares six headings. Fill each one except Evidence, which is optional, and keep each one short. The whole body stays near 400 words, not counting images and video. The summary stays near four sentences, and the middle three sections near four bullets each.
 
 | Section | What it carries |
 | --- | --- |
@@ -392,6 +392,7 @@ The license text is `LICENSE`, and the notices of the bundled third-party softwa
 | Motivation | Why the change is worth it. |
 | Drawbacks | The honest costs. |
 | Prior art | The alternatives you rejected. |
+| Evidence | Optional. Screenshots, a screen recording or other proof, uploaded by dragging them into the description. Fake data only, with no keys, tokens, personal data or local paths. Delete it when it does not apply. |
 | Notes | One line per fact: linked issue, visual change, tests, documentation pages, migration, breaking change. |
 
 Never restate the issue in the body, and never paste command output into it.
@@ -401,7 +402,7 @@ Never restate the issue in the body, and never paste command output into it.
 - The pull request opens against `dev`.
 - It explains the user-visible change.
 - It stays on a single topic.
-- It carries screenshots or a screen capture for new interface work. With no visual change, it says so.
+- Its Evidence section carries screenshots or a screen recording for new interface work. A reviewer or QA asks for them when they are missing; no check fails. With no visual change, Notes says so.
 - It names the `apps/fumadocs` pages it updated, or states that none needed a change.
 
 A change to documented behaviour owes a documentation update in the same pull request. A screen, an API route, an environment variable, a `packages/db` enum, a script and a bank provider all count. [Writing documentation](./writing-docs.md) holds the rules for that update.

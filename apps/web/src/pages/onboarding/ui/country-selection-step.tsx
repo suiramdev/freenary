@@ -1,4 +1,3 @@
-import { Badge } from "@freenary/ui/components/badge";
 import { Button } from "@freenary/ui/components/button";
 import {
   Combobox,
@@ -23,7 +22,6 @@ import { remixIcon } from "@/shared/lib/remix-icon";
 import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 
 interface CountrySelectionStepProps {
-  isCompleting: boolean;
   onContinue: () => void;
   onCountriesChange: (countries: string[]) => void;
   selected: string[];
@@ -37,7 +35,6 @@ interface CountryRow {
 }
 
 export const CountrySelectionStep = ({
-  isCompleting,
   onContinue,
   onCountriesChange,
   selected,
@@ -94,9 +91,9 @@ export const CountrySelectionStep = ({
                       {row.label}
                     </span>
                     {isFullySupportedCountry(row.code) ? null : (
-                      <Badge variant="dot">
+                      <span className="text-muted-foreground shrink-0 text-xs">
                         {m.onboarding_country_partial_badge()}
-                      </Badge>
+                      </span>
                     )}
                   </span>
                 </ComboboxItem>
@@ -118,8 +115,7 @@ export const CountrySelectionStep = ({
       </p>
       <div className="flex justify-end">
         <Button
-          disabled={selected.length === 0 || isCompleting}
-          loading={isCompleting}
+          disabled={selected.length === 0}
           onClick={onContinue}
           trailingIcon={remixIcon(RiArrowRightLine)}
           type="button"

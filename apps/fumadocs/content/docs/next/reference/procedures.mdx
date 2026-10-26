@@ -4,7 +4,7 @@ description: Every procedure of the Freenary API, with who can call it, the inpu
 icon: ListTree
 ---
 
-All 42 procedures, grouped by router. [API](/docs/reference/api) covers the base URL, the cookie, the request shapes and the rate limits.
+All 45 procedures, grouped by router. [API](/docs/reference/api) covers the base URL, the cookie, the request shapes and the rate limits.
 
 - **Path.** `budget.getTransactions` is `POST /rpc/budget/getTransactions` or `POST /api-reference/budget/getTransactions`.
 - **Input.** `/api-reference/spec.json` on your instance holds every input schema: types, required fields, enums, bounds and defaults. This page adds only the rules a schema can't express.
@@ -30,6 +30,7 @@ All 42 procedures, grouped by router. [API](/docs/reference/api) covers the base
 | [`bankConnection.listConnections`](#bankconnectionlistconnections) | Protected | The caller's bank connections and their accounts |
 | [`bankConnection.listInstitutions`](#bankconnectionlistinstitutions) | Protected | The banks the provider can link in some countries |
 | [`bankConnection.startConnection`](#bankconnectionstartconnection) | Protected | Opens a bank consent session |
+| [`budget.deleteSavedFilter`](#budgetdeletesavedfilter) | Protected | Deletes one saved search |
 | [`budget.getAccounts`](#budgetgetaccounts) | Protected | The caller's bank accounts and transaction date bounds |
 | [`budget.getBudgetVsActual`](#budgetgetbudgetvsactual) | Protected | Planned against real spend per category |
 | [`budget.getCashFlow`](#budgetgetcashflow) | Protected | Money in and out per day, week or month |
@@ -41,7 +42,9 @@ All 42 procedures, grouped by router. [API](/docs/reference/api) covers the base
 | [`budget.getSpendingBreakdown`](#budgetgetspendingbreakdown) | Protected | Money out per category |
 | [`budget.getSyncStatus`](#budgetgetsyncstatus) | Protected | The sync or recategorisation in flight |
 | [`budget.getTransactions`](#budgetgettransactions) | Protected | One page of transactions, with the range totals |
+| [`budget.listSavedFilters`](#budgetlistsavedfilters) | Protected | The caller's saved searches, by name |
 | [`budget.recategorise`](#budgetrecategorise) | Protected | Reruns the categorisation pipeline |
+| [`budget.saveFilter`](#budgetsavefilter) | Protected | Saves a search under a name, or replaces the one with that name |
 | [`budget.syncAccounts`](#budgetsyncaccounts) | Protected | Pulls fresh data from the bank provider |
 | [`budget.updateTransactionCategory`](#budgetupdatetransactioncategory) | Protected | Sets one transaction's category and remembers the merchant |
 | [`instance.status`](#instancestatus) | Public | The setup state |
@@ -49,6 +52,7 @@ All 42 procedures, grouped by router. [API](/docs/reference/api) covers the base
 | [`instance.check`](#instancecheck) | Operator | Tests credentials without saving them |
 | [`instance.save`](#instancesave) | Operator | Stores setup values |
 | [`instance.complete`](#instancecomplete) | Operator | Finishes setup |
+| [`instance.bankConnectionCount`](#instancebankconnectioncount) | Operator | Counts every member's bank connections |
 | [`onboarding.completeOnboarding`](#onboardingcompleteonboarding) | Protected | Stores the tax countries and ends the first-run flow |
 | [`onboarding.getStatus`](#onboardinggetstatus) | Protected | Whether the first-run flow is done |
 | [`settings.createCustomCategory`](#settingscreatecustomcategory) | Protected | Creates a custom category |
@@ -142,7 +146,7 @@ A caller with no session gets a `guest` answer, not a 401.
 
 ### bankConnection.exchangeCode
 
-**Input**: `params` is the raw callback query and must hold a `state` key. `providerId` is `powens` or `enable-banking`.
+**Input**: `params` is the raw callback query and must hold a `state` key. `providerId` is `powens`, `enable-banking` or, outside production, `mock`.
 
 **Output**: `{ accounts, connectionId, institutionName, returnTo, sessionId }`. `accounts` lists `{ iban?, name?, uid }` as the provider returned them. `returnTo` is `onboarding` or `settings`, as signed into the state. `sessionId` is the provider's session id.
 
@@ -188,6 +192,14 @@ The provider answers one country at a time and the result is the union. A bank i
 **Errors**: `BAD_REQUEST` (400) `Unknown bank institution`; `SERVICE_UNAVAILABLE` (503) `Could not load banks for this country`.
 
 ## `budget`
+
+### budget.deleteSavedFilter
+
+**Input**: `id` must belong to the caller.
+
+**Output**: `{ id }`.
+
+**Errors**: `NOT_FOUND` (404) `Saved filter not found`.
 
 ### budget.getAccounts
 
@@ -275,6 +287,11 @@ The one paged procedure: pass `nextCursor` back as `cursor`.
 
 - `limit`: send a whole number. The schema also accepts a fraction.
 - `amountMin` and `amountMax` compare the absolute amount. Setting either excludes zero-amount transactions.
+- `filters` holds up to 20 filters, and a transaction must match all of them, and every other input too. A filter is `{ field, operator, values }` for `field` `company` or `category`, and `{ field: "amount", operator, value }` for an amount.
+  - `company` and `category` take `operator` `is`, `isNot` or `isAnyOf`. `is` and `isNot` take exactly one value, `isAnyOf` up to 50.
+  - A `company` value matches like `merchants`. `isNot` keeps a transaction with no company name.
+  - A `category` value is a category slug or a group slug, and a group stands for every category in it. A transaction no step has categorised counts as `uncategorised`, here and in `categories`.
+  - `amount` takes `operator` `gt`, `lt` or `eq`, and compares `value`, in minor units, with the absolute amount. `gt` and `lt` are strict, and `eq` matches exactly.
 - `groups`: each group adds every category in it to `categories`.
 - `merchants` takes names as `getMerchants` returns them, matched without case.
 - `search` matches the description or the counterparty name as a plain substring, without case. Unlike `getMerchants`, `%` and `_` are literal.
@@ -290,11 +307,25 @@ The one paged procedure: pass `nextCursor` back as `cursor`.
 | `counterpartyName` | As the bank sends it, or `null` |
 | `currency`, `date`, `description`, `id` | As stored |
 
+### budget.listSavedFilters
+
+**Output**: `{ savedFilters }` of `{ filters, id, name, search }`, sorted by name without case. `filters` has the shape `getTransactions` reads. A stored filter that no longer passes its schema, such as one naming a removed category, is left out, and a saved search left with no filter and no text is left out too.
+
 ### budget.recategorise
 
 Drops the pipeline's verdicts and runs it again over every transaction. It claims the caller's sync run first, so it refuses while a sync runs, and `getSyncStatus` shows it in the `categorising` phase.
 
 **Output**: `{ categorised, started }`. `started: false` and `categorised: 0` mean another run already holds the user.
+
+### budget.saveFilter
+
+**Input**: `name` is trimmed, at most 60 characters. `filters` follows `getTransactions`. `search` is the free text, at most 200 characters. At least one filter or some non-blank text is required.
+
+Saving under a name the caller already uses, compared without case, replaces that saved search and takes the new spelling.
+
+**Output**: `{ id, name, replaced }`. `replaced` is `true` when a saved search with that name already existed.
+
+**Errors**: `SAVED_FILTER_LIMIT` (400) `Keep at most 50 saved filters`, when the name is new and the caller already has 50.
 
 ### budget.syncAccounts
 
@@ -320,7 +351,7 @@ The category is remembered for the merchant and copied to its other transactions
 
 ## `instance`
 
-The setup screen's procedures. Integrations are `banking` (variants `disabled`, `powens`, `enable-banking`) and `email` (variants `disabled`, `resend`, `smtp`).
+The procedures behind the setup screen and Settings, under **Connections** › `Services`. Integrations are `banking` (variants `disabled`, `powens`, `enable-banking`), `email` (variants `disabled`, `resend`, `smtp`), `assistant` (variants `disabled`, `openai-compatible`) and `categorisation` (variants `disabled`, `jev`, `subq-snap`, `llm`, and `von`, `laya`, `system-one` and `zero-shot`, listed only while in use).
 
 ### instance.status
 
@@ -333,10 +364,11 @@ The setup screen's procedures. Integrations are `banking` (variants `disabled`, 
 | Field of one integration | Note |
 | --- | --- |
 | `id`, `selectedVariantId` | The integration and the variant in use |
+| `shownInSetup`, `requiredForSetup` | Whether the setup screen shows the integration, and whether `instance.complete` needs it `configured` |
 | `state` | `disabled`, `incomplete` or `configured` |
 | `configuredBy` | `environment`, `instance` or `null` |
 | `discriminantKey`, `discriminantSource` | The variable that picks the variant, such as `BANKING_PROVIDER`, and whether it comes from `environment`, `instance` or is `unset` |
-| `variants` | `{ id, fields }`. A field is `{ key, kind, present, required, source, value }`; `value` is `null` for a secret and masked when the environment owns a text or URL value |
+| `variants` | `{ id, fields, legacy, recommended }`. `legacy` is `true` for a variant listed only while in use, `recommended` for one the screen marks `Recommended`. A field is `{ key, kind, present, required, source, suggestion, value }`; `value` is `null` for a secret and masked when the environment owns a text or URL value, and `suggestion` is the value the form starts from, or `null` |
 
 ### instance.check
 
@@ -366,11 +398,19 @@ Same input as `instance.check`. It stores only the values the environment doesn'
 
 **Output**: `{ completed: true, restarting }`. `restarting` is `true` when a saved value isn't in use yet; the server then exits 250 ms later, and its restart policy starts it with the new values.
 
+**Errors**: `PRECONDITION_FAILED` (412) `Configure a bank provider before finishing setup`, with `data.missing` listing each required integration that isn't `configured`. Setup stays not completed.
+
+### instance.bankConnectionCount
+
+**Output**: `{ count }`, the number of bank connections on the instance, across every member.
+
 ## `onboarding`
 
 ### onboarding.completeOnboarding
 
 **Output**: `{ success: true }`.
+
+**Errors**: `PRECONDITION_FAILED` (412) `Connect a bank before finishing onboarding`, when the caller has no bank connection.
 
 ### onboarding.getStatus
 
@@ -415,7 +455,8 @@ Deletes the category and its subcategories, and moves their budget lines to one 
 | `key`, `parentKey` | The entry's key, and its group slug, `custom:<id>` parent, or `null` at top level |
 | `label` | An English display name |
 | `icon` | An icon name |
-| `color` | What the entry shows. Under a parent, the parent's colour |
+| `color` | What the entry shows. Under a parent, the parent's colour. A built-in category shows `slot` instead |
+| `slot` | Built-in categories only: the category's own palette slot, such as `teal` or `orange-alt` |
 | `pickedColor` | Custom categories only: the stored colour. Send it back as `color` to `updateCustomCategory` to keep it |
 | `isGroup` | `true` for a group header or a top-level custom category |
 | `isAssignable` | `false` for a built-in group header |

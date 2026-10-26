@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { ACCEPT_CONFIDENCE, UNDISTRIBUTED_CONFIDENCE } from "../confidence";
 import { offeredCategories } from "../questions";
@@ -47,6 +48,7 @@ const payload: ClassificationInput = {
 
 const ANSWERED_BY = "qwen3:8b-instruct";
 const BILLS_UTILITIES_LETTER = "H";
+const CRYPTO_LETTER = "D";
 const UNCATEGORISED_DEBIT_LETTER = "T";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -54,6 +56,7 @@ const settings: LlmSettings = {
   apiKey: "sk-test",
   model: "qwen3:8b",
   temperature: 1,
+  timeoutMs: 10_000,
   url: "https://openrouter.ai/api/v1/",
 };
 
@@ -100,6 +103,48 @@ const refusing =
   (status: number): ClassifierTransport =>
   () =>
     Promise.resolve(new Response("rate limited", { status }));
+
+const SLOW_ANSWER_MS = 150;
+
+const answeringAfter =
+  (delayMs: number, body: CompletionBody): ClassifierTransport =>
+  async (_url, init) => {
+    const { signal } = init;
+
+    await sleep(delayMs, undefined, { signal: signal ?? undefined }).catch(
+      () => null
+    );
+
+    signal?.throwIfAborted();
+
+    return Response.json(body);
+  };
+
+describe("the classifier time limit", () => {
+  const slowAnswer = completion(spread(BILLS_UTILITIES_LETTER, 20, -12), "H");
+
+  it("waits for a slow answer when the limit allows it", async () => {
+    const classifier = createLlmClassifier(
+      { ...settings, timeoutMs: SLOW_ANSWER_MS * 4 },
+      answeringAfter(SLOW_ANSWER_MS, slowAnswer)
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("bills-utilities");
+  });
+
+  it("gives up at the limit and says how to raise it", async () => {
+    const classifier = createLlmClassifier(
+      { ...settings, timeoutMs: SLOW_ANSWER_MS / 3 },
+      answeringAfter(SLOW_ANSWER_MS, slowAnswer)
+    );
+
+    await expect(classifier.classify(payload)).rejects.toThrow(
+      "no answer within 0.05 s. Raise TRANSACTION_CLASSIFIER_TIMEOUT_MS to wait longer."
+    );
+  });
+});
 
 describe("createLlmClassifier", () => {
   it("posts the letter question to the endpoint's chat-completions path", async () => {
@@ -320,5 +365,98 @@ describe("createLlmClassifier", () => {
     expect(flattened?.category).toBe("bills-utilities");
     expect(flattened?.confidence).toBeLessThan(neutral?.confidence ?? 0);
     expect(flattened?.confidence).toBeGreaterThanOrEqual(ACCEPT_CONFIDENCE);
+  });
+
+  it("reads a parenthesised first token as the letter it wraps", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(
+        completion(
+          [
+            { logprob: -0.1, token: `(${CRYPTO_LETTER}` },
+            { logprob: -3, token: "(A" },
+          ],
+          `(${CRYPTO_LETTER}`
+        )
+      )
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("crypto");
+  });
+
+  it("reads a first token that trails punctuation after the letter", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(
+        completion(
+          [
+            { logprob: -0.4, token: `${CRYPTO_LETTER}.` },
+            { logprob: -0.3, token: BILLS_UTILITIES_LETTER },
+            { logprob: -0.5, token: `${CRYPTO_LETTER}:` },
+          ],
+          `${CRYPTO_LETTER}.`
+        )
+      )
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("crypto");
+  });
+
+  it("adds the mass of every spelling of one letter before ranking it", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(
+        completion(
+          [
+            { logprob: -0.9, token: BILLS_UTILITIES_LETTER },
+            { logprob: -1.2, token: CRYPTO_LETTER },
+            { logprob: -1.2, token: ` ${CRYPTO_LETTER}` },
+            { logprob: -1.2, token: `(${CRYPTO_LETTER}` },
+          ],
+          BILLS_UTILITIES_LETTER
+        )
+      )
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("crypto");
+  });
+
+  it("credits no letter to a bare parenthesis or a word", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(
+        completion(
+          [
+            { logprob: -0.1, token: "(" },
+            { logprob: -0.5, token: "The" },
+            { logprob: -2, token: ` ${CRYPTO_LETTER}` },
+          ],
+          "("
+        )
+      )
+    );
+
+    const prediction = await classifier.classify(payload);
+
+    expect(prediction?.category).toBe("crypto");
+  });
+
+  it("reads the letter inside a parenthesised written answer", async () => {
+    const classifier = createLlmClassifier(
+      settings,
+      answering(completion(null, `(${CRYPTO_LETTER}) Groceries`))
+    );
+
+    expect(await classifier.classify(payload)).toEqual({
+      answeredBy: ANSWERED_BY,
+      category: "crypto",
+      confidence: UNDISTRIBUTED_CONFIDENCE,
+    });
   });
 });

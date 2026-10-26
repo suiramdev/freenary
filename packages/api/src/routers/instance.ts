@@ -1,7 +1,9 @@
 import type {
+  HeldValue,
   Integration,
   IntegrationField,
   IntegrationVariant,
+  ServerSettings,
   ServerSettingKey,
   SettingSource,
   StoredSettings,
@@ -13,10 +15,15 @@ import {
   instanceConfigFault,
   instanceConfigurableKeys,
   integrations,
+  isListedFor,
+  isRequiredForSetup,
   isSecretField,
+  isShownInSetup,
   markSetupComplete,
   readSetupState,
   readStoredSettings,
+  recogniseVariant,
+  rememberedVariantKey,
   settings,
   storedSettingsAtBoot,
   validateSettings,
@@ -26,20 +33,29 @@ import { ORPCError } from "@orpc/server";
 import { Effect, Option, Result } from "effect";
 import { z } from "zod";
 
+import {
+  classifierSettingsOf,
+  createClassifierChain,
+} from "../categorisation/classifier/registry";
 import { isOperator, operatorProcedure, publicProcedure } from "../index";
 import { maskEnvironmentValue } from "../instance/mask";
 import {
   candidateOf,
+  conflictingPresetsOf,
   environmentVariantOf,
   isWhollyOwnedByEnvironment,
   missingKeysOf,
   writesOf,
 } from "../instance/merge";
 import { findProbe } from "../instance/probes";
+import {
+  DISABLED_VARIANT,
+  integrationStateOf,
+  missingForSetup,
+} from "../instance/setup";
+import { bankConnectionCount } from "./bank-connection-count";
 
 const RESTART_GRACE_MS = 250;
-
-const DISABLED_VARIANT = "disabled";
 
 const readCurrentSettings = (): Promise<StoredSettings> =>
   Effect.runPromise(readStoredSettings(settings.BETTER_AUTH_SECRET));
@@ -71,25 +87,17 @@ const heldValue = (
 const selectedVariantOf = (
   integration: Integration,
   stored: StoredSettings
-): string => {
-  if (sourceFor(integration.discriminantKey, stored) === "unset") {
-    return DISABLED_VARIANT;
-  }
-
-  const held = heldValue(integration.discriminantKey, stored);
-  const chosen = integration.variants.find(
-    (variant) => variant.discriminantValue === held
-  );
-
-  return chosen?.id ?? DISABLED_VARIANT;
-};
-
-const isVariantComplete = (
-  variant: IntegrationVariant,
-  stored: StoredSettings
-): boolean =>
-  variant.fields.every(
-    (field) => !field.required || heldValue(field.key, stored) !== null
+): string =>
+  Option.match(
+    recogniseVariant(
+      integration,
+      (key) => heldValue(key, stored) ?? undefined,
+      stored[rememberedVariantKey(integration)]
+    ),
+    {
+      onNone: () => DISABLED_VARIANT,
+      onSome: (variant) => variant.id,
+    }
   );
 
 const MASKED_KINDS: ReadonlySet<IntegrationField["kind"]> = new Set([
@@ -110,8 +118,15 @@ const shownValueOf = (
     : held;
 };
 
-const describeField = (field: IntegrationField, stored: StoredSettings) => {
-  const held = heldValue(field.key, stored);
+const describeField = (
+  field: IntegrationField,
+  stored: StoredSettings,
+  isSelected: boolean
+) => {
+  const held =
+    isSelected || environmentOwns(field.key)
+      ? heldValue(field.key, stored)
+      : null;
 
   return {
     key: field.key,
@@ -119,12 +134,15 @@ const describeField = (field: IntegrationField, stored: StoredSettings) => {
     present: held !== null,
     required: field.required,
     source: sourceFor(field.key, stored),
+    suggestion: field.suggestion ?? null,
     value: shownValueOf(field, held),
   };
 };
 
-const providerFromEnvironment = (key: ServerSettingKey): string | undefined => {
-  const resolved = Result.getOrUndefined(validateSettings({}))?.[key];
+const environmentSettings = Result.getOrUndefined(validateSettings({}));
+
+const heldInEnvironment: HeldValue = (key) => {
+  const resolved = environmentSettings?.[key];
 
   return resolved === undefined ? undefined : String(resolved);
 };
@@ -149,36 +167,41 @@ const describeIntegration = (
 ) => {
   const environmentVariant = environmentVariantOf(
     integration,
-    stored[integration.discriminantKey],
-    providerFromEnvironment(integration.discriminantKey),
+    stored,
+    heldInEnvironment,
     environmentOwns
   );
 
   const selectedVariantId =
     environmentVariant?.id ?? selectedVariantOf(integration, stored);
 
-  const selected = findVariant(integration, selectedVariantId);
-
   return {
     configuredBy: configuredByOf(integration, stored, environmentVariant),
     discriminantKey: integration.discriminantKey,
     discriminantSource: sourceFor(integration.discriminantKey, stored),
     id: integration.id,
+    requiredForSetup: isRequiredForSetup(integration),
     selectedVariantId,
-    state:
-      selectedVariantId === DISABLED_VARIANT
-        ? ("disabled" as const)
-        : Option.match(selected, {
-            onNone: () => "incomplete" as const,
-            onSome: (variant) =>
-              isVariantComplete(variant, stored)
-                ? ("configured" as const)
-                : ("incomplete" as const),
-          }),
-    variants: integration.variants.map((variant) => ({
-      fields: variant.fields.map((field) => describeField(field, stored)),
-      id: variant.id,
-    })),
+    shownInSetup: isShownInSetup(integration),
+    state: integrationStateOf(
+      integration,
+      selectedVariantId,
+      (key) => heldValue(key, stored) !== null
+    ),
+    variants: integration.variants.flatMap((variant) =>
+      isListedFor(variant, selectedVariantId)
+        ? [
+            {
+              fields: variant.fields.map((field) =>
+                describeField(field, stored, variant.id === selectedVariantId)
+              ),
+              id: variant.id,
+              legacy: variant.listedOnlyWhenSelected === true,
+              recommended: variant.recommended === true,
+            },
+          ]
+        : []
+    ),
   };
 };
 
@@ -202,12 +225,13 @@ const integrationInput = z.object({
 
 type IntegrationRequest = z.infer<typeof integrationInput>;
 
-const environmentPicksAnotherVariant = (
-  integration: Integration,
-  variant: IntegrationVariant
-): boolean =>
-  environmentOwns(integration.discriminantKey) &&
-  process.env[integration.discriminantKey] !== variant.discriminantValue;
+const classifierChainFault = (
+  validated: ServerSettings
+): Option.Option<string> =>
+  Option.map(
+    Result.getFailure(createClassifierChain(classifierSettingsOf(validated))),
+    (unavailable) => unavailable.message
+  );
 
 const prepareIntegration = async (request: IntegrationRequest) => {
   const integration = Option.getOrThrowWith(
@@ -220,13 +244,17 @@ const prepareIntegration = async (request: IntegrationRequest) => {
     () => new ORPCError("NOT_FOUND", { message: "Unknown variant" })
   );
 
-  if (environmentPicksAnotherVariant(integration, variant)) {
+  const conflicts = conflictingPresetsOf(
+    integration,
+    variant,
+    heldInEnvironment,
+    environmentOwns
+  );
+
+  if (conflicts.length > 0) {
     return {
       kind: "refused" as const,
-      refusal: {
-        keys: [integration.discriminantKey],
-        outcome: "environment-owned" as const,
-      },
+      refusal: { keys: conflicts, outcome: "environment-owned" as const },
     };
   }
 
@@ -236,7 +264,8 @@ const prepareIntegration = async (request: IntegrationRequest) => {
     variant,
     request.values,
     stored,
-    environmentOwns
+    environmentOwns,
+    selectedVariantOf(integration, stored) === variant.id
   );
 
   const missing = missingKeysOf(variant, candidate, environmentOwns);
@@ -260,6 +289,15 @@ const prepareIntegration = async (request: IntegrationRequest) => {
     };
   }
 
+  const chainFault = classifierChainFault(validated.success);
+
+  if (Option.isSome(chainFault)) {
+    return {
+      kind: "refused" as const,
+      refusal: { detail: chainFault.value, outcome: "invalid" as const },
+    };
+  }
+
   return {
     candidate,
     integration,
@@ -270,6 +308,7 @@ const prepareIntegration = async (request: IntegrationRequest) => {
 };
 
 export const instanceRouter = {
+  bankConnectionCount,
   check: operatorProcedure
     .input(integrationInput)
     .handler(async ({ input }) => {
@@ -303,9 +342,23 @@ export const instanceRouter = {
     }),
 
   complete: operatorProcedure.handler(async () => {
+    const stored = await readCurrentSettings();
+    const missing = missingForSetup(
+      integrations.map((integration) =>
+        describeIntegration(integration, stored)
+      )
+    );
+
+    if (missing.length > 0) {
+      throw new ORPCError("PRECONDITION_FAILED", {
+        data: { missing },
+        message: "Configure a bank provider before finishing setup",
+      });
+    }
+
     await Effect.runPromise(markSetupComplete());
 
-    const restarting = hasUnappliedChange(await readCurrentSettings());
+    const restarting = hasUnappliedChange(stored);
 
     if (restarting) {
       setTimeout(() => process.exit(0), RESTART_GRACE_MS);

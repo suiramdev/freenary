@@ -1,5 +1,5 @@
 import {
-  RiBankLine,
+  RiLinksLine,
   RiMoneyDollarCircleLine,
   RiPaletteLine,
   RiShieldKeyholeLine,
@@ -8,6 +8,8 @@ import type { RemixiconComponentType } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
 import type { SettingsSection } from "@/shared/config";
+
+export type OperatorStanding = "member" | "operator" | "pending";
 
 interface SettingsNavItem {
   icon: RemixiconComponentType;
@@ -22,7 +24,7 @@ export const SETTINGS_NAV_ITEMS = [
     section: "appearance",
   },
   {
-    icon: RiBankLine,
+    icon: RiLinksLine,
     label: m.settings_group_connections_title,
     section: "connections",
   },
@@ -37,3 +39,22 @@ export const SETTINGS_NAV_ITEMS = [
     section: "security",
   },
 ] as const satisfies readonly SettingsNavItem[];
+
+interface OperatorStatus {
+  isOperator: boolean | undefined;
+  isPending: boolean;
+}
+
+export const operatorStandingOf = ({
+  isOperator,
+  isPending,
+}: OperatorStatus): OperatorStanding => {
+  if (isPending) {
+    return "pending";
+  }
+
+  return isOperator === true ? "operator" : "member";
+};
+
+export const showsServices = (standing: OperatorStanding): boolean =>
+  standing === "operator";

@@ -5,25 +5,24 @@ import {
   decideReadiness,
   MIN_CRITERION_PROBABILITY,
   sectionGapText,
-  STEPS_CRITERION,
+  STILL_TO_DEFINE_GAP_TEXT,
   unmetCriteria,
 } from "./readiness";
 import type { Checklist, Gap, ReadinessStatus } from "./readiness";
 import type { Answers } from "./subq";
 import {
-  AREA_LABELS,
+  GOOD_FIRST_ISSUE_LABEL,
   GROUP_PREFIXES,
+  HELP_WANTED_LABEL,
   IMPACT_LEVELS,
   PRIORITY_LABELS,
-  SIGNAL_LABELS,
-  STATUS_LABELS,
   TYPE_LABELS,
 } from "./taxonomy";
-import type { AreaKey, PriorityLabel } from "./taxonomy";
+import type { PriorityLabel } from "./taxonomy";
 
-export const MIN_CONFIDENCE = 0.6;
 export const MIN_SIGNAL_PROBABILITY = 0.8;
 export const MIN_GOOD_FIRST_ISSUE_PROBABILITY = 0.95;
+export const MIN_IMPACT_CONFIDENCE = 0.8;
 export const MIN_DUPLICATE_CONFIDENCE = 0.85;
 
 export interface PlanInput {
@@ -34,10 +33,8 @@ export interface PlanInput {
   readonly refusedLabels: readonly string[];
   readonly docsExpected: boolean;
   readonly existingLabels: readonly string[];
-  readonly workflowStatuses: readonly string[];
   readonly workflowPriorities: readonly string[];
-  readonly workflowReproduction: boolean;
-  readonly areasFromPaths: readonly AreaKey[];
+  readonly workflowGoodFirstIssue: boolean;
 }
 
 export interface Plan {
@@ -45,32 +42,75 @@ export interface Plan {
   readonly removed: string[];
   readonly duplicateOf: number | undefined;
   readonly gaps: Gap[];
-  readonly status: string | undefined;
+  readonly status: ReadinessStatus;
   readonly notes: string[];
+  readonly stillToDefineOpen: boolean;
 }
 
-export const SIGNAL_BY_QUESTION = {
-  breaking_change: SIGNAL_LABELS.breakingChange,
-  good_first_issue: SIGNAL_LABELS.goodFirstIssue,
-  performance: SIGNAL_LABELS.performance,
-  regression: SIGNAL_LABELS.regression,
-  security: SIGNAL_LABELS.security,
+const SECURITY_SIGNAL = "security";
+const REGRESSION_SIGNAL = "regression";
+
+const SIGNAL_QUESTIONS = {
+  regression: REGRESSION_SIGNAL,
+  security: SECURITY_SIGNAL,
 } as const satisfies Record<string, string>;
 
 const MIN_PROBABILITY_BY_QUESTION: Readonly<Record<string, number>> = {
   good_first_issue: MIN_GOOD_FIRST_ISSUE_PROBABILITY,
-} satisfies Partial<Record<keyof typeof SIGNAL_BY_QUESTION, number>>;
+};
 
 const isKnownKey = <T extends object>(
   table: T,
   key: string
 ): key is Extract<keyof T, string> => Object.hasOwn(table, key);
 
-const confidentChoice = (
+type TypeKey = keyof typeof TYPE_LABELS;
+
+export const TYPE_TIE_ORDER = [
+  "bug",
+  "documentation",
+  "feature",
+  "maintenance",
+] as const satisfies readonly TypeKey[];
+
+export const IMPACT_TIE_ORDER = IMPACT_LEVELS.toReversed();
+
+const roundHalfUp: (score: number) => number = Math.round;
+
+interface RankedOption<Option extends string> {
+  readonly option: Option;
+  readonly probability: number;
+}
+
+const rankOptions = <Option extends string>(
+  probabilityOf: (option: Option) => number | undefined,
+  tieOrder: readonly Option[]
+): RankedOption<Option>[] =>
+  tieOrder
+    .flatMap((option) => {
+      const probability = probabilityOf(option);
+
+      return probability === undefined ? [] : [{ option, probability }];
+    })
+    .toSorted((left, right) => right.probability - left.probability);
+
+const runnerUpText = <Option extends string>(
+  ranked: readonly RankedOption<Option>[],
+  top: Option
+): string => {
+  const runnerUp = ranked.find((entry) => entry.option !== top);
+
+  return runnerUp
+    ? `; next ${runnerUp.option} ${runnerUp.probability.toFixed(2)}`
+    : "";
+};
+
+const topChoice = <Option extends string>(
   answers: Answers,
   key: string,
+  tieOrder: readonly Option[],
   notes: string[]
-): string | undefined => {
+): Option | undefined => {
   const answer = answers[key];
 
   if (answer?.type !== "choice") {
@@ -79,35 +119,71 @@ const confidentChoice = (
     return undefined;
   }
 
-  notes.push(`${key}: ${answer.choice} (${answer.confidence.toFixed(2)})`);
+  const ranked = rankOptions(
+    (option) => answer.probabilities?.[option],
+    tieOrder
+  );
 
-  return answer.confidence >= MIN_CONFIDENCE ? answer.choice : undefined;
-};
+  const [leader] = ranked;
+  const stated = tieOrder.find((option) => option === answer.choice);
+  const statedTiesLeader =
+    leader !== undefined &&
+    stated !== undefined &&
+    answer.probabilities?.[stated] === leader.probability;
 
-const confidentLevel = <const Levels extends readonly string[]>(
-  answers: Answers,
-  key: string,
-  levels: Levels,
-  notes: string[]
-): Levels[number] | undefined => {
-  const answer = answers[key];
+  const top =
+    stated === undefined || statedTiesLeader ? leader?.option : stated;
 
-  if (answer?.type !== "score") {
+  if (top === undefined) {
     notes.push(`${key}: no answer`);
 
     return undefined;
   }
 
-  const index = Math.min(
-    Math.max(Math.round(answer.score), 0),
-    levels.length - 1
-  );
+  const confidence =
+    top === stated ? answer.confidence : (leader?.probability ?? 0);
 
   notes.push(
-    `${key}: ${levels[index]} (score ${answer.score.toFixed(2)}, ${answer.confidence.toFixed(2)})`
+    `${key}: ${top} (${confidence.toFixed(2)}${runnerUpText(ranked, top)})`
   );
 
-  return answer.confidence >= MIN_CONFIDENCE ? levels[index] : undefined;
+  return top;
+};
+
+const topImpact = (
+  answers: Answers,
+  notes: string[]
+): (typeof IMPACT_LEVELS)[number] | undefined => {
+  const answer = answers.impact;
+
+  if (answer?.type !== "score") {
+    notes.push("impact: no answer");
+
+    return undefined;
+  }
+
+  const index = Math.min(
+    Math.max(roundHalfUp(answer.score), 0),
+    IMPACT_LEVELS.length - 1
+  );
+
+  const top = IMPACT_LEVELS[index] ?? IMPACT_LEVELS[0];
+  const ranked = rankOptions(
+    (level) => answer.probabilities?.[String(IMPACT_LEVELS.indexOf(level))],
+    IMPACT_TIE_ORDER
+  );
+
+  const detail = `score ${answer.score.toFixed(2)}, ${answer.confidence.toFixed(2)}${runnerUpText(ranked, top)}`;
+
+  if (answer.confidence < MIN_IMPACT_CONFIDENCE) {
+    notes.push(`impact: none, too uncertain (${top}; ${detail})`);
+
+    return undefined;
+  }
+
+  notes.push(`impact: ${top} (${detail})`);
+
+  return top;
 };
 
 const isYes = (answers: Answers, key: string, notes: string[]): boolean => {
@@ -128,11 +204,9 @@ const hasGroup = (labels: readonly string[], prefix: string): boolean =>
   labels.some((label) => label.startsWith(prefix));
 
 const planType = (answers: Answers, notes: string[]): string | undefined => {
-  const choice = confidentChoice(answers, "type", notes);
+  const choice = topChoice(answers, "type", TYPE_TIE_ORDER, notes);
 
-  return choice && isKnownKey(TYPE_LABELS, choice)
-    ? TYPE_LABELS[choice]
-    : undefined;
+  return choice ? TYPE_LABELS[choice] : undefined;
 };
 
 export const resolveTypeLabel = (
@@ -147,56 +221,6 @@ export const resolveTypeLabel = (
     (modelType && !refusedLabels.includes(modelType) ? modelType : undefined)
   );
 };
-
-const TOP_ALTERNATIVES = 2;
-
-const alternatives = (
-  probabilities: Readonly<Record<string, number>> | undefined,
-  labelFor: (key: string) => string | undefined
-): string => {
-  const ranked = Object.entries(probabilities ?? {})
-    .toSorted(([, left], [, right]) => right - left)
-    .flatMap(([key, probability]) => {
-      const label = labelFor(key);
-
-      return label ? [`\`${label}\` (${probability.toFixed(2)})`] : [];
-    })
-    .slice(0, TOP_ALTERNATIVES);
-
-  return ranked.length > 0 ? `: ${ranked.join(" or ")}` : "";
-};
-
-const unsettledGap = (
-  answers: Answers,
-  key: "type" | "area" | "impact",
-  refused: ReadonlySet<string>
-): Gap => {
-  const answer = answers[key];
-  const probabilities =
-    answer?.type === "choice" || answer?.type === "score"
-      ? answer.probabilities
-      : undefined;
-
-  const labelFor = (option: string): string | undefined => {
-    const table = key === "type" ? TYPE_LABELS : AREA_LABELS;
-    const fromTable = isKnownKey(table, option) ? table[option] : undefined;
-    const label = key === "impact" ? IMPACT_LEVELS[Number(option)] : fromTable;
-
-    return label && !refused.has(label) ? label : undefined;
-  };
-
-  return {
-    owner: "maintainer",
-    text: `Pick the ${key}${alternatives(probabilities, labelFor)}.`,
-  };
-};
-
-const STATUS_BY_READINESS = {
-  blocked: STATUS_LABELS.blocked,
-  "needs-info": STATUS_LABELS.needsInfo,
-  "needs-triage": STATUS_LABELS.needsTriage,
-  ready: STATUS_LABELS.ready,
-} as const satisfies Record<ReadinessStatus, string>;
 
 const isMet = (answers: Answers, key: string): boolean => {
   const answer = answers[key];
@@ -228,15 +252,6 @@ const pullRequestGaps = (input: PlanInput): Gap[] => {
   return gaps;
 };
 
-const planAreas = (input: PlanInput, notes: string[]): string[] => {
-  const choice = confidentChoice(input.answers, "area", notes);
-  const fromModel = choice && isKnownKey(AREA_LABELS, choice) ? [choice] : [];
-  const areas =
-    input.areasFromPaths.length > 0 ? input.areasFromPaths : fromModel;
-
-  return areas.map((area) => AREA_LABELS[area]);
-};
-
 const planDuplicate = (
   answers: Answers,
   notes: string[]
@@ -255,18 +270,23 @@ const planDuplicate = (
 };
 
 const PRIORITY_BY_IMPACT = {
-  "impact:critical": PRIORITY_LABELS.p0,
-  "impact:high": PRIORITY_LABELS.p1,
-  "impact:low": PRIORITY_LABELS.p3,
-  "impact:medium": PRIORITY_LABELS.p2,
+  "impact: high": PRIORITY_LABELS.high,
+  "impact: low": PRIORITY_LABELS.low,
+  "impact: medium": PRIORITY_LABELS.medium,
 } as const satisfies Record<(typeof IMPACT_LEVELS)[number], PriorityLabel>;
+
+const RAISED_PRIORITY = {
+  [PRIORITY_LABELS.high]: PRIORITY_LABELS.high,
+  [PRIORITY_LABELS.low]: PRIORITY_LABELS.medium,
+  [PRIORITY_LABELS.medium]: PRIORITY_LABELS.high,
+} as const satisfies Record<PriorityLabel, PriorityLabel>;
 
 export const derivePriority = (
   impact: string | undefined,
   signals: readonly string[]
 ): PriorityLabel | undefined => {
-  if (signals.includes(SIGNAL_LABELS.security)) {
-    return PRIORITY_LABELS.p0;
+  if (signals.includes(SECURITY_SIGNAL)) {
+    return PRIORITY_LABELS.high;
   }
 
   const fromImpact =
@@ -274,76 +294,22 @@ export const derivePriority = (
       ? PRIORITY_BY_IMPACT[impact]
       : undefined;
 
-  if (
-    signals.includes(SIGNAL_LABELS.regression) &&
-    fromImpact !== PRIORITY_LABELS.p0
-  ) {
-    return PRIORITY_LABELS.p1;
-  }
-
-  return fromImpact;
+  return fromImpact && signals.includes(REGRESSION_SIGNAL)
+    ? RAISED_PRIORITY[fromImpact]
+    : fromImpact;
 };
 
-const planSignals = (
-  input: PlanInput,
-  unmet: readonly string[],
-  notes: string[]
-): string[] => {
-  const signals: string[] = Object.entries(SIGNAL_BY_QUESTION).flatMap(
-    ([question, label]) =>
-      isYes(input.answers, question, notes) ? [label] : []
+const planSignals = (input: PlanInput, notes: string[]): string[] =>
+  Object.entries(SIGNAL_QUESTIONS).flatMap(([question, signal]) =>
+    isYes(input.answers, question, notes) ? [signal] : []
   );
 
-  if (input.checklist === "bug" && unmet.includes(STEPS_CRITERION)) {
-    signals.push(SIGNAL_LABELS.needsReproduction);
-  }
-
-  return signals;
-};
-
-const planRemovals = (
-  input: PlanInput,
-  planned: {
-    readonly status: string | undefined;
-    readonly priority: string | undefined;
-  },
-  unmet: readonly string[],
-  settledType: string | undefined
-): string[] => {
-  const stepsWritten =
-    input.checklist === "bug" && !unmet.includes(STEPS_CRITERION);
-
-  const noLongerBug =
-    settledType !== undefined && settledType !== TYPE_LABELS.bug;
-
-  return [
-    ...input.workflowStatuses.filter((label) => label !== planned.status),
-    ...input.workflowPriorities.filter((label) => label !== planned.priority),
-    ...(input.workflowReproduction && (stepsWritten || noLongerBug)
-      ? [SIGNAL_LABELS.needsReproduction]
-      : []),
-  ];
-};
-
-const SETTLED_GROUPS = ["type", "area", "impact"] as const;
-
-type SettledGroup = (typeof SETTLED_GROUPS)[number];
-
 interface GapSources {
-  readonly refused: ReadonlySet<string>;
-  readonly unsettled: readonly SettledGroup[];
-  readonly unmet: readonly string[];
   readonly duplicateOf: number | undefined;
-  readonly settledType: string | undefined;
+  readonly unmet: readonly string[];
 }
 
 const collectGaps = (input: PlanInput, sources: GapSources): Gap[] => [
-  ...sources.unsettled.map((group) =>
-    unsettledGap(input.answers, group, sources.refused)
-  ),
-  ...(sources.settledType === TYPE_LABELS.question
-    ? [{ owner: "maintainer" as const, text: "Answer the question." }]
-    : []),
   ...(input.checklist ? checklistGaps(input.checklist, sources.unmet) : []),
   ...(input.kind === "pull-request" ? pullRequestGaps(input) : []),
   ...input.ruleGaps,
@@ -357,28 +323,73 @@ const collectGaps = (input: PlanInput, sources: GapSources): Gap[] => [
       ]),
 ];
 
+interface ImpactPlan {
+  readonly impact: string | undefined;
+  readonly priority: string | undefined;
+}
+
+const planImpactAndPriority = (
+  input: PlanInput,
+  existing: readonly string[],
+  isAllowed: (label: string | undefined) => string | undefined,
+  notes: string[]
+): ImpactPlan => {
+  if (input.kind !== "issue") {
+    return { impact: undefined, priority: undefined };
+  }
+
+  const impact = isAllowed(topImpact(input.answers, notes));
+  const settledImpact =
+    existing.find((label) => label.startsWith(GROUP_PREFIXES.impact)) ?? impact;
+
+  const priority = isAllowed(
+    derivePriority(settledImpact, planSignals(input, notes))
+  );
+
+  notes.push(
+    hasGroup(existing, GROUP_PREFIXES.priority)
+      ? "priority: kept the existing label"
+      : `priority: ${priority ?? "none"} (from a confident impact or a security or regression signal)`
+  );
+
+  return { impact, priority };
+};
+
+const removedContributorLabels = (
+  input: PlanInput,
+  specComplete: boolean,
+  stillToDefineOpen: boolean
+): string[] => {
+  if (stillToDefineOpen) {
+    return [GOOD_FIRST_ISSUE_LABEL, HELP_WANTED_LABEL].filter((label) =>
+      input.existingLabels.includes(label)
+    );
+  }
+
+  return input.workflowGoodFirstIssue && !specComplete
+    ? [GOOD_FIRST_ISSUE_LABEL]
+    : [];
+};
+
 export const planLabels = (input: PlanInput): Plan => {
   const notes: string[] = [];
+  const isIssue = input.kind === "issue";
   const existing = input.existingLabels.filter(
-    (label) =>
-      !input.workflowStatuses.includes(label) &&
-      !input.workflowPriorities.includes(label)
+    (label) => !input.workflowPriorities.includes(label)
   );
 
   const labels: string[] = [];
-  const refused = new Set(
-    input.refusedLabels.filter(
-      (label) => !label.startsWith(GROUP_PREFIXES.status)
-    )
-  );
+  const refused = new Set(input.refusedLabels);
 
   const allowed = (label: string | undefined): string | undefined =>
     label !== undefined && !refused.has(label) ? label : undefined;
 
   const type = allowed(planType(input.answers, notes));
-  const areas = planAreas(input, notes).filter((area) => allowed(area));
-  const impact = allowed(
-    confidentLevel(input.answers, "impact", IMPACT_LEVELS, notes)
+  const { impact, priority } = planImpactAndPriority(
+    input,
+    existing,
+    allowed,
+    notes
   );
 
   const unmet = input.checklist
@@ -389,24 +400,8 @@ export const planLabels = (input: PlanInput): Plan => {
     `checklist ${input.checklist ?? "none"}: ${unmet.join(", ") || "all met"}`
   );
 
-  const signals = planSignals(input, unmet, notes).filter((signal) =>
-    allowed(signal)
-  );
-
-  const settledImpact =
-    existing.find((label) => label.startsWith(GROUP_PREFIXES.impact)) ?? impact;
-
-  const priority = derivePriority(settledImpact, [...existing, ...signals]);
-
-  notes.push(
-    hasGroup(existing, GROUP_PREFIXES.priority)
-      ? "priority: kept the existing label"
-      : `priority: ${priority ?? "none"} (from impact and signals)`
-  );
-
   const grouped: readonly (readonly [string, readonly string[]])[] = [
     [GROUP_PREFIXES.type, type ? [type] : []],
-    [GROUP_PREFIXES.area, areas],
     [GROUP_PREFIXES.priority, priority ? [priority] : []],
     [GROUP_PREFIXES.impact, impact ? [impact] : []],
   ];
@@ -417,65 +412,47 @@ export const planLabels = (input: PlanInput): Plan => {
     }
   }
 
-  const candidatesByGroup = {
-    area: areas,
-    impact: impact ? [impact] : [],
-    type: type ? [type] : [],
-  } as const;
-
-  const unsettled = SETTLED_GROUPS.filter(
-    (group) =>
-      candidatesByGroup[group].length === 0 &&
-      !hasGroup(existing, GROUP_PREFIXES[group])
-  );
-
-  const duplicateOf = allowed(SIGNAL_LABELS.duplicate)
-    ? planDuplicate(input.answers, notes)
-    : undefined;
-
-  const settledType = resolveTypeLabel(input.answers, existing, [...refused]);
-  const gaps = collectGaps(input, {
-    duplicateOf,
-    refused,
-    settledType,
-    unmet,
-    unsettled,
-  });
-
+  const duplicateOf = planDuplicate(input.answers, notes);
+  const gaps = collectGaps(input, { duplicateOf, unmet });
   const blocked = isYes(input.answers, "blocked", notes);
-  const readiness = decideReadiness(blocked, gaps);
+  const status = decideReadiness(blocked, gaps);
 
-  notes.push(`readiness: ${readiness}`);
+  notes.push(`readiness: ${status}`);
 
-  const status = hasGroup(existing, GROUP_PREFIXES.status)
-    ? undefined
-    : STATUS_BY_READINESS[readiness];
+  const specComplete = status === "ready";
 
-  if (status) {
-    labels.push(status);
+  if (isIssue && isYes(input.answers, "good_first_issue", notes)) {
+    if (specComplete) {
+      labels.push(GOOD_FIRST_ISSUE_LABEL);
+    } else {
+      notes.push("good first issue: withheld until the spec is complete");
+    }
   }
 
-  const removed = planRemovals(
-    input,
-    {
-      priority: hasGroup(existing, GROUP_PREFIXES.priority)
-        ? undefined
-        : priority,
-      status,
-    },
-    unmet,
-    settledType
+  const settledPriority = hasGroup(existing, GROUP_PREFIXES.priority)
+    ? undefined
+    : priority;
+
+  const stillToDefineOpen = input.ruleGaps.some(
+    (gap) => gap.text === STILL_TO_DEFINE_GAP_TEXT
   );
 
-  labels.push(...signals);
-
-  if (duplicateOf !== undefined) {
-    labels.push(SIGNAL_LABELS.duplicate);
-  }
+  const removed = [
+    ...input.workflowPriorities.filter((label) => label !== settledPriority),
+    ...removedContributorLabels(input, specComplete, stillToDefineOpen),
+  ];
 
   const added = [...new Set(labels)].filter(
     (label) => !input.existingLabels.includes(label) && !refused.has(label)
   );
 
-  return { duplicateOf, gaps, labels: added, notes, removed, status };
+  return {
+    duplicateOf,
+    gaps,
+    labels: added,
+    notes,
+    removed,
+    status,
+    stillToDefineOpen,
+  };
 };

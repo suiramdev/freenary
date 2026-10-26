@@ -23,6 +23,8 @@ import {
   CREDENTIAL_PROVIDER_ID,
 } from "../api/auth-queries";
 import type { LinkedAccount, UserSession } from "../api/auth-queries";
+import { operatorStandingOf } from "../model/settings-nav-items";
+import type { OperatorStanding } from "../model/settings-nav-items";
 import { useBudgetProfileEditor } from "../model/use-budget-profile-editor";
 import type {
   BudgetProfileEditor,
@@ -32,9 +34,9 @@ import {
   AppearanceLocaleSection,
   AppearanceThemeSection,
 } from "./appearance-section";
-import { BankAccountsSection } from "./bank-accounts-section";
 import { BudgetingSection } from "./budgeting-section";
 import { CategoriesSection } from "./categories-section";
+import { ConnectionsPane } from "./connections-pane";
 import { SecurityAccountsSection } from "./security-accounts-section";
 import type { OAuthProviderOption } from "./security-accounts-section";
 import { SecurityPasskeysSection } from "./security-passkeys-section";
@@ -63,6 +65,7 @@ interface SettingsContentProps extends SecurityPaneProps {
   categories: CategoryEntry[];
   isCategoriesPending: boolean;
   isPending: boolean;
+  operatorStanding: OperatorStanding;
   section: SettingsSection;
   serverLines: ServerBudgetLine[] | undefined;
 }
@@ -75,15 +78,6 @@ const AppearancePane = () => (
     <AppearanceThemeSection />
 
     <AppearanceLocaleSection />
-  </SettingsGroup>
-);
-
-const ConnectionsPane = () => (
-  <SettingsGroup
-    description={m.settings_group_connections_description()}
-    title={m.settings_group_connections_title()}
-  >
-    <BankAccountsSection />
   </SettingsGroup>
 );
 
@@ -164,6 +158,7 @@ const SettingsContent = ({
   isCategoriesPending,
   isPending,
   isSessionsPending,
+  operatorStanding,
   providers,
   section,
   serverLines,
@@ -181,7 +176,7 @@ const SettingsContent = ({
         isPending={isPending}
       />
     ),
-    connections: <ConnectionsPane />,
+    connections: <ConnectionsPane standing={operatorStanding} />,
     security: (
       <SecurityPane
         accounts={accounts}
@@ -215,6 +210,7 @@ export const SettingsPage = () => {
   const capabilitiesQuery = useQuery(orpc.auth.capabilities.queryOptions());
   const sessionsQuery = useQuery(authSessionsQueryOptions());
   const accountsQuery = useQuery(authAccountsQueryOptions());
+  const instanceStatusQuery = useQuery(orpc.instance.status.queryOptions());
 
   if (categoriesQuery.isError || profileQuery.isError) {
     const isRetrying = categoriesQuery.isFetching || profileQuery.isFetching;
@@ -251,6 +247,10 @@ export const SettingsPage = () => {
       isCategoriesPending={categoriesQuery.isPending}
       isPending={categoriesQuery.isPending || profileQuery.isPending}
       isSessionsPending={sessionsQuery.isPending}
+      operatorStanding={operatorStandingOf({
+        isOperator: instanceStatusQuery.data?.isOperator,
+        isPending: instanceStatusQuery.isPending,
+      })}
       providers={capabilitiesQuery.data?.oauth}
       section={section}
       serverLines={profileQuery.data?.lines}

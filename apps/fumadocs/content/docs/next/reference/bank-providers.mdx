@@ -43,7 +43,7 @@ The console walkthrough (account, sandbox domain, client application, redirect U
 1. In the [Enable Banking control panel](https://enablebanking.com/sign-in/), register an application and note its application ID.
 2. Download the application's private key.
 3. Register the redirect URI `https://<your domain>/callback/enable-banking`.
-4. On the setup screen, pick Enable Banking and fill in the application ID and the private key.
+4. On the setup screen, pick Enable Banking. Freenary asks for the application ID, shows the redirect URI with a **Copy** button, then asks for the private key.
 
 In an environment file, the key fits on one line with literal `\n` sequences, which Freenary turns back into newlines. A multi-line PEM also works. A key protected by a passphrase doesn't.
 
@@ -65,15 +65,17 @@ Powens receives only the start of the [sync window](/docs/use/bank-connections#s
 
 <Callout type="warn">
 
-Saving a provider on the setup screen erases the stored credentials of the other one. Values set in the environment stay. Connections made with the erased provider can no longer sync. Disconnecting one removes it from Freenary without asking the provider to revoke access, and the user sees a warning to revoke it at their bank.
+Saving a provider on the setup screen or in Settings erases the stored credentials of the other one. Values set in the environment stay. Connections made with the erased provider can no longer sync. Disconnecting one removes it from Freenary without asking the provider to revoke access, and the user sees a warning to revoke it at their bank.
 
 </Callout>
 
-To switch and keep old connections working, set the old provider's credentials in the environment before you save the new one on the setup screen. Users then disconnect and reconnect each bank when they're ready.
+To switch and keep old connections working, set the old provider's credentials in the environment before you save the new one. Users then disconnect and reconnect each bank when they're ready.
+
+You can also change the provider in Settings: open **Connections** and press `Change` on the `Bank provider` row under `Services`. When you save another provider and any member has a bank connection, a confirmation says how many connections are affected across the instance, and nothing is stored until you press `Switch provider`. Saving new credentials for the same provider asks nothing. If Freenary can't count the connections, it asks anyway, without a number. The change takes effect after `Apply now`, as [Apply a saved change](/docs/run/email#apply-a-saved-change) describes.
 
 ## With no provider
 
-Nothing fails at startup. Onboarding skips the connect step, and Settings shows `Bank linking is unavailable` in place of the bank section. An incomplete set of credentials counts as no provider; the setup screen marks it incomplete.
+Nothing fails at startup, but no one can finish onboarding: its connect step and Settings both show `Bank linking is unavailable` in place of the bank list. An incomplete set of credentials counts as no provider; the setup screen marks it incomplete.
 
 If a provider call fails, the bank list names each country it couldn't load and still shows the others.
 

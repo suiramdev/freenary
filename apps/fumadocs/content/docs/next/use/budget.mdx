@@ -20,17 +20,37 @@ Choose `1M`, `3M` or `1Y`, then use the arrows to move to the previous or next p
 
 The list has two tabs: `Outgoing`, where it opens, and `Incoming`. Each tab shows the total of the transactions that match what you've narrowed it to.
 
-- Type in the search box to match the bank's label or the other party's name.
-- Use the `Amount`, `Company` and `Category` filters.
-- Press a part of a chart to filter the list to that category.
+The search box takes free text and filters together:
 
-With two or more filters on, `Clear all` removes them. It leaves the search text.
+- Type to match the bank's label or the other party's name.
+- Pick `Company`, `Category` or `Amount` from the list under the box, then a comparison, then a value. Each filter shows as a chip in the box.
+- Press a part of a chart to filter the list to that category, in place of any category filter you set. Press it again to remove that filter.
+- With more than seven categories, the spending breakdown shows the six largest and adds the rest up as `Other`, with the number of categories it holds. Press `Other` to filter the list to those categories and list them under the chart, then press one of them to keep only that category.
 
-The page address holds the period and every filter, so a bookmark brings back exactly what you see.
+| Filter     | Comparisons                 |
+| ---------- | --------------------------- |
+| `Company`  | `is`, `is not`, `is any of` |
+| `Category` | `is`, `is not`, `is any of` |
+| `Amount`   | `>`, `<`, `=`               |
+
+A transaction has to match every filter. `is any of` takes several values: pick them, then press Enter or `Apply`. A category group, such as `Spending`, stands for every category in it. `Amount` compares how much money moved, whichever way it went.
+
+Press a chip's ✕ to remove it, or press Backspace in an empty box to remove the last one. The ✕ at the end of the box clears the text and every filter.
+
+The page address holds the period, the text and every filter, so a bookmark brings back exactly what you see. A bookmark from before filters moved into the search box opens with its period, but without its filters.
+
+### Save a search
+
+`Saved filters`, next to the search box, keeps the text and filters you're using under a name.
+
+1. Set up the search you want to keep.
+2. Open `Saved filters`, type a name under `Save current search as`, and press `Save`.
+
+Press a saved name to use it again. It replaces the text and filters in the box, and keeps the period and the tab. Saving under a name you already use replaces that saved search. You can keep up to 50. To delete a saved search, press its trash button. `Undo` in the message that follows brings it back.
 
 ### Get the latest transactions
 
-Opening Budget fetches what's new. To read your banks again in full, press `Sync transactions`. [Bank connections](/docs/use/bank-connections#sync) says what each sync reads.
+Freenary fetches what's new when you sign in or load a page, without waiting for you to open Budget. To read your banks again in full, press `Sync transactions`. [Bank connections](/docs/use/bank-connections#sync) says what each sync reads.
 
 ## Fix a category
 
@@ -106,11 +126,11 @@ Leaving the page before you press `Save` loses your changes. The browser warns y
 
 A custom category lets you plan the way you think, for example "Holidays" or "Kids".
 
-1. In Settings, `Budget`, `Categories`, press `New category`.
+1. In Settings, `Budget`, `Custom categories`, press `New category`.
 2. Give it a name and an icon, and choose where it sits in `Nested under`: a group, one of your own categories, or nothing.
 3. Press `Create category`.
 
-Nesting goes one level deep. You can edit, reorder and delete your own categories; the built-in ones can't change. Deleting a custom category also deletes its subcategories, and moves their budget lines to a catch-all: `Other income` under Income, `Savings` under Savings & investment, and `Other` everywhere else.
+Nesting goes one level deep. `Custom categories` lists only your own categories, under their group when they have one, and you can edit, reorder and delete them. The built-in categories can't change, so they aren't listed there. Deleting a custom category also deletes its subcategories, and moves their budget lines to a catch-all: `Other income` under Income, `Savings` under Savings & investment, and `Uncategorised` everywhere else.
 
 ### Compare plan and actual
 
@@ -118,7 +138,7 @@ On **Transactions**, open the chart menu and choose `Budget vs. actual`. Each ca
 
 - Income lines aren't compared.
 - Spending in a category with no line shows as `Unplanned`.
-- A line on a custom category counts toward its group's catch-all: `Other` or `Savings`.
+- A line on a custom category counts toward its group's catch-all: `Uncategorised` or `Savings`.
 - With the total shown, the plan is multiplied by the number of months of the period that have passed so far.
 
 With no spending line yet, the chart offers `Set a spending plan`, which opens the editor.

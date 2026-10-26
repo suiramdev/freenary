@@ -87,7 +87,7 @@ Use exactly these terms, and keep the same one on every page:
 | --- | --- |
 | instance | An installed copy of Freenary |
 | operator | The person who installs and runs the instance; the first account to sign in |
-| setup screen | `/setup`, where the operator enters bank and email credentials |
+| setup screen | `/setup`, where the operator enters bank, email and model settings |
 | your domain, your hostname | For example `freenary.example.com` |
 | `FREENARY_URL` | The full `https://` URL of your domain |
 | hosting panel | Dokploy, Coolify and similar |
@@ -182,7 +182,7 @@ An internal link is an absolute site path with no extension and no version:
 
 `docs:check` resolves every link and `#anchor` against the real page tree. A relative `.mdx` link doesn't work. Link a repository file with its full URL under `https://github.com/suiramdev/freenary/blob/dev/`, the branch that holds the unreleased code; the snapshot pins `dev` to the release tag in a frozen copy.
 
-Some anchors are linked from the app itself, in `apps/web/src/pages/setup/model/labels.ts`. Keep them, or update that file in the same pull request.
+Some anchors are linked from the app itself, in `apps/web/src/features/instance-integration/model/labels.ts`. Keep them, or update that file in the same pull request.
 
 ## Navigation
 

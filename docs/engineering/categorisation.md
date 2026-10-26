@@ -224,7 +224,7 @@ The third total is the fallback. A transaction with no `merchantKey`, or one tha
 
 The 3 groups are `income`, `investments` and `spending`. They are sections of the flow of money, and not topics. `income` is what arrives. The other two are the two ways it leaves. `income` holds 7 categories, `investments` holds 4, and `spending` holds 16.
 
-**The set is flat.** A group holds categories and a category holds nothing. An icon belongs to the category, and `categoryIcon` reads `CATEGORY_ICONS`. A colour belongs to the group. `categoryColor` reads `CATEGORY_GROUP_COLORS` through `CATEGORY_GROUP_OF`, so two categories of one group share a colour and differ by glyph. A chart has no glyph, so `categoryChartColor` shades that colour by the place of the category in its group.
+**The set is flat.** A group holds categories and a category holds nothing. An icon belongs to the category, and `categoryIcon` reads `CATEGORY_ICONS`. A category's own colour is a palette slot, and `categoryPaletteSlot` reads `CATEGORY_PALETTE_SLOT_OF`; no two categories of one group share a slot. The group keeps a colour of its own, which `categoryColor` reads from `CATEGORY_GROUP_COLORS` through `CATEGORY_GROUP_OF`.
 
 **Each category names one direction.** `CATEGORY_DIRECTION_OF` holds `in`, `out` or `both`, and `categoriesForDirection` reads it. That gives 10 categories on an incoming transaction, and 20 on an outgoing one. `people`, `cash-withdrawal` and `uncategorised` are the three that carry `both`. The pickers of the web app offer that list, and no procedure checks a direction against an amount.
 
@@ -334,7 +334,7 @@ A merchant that no rule, no dictionary entry and no correction knows reaches the
 | Grouping | `payloadSignature` hashes the merchant identity: the merchant key or the descriptor, the country, the direction and the merchant category code. Every pending transaction with the same hash becomes one group, so one merchant costs one question whatever the amounts |
 | Signature | `classificationSignature` hashes the same identity behind the protocol, the model and `TAXONOMY_VERSION`. Each classifier of the chain therefore owns its own cache row |
 | Cache | `MerchantClassification` answers first. A stored category applies at stage `cached-model`. A stored abstention is honoured for 30 days, then asked again |
-| Call | Bounded to 4 merchants in flight. A provider aborts its own request after 10 seconds, inside the resolver's 15-second budget |
+| Call | Bounded to 4 merchants in flight. A provider aborts its own request after `TRANSACTION_CLASSIFIER_TIMEOUT_MS` (10 seconds by default), inside a resolver budget 5 seconds longer |
 | Validation | The answer must be a slug of the taxonomy, with a confidence inside `0..1`, and the direction of the transaction must permit it. Anything else is refused, logged and cached nowhere |
 | Store | An accepted category and an explicit abstention are written. A failure is not: a provider rejects on an unreachable endpoint, a refused request and an undecodable answer, which keeps a transient fault out of the 30-day abstention |
 
@@ -450,7 +450,7 @@ A new slug needs no more than the tables above. A retired slug needs an entry in
 
 > [!WARNING] **Two failure modes when the taxonomy and the catalogs disagree.**
 >
-> `CATEGORY_MESSAGES` ends with `satisfies Record<SpendingCategory, () => string>`, so a slug with no entry is a TypeScript error. `apps/web` declares no `check-types` script, so `bun run check-types` misses that file.
+> `CATEGORY_MESSAGES` ends with `satisfies Record<SpendingCategory, () => string>`, so a slug with no entry is a TypeScript error, and `bun run check-types` reports it.
 >
 > A key in `en.json` with no twin in `fr.json` is worse. It compiles with no error and no warning. The French branch falls back to the English string, and no build step catches it.
 
@@ -507,7 +507,7 @@ Durable facts that the code cannot carry in a name. Each bullet names the module
 - `packages/api/src/categorisation/internal-transfer.ts › pairedLegIds` — opposite sign, equal absolute amount, different account, same currency and dates within one day is sufficient; no IBAN is needed. Candidates deliberately include already-categorised transactions, because a transfer counted as income or expense wrecks the budget figures; only `categoryOverride` rows are excluded.
 - `packages/api/src/categorisation/internal-transfer.ts › matchInternal` — the `updateMany` writes `isInternalTransfer` and nothing else. A movement between the user's own accounts is a transaction _type_, not a category, so there is no `internal-transfer` slug to write; the boolean is what every aggregate and the pipeline's own row selection read. Nothing else clears the category a leg already carries, and the flag keeps it out of the figures either way.
 - `packages/api/src/categorisation/user-override.ts`, `internal-transfer.ts`, `recurrence.ts` — a categorisation-stage failure must never break a transaction sync or a read. The override write swallows its error, transfer matching reports zero matches, and recurrence detection reports empty aggregates.
-- `packages/api/src/categorisation/recurrence.ts › recurringFrom` — a group's reported category is the modal value of each row's `category ?? resolvedCategory`, so one corrected transaction cannot flip the group, and a stored slug that no longer resolves degrades to `uncategorised` rather than dropping the group. `uncategorised` is also the reader-facing `Other` category, so a degraded row reads as an honest catch-all rather than as a blank.
+- `packages/api/src/categorisation/recurrence.ts › recurringFrom` — a group's reported category is the modal value of each row's `category ?? resolvedCategory`, so one corrected transaction cannot flip the group, and a stored slug that no longer resolves degrades to `uncategorised` rather than dropping the group. `uncategorised` is also the reader-facing `Uncategorised` category, so a degraded row reads as an honest catch-all rather than as a blank.
 
 ### The classifier
 
@@ -530,6 +530,7 @@ Durable facts that the code cannot carry in a name. Each bullet names the module
 - `packages/api/src/categorisation/classifier/endpoint.ts › CLASSIFIER_REQUEST_TIMEOUT_MS` — 10 seconds, inside the resolver's own `CLASSIFIER_TIMEOUT_MS` of 15. The inner abort is what normally fires, and it arrives as a provider failure with a reason; the resolver's timeout is the outer guard for a provider that hangs without honouring its own signal. Raising the inner value above the outer one would make every slow call look like a resolver timeout and lose the reason.
 - `packages/api/src/categorisation/resolve.ts › resolveGroup` — the escalation bar defaults to `AUTO_BAND_MIN_CONFIDENCE`, so the chain asks a second model exactly when the first answer could not be written without a reader confirming it. The strongest answer wins rather than the last one: a fallback exists to rescue a weak answer, never to overrule a strong one. A cached low answer still escalates, which is what lets a chain of a cheap local model and a paid one settle a merchant permanently after one paid call.
 - `packages/api/src/categorisation/classifier/registry.ts › ClassifierSlotSettings` — a slot names a protocol and carries its own URL, model, key and temperature, and there is no per-vendor variable set. TypeSafe Jev, `Mapika/decider-2b` and Laya all answer the one `/v1/systemone` request, so a vendor-named provider would have been three copies of one code path with three copies of its configuration. The slot shape is also what lets one chain hold two endpoints of the same protocol, which a vendor enum cannot express: a local decider that escalates to hosted Jev is the shape this pays for.
+- `packages/api/src/categorisation/classifier/registry.ts › transactionClassifiers` — built from the `settings` of `@freenary/instance-config`, not from `env`, so the setup screen can store the first slot's protocol, URL, model and key. The fallback slot, both temperatures and `TRANSACTION_CLASSIFIER_ESCALATE_BELOW` stay environment-only.
 - `packages/api/src/categorisation/classifier/registry.ts › createClassifierChain` — a fallback that repeats both the protocol and the model of the first slot stops the start. The signature head is the protocol and the model, so both slots would hash to one row: the escalation would read the row it had just written and answer nothing, at twice the latency. Two endpoints of one protocol are legitimate, and each must name its own model.
 
 ### Reference data
