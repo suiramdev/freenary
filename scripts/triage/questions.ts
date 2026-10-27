@@ -24,11 +24,8 @@ export interface DuplicateCandidate {
 
 export const NO_DUPLICATE = "none";
 
-export const GOOD_FIRST_ISSUE_CHOICES = {
-  no: "no",
-  none: "none",
-  yes: "yes",
-} as const;
+export const NO_GOOD_FIRST_ISSUE = "none";
+export const GOOD_FIRST_ISSUE_CHOICE = "good_first_issue";
 
 const DUPLICATE_KEY_PREFIX = "item-";
 const MAX_CANDIDATE_TITLE_LENGTH = 200;
@@ -111,11 +108,9 @@ const SECURITY_QUESTION: Question = {
 
 const GOOD_FIRST_ISSUE_QUESTION: Question = {
   criteria: {
-    [GOOD_FIRST_ISSUE_CHOICES.no]:
-      "Large, vague, or needs deep knowledge of the architecture",
-    [GOOD_FIRST_ISSUE_CHOICES.none]:
-      "The text says too little to judge the size or scope of the work",
-    [GOOD_FIRST_ISSUE_CHOICES.yes]: "Small, well scoped, and touches few files",
+    [GOOD_FIRST_ISSUE_CHOICE]: "Small, well scoped, and touches few files",
+    [NO_GOOD_FIRST_ISSUE]:
+      "Large, vague, needs deep knowledge of the architecture, or too little is said to judge",
   },
   instructions:
     "Could a newcomer to the codebase complete this without deep knowledge of its architecture?",

@@ -36,9 +36,9 @@ describe("samplesFor", () => {
     const samples = samplesFor(
       {
         good_first_issue: {
-          choice: "yes",
+          choice: "none",
           confidence: 0.4,
-          probabilities: { no: 0.2, none: 0.2, yes: 0.6 },
+          probabilities: { good_first_issue: 0.6, none: 0.4 },
           type: "choice",
         },
         impact: {
@@ -69,11 +69,15 @@ describe("samplesFor", () => {
     ]);
   });
 
-  it("counts a good first issue answer of no as agreeing with no label", () => {
+  it("counts a good first issue answer of none as agreeing with no label", () => {
     expect(
       samplesFor(
         {
-          good_first_issue: { choice: "no", confidence: 0.55, type: "choice" },
+          good_first_issue: {
+            choice: "none",
+            confidence: 0.55,
+            type: "choice",
+          },
         },
         { labels: [] }
       )

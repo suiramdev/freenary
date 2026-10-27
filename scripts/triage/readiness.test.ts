@@ -663,7 +663,7 @@ describe("good first issue", () => {
     ...settled,
     ...requestMet,
     good_first_issue: {
-      choice: "yes",
+      choice: "good_first_issue",
       confidence: 0.99,
       type: "choice",
     },
@@ -765,7 +765,7 @@ describe("help wanted", () => {
         ...settled,
         ...requestMet,
         good_first_issue: {
-          choice: "yes",
+          choice: "good_first_issue",
           confidence: 0.99,
           type: "choice",
         },

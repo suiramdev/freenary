@@ -1,7 +1,8 @@
 import {
   candidateNumber,
-  GOOD_FIRST_ISSUE_CHOICES,
+  GOOD_FIRST_ISSUE_CHOICE,
   NO_DUPLICATE,
+  NO_GOOD_FIRST_ISSUE,
 } from "./questions";
 import type { SubjectKind } from "./questions";
 import {
@@ -25,6 +26,7 @@ import {
 import type { PriorityLabel } from "./taxonomy";
 
 export const MIN_SIGNAL_PROBABILITY = 0.8;
+export const MIN_DUPLICATE_CONFIDENCE = 0.85;
 
 export interface PlanInput {
   readonly kind: SubjectKind;
@@ -78,9 +80,8 @@ export const IMPACT_TIE_ORDER: readonly ImpactLevel[] =
 const roundHalfUp: (score: number) => number = Math.round;
 
 export const GOOD_FIRST_ISSUE_TIE_ORDER = [
-  GOOD_FIRST_ISSUE_CHOICES.none,
-  GOOD_FIRST_ISSUE_CHOICES.no,
-  GOOD_FIRST_ISSUE_CHOICES.yes,
+  NO_GOOD_FIRST_ISSUE,
+  GOOD_FIRST_ISSUE_CHOICE,
 ] as const;
 
 const duplicateTieOrder = (answer: Answers[string]): string[] => {
@@ -308,21 +309,23 @@ const planDuplicate = (
   answers: Answers,
   notes: string[]
 ): number | undefined => {
-  const duplicateNotes: string[] = [];
-  const top = topChoice(
-    answers,
-    "duplicate",
-    duplicateTieOrder(answers.duplicate),
-    duplicateNotes
-  );
+  const answer = answers.duplicate;
+  const selection =
+    answer?.type === "choice"
+      ? rankedTop(answer, duplicateTieOrder(answer))
+      : undefined;
 
-  if (top === undefined || top === NO_DUPLICATE) {
+  if (selection === undefined || selection.top === NO_DUPLICATE) {
     return undefined;
   }
 
-  notes.push(...duplicateNotes);
+  notes.push(
+    `duplicate: ${selection.top} (${selection.probability.toFixed(2)})`
+  );
 
-  return candidateNumber(top);
+  return selection.probability >= MIN_DUPLICATE_CONFIDENCE
+    ? candidateNumber(selection.top)
+    : undefined;
 };
 
 const PRIORITY_BY_IMPACT = {
@@ -489,7 +492,7 @@ export const planLabels = (input: PlanInput): Plan => {
       "good_first_issue",
       GOOD_FIRST_ISSUE_TIE_ORDER,
       notes
-    ) === GOOD_FIRST_ISSUE_CHOICES.yes
+    ) === GOOD_FIRST_ISSUE_CHOICE
   ) {
     if (specComplete) {
       labels.push(GOOD_FIRST_ISSUE_LABEL);

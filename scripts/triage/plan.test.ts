@@ -7,6 +7,7 @@ import {
   derivePriority,
   GOOD_FIRST_ISSUE_TIE_ORDER,
   IMPACT_TIE_ORDER,
+  MIN_DUPLICATE_CONFIDENCE,
   MIN_SIGNAL_PROBABILITY,
   planLabels,
   TYPE_TIE_ORDER,
@@ -126,20 +127,44 @@ describe("planLabels", () => {
     });
   });
 
-  it("flags the most probable duplicate at any confidence", () => {
+  it("flags the most probable duplicate over the stated choice", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
         duplicate: {
           choice: "none",
-          confidence: 0.3,
-          probabilities: { "item-14": 0.4, "item-9": 0.3, none: 0.3 },
+          confidence: 0.05,
+          probabilities: { "item-14": 0.9, "item-9": 0.05, none: 0.05 },
           type: "choice",
         },
       },
     });
 
     expect(plan.duplicateOf).toBe(14);
+  });
+
+  it("flags a duplicate only from its threshold", () => {
+    expect(MIN_DUPLICATE_CONFIDENCE).toBe(0.85);
+
+    expect(
+      duplicateAt({ "item-14": MIN_DUPLICATE_CONFIDENCE, none: 0.15 })
+    ).toBe(14);
+
+    const below = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: {
+          choice: "item-14",
+          confidence: 0.6,
+          probabilities: { "item-14": 0.6, none: 0.4 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(below.duplicateOf).toBeUndefined();
+    expect(below.gaps).toEqual([]);
+    expect(below.notes).toContain("duplicate: item-14 (0.60)");
   });
 
   it("flags nothing when none is the top duplicate answer", () => {
@@ -154,9 +179,53 @@ describe("planLabels", () => {
     expect(plan.gaps).toEqual([]);
   });
 
+  it("flags nothing without a usable duplicate answer", () => {
+    for (const duplicate of [
+      undefined,
+      { noul: 0.99, type: "noul" as const },
+      { choice: "item-x", confidence: 0.99, type: "choice" as const },
+    ]) {
+      const plan = planFor({
+        answers: duplicate ? { ...confidentBug, duplicate } : confidentBug,
+      });
+
+      expect(plan.duplicateOf).toBeUndefined();
+      expect(plan.gaps).toEqual([]);
+    }
+  });
+
+  it("keeps a stated duplicate that probabilities leave out", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: {
+          choice: "item-14",
+          confidence: 0.9,
+          probabilities: {},
+          type: "choice",
+        },
+      },
+    });
+
+    expect(plan.duplicateOf).toBe(14);
+  });
+
   it("breaks an exact duplicate tie toward none, then the lowest number", () => {
-    expect(duplicateAt({ "item-14": 0.4, none: 0.4 })).toBeUndefined();
-    expect(duplicateAt({ "item-14": 0.4, "item-9": 0.4, none: 0.2 })).toBe(9);
+    expect(duplicateAt({ "item-14": 0.5, none: 0.5 })).toBeUndefined();
+
+    const tied = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: {
+          choice: "item-14",
+          confidence: 0.45,
+          probabilities: { "item-14": 0.45, "item-9": 0.45, none: 0.1 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(tied.notes).toContain("duplicate: item-9 (0.45)");
   });
 
   it("counts a group a maintainer labelled as settled", () => {
@@ -202,11 +271,9 @@ describe("buildQuestions", () => {
     expect(questions.type?.type).toBe("choice");
     expect(questions.good_first_issue?.type).toBe("choice");
     expect(questions.duplicate?.type).toBe("choice");
-    expect(Object.keys(questions.good_first_issue?.criteria ?? {})).toEqual([
-      "no",
-      "none",
-      "yes",
-    ]);
+    expect(
+      Object.keys(questions.good_first_issue?.criteria ?? {}).toSorted()
+    ).toEqual(["good_first_issue", "none"]);
   });
 });
 
@@ -243,42 +310,48 @@ const goodFirstIssue = (
 });
 
 describe("good first issue", () => {
-  it("applies the label only for a top yes, at any confidence", () => {
-    expect(planFor({ answers: goodFirstIssue("yes") }).labels).toContain(
+  it("applies the label only for a top good_first_issue, at any confidence", () => {
+    expect(
+      planFor({ answers: goodFirstIssue("good_first_issue") }).labels
+    ).toContain("good first issue");
+
+    expect(planFor({ answers: goodFirstIssue("none") }).labels).not.toContain(
       "good first issue"
     );
-
-    for (const choice of ["no", "none"]) {
-      expect(planFor({ answers: goodFirstIssue(choice) }).labels).not.toContain(
-        "good first issue"
-      );
-    }
   });
 
   it("follows the probabilities over the stated choice", () => {
-    const plan = planFor({
-      answers: goodFirstIssue("none", { no: 0.1, none: 0.3, yes: 0.6 }),
+    const winsByProbability = planFor({
+      answers: goodFirstIssue("none", { good_first_issue: 0.6, none: 0.4 }),
     });
 
-    expect(plan.labels).toContain("good first issue");
+    const losesByProbability = planFor({
+      answers: goodFirstIssue("good_first_issue", {
+        good_first_issue: 0.4,
+        none: 0.6,
+      }),
+    });
+
+    expect(winsByProbability.labels).toContain("good first issue");
+    expect(losesByProbability.labels).not.toContain("good first issue");
   });
 
-  it("breaks an exact tie toward none, then no", () => {
-    expect(GOOD_FIRST_ISSUE_TIE_ORDER).toEqual(["none", "no", "yes"]);
+  it("breaks an exact tie toward none", () => {
+    expect(GOOD_FIRST_ISSUE_TIE_ORDER).toEqual(["none", "good_first_issue"]);
 
-    for (const probabilities of [
-      { no: 0.2, none: 0.4, yes: 0.4 },
-      { no: 0.4, none: 0.2, yes: 0.4 },
-    ]) {
-      const plan = planFor({ answers: goodFirstIssue("yes", probabilities) });
+    const plan = planFor({
+      answers: goodFirstIssue("good_first_issue", {
+        good_first_issue: 0.5,
+        none: 0.5,
+      }),
+    });
 
-      expect(plan.labels).not.toContain("good first issue");
-    }
+    expect(plan.labels).not.toContain("good first issue");
   });
 
   it("is withheld until the spec is complete", () => {
     const plan = planFor({
-      answers: goodFirstIssue("yes"),
+      answers: goodFirstIssue("good_first_issue"),
       ruleGaps: [{ owner: "author", text: "Add steps." }],
     });
 
@@ -290,23 +363,24 @@ describe("good first issue", () => {
 
   it("applies a narrow yes on a ready issue", () => {
     const plan = planFor({
-      answers: goodFirstIssue("yes", { no: 0.3, none: 0.19, yes: 0.51 }),
+      answers: goodFirstIssue("good_first_issue", {
+        good_first_issue: 0.51,
+        none: 0.49,
+      }),
     });
 
     expect(plan.status).toBe("ready");
     expect(plan.labels).toContain("good first issue");
   });
 
-  it("keeps its own label when a later run answers no or none", () => {
-    for (const choice of ["no", "none"]) {
-      const plan = planFor({
-        answers: goodFirstIssue(choice),
-        existingLabels: ["good first issue"],
-        workflowGoodFirstIssue: true,
-      });
+  it("keeps its own label when a later run answers none", () => {
+    const plan = planFor({
+      answers: goodFirstIssue("none"),
+      existingLabels: ["good first issue"],
+      workflowGoodFirstIssue: true,
+    });
 
-      expect(plan.removed).not.toContain("good first issue");
-    }
+    expect(plan.removed).not.toContain("good first issue");
   });
 
   it("notes no answer when the question went unanswered", () => {

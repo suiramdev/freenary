@@ -4,7 +4,7 @@ import {
   rankedTop,
   TYPE_TIE_ORDER,
 } from "./plan";
-import { GOOD_FIRST_ISSUE_CHOICES } from "./questions";
+import { GOOD_FIRST_ISSUE_CHOICE } from "./questions";
 import type { Answers } from "./subq";
 import {
   GOOD_FIRST_ISSUE_LABEL,
@@ -116,7 +116,7 @@ const goodFirstIssueSample = (
         {
           confidence: selection.probability,
           kind: "label",
-          matches: (selection.top === GOOD_FIRST_ISSUE_CHOICES.yes) === present,
+          matches: (selection.top === GOOD_FIRST_ISSUE_CHOICE) === present,
           question: GOOD_FIRST_ISSUE_QUESTION,
         },
       ]
