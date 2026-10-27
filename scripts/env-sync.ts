@@ -152,6 +152,15 @@ const SECTIONS: Section[] = [
     ],
     title: "Categorisation",
   },
+  {
+    id: "updates",
+    preamble: [
+      "Update notice. The server asks the GitHub API for the newest Freenary",
+      "release once a day: an unauthenticated GET with a freenary/<version>",
+      "User-Agent, carrying no user or financial data.",
+    ],
+    title: "Updates",
+  },
 ];
 
 const EXTERNAL: ExternalVariable[] = [
@@ -501,6 +510,7 @@ const BLOCKS = {
   origins: () => schemaTable("origins"),
   raw: () => externalTable("raw", ["Variable", "Read by", "What it does"]),
   "sign-in": () => schemaTable("sign-in"),
+  updates: () => schemaTable("updates"),
 } satisfies Record<string, () => string>;
 
 const BLOCK_BY_ID = new Map<string, () => string>(Object.entries(BLOCKS));

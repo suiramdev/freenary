@@ -14,9 +14,11 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import {
+  RiArrowUpCircleLine,
   RiBookOpenLine,
   RiContrastLine,
   RiExpandUpDownLine,
+  RiGuideLine,
   RiLogoutBoxLine,
   RiTranslate2,
 } from "@remixicon/react";
@@ -25,7 +27,7 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
 import { authClient } from "@/shared/auth";
-import { docsUrl } from "@/shared/config";
+import { docsUrl, updateGuideUrl } from "@/shared/config";
 import { remixIcon } from "@/shared/lib/remix-icon";
 import {
   LocaleMenuItems,
@@ -36,12 +38,19 @@ import {
   useThemeCheckedIndex,
 } from "@/shared/ui/theme-menu-items";
 
+import { useAvailableUpdate } from "./use-available-update";
 import { UserIdentity } from "./user-identity";
 
-const LOCALE_ROW = 0;
-const THEME_ROW = 1;
-const DOCS_ROW = 2;
-const SIGN_OUT_ROW = 3;
+const UPDATE_NOTES_ROW = 0;
+const UPDATE_GUIDE_ROW = 1;
+const LOCALE_ROW = 2;
+const THEME_ROW = 3;
+const DOCS_ROW = 4;
+const SIGN_OUT_ROW = 5;
+
+const openInNewTab = (url: string) => {
+  window.open(url, "_blank", "noopener,noreferrer");
+};
 
 const SUBMENU_CLASS = "w-48 min-w-0";
 
@@ -51,6 +60,7 @@ export const SidebarUserMenu = () => {
   const { isMobile } = useSidebar();
   const { data: session, isPending, refetch } = authClient.useSession();
   const themeCheckedIndex = useThemeCheckedIndex();
+  const update = useAvailableUpdate();
 
   const refetchSessionThenLeaveAndDropCache = async () => {
     await refetch();
@@ -81,6 +91,7 @@ export const SidebarUserMenu = () => {
           >
             <UserIdentity
               email={session?.user.email}
+              hasUpdate={update !== null}
               isPending={isPending}
               name={session?.user.name}
             />
@@ -101,6 +112,29 @@ export const SidebarUserMenu = () => {
               </div>
             </DropdownLabel>
             <DropdownSeparator />
+            {update && (
+              <>
+                <MenuItem
+                  icon={remixIcon(RiArrowUpCircleLine)}
+                  index={UPDATE_NOTES_ROW}
+                  label={m.account_update_available({
+                    version: update.version,
+                  })}
+                  onSelect={() => {
+                    openInNewTab(update.notesUrl);
+                  }}
+                />
+                <MenuItem
+                  icon={remixIcon(RiGuideLine)}
+                  index={UPDATE_GUIDE_ROW}
+                  label={m.account_update_guide()}
+                  onSelect={() => {
+                    openInNewTab(updateGuideUrl());
+                  }}
+                />
+                <DropdownSeparator />
+              </>
+            )}
             <DropdownSubmenu>
               <MenuItem
                 icon={remixIcon(RiTranslate2)}
@@ -141,7 +175,7 @@ export const SidebarUserMenu = () => {
               index={DOCS_ROW}
               label={m.account_documentation()}
               onSelect={() => {
-                window.open(docsUrl(), "_blank", "noopener,noreferrer");
+                openInNewTab(docsUrl());
               }}
             />
             <MenuItem

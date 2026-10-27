@@ -37,7 +37,12 @@ import {
   classifierSettingsOf,
   createClassifierChain,
 } from "../categorisation/classifier/registry";
-import { isOperator, operatorProcedure, publicProcedure } from "../index";
+import {
+  isOperator,
+  operatorProcedure,
+  protectedProcedure,
+  publicProcedure,
+} from "../index";
 import { maskEnvironmentValue } from "../instance/mask";
 import {
   candidateOf,
@@ -53,6 +58,7 @@ import {
   integrationStateOf,
   missingForSetup,
 } from "../instance/setup";
+import { updateCheck } from "../instance/update-check";
 import { bankConnectionCount } from "./bank-connection-count";
 
 const RESTART_GRACE_MS = 250;
@@ -340,7 +346,6 @@ export const instanceRouter = {
 
       return { outcome: "verified" as const };
     }),
-
   complete: operatorProcedure.handler(async () => {
     const stored = await readCurrentSettings();
     const missing = missingForSetup(
@@ -366,7 +371,6 @@ export const instanceRouter = {
 
     return { completed: true as const, restarting };
   }),
-
   describe: operatorProcedure.handler(async () => {
     const stored = await readCurrentSettings();
 
@@ -381,7 +385,12 @@ export const instanceRouter = {
       restartRequired: hasUnappliedChange(stored),
     };
   }),
+  release: protectedProcedure.handler(async ({ context }) => {
+    const { update, version } = updateCheck.status();
+    const operator = await isOperator(context.session.user.id);
 
+    return { update: operator ? update : null, version };
+  }),
   save: operatorProcedure
     .input(integrationInput)
     .handler(async ({ context, input }) => {
@@ -411,7 +420,6 @@ export const instanceRouter = {
 
       return { outcome: "saved" as const, restartRequired: true };
     }),
-
   status: publicProcedure.handler(async ({ context }) => {
     const state = await Effect.runPromise(readSetupState());
     const userId = context.session?.user.id;

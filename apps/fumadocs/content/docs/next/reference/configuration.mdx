@@ -45,7 +45,7 @@ Stored values are encrypted with `BETTER_AUTH_SECRET`. [Security](/docs/referenc
 
 {/* env-sync:start count */}
 
-The API server checks its environment once, at startup. The schema is [`packages/env/src/schema.ts`](https://github.com/suiramdev/freenary/blob/main/packages/env/src/schema.ts). It declares 49 variables with Zod, and `packages/env/src/server.ts` hands them to `@t3-oss/env-core`. The reference below, and `.env.example`, are generated from that one file.
+The API server checks its environment once, at startup. The schema is [`packages/env/src/schema.ts`](https://github.com/suiramdev/freenary/blob/main/packages/env/src/schema.ts). It declares 50 variables with Zod, and `packages/env/src/server.ts` hands them to `@t3-oss/env-core`. The reference below, and `.env.example`, are generated from that one file.
 
 {/* env-sync:end */}
 
@@ -220,6 +220,18 @@ The setup screen or Settings sets the first classifier: see [AI models](/docs/ru
 Leave `DICTIONARY_PUBLIC_KEY` unset unless you sign a dictionary yourself. The published merchant dictionary has no signature, so a set key makes the server refuse it and stop matching merchants, with no startup error.
 
 </Callout>
+
+## Updates
+
+What the notice shows, and the request behind it, are in [Updates and backups](/docs/run/updates-and-backups#update-notice).
+
+{/* env-sync:start updates */}
+
+| Variable | Default | What it does | Absent or wrong |
+| --- | --- | --- | --- |
+| `FREENARY_UPDATE_CHECK` | `true` | `true` asks GitHub once a day for the newest Freenary release, and the account menu of the operator says when it is newer than the running one. | `false` sends no request and shows no notice. A build that is not a release, such as `dev`, `main` or `sha-*`, never checks. A value that is not a boolean string stops the start. |
+
+{/* env-sync:end */}
 
 ## Read outside the schema
 

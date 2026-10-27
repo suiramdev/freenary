@@ -16,3 +16,6 @@ export const docsUrl = (): string => {
 
   return `${DOCS_SITE_URL}/docs/${version}`;
 };
+
+export const updateGuideUrl = (): string =>
+  `${docsUrl()}/run/updates-and-backups`;

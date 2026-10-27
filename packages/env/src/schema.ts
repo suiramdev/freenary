@@ -222,6 +222,18 @@ export const serverEnvSchema = {
       secret: true,
       section: "bank",
     }),
+  FREENARY_UPDATE_CHECK: z
+    .stringbool()
+    .default(true)
+    .describe(
+      "`true` asks GitHub once a day for the newest Freenary release, and the account menu of the operator says when it is newer than the running one."
+    )
+    .meta({
+      example: "true",
+      onError:
+        "`false` sends no request and shows no notice. A build that is not a release, such as `dev`, `main` or `sha-*`, never checks. A value that is not a boolean string stops the start.",
+      section: "updates",
+    }),
   GOOGLE_CLIENT_ID: z
     .string()
     .optional()
