@@ -277,16 +277,20 @@ export const derivePriority = (
   impact: string | undefined,
   signals: readonly string[]
 ): PriorityLabel | undefined => {
-  if (signals.includes(SECURITY_SIGNAL)) {
-    return PRIORITY_LABELS.high;
-  }
-
   const fromImpact =
     impact && isKnownKey(PRIORITY_BY_IMPACT, impact)
       ? PRIORITY_BY_IMPACT[impact]
       : undefined;
 
-  return fromImpact && signals.includes(REGRESSION_SIGNAL)
+  if (fromImpact === undefined) {
+    return undefined;
+  }
+
+  if (signals.includes(SECURITY_SIGNAL)) {
+    return PRIORITY_LABELS.high;
+  }
+
+  return signals.includes(REGRESSION_SIGNAL)
     ? RAISED_PRIORITY[fromImpact]
     : fromImpact;
 };
@@ -345,9 +349,7 @@ const planImpactAndPriority = (
     existing.find((label) => label.startsWith(GROUP_PREFIXES.impact)) ?? impact;
 
   const priority = isAllowed(
-    settledImpact
-      ? derivePriority(settledImpact, planSignals(input, notes))
-      : undefined
+    derivePriority(settledImpact, planSignals(input, notes))
   );
 
   notes.push(

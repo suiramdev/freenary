@@ -308,9 +308,12 @@ describe("derivePriority", () => {
     expect(derivePriority(undefined, [])).toBeUndefined();
   });
 
-  it("gives a security risk priority high, with or without an impact", () => {
+  it("gives a security risk priority high only with an impact", () => {
     expect(derivePriority("impact: low", ["security"])).toBe("priority: high");
-    expect(derivePriority(undefined, ["security"])).toBe("priority: high");
+    expect(derivePriority(undefined, ["security"])).toBeUndefined();
+    expect(
+      derivePriority(undefined, ["security", "regression"])
+    ).toBeUndefined();
   });
 
   it("raises the priority of an impact by one level for a regression", () => {
@@ -339,6 +342,15 @@ const impact = (
   ...confidentBug,
   impact: { choice, confidence: 0.1, probabilities, type: "choice" },
 });
+
+const priorityLabelsAt = (key: "regression" | "security", noul: number) =>
+  planFor({
+    answers: {
+      ...confidentBug,
+      impact: { choice: "low", confidence: 0.9, type: "choice" },
+      [key]: { noul, type: "noul" },
+    },
+  }).labels;
 
 describe("impact and priority", () => {
   it("applies the most probable impact and its priority at any confidence", () => {
@@ -430,6 +442,25 @@ describe("impact and priority", () => {
     });
 
     expect(plan.labels).toContain("priority: low");
+  });
+
+  it("applies a security or regression signal from exactly the threshold", () => {
+    expect(MIN_SIGNAL_PROBABILITY).toBe(0.8);
+    expect(priorityLabelsAt("security", MIN_SIGNAL_PROBABILITY)).toContain(
+      "priority: high"
+    );
+
+    expect(
+      priorityLabelsAt("security", MIN_SIGNAL_PROBABILITY - 0.01)
+    ).toContain("priority: low");
+
+    expect(priorityLabelsAt("regression", MIN_SIGNAL_PROBABILITY)).toContain(
+      "priority: medium"
+    );
+
+    expect(
+      priorityLabelsAt("regression", MIN_SIGNAL_PROBABILITY - 0.01)
+    ).toContain("priority: low");
   });
 
   it("raises regression priority by one level", () => {
@@ -598,6 +629,66 @@ describe("unusable answers", () => {
     expect(plan.notes).toContain(
       "type: feature (0.50; next documentation 0.20)"
     );
+  });
+
+  it("takes the most probable type over the stated choice", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        type: {
+          choice: "feature",
+          confidence: 0.4,
+          probabilities: { bug: 0.6, feature: 0.4 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(plan.labels).toContain("type: bug");
+    expect(plan.labels).not.toContain("type: feature");
+  });
+
+  it("keeps the stated choice when every probability is unknown or not a number", () => {
+    for (const probabilities of [
+      { question: 0.9 },
+      { bug: Number.NaN, feature: Number.NaN },
+      {},
+    ] as Record<string, number>[]) {
+      const plan = planFor({
+        answers: {
+          ...confidentBug,
+          type: {
+            choice: "feature",
+            confidence: 0.3,
+            probabilities,
+            type: "choice",
+          },
+        },
+        checklist: undefined,
+      });
+
+      expect(plan.labels).toContain("type: feature");
+    }
+  });
+
+  it("labels nothing for an unknown choice with no usable probability", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        impact: {
+          choice: "severe",
+          confidence: 0.9,
+          probabilities: { high: Number.NaN, severe: 0.9 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(
+      plan.labels.some((label) =>
+        startsWithAny(label, ["impact:", "priority:"])
+      )
+    ).toBe(false);
   });
 
   it("labels nothing and asks nothing for a missing type answer", () => {
