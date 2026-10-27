@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 
-import { Effect, Option } from "effect";
+import { Effect, Exit, Option } from "effect";
 
 import type { FetchReleases, GithubRelease } from "./release";
 import {
@@ -193,6 +193,26 @@ describe("createReleaseCheck", () => {
     ]);
 
     expect(warn).toHaveBeenCalledTimes(failing.length);
+  });
+
+  test("keeps repeating after a failed attempt", async () => {
+    spyOn(console, "warn").mockImplementation(() => {});
+    const answers: (() => Promise<Response>)[] = [
+      () => Promise.reject(new Error("offline")),
+      () => Promise.resolve(Response.json([published("v1.3.0")])),
+    ];
+
+    const check = checkOn(
+      "1.2.0",
+      () => answers.shift()?.() ?? Promise.reject(new Error("no answer"))
+    );
+
+    const exit = await Effect.runPromiseExit(
+      check.refresh.pipe(Effect.repeat({ times: 1 }))
+    );
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(check.status().latest).toBe("1.3.0");
   });
 
   test("keeps the last answer when a later request fails", async () => {
