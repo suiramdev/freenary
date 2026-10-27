@@ -11,8 +11,8 @@ describe("samplesFor", () => {
   it("compares each answer with the labels a maintainer kept", () => {
     const samples = samplesFor(
       {
-        good_first_issue: { choice: "none", confidence: 0.75, type: "choice" },
-        impact: { choice: "low", confidence: 0.7, type: "choice" },
+        good_first_issue: { noul: 0.1, type: "noul" },
+        impact: { confidence: 0.7, score: 0.2, type: "score" },
         type: { choice: "feature", confidence: 0.6, type: "choice" },
       },
       {
@@ -26,7 +26,62 @@ describe("samplesFor", () => {
       {
         kind: "signal",
         present: false,
-        probability: 0.25,
+        probability: 0.1,
+        question: "good_first_issue",
+      },
+    ]);
+  });
+
+  it("measures the option the plan applies", () => {
+    const samples = samplesFor(
+      {
+        good_first_issue: {
+          choice: "yes",
+          confidence: 0.4,
+          probabilities: { no: 0.2, none: 0.2, yes: 0.6 },
+          type: "choice",
+        },
+        impact: {
+          confidence: 0.3,
+          probabilities: { "0": 0.1, "1": 0.2, "2": 0.7 },
+          score: 0.4,
+          type: "score",
+        },
+        type: {
+          choice: "feature",
+          confidence: 0.4,
+          probabilities: { bug: 0.6, feature: 0.4 },
+          type: "choice",
+        },
+      },
+      { labels: ["type: bug", "impact: high"] }
+    );
+
+    expect(samples).toEqual([
+      { confidence: 0.6, kind: "label", matches: true, question: "type" },
+      { confidence: 0.7, kind: "label", matches: true, question: "impact" },
+      {
+        confidence: 0.6,
+        kind: "label",
+        matches: false,
+        question: "good_first_issue",
+      },
+    ]);
+  });
+
+  it("counts a good first issue answer of no as agreeing with no label", () => {
+    expect(
+      samplesFor(
+        {
+          good_first_issue: { choice: "no", confidence: 0.55, type: "choice" },
+        },
+        { labels: [] }
+      )
+    ).toEqual([
+      {
+        confidence: 0.55,
+        kind: "label",
+        matches: true,
         question: "good_first_issue",
       },
     ]);
@@ -94,7 +149,7 @@ describe("blindSamples", () => {
       [
         {
           answers: {
-            impact: { choice: "high", confidence: 0.7, type: "choice" },
+            impact: { confidence: 0.7, score: 2, type: "score" },
             type: { choice: "feature", confidence: 0.7, type: "choice" },
           },
           existingLabels: [],
@@ -102,7 +157,7 @@ describe("blindSamples", () => {
         },
         {
           answers: {
-            impact: { choice: "low", confidence: 0.9, type: "choice" },
+            impact: { confidence: 0.9, score: 0, type: "score" },
             type: { choice: "bug", confidence: 0.9, type: "choice" },
           },
           existingLabels: ["type: bug", "impact: low", "priority: low"],

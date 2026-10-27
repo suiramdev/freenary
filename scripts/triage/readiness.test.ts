@@ -21,7 +21,7 @@ const TEMPLATE = readFileSync(".github/pull_request_template.md", "utf-8");
 
 const settled: Answers = {
   blocked: { noul: 0.05, type: "noul" },
-  impact: { choice: "medium", confidence: 0.85, type: "choice" },
+  impact: { confidence: 0.85, score: 1, type: "score" },
   type: { choice: "feature", confidence: 0.9, type: "choice" },
 };
 
@@ -106,10 +106,10 @@ describe("issue readiness", () => {
         ...settled,
         ...requestMet,
         impact: {
-          choice: "low",
           confidence: 0.4,
-          probabilities: { high: 0.05, low: 0.5, medium: 0.45 },
-          type: "choice",
+          probabilities: { "0": 0.5, "1": 0.45, "2": 0.05 },
+          score: 0.55,
+          type: "score",
         },
       },
     });
@@ -118,7 +118,9 @@ describe("issue readiness", () => {
 
     expect(plan.labels).toContain("priority: low");
 
-    expect(plan.notes).toContain("impact: low (0.40; next medium 0.45)");
+    expect(plan.notes).toContain(
+      "impact: impact: low (score 0.55, 0.50; next impact: medium 0.45)"
+    );
 
     expect(plan.status).toBe("ready");
     expect(plan.gaps).toEqual([]);

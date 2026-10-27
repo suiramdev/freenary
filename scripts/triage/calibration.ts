@@ -1,9 +1,14 @@
+import {
+  GOOD_FIRST_ISSUE_TIE_ORDER,
+  rankedImpact,
+  rankedTop,
+  TYPE_TIE_ORDER,
+} from "./plan";
 import { GOOD_FIRST_ISSUE_CHOICES } from "./questions";
 import type { Answers } from "./subq";
 import {
   GOOD_FIRST_ISSUE_LABEL,
   GROUP_PREFIXES,
-  IMPACT_LABELS,
   TYPE_LABELS,
 } from "./taxonomy";
 
@@ -34,90 +39,94 @@ export interface ReviewedItem {
   readonly labels: readonly string[];
 }
 
-const SIGNAL_BY_QUESTION = {
-  good_first_issue: {
-    choice: GOOD_FIRST_ISSUE_CHOICES.yes,
-    label: GOOD_FIRST_ISSUE_LABEL,
-  },
-} as const satisfies Record<string, { choice: string; label: string }>;
+const GOOD_FIRST_ISSUE_QUESTION = "good_first_issue";
 
 const groupLabel = (
   labels: readonly string[],
   prefix: string
 ): string | undefined => labels.find((label) => label.startsWith(prefix));
 
-const labelSample = (
-  answers: Answers,
-  labels: readonly string[],
-  question: string,
-  labelByChoice: Readonly<Record<string, string>>,
-  prefix: string
-): Sample[] => {
-  const answer = answers[question];
+const typeSample = (answers: Answers, labels: readonly string[]): Sample[] => {
+  const answer = answers.type;
 
-  if (answer?.type !== "choice" || !groupLabel(labels, prefix)) {
+  if (answer?.type !== "choice" || !groupLabel(labels, GROUP_PREFIXES.type)) {
     return [];
   }
 
-  const predicted: string | undefined = Object.entries(labelByChoice).find(
-    ([key]) => key === answer.choice
-  )?.[1];
+  const selection = rankedTop(answer, TYPE_TIE_ORDER);
 
-  return [
-    {
-      confidence: answer.confidence,
-      kind: "label",
-      matches: predicted !== undefined && labels.includes(predicted),
-      question,
-    },
-  ];
+  return selection
+    ? [
+        {
+          confidence: selection.probability,
+          kind: "label",
+          matches: labels.includes(TYPE_LABELS[selection.top]),
+          question: "type",
+        },
+      ]
+    : [];
 };
 
-const choiceProbability = (
-  answer: Answers[string],
-  choice: string
-): number | undefined => {
-  if (answer?.type !== "choice") {
-    return undefined;
+const impactSample = (
+  answers: Answers,
+  labels: readonly string[]
+): Sample[] => {
+  const answer = answers.impact;
+  const actual = groupLabel(labels, GROUP_PREFIXES.impact);
+  const selection =
+    answer?.type === "score" && actual ? rankedImpact(answer) : undefined;
+
+  return selection
+    ? [
+        {
+          confidence: selection.probability,
+          kind: "label",
+          matches: selection.top === actual,
+          question: "impact",
+        },
+      ]
+    : [];
+};
+
+const goodFirstIssueSample = (
+  answers: Answers,
+  labels: readonly string[]
+): Sample[] => {
+  const answer = answers[GOOD_FIRST_ISSUE_QUESTION];
+  const present = labels.includes(GOOD_FIRST_ISSUE_LABEL);
+
+  if (answer?.type === "noul") {
+    return [
+      {
+        kind: "signal",
+        present,
+        probability: answer.noul,
+        question: GOOD_FIRST_ISSUE_QUESTION,
+      },
+    ];
   }
 
-  const stated = answer.choice === choice ? answer.confidence : undefined;
+  const selection =
+    answer?.type === "choice"
+      ? rankedTop(answer, GOOD_FIRST_ISSUE_TIE_ORDER)
+      : undefined;
 
-  return answer.probabilities?.[choice] ?? stated ?? 1 - answer.confidence;
+  return selection
+    ? [
+        {
+          confidence: selection.probability,
+          kind: "label",
+          matches: (selection.top === GOOD_FIRST_ISSUE_CHOICES.yes) === present,
+          question: GOOD_FIRST_ISSUE_QUESTION,
+        },
+      ]
+    : [];
 };
 
-const signalSamples = (answers: Answers, item: ReviewedItem): Sample[] =>
-  Object.entries(SIGNAL_BY_QUESTION).flatMap(([question, signal]) => {
-    const probability = choiceProbability(answers[question], signal.choice);
-
-    return probability === undefined
-      ? []
-      : [
-          {
-            kind: "signal" as const,
-            present: item.labels.includes(signal.label),
-            probability,
-            question,
-          },
-        ];
-  });
-
 export const samplesFor = (answers: Answers, item: ReviewedItem): Sample[] => [
-  ...labelSample(
-    answers,
-    item.labels,
-    "type",
-    TYPE_LABELS,
-    GROUP_PREFIXES.type
-  ),
-  ...labelSample(
-    answers,
-    item.labels,
-    "impact",
-    IMPACT_LABELS,
-    GROUP_PREFIXES.impact
-  ),
-  ...signalSamples(answers, item),
+  ...typeSample(answers, item.labels),
+  ...impactSample(answers, item.labels),
+  ...goodFirstIssueSample(answers, item.labels),
 ];
 
 const rowFor = (
@@ -190,9 +199,9 @@ const inputCarriedAnswer = (
     return existingLabels.some((label) => label.startsWith(prefix));
   }
 
-  return Object.entries(SIGNAL_BY_QUESTION).some(
-    ([signalQuestion, signal]) =>
-      signalQuestion === question && existingLabels.includes(signal.label)
+  return (
+    question === GOOD_FIRST_ISSUE_QUESTION &&
+    existingLabels.includes(GOOD_FIRST_ISSUE_LABEL)
   );
 };
 

@@ -10,6 +10,11 @@ export type Question =
       readonly type: "choice";
       readonly instructions: string;
       readonly criteria: Readonly<Record<string, string | null>>;
+    }
+  | {
+      readonly type: "score";
+      readonly instructions: string;
+      readonly criteria: readonly string[];
     };
 
 export interface DuplicateCandidate {
@@ -65,13 +70,13 @@ const typeQuestion = (kind: SubjectKind): Question => ({
 });
 
 const IMPACT_QUESTION: Question = {
-  criteria: {
-    high: "A main flow breaks for many users with no workaround, or data, balances or credentials are at risk",
-    low: "Cosmetic, or very few users affected",
-    medium: "A feature degrades for some users, and a workaround exists",
-  },
+  criteria: [
+    "Cosmetic, or very few users affected",
+    "A feature degrades for some users, and a workaround exists",
+    "A main flow breaks for many users with no workaround, or data, balances or credentials are at risk",
+  ],
   instructions: "How much does this affect the people who use Freenary?",
-  type: "choice",
+  type: "score",
 };
 
 const BLOCKED_QUESTION: Question = {

@@ -22,7 +22,7 @@ const confidentBug: Answers = {
   check_environment: { noul: 0.9, type: "noul" },
   check_expected_actual: { noul: 0.9, type: "noul" },
   check_steps: { noul: 0.9, type: "noul" },
-  impact: { choice: "high", confidence: 0.85, type: "choice" },
+  impact: { confidence: 0.85, score: 1.8, type: "score" },
   regression: { noul: 0.1, type: "noul" },
   security: { noul: 0.2, type: "noul" },
   type: { choice: "bug", confidence: 0.95, type: "choice" },
@@ -189,17 +189,17 @@ describe("buildQuestions", () => {
     expect(questions.pr_docs).toBeDefined();
   });
 
-  it("asks for three impact levels", () => {
-    expect(
-      Object.keys(buildQuestions("issue", []).impact?.criteria ?? {}).toSorted()
-    ).toEqual([...IMPACT_TIE_ORDER].toSorted());
+  it("asks for three impact levels as a score", () => {
+    const { impact } = buildQuestions("issue", []);
+
+    expect(impact?.type).toBe("score");
+    expect(impact?.criteria).toHaveLength(3);
   });
 
-  it("asks one choice per model-driven label group", () => {
+  it("asks a choice for type, good first issue and duplicate", () => {
     const questions = buildQuestions("issue", [{ number: 3, title: "x" }]);
 
     expect(questions.type?.type).toBe("choice");
-    expect(questions.impact?.type).toBe("choice");
     expect(questions.good_first_issue?.type).toBe("choice");
     expect(questions.duplicate?.type).toBe("choice");
     expect(Object.keys(questions.good_first_issue?.criteria ?? {})).toEqual([
@@ -288,6 +288,34 @@ describe("good first issue", () => {
     );
   });
 
+  it("applies a narrow yes on a ready issue", () => {
+    const plan = planFor({
+      answers: goodFirstIssue("yes", { no: 0.3, none: 0.19, yes: 0.51 }),
+    });
+
+    expect(plan.status).toBe("ready");
+    expect(plan.labels).toContain("good first issue");
+  });
+
+  it("keeps its own label when a later run answers no or none", () => {
+    for (const choice of ["no", "none"]) {
+      const plan = planFor({
+        answers: goodFirstIssue(choice),
+        existingLabels: ["good first issue"],
+        workflowGoodFirstIssue: true,
+      });
+
+      expect(plan.removed).not.toContain("good first issue");
+    }
+  });
+
+  it("notes no answer when the question went unanswered", () => {
+    const plan = planFor({ answers: confidentBug });
+
+    expect(plan.labels).not.toContain("good first issue");
+    expect(plan.notes).toContain("good_first_issue: no answer");
+  });
+
   it("is not applied without a usable answer", () => {
     const plan = planFor({
       answers: {
@@ -335,61 +363,69 @@ describe("derivePriority", () => {
   });
 });
 
-const impact = (
-  choice: string,
+const impactAnswer = (
+  score: number,
   probabilities: Record<string, number> | undefined = undefined
 ): Answers => ({
   ...confidentBug,
-  impact: { choice, confidence: 0.1, probabilities, type: "choice" },
+  impact: { confidence: 0.1, probabilities, score, type: "score" },
 });
+
+const labelsFor = (answers: Answers) => planFor({ answers }).labels;
 
 const priorityLabelsAt = (key: "regression" | "security", noul: number) =>
   planFor({
     answers: {
       ...confidentBug,
-      impact: { choice: "low", confidence: 0.9, type: "choice" },
+      impact: { confidence: 0.9, score: 0, type: "score" },
       [key]: { noul, type: "noul" },
     },
   }).labels;
 
 describe("impact and priority", () => {
-  it("applies the most probable impact and its priority at any confidence", () => {
-    for (const level of ["low", "medium", "high"]) {
-      const plan = planFor({ answers: impact(level) });
-
-      expect(plan.labels).toContain(`impact: ${level}`);
-      expect(plan.labels).toContain(`priority: ${level}`);
-    }
-  });
-
-  it("follows the probabilities over the stated choice", () => {
+  it("applies the most probable level and its priority at any confidence", () => {
     const plan = planFor({
-      answers: impact("high", { high: 0.05, low: 0.9, medium: 0.05 }),
+      answers: impactAnswer(2, { "0": 0.9, "1": 0.05, "2": 0.05 }),
     });
 
     expect(plan.labels).toContain("impact: low");
     expect(plan.labels).toContain("priority: low");
+    expect(plan.notes).toContain(
+      "impact: impact: low (score 2.00, 0.90; next impact: high 0.05)"
+    );
   });
 
-  it("breaks an exact impact tie toward the higher level", () => {
-    const plan = planFor({
-      answers: impact("low", { high: 0.4, low: 0.4, medium: 0.2 }),
-    });
+  it("breaks an exact level tie toward the higher level", () => {
+    const plan = planFor({ answers: impactAnswer(0, { "0": 0.5, "2": 0.5 }) });
 
     expect(plan.labels).toContain("impact: high");
+    expect(plan.labels).toContain("priority: high");
+  });
+
+  it("falls back to the score, rounded halfway up, without a level probability", () => {
+    expect(labelsFor(impactAnswer(0.5))).toContain("impact: medium");
+    expect(labelsFor(impactAnswer(0.5))).toContain("priority: medium");
+    expect(labelsFor(impactAnswer(1.5))).toContain("impact: high");
+    expect(labelsFor(impactAnswer(0.4, { "7": 0.9 }))).toContain("impact: low");
+    expect(labelsFor(impactAnswer(1, { "0": Number.NaN }))).toContain(
+      "impact: medium"
+    );
   });
 
   it("applies neither without a usable impact answer", () => {
-    for (const answer of [
-      { choice: "severe", confidence: 0.9, type: "choice" as const },
-      { confidence: 0.9, score: 2, type: "score" as const },
+    const { impact: _impact, ...withoutImpact } = confidentBug;
+
+    for (const answers of [
+      withoutImpact,
+      impactAnswer(Number.NaN),
+      impactAnswer(Number.NaN, { "0": Number.NaN }),
+      {
+        ...confidentBug,
+        impact: { choice: "high", confidence: 0.9, type: "choice" as const },
+      },
     ]) {
       const plan = planFor({
-        answers: {
-          ...confidentBug,
-          impact: answer,
-          security: { noul: 0.99, type: "noul" },
-        },
+        answers: { ...answers, security: { noul: 0.99, type: "noul" } },
       });
 
       expect(
@@ -397,6 +433,8 @@ describe("impact and priority", () => {
           startsWithAny(label, ["impact:", "priority:"])
         )
       ).toBe(false);
+
+      expect(plan.notes).toContain("impact: no answer");
     }
   });
 
@@ -422,7 +460,7 @@ describe("impact and priority", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { choice: "low", confidence: 0.9, type: "choice" },
+        impact: { confidence: 0.9, score: 0, type: "score" },
         security: { noul: 0.9, type: "noul" },
       },
     });
@@ -435,7 +473,7 @@ describe("impact and priority", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { choice: "low", confidence: 0.9, type: "choice" },
+        impact: { confidence: 0.9, score: 0, type: "score" },
         regression: { noul: MIN_SIGNAL_PROBABILITY - 0.01, type: "noul" },
         security: { noul: 0.5, type: "noul" },
       },
@@ -467,7 +505,7 @@ describe("impact and priority", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { choice: "low", confidence: 0.9, type: "choice" },
+        impact: { confidence: 0.9, score: 0, type: "score" },
         regression: { noul: 0.99, type: "noul" },
       },
     });
@@ -481,7 +519,7 @@ describe("planLabels priority", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { choice: "low", confidence: 0.3, type: "choice" },
+        impact: { confidence: 0.3, score: 0, type: "score" },
       },
       existingLabels: ["impact: medium"],
     });
@@ -582,7 +620,11 @@ describe("tie order", () => {
   });
 
   it("gives an impact tie to the higher level", () => {
-    expect(IMPACT_TIE_ORDER).toEqual(["high", "medium", "low"]);
+    expect(IMPACT_TIE_ORDER).toEqual([
+      "impact: high",
+      "impact: medium",
+      "impact: low",
+    ]);
   });
 
   it("breaks an exact type tie by question order on every run", () => {
@@ -671,24 +713,40 @@ describe("unusable answers", () => {
     }
   });
 
+  it("keeps a stated option that probabilities leave out", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        type: {
+          choice: "feature",
+          confidence: 0.7,
+          probabilities: { bug: 0.2 },
+          type: "choice",
+        },
+      },
+      checklist: undefined,
+    });
+
+    expect(plan.labels).toContain("type: feature");
+    expect(plan.notes).toContain("type: feature (0.70; next bug 0.20)");
+  });
+
   it("labels nothing for an unknown choice with no usable probability", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: {
-          choice: "severe",
+        type: {
+          choice: "question",
           confidence: 0.9,
-          probabilities: { high: Number.NaN, severe: 0.9 },
+          probabilities: { bug: Number.NaN, question: 0.9 },
           type: "choice",
         },
       },
+      checklist: undefined,
     });
 
-    expect(
-      plan.labels.some((label) =>
-        startsWithAny(label, ["impact:", "priority:"])
-      )
-    ).toBe(false);
+    expect(plan.labels.some((label) => label.startsWith("type:"))).toBe(false);
+    expect(plan.notes).toContain("type: no answer");
   });
 
   it("labels nothing and asks nothing for a missing type answer", () => {
