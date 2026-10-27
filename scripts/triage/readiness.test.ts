@@ -36,6 +36,7 @@ const planFor = (overrides: Partial<PlanInput>) =>
     answers: { ...settled, ...requestMet },
     checklist: "request",
     docsExpected: false,
+    duplicateCandidates: [9, 14],
     existingLabels: [],
     kind: "issue",
     refusedLabels: [],

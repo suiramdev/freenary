@@ -30,8 +30,8 @@ export const GOOD_FIRST_ISSUE_CHOICE = "good_first_issue";
 const DUPLICATE_KEY_PREFIX = "item-";
 const MAX_CANDIDATE_TITLE_LENGTH = 200;
 
-export const duplicateKey = (candidate: DuplicateCandidate): string =>
-  `${DUPLICATE_KEY_PREFIX}${candidate.number}`;
+export const duplicateKey = (number: number): string =>
+  `${DUPLICATE_KEY_PREFIX}${number}`;
 
 export const candidateNumber = (key: string): number | undefined =>
   key.startsWith(DUPLICATE_KEY_PREFIX)
@@ -146,7 +146,7 @@ const duplicateQuestion = (
       "None of them describes the same problem, request or change",
     ],
     ...candidates.map((candidate) => [
-      duplicateKey(candidate),
+      duplicateKey(candidate.number),
       candidate.title.slice(0, MAX_CANDIDATE_TITLE_LENGTH),
     ]),
   ]),

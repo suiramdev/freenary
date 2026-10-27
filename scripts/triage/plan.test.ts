@@ -34,6 +34,7 @@ const planFor = (overrides: Partial<PlanInput>) =>
     answers: confidentBug,
     checklist: "bug",
     docsExpected: false,
+    duplicateCandidates: [9, 14],
     existingLabels: [],
     kind: "issue",
     refusedLabels: [],
@@ -208,6 +209,23 @@ describe("planLabels", () => {
     });
 
     expect(plan.duplicateOf).toBe(14);
+  });
+
+  it("flags only an item it offered as a candidate", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: {
+          choice: "item-77",
+          confidence: 0.95,
+          probabilities: { "item-14": 0.03, "item-77": 0.95, none: 0.02 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(plan.duplicateOf).toBeUndefined();
+    expect(plan.notes).toContain("duplicate: item-14 (0.03)");
   });
 
   it("breaks an exact duplicate tie toward none, then the lowest number", () => {

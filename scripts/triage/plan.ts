@@ -1,5 +1,6 @@
 import {
   candidateNumber,
+  duplicateKey,
   GOOD_FIRST_ISSUE_CHOICE,
   NO_DUPLICATE,
   NO_GOOD_FIRST_ISSUE,
@@ -38,6 +39,7 @@ export interface PlanInput {
   readonly existingLabels: readonly string[];
   readonly workflowPriorities: readonly string[];
   readonly workflowGoodFirstIssue: boolean;
+  readonly duplicateCandidates: readonly number[];
 }
 
 export interface Plan {
@@ -84,28 +86,10 @@ export const GOOD_FIRST_ISSUE_TIE_ORDER = [
   GOOD_FIRST_ISSUE_CHOICE,
 ] as const;
 
-const duplicateTieOrder = (answer: Answers[string]): string[] => {
-  if (answer?.type !== "choice") {
-    return [];
-  }
-
-  const candidates = [
-    ...new Set([answer.choice, ...Object.keys(answer.probabilities ?? {})]),
-  ].flatMap((key) => {
-    const number = candidateNumber(key);
-
-    return number === undefined || !Number.isInteger(number)
-      ? []
-      : [{ key, number }];
-  });
-
-  return [
-    NO_DUPLICATE,
-    ...candidates
-      .toSorted((left, right) => left.number - right.number)
-      .map((candidate) => candidate.key),
-  ];
-};
+const duplicateTieOrder = (candidates: readonly number[]): string[] => [
+  NO_DUPLICATE,
+  ...candidates.toSorted((left, right) => left - right).map(duplicateKey),
+];
 
 type Answer = Answers[string];
 
@@ -307,12 +291,13 @@ const pullRequestGaps = (input: PlanInput): Gap[] => {
 
 const planDuplicate = (
   answers: Answers,
+  candidates: readonly number[],
   notes: string[]
 ): number | undefined => {
   const answer = answers.duplicate;
   const selection =
     answer?.type === "choice"
-      ? rankedTop(answer, duplicateTieOrder(answer))
+      ? rankedTop(answer, duplicateTieOrder(candidates))
       : undefined;
 
   if (selection === undefined || selection.top === NO_DUPLICATE) {
@@ -476,7 +461,12 @@ export const planLabels = (input: PlanInput): Plan => {
     }
   }
 
-  const duplicateOf = planDuplicate(input.answers, notes);
+  const duplicateOf = planDuplicate(
+    input.answers,
+    input.duplicateCandidates,
+    notes
+  );
+
   const gaps = collectGaps(input, { duplicateOf, unmet });
   const blocked = isYes(input.answers, "blocked", notes);
   const status = decideReadiness(blocked, gaps);
