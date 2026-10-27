@@ -6,6 +6,7 @@ on:
   # pull_request_target runs the base branch's workflow with secrets, so a
   # pull request from a fork is announced too. The job never checks out the head.
   pull_request_target:
+    branches: [dev]
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_run:
     workflows: [CI]
@@ -17,9 +18,15 @@ jobs:
   notify:
     if: >-
       ${{
-        !endsWith(github.actor, '[bot]') &&
+        github.actor != 'github-actions[bot]' &&
+        github.actor != 'openbotgit[bot]' &&
         !github.event.pull_request.draft &&
-        (github.event_name != 'workflow_run' || github.event.workflow_run.pull_requests[0])
+        (github.event_name != 'workflow_run' || (
+          github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.conclusion != 'cancelled' &&
+          github.event.workflow_run.pull_requests[0] &&
+          github.event.workflow_run.pull_requests[0].base.ref == 'dev'
+        ))
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -36,7 +43,7 @@ jobs:
           ACTION: ${{ github.event_name == 'workflow_run' && 'ci_completed' || github.event.action }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          DELIVERY_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+          DELIVERY_ID: gh-${{ github.repository_id }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           if [ -z "$WEBHOOK_URL" ] || [ -z "$WEBHOOK_SECRET" ]; then
             echo "::notice::OPENBOT_WEBHOOK_URL or OPENBOT_WEBHOOK_SECRET is not set; OpenBot was not notified."
@@ -57,7 +64,7 @@ jobs:
           for attempt in 1 2 3 4; do
             timestamp="$(date +%s)"
             signature="$( { printf '%s.%s.' "$timestamp" "$DELIVERY_ID"; cat "$body_file"; } \
-              | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -r | cut -d' ' -f1)"
+              | python3 -I -c 'import hashlib, hmac, os, sys; print(hmac.new(os.environb[b"WEBHOOK_SECRET"], sys.stdin.buffer.read(), hashlib.sha256).hexdigest())')"
 
             status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
               --max-time 30 \
@@ -73,12 +80,14 @@ jobs:
               200|202)
                 echo "OpenBot accepted delivery $DELIVERY_ID ($status)."
                 exit 0 ;;
-              503)
+              503|000)
                 if [ "$attempt" -lt 4 ]; then
-                  echo "OpenBot answered 503; retrying in $((attempt * 10)) seconds."
+                  echo "OpenBot answered $status; retrying in $((attempt * 10)) seconds."
                   sleep "$((attempt * 10))"
                   continue
-                fi ;;
+                fi
+                echo "::warning::OpenBot was unreachable for delivery $DELIVERY_ID (last status $status); it was not notified."
+                exit 0 ;;
             esac
 
             echo "::error::OpenBot refused delivery $DELIVERY_ID with status $status."
