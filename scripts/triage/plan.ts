@@ -1,4 +1,8 @@
-import { candidateNumber, NO_DUPLICATE } from "./questions";
+import {
+  candidateNumber,
+  GOOD_FIRST_ISSUE_CHOICES,
+  NO_DUPLICATE,
+} from "./questions";
 import type { SubjectKind } from "./questions";
 import {
   checklistGaps,
@@ -14,15 +18,13 @@ import {
   GOOD_FIRST_ISSUE_LABEL,
   GROUP_PREFIXES,
   HELP_WANTED_LABEL,
-  IMPACT_LEVELS,
+  IMPACT_LABELS,
   PRIORITY_LABELS,
   TYPE_LABELS,
 } from "./taxonomy";
 import type { PriorityLabel } from "./taxonomy";
 
 export const MIN_SIGNAL_PROBABILITY = 0.8;
-export const MIN_GOOD_FIRST_ISSUE_PROBABILITY = 0.95;
-export const MIN_DUPLICATE_CONFIDENCE = 0.85;
 
 export interface PlanInput {
   readonly kind: SubjectKind;
@@ -54,10 +56,6 @@ const SIGNAL_QUESTIONS = {
   security: SECURITY_SIGNAL,
 } as const satisfies Record<string, string>;
 
-const MIN_PROBABILITY_BY_QUESTION: Readonly<Record<string, number>> = {
-  good_first_issue: MIN_GOOD_FIRST_ISSUE_PROBABILITY,
-};
-
 const isKnownKey = <T extends object>(
   table: T,
   key: string
@@ -72,9 +70,42 @@ export const TYPE_TIE_ORDER = [
   "maintenance",
 ] as const satisfies readonly TypeKey[];
 
-export const IMPACT_TIE_ORDER = IMPACT_LEVELS.toReversed();
+type ImpactKey = keyof typeof IMPACT_LABELS;
 
-const roundHalfUp: (score: number) => number = Math.round;
+export const IMPACT_TIE_ORDER = [
+  "high",
+  "medium",
+  "low",
+] as const satisfies readonly ImpactKey[];
+
+export const GOOD_FIRST_ISSUE_TIE_ORDER = [
+  GOOD_FIRST_ISSUE_CHOICES.none,
+  GOOD_FIRST_ISSUE_CHOICES.no,
+  GOOD_FIRST_ISSUE_CHOICES.yes,
+] as const;
+
+const duplicateTieOrder = (answer: Answers[string]): string[] => {
+  if (answer?.type !== "choice") {
+    return [];
+  }
+
+  const candidates = [
+    ...new Set([answer.choice, ...Object.keys(answer.probabilities ?? {})]),
+  ].flatMap((key) => {
+    const number = candidateNumber(key);
+
+    return number === undefined || !Number.isInteger(number)
+      ? []
+      : [{ key, number }];
+  });
+
+  return [
+    NO_DUPLICATE,
+    ...candidates
+      .toSorted((left, right) => left.number - right.number)
+      .map((candidate) => candidate.key),
+  ];
+};
 
 interface RankedOption<Option extends string> {
   readonly option: Option;
@@ -89,7 +120,9 @@ const rankOptions = <Option extends string>(
     .flatMap((option) => {
       const probability = probabilityOf(option);
 
-      return probability === undefined ? [] : [{ option, probability }];
+      return probability === undefined || !Number.isFinite(probability)
+        ? []
+        : [{ option, probability }];
     })
     .toSorted((left, right) => right.probability - left.probability);
 
@@ -125,13 +158,7 @@ const topChoice = <Option extends string>(
 
   const [leader] = ranked;
   const stated = tieOrder.find((option) => option === answer.choice);
-  const statedTiesLeader =
-    leader !== undefined &&
-    stated !== undefined &&
-    answer.probabilities?.[stated] === leader.probability;
-
-  const top =
-    stated === undefined || statedTiesLeader ? leader?.option : stated;
+  const top = leader?.option ?? stated;
 
   if (top === undefined) {
     notes.push(`${key}: no answer`);
@@ -149,53 +176,6 @@ const topChoice = <Option extends string>(
   return top;
 };
 
-const topImpact = (
-  answers: Answers,
-  notes: string[]
-): (typeof IMPACT_LEVELS)[number] | undefined => {
-  const answer = answers.impact;
-
-  if (answer?.type !== "score") {
-    notes.push("impact: no answer");
-
-    return undefined;
-  }
-
-  const scoreIndex = Number.isFinite(answer.score)
-    ? Math.min(
-        Math.max(roundHalfUp(answer.score), 0),
-        IMPACT_LEVELS.length - 1
-      )
-    : undefined;
-  const ranked = rankOptions(
-    (level) => {
-      const probability =
-        answer.probabilities?.[String(IMPACT_LEVELS.indexOf(level))];
-
-      return probability !== undefined && Number.isFinite(probability)
-        ? probability
-        : undefined;
-    },
-    IMPACT_TIE_ORDER
-  );
-  const [leader] = ranked;
-  const scoreChoice =
-    scoreIndex === undefined ? undefined : IMPACT_LEVELS[scoreIndex];
-  const top = leader?.option ?? scoreChoice;
-
-  if (top === undefined) {
-    notes.push("impact: no usable answer");
-
-    return undefined;
-  }
-
-  const detail = `score ${answer.score.toFixed(2)}, ${answer.confidence.toFixed(2)}${runnerUpText(ranked, top)}`;
-
-  notes.push(`impact: ${top} (${detail})`);
-
-  return top;
-};
-
 const isYes = (answers: Answers, key: string, notes: string[]): boolean => {
   const answer = answers[key];
 
@@ -205,10 +185,7 @@ const isYes = (answers: Answers, key: string, notes: string[]): boolean => {
 
   notes.push(`${key}: ${answer.noul.toFixed(2)}`);
 
-  return (
-    answer.noul >=
-    (MIN_PROBABILITY_BY_QUESTION[key] ?? MIN_SIGNAL_PROBABILITY)
-  );
+  return answer.noul >= MIN_SIGNAL_PROBABILITY;
 };
 
 const hasGroup = (labels: readonly string[], prefix: string): boolean =>
@@ -267,24 +244,28 @@ const planDuplicate = (
   answers: Answers,
   notes: string[]
 ): number | undefined => {
-  const answer = answers.duplicate;
+  const duplicateNotes: string[] = [];
+  const top = topChoice(
+    answers,
+    "duplicate",
+    duplicateTieOrder(answers.duplicate),
+    duplicateNotes
+  );
 
-  if (answer?.type !== "choice" || answer.choice === NO_DUPLICATE) {
+  if (top === undefined || top === NO_DUPLICATE) {
     return undefined;
   }
 
-  notes.push(`duplicate: ${answer.choice} (${answer.confidence.toFixed(2)})`);
+  notes.push(...duplicateNotes);
 
-  return answer.confidence >= MIN_DUPLICATE_CONFIDENCE
-    ? candidateNumber(answer.choice)
-    : undefined;
+  return candidateNumber(top);
 };
 
 const PRIORITY_BY_IMPACT = {
-  "impact: high": PRIORITY_LABELS.high,
-  "impact: low": PRIORITY_LABELS.low,
-  "impact: medium": PRIORITY_LABELS.medium,
-} as const satisfies Record<(typeof IMPACT_LEVELS)[number], PriorityLabel>;
+  [IMPACT_LABELS.high]: PRIORITY_LABELS.high,
+  [IMPACT_LABELS.low]: PRIORITY_LABELS.low,
+  [IMPACT_LABELS.medium]: PRIORITY_LABELS.medium,
+} as const satisfies Record<(typeof IMPACT_LABELS)[ImpactKey], PriorityLabel>;
 
 const RAISED_PRIORITY = {
   [PRIORITY_LABELS.high]: PRIORITY_LABELS.high,
@@ -349,7 +330,17 @@ const planImpactAndPriority = (
     return { impact: undefined, priority: undefined };
   }
 
-  const impact = isAllowed(topImpact(input.answers, notes));
+  const impactChoice = topChoice(
+    input.answers,
+    "impact",
+    IMPACT_TIE_ORDER,
+    notes
+  );
+
+  const impact = isAllowed(
+    impactChoice ? IMPACT_LABELS[impactChoice] : undefined
+  );
+
   const settledImpact =
     existing.find((label) => label.startsWith(GROUP_PREFIXES.impact)) ?? impact;
 
@@ -434,7 +425,15 @@ export const planLabels = (input: PlanInput): Plan => {
 
   const specComplete = status === "ready";
 
-  if (isIssue && isYes(input.answers, "good_first_issue", notes)) {
+  if (
+    isIssue &&
+    topChoice(
+      input.answers,
+      "good_first_issue",
+      GOOD_FIRST_ISSUE_TIE_ORDER,
+      notes
+    ) === GOOD_FIRST_ISSUE_CHOICES.yes
+  ) {
     if (specComplete) {
       labels.push(GOOD_FIRST_ISSUE_LABEL);
     } else {

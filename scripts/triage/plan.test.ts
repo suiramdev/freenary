@@ -5,8 +5,8 @@ import { Effect } from "effect";
 import { renderGapComment } from "./comment";
 import {
   derivePriority,
+  GOOD_FIRST_ISSUE_TIE_ORDER,
   IMPACT_TIE_ORDER,
-  MIN_GOOD_FIRST_ISSUE_PROBABILITY,
   MIN_SIGNAL_PROBABILITY,
   planLabels,
   TYPE_TIE_ORDER,
@@ -22,7 +22,7 @@ const confidentBug: Answers = {
   check_environment: { noul: 0.9, type: "noul" },
   check_expected_actual: { noul: 0.9, type: "noul" },
   check_steps: { noul: 0.9, type: "noul" },
-  impact: { confidence: 0.85, score: 1.8, type: "score" },
+  impact: { choice: "high", confidence: 0.85, type: "choice" },
   regression: { noul: 0.1, type: "noul" },
   security: { noul: 0.2, type: "noul" },
   type: { choice: "bug", confidence: 0.95, type: "choice" },
@@ -44,6 +44,19 @@ const planFor = (overrides: Partial<PlanInput>) =>
 
 const startsWithAny = (label: string, prefixes: readonly string[]): boolean =>
   prefixes.some((prefix) => label.startsWith(prefix));
+
+const duplicateAt = (probabilities: Record<string, number>) =>
+  planFor({
+    answers: {
+      ...confidentBug,
+      duplicate: {
+        choice: "item-14",
+        confidence: 0.4,
+        probabilities,
+        type: "choice",
+      },
+    },
+  }).duplicateOf;
 
 describe("planLabels", () => {
   it("labels the type, impact and priority of a confident answer set", () => {
@@ -97,7 +110,7 @@ describe("planLabels", () => {
     expect(plan.removed).toEqual([]);
   });
 
-  it("flags a confident duplicate without a label", () => {
+  it("flags a duplicate without a label", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
@@ -111,6 +124,39 @@ describe("planLabels", () => {
       owner: "maintainer",
       text: "Check whether this duplicates #14.",
     });
+  });
+
+  it("flags the most probable duplicate at any confidence", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: {
+          choice: "none",
+          confidence: 0.3,
+          probabilities: { "item-14": 0.4, "item-9": 0.3, none: 0.3 },
+          type: "choice",
+        },
+      },
+    });
+
+    expect(plan.duplicateOf).toBe(14);
+  });
+
+  it("flags nothing when none is the top duplicate answer", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        duplicate: { choice: "none", confidence: 0.2, type: "choice" },
+      },
+    });
+
+    expect(plan.duplicateOf).toBeUndefined();
+    expect(plan.gaps).toEqual([]);
+  });
+
+  it("breaks an exact duplicate tie toward none, then the lowest number", () => {
+    expect(duplicateAt({ "item-14": 0.4, none: 0.4 })).toBeUndefined();
+    expect(duplicateAt({ "item-14": 0.4, "item-9": 0.4, none: 0.2 })).toBe(9);
   });
 
   it("counts a group a maintainer labelled as settled", () => {
@@ -144,7 +190,23 @@ describe("buildQuestions", () => {
   });
 
   it("asks for three impact levels", () => {
-    expect(buildQuestions("issue", []).impact?.criteria).toHaveLength(3);
+    expect(
+      Object.keys(buildQuestions("issue", []).impact?.criteria ?? {}).toSorted()
+    ).toEqual([...IMPACT_TIE_ORDER].toSorted());
+  });
+
+  it("asks one choice per model-driven label group", () => {
+    const questions = buildQuestions("issue", [{ number: 3, title: "x" }]);
+
+    expect(questions.type?.type).toBe("choice");
+    expect(questions.impact?.type).toBe("choice");
+    expect(questions.good_first_issue?.type).toBe("choice");
+    expect(questions.duplicate?.type).toBe("choice");
+    expect(Object.keys(questions.good_first_issue?.criteria ?? {})).toEqual([
+      "no",
+      "none",
+      "yes",
+    ]);
   });
 });
 
@@ -172,27 +234,69 @@ describe("taxonomy", () => {
   });
 });
 
-const goodFirstIssueLabelsAt = (noul: number) =>
-  planFor({
-    answers: {
-      ...confidentBug,
-      good_first_issue: { noul, type: "noul" },
-    },
-  }).labels;
+const goodFirstIssue = (
+  choice: string,
+  probabilities: Record<string, number> | undefined = undefined
+): Answers => ({
+  ...confidentBug,
+  good_first_issue: { choice, confidence: 0.1, probabilities, type: "choice" },
+});
 
 describe("good first issue", () => {
-  it("needs a stricter probability than the other signals", () => {
-    expect(goodFirstIssueLabelsAt(MIN_SIGNAL_PROBABILITY)).not.toContain(
+  it("applies the label only for a top yes, at any confidence", () => {
+    expect(planFor({ answers: goodFirstIssue("yes") }).labels).toContain(
       "good first issue"
     );
 
-    expect(
-      goodFirstIssueLabelsAt(MIN_GOOD_FIRST_ISSUE_PROBABILITY - 0.01)
-    ).not.toContain("good first issue");
+    for (const choice of ["no", "none"]) {
+      expect(planFor({ answers: goodFirstIssue(choice) }).labels).not.toContain(
+        "good first issue"
+      );
+    }
+  });
 
-    expect(goodFirstIssueLabelsAt(MIN_GOOD_FIRST_ISSUE_PROBABILITY)).toContain(
-      "good first issue"
+  it("follows the probabilities over the stated choice", () => {
+    const plan = planFor({
+      answers: goodFirstIssue("none", { no: 0.1, none: 0.3, yes: 0.6 }),
+    });
+
+    expect(plan.labels).toContain("good first issue");
+  });
+
+  it("breaks an exact tie toward none, then no", () => {
+    expect(GOOD_FIRST_ISSUE_TIE_ORDER).toEqual(["none", "no", "yes"]);
+
+    for (const probabilities of [
+      { no: 0.2, none: 0.4, yes: 0.4 },
+      { no: 0.4, none: 0.2, yes: 0.4 },
+    ]) {
+      const plan = planFor({ answers: goodFirstIssue("yes", probabilities) });
+
+      expect(plan.labels).not.toContain("good first issue");
+    }
+  });
+
+  it("is withheld until the spec is complete", () => {
+    const plan = planFor({
+      answers: goodFirstIssue("yes"),
+      ruleGaps: [{ owner: "author", text: "Add steps." }],
+    });
+
+    expect(plan.labels).not.toContain("good first issue");
+    expect(plan.notes).toContain(
+      "good first issue: withheld until the spec is complete"
     );
+  });
+
+  it("is not applied without a usable answer", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        good_first_issue: { noul: 0.99, type: "noul" },
+      },
+    });
+
+    expect(plan.labels).not.toContain("good first issue");
   });
 });
 
@@ -204,75 +308,84 @@ describe("derivePriority", () => {
     expect(derivePriority(undefined, [])).toBeUndefined();
   });
 
-  it("keeps documented security and regression priority modifiers", () => {
+  it("gives a security risk priority high, with or without an impact", () => {
     expect(derivePriority("impact: low", ["security"])).toBe("priority: high");
-    expect(derivePriority("impact: low", ["regression"])).toBe("priority: medium");
     expect(derivePriority(undefined, ["security"])).toBe("priority: high");
+  });
+
+  it("raises the priority of an impact by one level for a regression", () => {
+    expect(derivePriority("impact: low", ["regression"])).toBe(
+      "priority: medium"
+    );
+
+    expect(derivePriority("impact: medium", ["regression"])).toBe(
+      "priority: high"
+    );
+
+    expect(derivePriority("impact: high", ["regression"])).toBe(
+      "priority: high"
+    );
+  });
+
+  it("gives a regression with no impact no priority", () => {
     expect(derivePriority(undefined, ["regression"])).toBeUndefined();
   });
 });
 
-const impactAt = (confidence: number, score = 2) =>
-  planFor({
-    answers: {
-      ...confidentBug,
-      impact: { confidence, score, type: "score" },
-    },
-  });
+const impact = (
+  choice: string,
+  probabilities: Record<string, number> | undefined = undefined
+): Answers => ({
+  ...confidentBug,
+  impact: { choice, confidence: 0.1, probabilities, type: "choice" },
+});
 
 describe("impact and priority", () => {
-  it("uses the highest-probability impact at low confidence", () => {
+  it("applies the most probable impact and its priority at any confidence", () => {
+    for (const level of ["low", "medium", "high"]) {
+      const plan = planFor({ answers: impact(level) });
+
+      expect(plan.labels).toContain(`impact: ${level}`);
+      expect(plan.labels).toContain(`priority: ${level}`);
+    }
+  });
+
+  it("follows the probabilities over the stated choice", () => {
     const plan = planFor({
-      answers: {
-        ...confidentBug,
-        impact: {
-          confidence: 0.1,
-          probabilities: { "0": 0.9, "1": 0.05, "2": 0.05 },
-          score: 2,
-          type: "score",
-        },
-      },
+      answers: impact("high", { high: 0.05, low: 0.9, medium: 0.05 }),
     });
 
     expect(plan.labels).toContain("impact: low");
     expect(plan.labels).toContain("priority: low");
   });
 
-  it("breaks an exact impact probability tie by impact order", () => {
+  it("breaks an exact impact tie toward the higher level", () => {
     const plan = planFor({
-      answers: {
-        ...confidentBug,
-        impact: {
-          confidence: 0.4,
-          probabilities: { "0": 0.5, "2": 0.5 },
-          score: 0,
-          type: "score",
-        },
-      },
+      answers: impact("low", { high: 0.4, low: 0.4, medium: 0.2 }),
     });
 
     expect(plan.labels).toContain("impact: high");
   });
 
   it("applies neither without a usable impact answer", () => {
-    const plan = planFor({
-      answers: {
-        ...confidentBug,
-        impact: { confidence: 0.2, score: Number.NaN, type: "score" },
-        security: { noul: 0.99, type: "noul" },
-      },
-    });
+    for (const answer of [
+      { choice: "severe", confidence: 0.9, type: "choice" as const },
+      { confidence: 0.9, score: 2, type: "score" as const },
+    ]) {
+      const plan = planFor({
+        answers: {
+          ...confidentBug,
+          impact: answer,
+          security: { noul: 0.99, type: "noul" },
+        },
+      });
 
-    expect(
-      plan.labels.some((label) =>
-        startsWithAny(label, ["impact:", "priority:"])
-      )
-    ).toBe(false);
-  });
-
-  it("uses the rounded score when probabilities are unavailable", () => {
-    expect(impactAt(0.1, 0.5).labels).toContain("impact: medium");
-    expect(impactAt(0.1, 0.5).labels).toContain("priority: medium");
+      expect(
+        plan.labels.some((label) =>
+          startsWithAny(label, ["impact:", "priority:"])
+        )
+      ).toBe(false);
+    }
   });
 
   it("applies neither to a pull request", () => {
@@ -293,17 +406,11 @@ describe("impact and priority", () => {
     ).toBe(false);
   });
 
-  it("falls back to the rounded score without probabilities", () => {
-    expect(impactAt(0.9, 0.5).labels).toContain("impact: medium");
-    expect(impactAt(0.9, 0.5).labels).toContain("priority: medium");
-    expect(impactAt(0.9, 1.5).labels).toContain("impact: high");
-  });
-
   it("raises priority for a confident security signal", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { confidence: 0.9, score: 0, type: "score" },
+        impact: { choice: "low", confidence: 0.9, type: "choice" },
         security: { noul: 0.9, type: "noul" },
       },
     });
@@ -312,11 +419,24 @@ describe("impact and priority", () => {
     expect(plan.labels).toContain("priority: high");
   });
 
+  it("ignores a security or regression signal below the threshold", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        impact: { choice: "low", confidence: 0.9, type: "choice" },
+        regression: { noul: MIN_SIGNAL_PROBABILITY - 0.01, type: "noul" },
+        security: { noul: 0.5, type: "noul" },
+      },
+    });
+
+    expect(plan.labels).toContain("priority: low");
+  });
+
   it("raises regression priority by one level", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { confidence: 0.9, score: 0, type: "score" },
+        impact: { choice: "low", confidence: 0.9, type: "choice" },
         regression: { noul: 0.99, type: "noul" },
       },
     });
@@ -330,7 +450,7 @@ describe("planLabels priority", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
-        impact: { confidence: 0.3, score: 0, type: "score" },
+        impact: { choice: "low", confidence: 0.3, type: "choice" },
       },
       existingLabels: ["impact: medium"],
     });
@@ -428,12 +548,10 @@ describe("tie order", () => {
     expect(Object.keys(pullRequest.type?.criteria ?? {})).toEqual([
       ...TYPE_TIE_ORDER,
     ]);
+  });
 
-    expect(IMPACT_TIE_ORDER).toEqual([
-      "impact: high",
-      "impact: medium",
-      "impact: low",
-    ]);
+  it("gives an impact tie to the higher level", () => {
+    expect(IMPACT_TIE_ORDER).toEqual(["high", "medium", "low"]);
   });
 
   it("breaks an exact type tie by question order on every run", () => {

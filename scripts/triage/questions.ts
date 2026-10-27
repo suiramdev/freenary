@@ -10,11 +10,6 @@ export type Question =
       readonly type: "choice";
       readonly instructions: string;
       readonly criteria: Readonly<Record<string, string | null>>;
-    }
-  | {
-      readonly type: "score";
-      readonly instructions: string;
-      readonly criteria: readonly string[];
     };
 
 export interface DuplicateCandidate {
@@ -23,6 +18,13 @@ export interface DuplicateCandidate {
 }
 
 export const NO_DUPLICATE = "none";
+
+export const GOOD_FIRST_ISSUE_CHOICES = {
+  no: "no",
+  none: "none",
+  yes: "yes",
+} as const;
+
 const DUPLICATE_KEY_PREFIX = "item-";
 const MAX_CANDIDATE_TITLE_LENGTH = 200;
 
@@ -63,13 +65,13 @@ const typeQuestion = (kind: SubjectKind): Question => ({
 });
 
 const IMPACT_QUESTION: Question = {
-  criteria: [
-    "Cosmetic, or very few users affected",
-    "A feature degrades for some users, and a workaround exists",
-    "A main flow breaks for many users with no workaround, or data, balances or credentials are at risk",
-  ],
+  criteria: {
+    high: "A main flow breaks for many users with no workaround, or data, balances or credentials are at risk",
+    low: "Cosmetic, or very few users affected",
+    medium: "A feature degrades for some users, and a workaround exists",
+  },
   instructions: "How much does this affect the people who use Freenary?",
-  type: "score",
+  type: "choice",
 };
 
 const BLOCKED_QUESTION: Question = {
@@ -104,12 +106,15 @@ const SECURITY_QUESTION: Question = {
 
 const GOOD_FIRST_ISSUE_QUESTION: Question = {
   criteria: {
-    false: "Large, vague, or needs deep knowledge of the architecture",
-    true: "Small, well scoped, and touches few files",
+    [GOOD_FIRST_ISSUE_CHOICES.no]:
+      "Large, vague, or needs deep knowledge of the architecture",
+    [GOOD_FIRST_ISSUE_CHOICES.none]:
+      "The text says too little to judge the size or scope of the work",
+    [GOOD_FIRST_ISSUE_CHOICES.yes]: "Small, well scoped, and touches few files",
   },
   instructions:
     "Could a newcomer to the codebase complete this without deep knowledge of its architecture?",
-  type: "noul",
+  type: "choice",
 };
 
 const PULL_REQUEST_SUMMARY_QUESTION: Question = {

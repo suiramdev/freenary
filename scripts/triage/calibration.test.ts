@@ -11,8 +11,8 @@ describe("samplesFor", () => {
   it("compares each answer with the labels a maintainer kept", () => {
     const samples = samplesFor(
       {
-        good_first_issue: { noul: 0.1, type: "noul" },
-        impact: { confidence: 0.7, score: 0.2, type: "score" },
+        good_first_issue: { choice: "none", confidence: 0.75, type: "choice" },
+        impact: { choice: "low", confidence: 0.7, type: "choice" },
         type: { choice: "feature", confidence: 0.6, type: "choice" },
       },
       {
@@ -26,7 +26,7 @@ describe("samplesFor", () => {
       {
         kind: "signal",
         present: false,
-        probability: 0.1,
+        probability: 0.25,
         question: "good_first_issue",
       },
     ]);
@@ -94,7 +94,7 @@ describe("blindSamples", () => {
       [
         {
           answers: {
-            impact: { confidence: 0.7, score: 2, type: "score" },
+            impact: { choice: "high", confidence: 0.7, type: "choice" },
             type: { choice: "feature", confidence: 0.7, type: "choice" },
           },
           existingLabels: [],
@@ -102,7 +102,7 @@ describe("blindSamples", () => {
         },
         {
           answers: {
-            impact: { confidence: 0.9, score: 0, type: "score" },
+            impact: { choice: "low", confidence: 0.9, type: "choice" },
             type: { choice: "bug", confidence: 0.9, type: "choice" },
           },
           existingLabels: ["type: bug", "impact: low", "priority: low"],

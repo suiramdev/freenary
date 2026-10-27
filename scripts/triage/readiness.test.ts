@@ -21,7 +21,7 @@ const TEMPLATE = readFileSync(".github/pull_request_template.md", "utf-8");
 
 const settled: Answers = {
   blocked: { noul: 0.05, type: "noul" },
-  impact: { confidence: 0.85, score: 1, type: "score" },
+  impact: { choice: "medium", confidence: 0.85, type: "choice" },
   type: { choice: "feature", confidence: 0.9, type: "choice" },
 };
 
@@ -100,16 +100,16 @@ describe("issue readiness", () => {
     expect(plan.gaps).toEqual([]);
   });
 
-  it("applies the top impact and its priority for a low-confidence score", () => {
+  it("applies the top impact and its priority for a low-confidence answer", () => {
     const plan = planFor({
       answers: {
         ...settled,
         ...requestMet,
         impact: {
+          choice: "low",
           confidence: 0.4,
-          probabilities: { "0": 0.5, "1": 0.45, "2": 0.05 },
-          score: 0.55,
-          type: "score",
+          probabilities: { high: 0.05, low: 0.5, medium: 0.45 },
+          type: "choice",
         },
       },
     });
@@ -118,9 +118,7 @@ describe("issue readiness", () => {
 
     expect(plan.labels).toContain("priority: low");
 
-    expect(plan.notes.some((note) => note.startsWith("impact: low"))).toBe(
-      true
-    );
+    expect(plan.notes).toContain("impact: low (0.40; next medium 0.45)");
 
     expect(plan.status).toBe("ready");
     expect(plan.gaps).toEqual([]);
@@ -662,7 +660,11 @@ describe("good first issue", () => {
   const wantsIt: Answers = {
     ...settled,
     ...requestMet,
-    good_first_issue: { noul: 0.99, type: "noul" },
+    good_first_issue: {
+      choice: "yes",
+      confidence: 0.99,
+      type: "choice",
+    },
   };
 
   it("is applied to a ready issue", () => {
@@ -760,7 +762,11 @@ describe("help wanted", () => {
       answers: {
         ...settled,
         ...requestMet,
-        good_first_issue: { noul: 0.99, type: "noul" },
+        good_first_issue: {
+          choice: "yes",
+          confidence: 0.99,
+          type: "choice",
+        },
       },
     });
 

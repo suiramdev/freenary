@@ -1,8 +1,9 @@
+import { GOOD_FIRST_ISSUE_CHOICES } from "./questions";
 import type { Answers } from "./subq";
 import {
   GOOD_FIRST_ISSUE_LABEL,
   GROUP_PREFIXES,
-  IMPACT_LEVELS,
+  IMPACT_LABELS,
   TYPE_LABELS,
 } from "./taxonomy";
 
@@ -34,22 +35,31 @@ export interface ReviewedItem {
 }
 
 const SIGNAL_BY_QUESTION = {
-  good_first_issue: GOOD_FIRST_ISSUE_LABEL,
-} as const satisfies Record<string, string>;
+  good_first_issue: {
+    choice: GOOD_FIRST_ISSUE_CHOICES.yes,
+    label: GOOD_FIRST_ISSUE_LABEL,
+  },
+} as const satisfies Record<string, { choice: string; label: string }>;
 
 const groupLabel = (
   labels: readonly string[],
   prefix: string
 ): string | undefined => labels.find((label) => label.startsWith(prefix));
 
-const typeSample = (answers: Answers, labels: readonly string[]): Sample[] => {
-  const answer = answers.type;
+const labelSample = (
+  answers: Answers,
+  labels: readonly string[],
+  question: string,
+  labelByChoice: Readonly<Record<string, string>>,
+  prefix: string
+): Sample[] => {
+  const answer = answers[question];
 
-  if (answer?.type !== "choice" || !groupLabel(labels, GROUP_PREFIXES.type)) {
+  if (answer?.type !== "choice" || !groupLabel(labels, prefix)) {
     return [];
   }
 
-  const predicted: string | undefined = Object.entries(TYPE_LABELS).find(
+  const predicted: string | undefined = Object.entries(labelByChoice).find(
     ([key]) => key === answer.choice
   )?.[1];
 
@@ -58,56 +68,55 @@ const typeSample = (answers: Answers, labels: readonly string[]): Sample[] => {
       confidence: answer.confidence,
       kind: "label",
       matches: predicted !== undefined && labels.includes(predicted),
-      question: "type",
+      question,
     },
   ];
 };
 
-const impactSample = (
-  answers: Answers,
-  labels: readonly string[]
-): Sample[] => {
-  const answer = answers.impact;
-  const actual = groupLabel(labels, GROUP_PREFIXES.impact);
-
-  if (answer?.type !== "score" || !actual) {
-    return [];
+const choiceProbability = (
+  answer: Answers[string],
+  choice: string
+): number | undefined => {
+  if (answer?.type !== "choice") {
+    return undefined;
   }
 
-  const index = Math.min(
-    Math.max(Math.round(answer.score), 0),
-    IMPACT_LEVELS.length - 1
-  );
+  const stated = answer.choice === choice ? answer.confidence : undefined;
 
-  return [
-    {
-      confidence: answer.confidence,
-      kind: "label",
-      matches: IMPACT_LEVELS[index] === actual,
-      question: "impact",
-    },
-  ];
+  return answer.probabilities?.[choice] ?? stated ?? 1 - answer.confidence;
 };
 
 const signalSamples = (answers: Answers, item: ReviewedItem): Sample[] =>
-  Object.entries(SIGNAL_BY_QUESTION).flatMap(([question, label]) => {
-    const answer = answers[question];
+  Object.entries(SIGNAL_BY_QUESTION).flatMap(([question, signal]) => {
+    const probability = choiceProbability(answers[question], signal.choice);
 
-    return answer?.type === "noul"
-      ? [
+    return probability === undefined
+      ? []
+      : [
           {
             kind: "signal" as const,
-            present: item.labels.includes(label),
-            probability: answer.noul,
+            present: item.labels.includes(signal.label),
+            probability,
             question,
           },
-        ]
-      : [];
+        ];
   });
 
 export const samplesFor = (answers: Answers, item: ReviewedItem): Sample[] => [
-  ...typeSample(answers, item.labels),
-  ...impactSample(answers, item.labels),
+  ...labelSample(
+    answers,
+    item.labels,
+    "type",
+    TYPE_LABELS,
+    GROUP_PREFIXES.type
+  ),
+  ...labelSample(
+    answers,
+    item.labels,
+    "impact",
+    IMPACT_LABELS,
+    GROUP_PREFIXES.impact
+  ),
   ...signalSamples(answers, item),
 ];
 
@@ -182,8 +191,8 @@ const inputCarriedAnswer = (
   }
 
   return Object.entries(SIGNAL_BY_QUESTION).some(
-    ([signalQuestion, label]) =>
-      signalQuestion === question && existingLabels.includes(label)
+    ([signalQuestion, signal]) =>
+      signalQuestion === question && existingLabels.includes(signal.label)
   );
 };
 

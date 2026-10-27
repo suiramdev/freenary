@@ -20,11 +20,11 @@ export const PRIORITY_LABELS = {
 export type PriorityLabel =
   (typeof PRIORITY_LABELS)[keyof typeof PRIORITY_LABELS];
 
-export const IMPACT_LEVELS = [
-  "impact: low",
-  "impact: medium",
-  "impact: high",
-] as const;
+export const IMPACT_LABELS = {
+  high: "impact: high",
+  low: "impact: low",
+  medium: "impact: medium",
+} as const;
 
 export const GOOD_FIRST_ISSUE_LABEL = "good first issue";
 export const HELP_WANTED_LABEL = "help wanted";
@@ -75,17 +75,17 @@ export const LABELS: readonly LabelDefinition[] = [
     color: "8a63d2",
     description:
       "A main flow breaks for many users, or data or credentials are at risk",
-    name: "impact: high",
+    name: IMPACT_LABELS.high,
   },
   {
     color: "b392f0",
     description: "A feature degrades for some users, a workaround exists",
-    name: "impact: medium",
+    name: IMPACT_LABELS.medium,
   },
   {
     color: "e1d4fb",
     description: "Cosmetic, or few users affected",
-    name: "impact: low",
+    name: IMPACT_LABELS.low,
   },
   {
     color: "7057ff",
