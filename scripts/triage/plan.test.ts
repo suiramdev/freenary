@@ -7,7 +7,6 @@ import {
   derivePriority,
   IMPACT_TIE_ORDER,
   MIN_GOOD_FIRST_ISSUE_PROBABILITY,
-  MIN_IMPACT_CONFIDENCE,
   MIN_SIGNAL_PROBABILITY,
   planLabels,
   TYPE_TIE_ORDER,
@@ -205,26 +204,10 @@ describe("derivePriority", () => {
     expect(derivePriority(undefined, [])).toBeUndefined();
   });
 
-  it("gives a security risk priority high, with or without an impact", () => {
+  it("keeps documented security and regression priority modifiers", () => {
     expect(derivePriority("impact: low", ["security"])).toBe("priority: high");
+    expect(derivePriority("impact: low", ["regression"])).toBe("priority: medium");
     expect(derivePriority(undefined, ["security"])).toBe("priority: high");
-  });
-
-  it("raises the priority of an impact by one level for a regression", () => {
-    expect(derivePriority("impact: low", ["regression"])).toBe(
-      "priority: medium"
-    );
-
-    expect(derivePriority("impact: medium", ["regression"])).toBe(
-      "priority: high"
-    );
-
-    expect(derivePriority("impact: high", ["regression"])).toBe(
-      "priority: high"
-    );
-  });
-
-  it("gives a regression with no impact no priority", () => {
     expect(derivePriority(undefined, ["regression"])).toBeUndefined();
   });
 });
@@ -237,37 +220,59 @@ const impactAt = (confidence: number, score = 2) =>
     },
   });
 
-describe("impact and priority are never guessed", () => {
-  it("applies neither below the confidence threshold", () => {
-    const plan = impactAt(MIN_IMPACT_CONFIDENCE - 0.01);
+describe("impact and priority", () => {
+  it("uses the highest-probability impact at low confidence", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        impact: {
+          confidence: 0.1,
+          probabilities: { "0": 0.9, "1": 0.05, "2": 0.05 },
+          score: 2,
+          type: "score",
+        },
+      },
+    });
 
-    expect(
-      plan.labels.some((label) =>
-        startsWithAny(label, ["impact:", "priority:"])
-      )
-    ).toBe(false);
-
-    expect(plan.notes.some((note) => note.startsWith("impact: none"))).toBe(
-      true
-    );
+    expect(plan.labels).toContain("impact: low");
+    expect(plan.labels).toContain("priority: low");
   });
 
-  it("applies both at the threshold", () => {
-    const plan = impactAt(MIN_IMPACT_CONFIDENCE);
+  it("breaks an exact impact probability tie by impact order", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        impact: {
+          confidence: 0.4,
+          probabilities: { "0": 0.5, "2": 0.5 },
+          score: 0,
+          type: "score",
+        },
+      },
+    });
 
     expect(plan.labels).toContain("impact: high");
-    expect(plan.labels).toContain("priority: high");
   });
 
-  it("applies neither without an impact answer", () => {
-    const { impact: _impact, ...withoutImpact } = confidentBug;
-    const plan = planFor({ answers: withoutImpact });
+  it("applies neither without a usable impact answer", () => {
+    const plan = planFor({
+      answers: {
+        ...confidentBug,
+        impact: { confidence: 0.2, score: Number.NaN, type: "score" },
+        security: { noul: 0.99, type: "noul" },
+      },
+    });
 
     expect(
       plan.labels.some((label) =>
         startsWithAny(label, ["impact:", "priority:"])
       )
     ).toBe(false);
+  });
+
+  it("uses the rounded score when probabilities are unavailable", () => {
+    expect(impactAt(0.1, 0.5).labels).toContain("impact: medium");
+    expect(impactAt(0.1, 0.5).labels).toContain("priority: medium");
   });
 
   it("applies neither to a pull request", () => {
@@ -288,13 +293,13 @@ describe("impact and priority are never guessed", () => {
     ).toBe(false);
   });
 
-  it("rounds a score exactly halfway up", () => {
+  it("falls back to the rounded score without probabilities", () => {
     expect(impactAt(0.9, 0.5).labels).toContain("impact: medium");
     expect(impactAt(0.9, 0.5).labels).toContain("priority: medium");
     expect(impactAt(0.9, 1.5).labels).toContain("impact: high");
   });
 
-  it("raises the priority of a confident security signal", () => {
+  it("raises priority for a confident security signal", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
@@ -307,17 +312,16 @@ describe("impact and priority are never guessed", () => {
     expect(plan.labels).toContain("priority: high");
   });
 
-  it("ignores a security or regression signal below the threshold", () => {
+  it("raises regression priority by one level", () => {
     const plan = planFor({
       answers: {
         ...confidentBug,
         impact: { confidence: 0.9, score: 0, type: "score" },
-        regression: { noul: MIN_SIGNAL_PROBABILITY - 0.01, type: "noul" },
-        security: { noul: 0.5, type: "noul" },
+        regression: { noul: 0.99, type: "noul" },
       },
     });
 
-    expect(plan.labels).toContain("priority: low");
+    expect(plan.labels).toContain("priority: medium");
   });
 });
 

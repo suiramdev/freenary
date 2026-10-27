@@ -100,7 +100,7 @@ describe("issue readiness", () => {
     expect(plan.gaps).toEqual([]);
   });
 
-  it("applies no impact or priority for an unsure score", () => {
+  it("applies the top impact and its priority for a low-confidence score", () => {
     const plan = planFor({
       answers: {
         ...settled,
@@ -114,15 +114,11 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.labels.some((label) => label.startsWith("impact:"))).toBe(
-      false
-    );
+    expect(plan.labels).toContain("impact: low");
 
-    expect(plan.labels.some((label) => label.startsWith("priority:"))).toBe(
-      false
-    );
+    expect(plan.labels).toContain("priority: low");
 
-    expect(plan.notes.some((note) => note.startsWith("impact: none"))).toBe(
+    expect(plan.notes.some((note) => note.startsWith("impact: low"))).toBe(
       true
     );
 

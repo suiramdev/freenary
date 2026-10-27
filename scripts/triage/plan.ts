@@ -22,7 +22,6 @@ import type { PriorityLabel } from "./taxonomy";
 
 export const MIN_SIGNAL_PROBABILITY = 0.8;
 export const MIN_GOOD_FIRST_ISSUE_PROBABILITY = 0.95;
-export const MIN_IMPACT_CONFIDENCE = 0.8;
 export const MIN_DUPLICATE_CONFIDENCE = 0.85;
 
 export interface PlanInput {
@@ -162,24 +161,35 @@ const topImpact = (
     return undefined;
   }
 
-  const index = Math.min(
-    Math.max(roundHalfUp(answer.score), 0),
-    IMPACT_LEVELS.length - 1
-  );
-
-  const top = IMPACT_LEVELS[index] ?? IMPACT_LEVELS[0];
+  const scoreIndex = Number.isFinite(answer.score)
+    ? Math.min(
+        Math.max(roundHalfUp(answer.score), 0),
+        IMPACT_LEVELS.length - 1
+      )
+    : undefined;
   const ranked = rankOptions(
-    (level) => answer.probabilities?.[String(IMPACT_LEVELS.indexOf(level))],
+    (level) => {
+      const probability =
+        answer.probabilities?.[String(IMPACT_LEVELS.indexOf(level))];
+
+      return probability !== undefined && Number.isFinite(probability)
+        ? probability
+        : undefined;
+    },
     IMPACT_TIE_ORDER
   );
+  const [leader] = ranked;
+  const scoreChoice =
+    scoreIndex === undefined ? undefined : IMPACT_LEVELS[scoreIndex];
+  const top = leader?.option ?? scoreChoice;
 
-  const detail = `score ${answer.score.toFixed(2)}, ${answer.confidence.toFixed(2)}${runnerUpText(ranked, top)}`;
-
-  if (answer.confidence < MIN_IMPACT_CONFIDENCE) {
-    notes.push(`impact: none, too uncertain (${top}; ${detail})`);
+  if (top === undefined) {
+    notes.push("impact: no usable answer");
 
     return undefined;
   }
+
+  const detail = `score ${answer.score.toFixed(2)}, ${answer.confidence.toFixed(2)}${runnerUpText(ranked, top)}`;
 
   notes.push(`impact: ${top} (${detail})`);
 
@@ -196,7 +206,8 @@ const isYes = (answers: Answers, key: string, notes: string[]): boolean => {
   notes.push(`${key}: ${answer.noul.toFixed(2)}`);
 
   return (
-    answer.noul >= (MIN_PROBABILITY_BY_QUESTION[key] ?? MIN_SIGNAL_PROBABILITY)
+    answer.noul >=
+    (MIN_PROBABILITY_BY_QUESTION[key] ?? MIN_SIGNAL_PROBABILITY)
   );
 };
 
@@ -343,13 +354,15 @@ const planImpactAndPriority = (
     existing.find((label) => label.startsWith(GROUP_PREFIXES.impact)) ?? impact;
 
   const priority = isAllowed(
-    derivePriority(settledImpact, planSignals(input, notes))
+    settledImpact
+      ? derivePriority(settledImpact, planSignals(input, notes))
+      : undefined
   );
 
   notes.push(
     hasGroup(existing, GROUP_PREFIXES.priority)
       ? "priority: kept the existing label"
-      : `priority: ${priority ?? "none"} (from a confident impact or a security or regression signal)`
+      : `priority: ${priority ?? "none"} (from impact or a security or regression signal)`
   );
 
   return { impact, priority };
