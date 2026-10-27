@@ -39,7 +39,7 @@ export const UserIdentity = ({
         </Avatar>
         {hasUpdate && (
           <span className="bg-primary ring-sidebar absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2">
-            <span className="sr-only">{m.account_update_notice()}</span>
+            <span className="sr-only">{m.account_menu_update_notice()}</span>
           </span>
         )}
       </span>

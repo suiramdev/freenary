@@ -9,11 +9,11 @@ export const useAvailableUpdate = () => {
   const { data: session } = authClient.useSession();
 
   const release = useQuery(
-    orpc.instance.release.queryOptions({
+    orpc.instance.update.queryOptions({
       enabled: session !== null,
       staleTime: RELEASE_STALE_TIME_MS,
     })
   );
 
-  return release.data?.update ?? null;
+  return release.data?.latest ?? null;
 };

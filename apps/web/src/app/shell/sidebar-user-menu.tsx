@@ -14,10 +14,10 @@ import {
   useSidebar,
 } from "@freenary/ui/components/sidebar";
 import {
-  RiArrowUpCircleLine,
   RiBookOpenLine,
   RiContrastLine,
   RiExpandUpDownLine,
+  RiFileList3Line,
   RiGuideLine,
   RiLogoutBoxLine,
   RiTranslate2,
@@ -27,7 +27,7 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
 import { authClient } from "@/shared/auth";
-import { docsUrl, updateGuideUrl } from "@/shared/config";
+import { docsUrl, releaseNotesUrl, updateGuideUrl } from "@/shared/config";
 import { remixIcon } from "@/shared/lib/remix-icon";
 import {
   LocaleMenuItems,
@@ -114,22 +114,23 @@ export const SidebarUserMenu = () => {
             <DropdownSeparator />
             {update && (
               <>
+                <DropdownLabel>
+                  {m.account_menu_update_available({ version: update })}
+                </DropdownLabel>
                 <MenuItem
-                  icon={remixIcon(RiArrowUpCircleLine)}
+                  icon={remixIcon(RiFileList3Line)}
                   index={UPDATE_NOTES_ROW}
-                  label={m.account_update_available({
-                    version: update.version,
-                  })}
+                  label={m.account_menu_update_release_notes()}
                   onSelect={() => {
-                    openInNewTab(update.notesUrl);
+                    openInNewTab(releaseNotesUrl(update));
                   }}
                 />
                 <MenuItem
                   icon={remixIcon(RiGuideLine)}
                   index={UPDATE_GUIDE_ROW}
-                  label={m.account_update_guide()}
+                  label={m.account_menu_update_guide()}
                   onSelect={() => {
-                    openInNewTab(updateGuideUrl());
+                    openInNewTab(updateGuideUrl(update));
                   }}
                 />
                 <DropdownSeparator />

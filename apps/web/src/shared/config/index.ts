@@ -1,4 +1,4 @@
-export { docsUrl, updateGuideUrl } from "./docs";
+export { docsUrl, releaseNotesUrl, updateGuideUrl } from "./docs";
 export { GITHUB_REPO_URL } from "./links";
 export {
   getInternalServerUrl,

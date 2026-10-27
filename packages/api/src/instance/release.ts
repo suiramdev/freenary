@@ -3,7 +3,6 @@ import { Data, Effect, Option, Schedule, Schema } from "effect";
 export const RELEASES_URL =
   "https://api.github.com/repos/suiramdev/freenary/releases?per_page=100";
 
-const RELEASE_NOTES_URL = "https://github.com/suiramdev/freenary/releases/tag";
 const REQUEST_TIMEOUT_MS = 5000;
 const CHECK_INTERVAL = "24 hours";
 
@@ -19,14 +18,9 @@ export interface Version {
   readonly prerelease: string | undefined;
 }
 
-export interface AvailableUpdate {
-  readonly version: string;
-  readonly notesUrl: string;
-}
-
 export interface ReleaseStatus {
-  readonly version: string | null;
-  readonly update: AvailableUpdate | null;
+  readonly current: string | null;
+  readonly latest: string | null;
 }
 
 const GithubReleaseSchema = Schema.Struct({
@@ -167,9 +161,11 @@ export const createReleaseCheck = (options: ReleaseCheckOptions) => {
     ),
     Effect.asVoid,
     Effect.catchTag("ReleaseCheckFailed", (failure) =>
-      Effect.logWarning(
-        `The update check could not read the Freenary releases, and tries again in ${CHECK_INTERVAL}: ${failure.detail}`
-      )
+      Effect.sync(() => {
+        console.warn(
+          `[update-check] The Freenary releases could not be read, and the check runs again in ${CHECK_INTERVAL}: ${failure.detail}`
+        );
+      })
     )
   );
 
@@ -179,15 +175,6 @@ export const createReleaseCheck = (options: ReleaseCheckOptions) => {
     Option.exists(parseVersion(version), (release) =>
       isNewer(release, running.value)
     );
-
-  const update = (): AvailableUpdate | null =>
-    Option.match(newest.version.pipe(Option.filter(isAheadOfRunning)), {
-      onNone: () => null,
-      onSome: (version) => ({
-        notesUrl: `${RELEASE_NOTES_URL}/v${version}`,
-        version,
-      }),
-    });
 
   return {
     isActive,
@@ -200,8 +187,18 @@ export const createReleaseCheck = (options: ReleaseCheckOptions) => {
       }
     },
     status: (): ReleaseStatus => ({
-      update: update(),
-      version: options.version === "" ? null : options.version,
+      current: options.version === "" ? null : options.version,
+      latest: Option.getOrNull(
+        newest.version.pipe(Option.filter(isAheadOfRunning))
+      ),
     }),
   };
 };
+
+export const visibleTo = (
+  status: ReleaseStatus,
+  isOperator: boolean
+): ReleaseStatus => ({
+  current: status.current,
+  latest: isOperator ? status.latest : null,
+});

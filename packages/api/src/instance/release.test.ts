@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 
 import { Effect, Option } from "effect";
 
@@ -8,6 +8,7 @@ import {
   isNewer,
   newestStable,
   parseVersion,
+  visibleTo,
 } from "./release";
 
 const TOO_MANY_REQUESTS = 429;
@@ -86,18 +87,16 @@ describe("newestStable", () => {
 });
 
 describe("createReleaseCheck", () => {
-  test("offers a newer release with its notes", async () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
+  test("reports a newer release", async () => {
     const check = checkOn("1.2.0", answering([published("v1.3.0")]));
 
     await Effect.runPromise(check.refresh);
 
-    expect(check.status()).toEqual({
-      update: {
-        notesUrl: "https://github.com/suiramdev/freenary/releases/tag/v1.3.0",
-        version: "1.3.0",
-      },
-      version: "1.2.0",
-    });
+    expect(check.status()).toEqual({ current: "1.2.0", latest: "1.3.0" });
   });
 
   test("tells a prerelease about its release", async () => {
@@ -105,7 +104,7 @@ describe("createReleaseCheck", () => {
 
     await Effect.runPromise(check.refresh);
 
-    expect(check.status().update?.version).toBe("1.3.0");
+    expect(check.status().latest).toBe("1.3.0");
   });
 
   test("offers nothing when the instance runs the newest release", async () => {
@@ -113,7 +112,7 @@ describe("createReleaseCheck", () => {
 
     await Effect.runPromise(check.refresh);
 
-    expect(check.status().update).toBeNull();
+    expect(check.status().latest).toBeNull();
   });
 
   test("sends its version as the user agent and nothing else", async () => {
@@ -140,7 +139,7 @@ describe("createReleaseCheck", () => {
 
     expect(check.isActive).toBe(false);
     expect(fetchReleases).not.toHaveBeenCalled();
-    expect(check.status()).toEqual({ update: null, version: "1.2.0" });
+    expect(check.status()).toEqual({ current: "1.2.0", latest: null });
   });
 
   test("makes no request for a build that is not a release", async () => {
@@ -159,7 +158,7 @@ describe("createReleaseCheck", () => {
       false,
     ]);
 
-    expect(checks.map((check) => check.status().update)).toEqual([
+    expect(checks.map((check) => check.status().latest)).toEqual([
       null,
       null,
       null,
@@ -167,13 +166,17 @@ describe("createReleaseCheck", () => {
     ]);
   });
 
-  test("shows nothing after a refused or failed request", async () => {
+  test("shows nothing and warns once after a refused, timed-out or unreadable request", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     const failing: FetchReleases[] = [
       () =>
         Promise.resolve(
           new Response("rate limited", { status: TOO_MANY_REQUESTS })
         ),
-      () => Promise.reject(new Error("offline")),
+      () =>
+        Promise.reject(
+          new DOMException("The operation timed out.", "TimeoutError")
+        ),
       () => Promise.resolve(Response.json({ message: "not a list" })),
     ];
 
@@ -183,14 +186,18 @@ describe("createReleaseCheck", () => {
 
     await Promise.all(checks.map((check) => Effect.runPromise(check.refresh)));
 
-    expect(checks.map((check) => check.status().update)).toEqual([
+    expect(checks.map((check) => check.status().latest)).toEqual([
       null,
       null,
       null,
     ]);
+
+    expect(warn).toHaveBeenCalledTimes(failing.length);
   });
 
   test("keeps the last answer when a later request fails", async () => {
+    spyOn(console, "warn").mockImplementation(() => {});
+
     const answers: (() => Promise<Response>)[] = [
       () => Promise.resolve(Response.json([published("v1.3.0")])),
       () => Promise.reject(new Error("offline")),
@@ -204,6 +211,21 @@ describe("createReleaseCheck", () => {
     await Effect.runPromise(check.refresh);
     await Effect.runPromise(check.refresh);
 
-    expect(check.status().update?.version).toBe("1.3.0");
+    expect(check.status().latest).toBe("1.3.0");
+  });
+});
+
+describe("visibleTo", () => {
+  const status = { current: "1.2.0", latest: "1.3.0" };
+
+  test("shows the newer release to the operator", () => {
+    expect(visibleTo(status, true)).toEqual(status);
+  });
+
+  test("hides it from any other account", () => {
+    expect(visibleTo(status, false)).toEqual({
+      current: "1.2.0",
+      latest: null,
+    });
   });
 });
