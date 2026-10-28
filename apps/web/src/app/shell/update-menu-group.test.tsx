@@ -69,6 +69,9 @@ describe("update rows in the account menu", () => {
     } = await import("@freenary/ui/components/dropdown");
 
     const { MenuItem } = await import("@freenary/ui/components/menu-item");
+    const { RiExternalLinkLine } = await import("@remixicon/react");
+    const { remixIcon } = await import("@/shared/lib/remix-icon");
+    const External = remixIcon(RiExternalLinkLine);
 
     const view = render(
       <DropdownMenu defaultOpen>
@@ -76,7 +79,7 @@ describe("update rows in the account menu", () => {
         <DropdownContent>
           <DropdownGroup>
             <DropdownGroupLabel>Update available: v1.3.0</DropdownGroupLabel>
-            <MenuItem index={0} label="Release notes" />
+            <MenuItem index={0} label="Release notes" trailingIcon={External} />
             <MenuItem index={1} label="How to update" />
           </DropdownGroup>
         </DropdownContent>
@@ -88,6 +91,9 @@ describe("update rows in the account menu", () => {
     });
 
     expect(group.querySelectorAll('[role="menuitem"]')).toHaveLength(2);
+    expect(
+      group.querySelector('[role="menuitem"] [aria-hidden="true"] svg')
+    ).not.toBeNull();
 
     view.unmount();
   });

@@ -19,6 +19,7 @@ import {
   RiBookOpenLine,
   RiContrastLine,
   RiExpandUpDownLine,
+  RiExternalLinkLine,
   RiFileList3Line,
   RiGuideLine,
   RiLogoutBoxLine,
@@ -124,6 +125,7 @@ export const SidebarUserMenu = () => {
                     index={UPDATE_NOTES_ROW}
                     aria-label={`${m.account_menu_update_release_notes()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_release_notes()}
+                    trailingIcon={remixIcon(RiExternalLinkLine)}
                     onSelect={() => {
                       openInNewTab(releaseNotesUrl(update));
                     }}
@@ -133,6 +135,7 @@ export const SidebarUserMenu = () => {
                     index={UPDATE_GUIDE_ROW}
                     aria-label={`${m.account_menu_update_guide()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_guide()}
+                    trailingIcon={remixIcon(RiExternalLinkLine)}
                     onSelect={() => {
                       openInNewTab(updateGuideUrl(update));
                     }}
