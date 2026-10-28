@@ -2,6 +2,24 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { JSDOM } from "jsdom";
 
+const resizes = new Set<() => void>();
+
+class RecordingResizeObserver {
+  private readonly onResize: () => void;
+
+  constructor(onResize: () => void) {
+    this.onResize = onResize;
+  }
+
+  observe() {
+    resizes.add(this.onResize);
+  }
+
+  disconnect() {
+    resizes.delete(this.onResize);
+  }
+}
+
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
   url: "http://localhost/",
@@ -12,6 +30,7 @@ const BROWSER_GLOBALS = {
   HTMLElement: dom.window.HTMLElement,
   MutationObserver: dom.window.MutationObserver,
   Node: dom.window.Node,
+  ResizeObserver: RecordingResizeObserver,
   cancelAnimationFrame: dom.window.cancelAnimationFrame.bind(dom.window),
   document: dom.window.document,
   getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
@@ -141,12 +160,19 @@ describe("UpdateBanner", () => {
     const { fireEvent, render } = await import("@testing-library/react/pure");
     const { UpdateBanner } = await import("./update-banner");
     const view = render(
-      <main>
+      <div>
         <UpdateBanner latest="2.0.0" />
-        <header>
-          <button type="button">Toggle sidebar</button>
-        </header>
-      </main>
+        <div>
+          <nav>
+            <button type="button">Sidebar row</button>
+          </nav>
+          <main>
+            <header>
+              <button type="button">Toggle sidebar</button>
+            </header>
+          </main>
+        </div>
+      </div>
     );
 
     fireEvent.click(
@@ -154,6 +180,36 @@ describe("UpdateBanner", () => {
     );
 
     expect(document.activeElement?.textContent).toBe("Toggle sidebar");
+
+    view.unmount();
+  });
+
+  it("publishes its height for the shell, and clears it once dismissed", async () => {
+    localStorage.clear();
+
+    const { fireEvent } = await import("@testing-library/react/pure");
+    const view = await renderBanner("2.1.0");
+    const root = document.documentElement;
+    const revealWrapper = view.getByRole("region").parentElement?.parentElement;
+
+    expect(root.style.getPropertyValue("--update-banner-height")).toBe("0px");
+
+    Object.defineProperty(revealWrapper, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ height: 44 }),
+    });
+
+    for (const resize of resizes) {
+      resize();
+    }
+
+    expect(root.style.getPropertyValue("--update-banner-height")).toBe("44px");
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Dismiss the notice for v2.1.0" })
+    );
+
+    expect(root.style.getPropertyValue("--update-banner-height")).toBe("");
 
     view.unmount();
   });
