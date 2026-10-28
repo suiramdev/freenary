@@ -1,6 +1,6 @@
 import { Button } from "@freenary/ui/components/button";
 import { RiCloseLine, RiExternalLinkLine } from "@remixicon/react";
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { releaseNotesUrl, updateGuideUrl } from "@/shared/config";
@@ -24,44 +24,81 @@ const NewTabLink = ({ href, label }: { href: string; label: string }) => (
   </a>
 );
 
-export const UpdateBanner = ({ latest }: { latest: string | null }) => {
-  const headingId = useId();
-  const dismissed = useDismissedUpdate();
+const AFTER_THE_BANNER = "header button, header a";
 
-  if (!isBannerShown(latest, dismissed)) {
-    return null;
-  }
+const focusPastTheBanner = (banner: HTMLElement | null) => {
+  const next =
+    banner?.parentElement?.querySelector<HTMLElement>(AFTER_THE_BANNER);
+
+  next?.focus();
+};
+
+const useRevealed = (): boolean => {
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setRevealed(true);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return revealed;
+};
+
+const Banner = ({ latest }: { latest: string }) => {
+  const headingId = useId();
+  const reveal = useRef<HTMLDivElement>(null);
+  const revealed = useRevealed();
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="bg-muted text-foreground border-border flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b py-2 ps-4 pe-2 text-sm"
+    <div
+      className="grid shrink-0 grid-rows-[0fr] transition-[grid-template-rows] duration-150 ease-out data-[revealed]:grid-rows-[1fr] motion-reduce:transition-none"
+      data-revealed={revealed || undefined}
+      ref={reveal}
     >
-      <p className="font-medium" id={headingId}>
-        {m.update_banner_title({ version: latest })}
-      </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <NewTabLink
-          href={releaseNotesUrl(latest)}
-          label={m.account_menu_update_release_notes()}
-        />
-        <NewTabLink
-          href={updateGuideUrl(latest)}
-          label={m.account_menu_update_guide()}
-        />
+      <div className="min-h-0 overflow-hidden">
+        <section
+          aria-labelledby={headingId}
+          className="bg-muted text-foreground border-border flex flex-wrap items-center gap-x-4 gap-y-1 border-b py-2 ps-4 pe-2 text-sm"
+        >
+          <p className="font-medium" id={headingId}>
+            {m.update_banner_title({ version: latest })}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <NewTabLink
+              href={releaseNotesUrl(latest)}
+              label={m.account_menu_update_release_notes()}
+            />
+            <NewTabLink
+              href={updateGuideUrl(latest)}
+              label={m.account_menu_update_guide()}
+            />
+          </div>
+          <Button
+            aria-label={m.update_banner_dismiss({ version: latest })}
+            className="ms-auto"
+            onClick={() => {
+              focusPastTheBanner(reveal.current);
+              dismissUpdate(latest);
+            }}
+            size="icon-compact"
+            type="button"
+            variant="tertiary"
+          >
+            <RiCloseLine aria-hidden="true" />
+          </Button>
+        </section>
       </div>
-      <Button
-        aria-label={m.update_banner_dismiss({ version: latest })}
-        className="ms-auto"
-        onClick={() => {
-          dismissUpdate(latest);
-        }}
-        size="icon-compact"
-        type="button"
-        variant="tertiary"
-      >
-        <RiCloseLine aria-hidden="true" />
-      </Button>
-    </section>
+    </div>
   );
+};
+
+export const UpdateBanner = ({ latest }: { latest: string | null }) => {
+  const dismissed = useDismissedUpdate();
+
+  return isBannerShown(latest, dismissed) ? <Banner latest={latest} /> : null;
 };

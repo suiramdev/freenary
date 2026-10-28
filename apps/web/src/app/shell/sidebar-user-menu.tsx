@@ -122,6 +122,7 @@ export const SidebarUserMenu = () => {
                   <MenuItem
                     icon={remixIcon(RiFileList3Line)}
                     index={UPDATE_NOTES_ROW}
+                    aria-label={`${m.account_menu_update_release_notes()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_release_notes()}
                     onSelect={() => {
                       openInNewTab(releaseNotesUrl(update));
@@ -130,6 +131,7 @@ export const SidebarUserMenu = () => {
                   <MenuItem
                     icon={remixIcon(RiGuideLine)}
                     index={UPDATE_GUIDE_ROW}
+                    aria-label={`${m.account_menu_update_guide()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_guide()}
                     onSelect={() => {
                       openInNewTab(updateGuideUrl(update));

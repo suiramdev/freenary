@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { JSDOM } from "jsdom";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+  pretendToBeVisual: true,
   url: "http://localhost/",
 });
 
@@ -11,12 +12,21 @@ const BROWSER_GLOBALS = {
   HTMLElement: dom.window.HTMLElement,
   MutationObserver: dom.window.MutationObserver,
   Node: dom.window.Node,
+  cancelAnimationFrame: dom.window.cancelAnimationFrame.bind(dom.window),
   document: dom.window.document,
   getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
   localStorage: dom.window.localStorage,
   navigator: dom.window.navigator,
+  requestAnimationFrame: dom.window.requestAnimationFrame.bind(dom.window),
   window: dom.window,
 };
+
+const originals = new Map(
+  Object.keys(BROWSER_GLOBALS).map((name) => [
+    name,
+    Object.getOwnPropertyDescriptor(globalThis, name),
+  ])
+);
 
 beforeAll(() => {
   for (const [name, value] of Object.entries(BROWSER_GLOBALS)) {
@@ -25,10 +35,24 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  for (const name of Object.keys(BROWSER_GLOBALS)) {
-    Reflect.deleteProperty(globalThis, name);
+  for (const [name, original] of originals) {
+    if (original === undefined) {
+      Reflect.deleteProperty(globalThis, name);
+    } else {
+      Object.defineProperty(globalThis, name, original);
+    }
   }
 });
+
+const throwingStorage = {
+  clear: () => {},
+  getItem: () => {
+    throw new Error("blocked");
+  },
+  setItem: () => {
+    throw new Error("blocked");
+  },
+};
 
 const renderBanner = async (latest: string | null) => {
   const { render } = await import("@testing-library/react/pure");
@@ -110,5 +134,50 @@ describe("UpdateBanner", () => {
     ).toBeDefined();
 
     newer.unmount();
+  });
+
+  it("moves focus past the banner when it is dismissed", async () => {
+    localStorage.clear();
+    const { fireEvent, render } = await import("@testing-library/react/pure");
+    const { UpdateBanner } = await import("./update-banner");
+    const view = render(
+      <main>
+        <UpdateBanner latest="2.0.0" />
+        <header>
+          <button type="button">Toggle sidebar</button>
+        </header>
+      </main>
+    );
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Dismiss the notice for v2.0.0" })
+    );
+
+    expect(document.activeElement?.textContent).toBe("Toggle sidebar");
+
+    view.unmount();
+  });
+
+  it("still shows and dismisses when the browser blocks storage", async () => {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: throwingStorage,
+    });
+
+    const { fireEvent } = await import("@testing-library/react/pure");
+    const view = await renderBanner("3.0.0");
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Dismiss the notice for v3.0.0" })
+    );
+
+    expect(view.queryByRole("region")).toBeNull();
+
+    view.unmount();
+
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: dom.window.localStorage,
+    });
   });
 });
