@@ -7,7 +7,7 @@ import { Link } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
 import type { SettingsSection } from "@/shared/config";
-import { remixIcon } from "@/shared/lib/remix-icon";
+import { kubaiIcon } from "@/shared/lib/kubai-icon";
 
 import { SETTINGS_NAV_ITEMS } from "../model/settings-nav-items";
 
@@ -27,7 +27,7 @@ export const SettingsNav = ({ section }: SettingsNavProps) => (
       {SETTINGS_NAV_ITEMS.map((item) => (
         <SidebarMenuItem key={item.section}>
           <SidebarMenuButton
-            icon={remixIcon(item.icon)}
+            icon={kubaiIcon(item.icon, item.color)}
             isActive={item.section === section}
             render={<Link search={{ section: item.section }} to="/settings" />}
           >

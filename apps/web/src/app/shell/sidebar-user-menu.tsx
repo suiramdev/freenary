@@ -15,23 +15,24 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@freenary/ui/components/sidebar";
-import {
-  RiBookOpenLine,
-  RiContrastLine,
-  RiExpandUpDownLine,
-  RiExternalLinkLine,
-  RiFileList3Line,
-  RiGuideLine,
-  RiLogoutBoxLine,
-  RiTranslate2,
-} from "@remixicon/react";
+import { RiExpandUpDownLine } from "@remixicon/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import {
+  Appearance,
+  BookOpen,
+  ExternalLink,
+  FileText,
+  Languages,
+  LogOut,
+  Signpost,
+} from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
 import { authClient } from "@/shared/auth";
 import { docsUrl, releaseNotesUrl, updateGuideUrl } from "@/shared/config";
-import { remixIcon } from "@/shared/lib/remix-icon";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import { kubaiIcon } from "@/shared/lib/kubai-icon";
 import {
   LocaleMenuItems,
   localeCheckedIndex,
@@ -121,21 +122,21 @@ export const SidebarUserMenu = () => {
                     {m.account_menu_update_available({ version: update })}
                   </DropdownGroupLabel>
                   <MenuItem
-                    icon={remixIcon(RiFileList3Line)}
+                    icon={kubaiIcon(FileText, CHART_COLOR_VARS.blue)}
                     index={UPDATE_NOTES_ROW}
                     aria-label={`${m.account_menu_update_release_notes()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_release_notes()}
-                    trailingIcon={remixIcon(RiExternalLinkLine)}
+                    trailingIcon={kubaiIcon(ExternalLink)}
                     onSelect={() => {
                       openInNewTab(releaseNotesUrl(update));
                     }}
                   />
                   <MenuItem
-                    icon={remixIcon(RiGuideLine)}
+                    icon={kubaiIcon(Signpost, CHART_COLOR_VARS.orange)}
                     index={UPDATE_GUIDE_ROW}
                     aria-label={`${m.account_menu_update_guide()} ${m.update_banner_new_tab()}`}
                     label={m.account_menu_update_guide()}
-                    trailingIcon={remixIcon(RiExternalLinkLine)}
+                    trailingIcon={kubaiIcon(ExternalLink)}
                     onSelect={() => {
                       openInNewTab(updateGuideUrl(update));
                     }}
@@ -146,7 +147,7 @@ export const SidebarUserMenu = () => {
             )}
             <DropdownSubmenu>
               <MenuItem
-                icon={remixIcon(RiTranslate2)}
+                icon={kubaiIcon(Languages, CHART_COLOR_VARS.blue)}
                 index={LOCALE_ROW}
                 label={m.locale_switcher_label()}
                 submenu
@@ -163,7 +164,7 @@ export const SidebarUserMenu = () => {
             </DropdownSubmenu>
             <DropdownSubmenu>
               <MenuItem
-                icon={remixIcon(RiContrastLine)}
+                icon={kubaiIcon(Appearance, CHART_COLOR_VARS.purple)}
                 index={THEME_ROW}
                 label={m.theme_switcher_label()}
                 submenu
@@ -180,7 +181,7 @@ export const SidebarUserMenu = () => {
             </DropdownSubmenu>
             <DropdownSeparator />
             <MenuItem
-              icon={remixIcon(RiBookOpenLine)}
+              icon={kubaiIcon(BookOpen, CHART_COLOR_VARS.green)}
               index={DOCS_ROW}
               label={m.account_documentation()}
               onSelect={() => {
@@ -188,7 +189,7 @@ export const SidebarUserMenu = () => {
               }}
             />
             <MenuItem
-              icon={remixIcon(RiLogoutBoxLine)}
+              icon={kubaiIcon(LogOut, CHART_COLOR_VARS.red)}
               index={SIGN_OUT_ROW}
               label={m.account_sign_out()}
               onSelect={handleSignOut}

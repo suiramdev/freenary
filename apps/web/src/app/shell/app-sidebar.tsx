@@ -20,13 +20,13 @@ import {
   SidebarMenuSubItem,
 } from "@freenary/ui/components/sidebar";
 import { spring } from "@freenary/ui/lib/springs";
-import { RiArrowRightSLine } from "@remixicon/react";
 import { Link, useLocation } from "@tanstack/react-router";
+import { ChevronRight } from "kubai-icons-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
-import { remixIcon } from "@/shared/lib/remix-icon";
+import { kubaiIcon } from "@/shared/lib/kubai-icon";
 
 import { isNavArea, NAV_ITEMS } from "./nav-items";
 import type { NavAreaEntry } from "./nav-items";
@@ -62,7 +62,7 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => (
   <SidebarMenuItem>
     <SidebarMenuButton
       className={item.planned ? PLANNED_DIMMED_CLASS : undefined}
-      icon={remixIcon(item.icon)}
+      icon={kubaiIcon(item.icon, item.color)}
       isActive={isCurrent(pathname, item.to)}
       render={<Link to={item.to} />}
     >
@@ -94,7 +94,7 @@ const NavAreaDisclosure = ({
       render={<SidebarMenuItem />}
     >
       <SidebarMenuButton
-        icon={remixIcon(item.icon)}
+        icon={kubaiIcon(item.icon, item.color)}
         isActive={isAreaCurrent && !open}
         render={<CollapsibleTrigger />}
       >
@@ -106,7 +106,7 @@ const NavAreaDisclosure = ({
           initial={false}
           transition={spring.fast}
         >
-          <RiArrowRightSLine className="size-3.5" />
+          <ChevronRight className="size-3.5" />
         </motion.span>
       </SidebarMenuButton>
       <CollapsibleContent>
