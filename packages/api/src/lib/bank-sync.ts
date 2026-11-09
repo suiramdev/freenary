@@ -38,6 +38,9 @@ interface SyncWindow {
 
 export interface ConnectionSyncContext {
   connection: ConnectionWithAccounts;
+  deleteTransactions: (
+    where: Prisma.TransactionWhereInput
+  ) => Promise<{ count: number }>;
   provider: BankingProvider;
   reporter: SyncReporter;
   user: ProviderUserSession | null;
@@ -60,6 +63,9 @@ class BankSyncFailed extends Data.TaggedError("BankSyncFailed")<{
 const PROVIDER_SERVED_HISTORY_DAYS = 90;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const PENDING = "PDNG";
+const REJECTED = "RJCT";
 
 const failureLine = (failure: BankSyncFailed): string =>
   Match.value(failure.scope).pipe(
@@ -397,12 +403,22 @@ export const syncWindowStart = (
     : (connection.lastSyncedAt ?? fullWindowStart);
 };
 
-const syncWindow = (
-  connection: ConnectionWithAccounts,
+export const syncWindow = (
+  lastSyncedAt: Date | null,
   now: Date,
-  reReadFullWindow: boolean
+  reReadFullWindow: boolean,
+  oldestPending: Date | null
 ): SyncWindow => {
-  const start = syncWindowStart(connection, now, reReadFullWindow);
+  const fullWindowStart = new Date(
+    now.getTime() - PROVIDER_SERVED_HISTORY_DAYS * MS_PER_DAY
+  );
+
+  const lastSync = syncWindowStart({ lastSyncedAt }, now, reReadFullWindow);
+
+  const earliest =
+    oldestPending && oldestPending < lastSync ? oldestPending : lastSync;
+
+  const start = earliest < fullWindowStart ? fullWindowStart : earliest;
 
   return {
     dateFrom: start.toISOString().split("T")[0] ?? "",
@@ -410,8 +426,34 @@ const syncWindow = (
   };
 };
 
+export const staleTransactionsWhere = (
+  accountId: string,
+  dateFrom: string,
+  fetched: readonly ProviderTransaction[]
+): Prisma.TransactionWhereInput => ({
+  OR: [
+    { status: REJECTED },
+    {
+      date: { gte: new Date(dateFrom) },
+      providerTransactionId: {
+        notIn: fetched.map((tx) => tx.providerTransactionId),
+      },
+      status: PENDING,
+    },
+  ],
+  accountId,
+});
+
 const importAccount = async (context: AccountSyncContext): Promise<void> => {
-  const { account, connection, provider, reporter, user, window } = context;
+  const {
+    account,
+    connection,
+    deleteTransactions,
+    provider,
+    reporter,
+    user,
+    window,
+  } = context;
 
   const transactions = await provider.fetchTransactions({
     dateFrom: window.dateFrom,
@@ -421,11 +463,11 @@ const importAccount = async (context: AccountSyncContext): Promise<void> => {
     user,
   });
 
-  await upsertTransactionsInBatches(
-    account.id,
-    transactions,
-    connection,
-    reporter
+  const kept = transactions.filter((tx) => tx.status !== REJECTED);
+
+  await upsertTransactionsInBatches(account.id, kept, connection, reporter);
+  await deleteTransactions(
+    staleTransactionsWhere(account.id, window.dateFrom, kept)
   );
 
   const { fetchHoldings } = provider;
@@ -470,7 +512,21 @@ const connectionSteps = Effect.fnUntraced(function* connectionSteps(
 ) {
   const failed = connectionFailure(connection);
   const now = new Date();
-  const window = syncWindow(connection, now, reReadFullWindow);
+  const pending = yield* Effect.tryPromise({
+    catch: failed,
+    try: () =>
+      prisma.transaction.aggregate({
+        _min: { date: true },
+        where: { account: { connectionId: connection.id }, status: PENDING },
+      }),
+  });
+
+  const window = syncWindow(
+    connection.lastSyncedAt,
+    now,
+    reReadFullWindow,
+    pending._min.date
+  );
 
   const provider = yield* Effect.try({
     catch: failed,
@@ -485,7 +541,14 @@ const connectionSteps = Effect.fnUntraced(function* connectionSteps(
   yield* Effect.promise(() => reporter.accountsDiscovered(accounts.length));
 
   const accountFailures = yield* importAccountsInSeries(
-    { connection, provider, reporter, user, window },
+    {
+      connection,
+      deleteTransactions: (where) => prisma.transaction.deleteMany({ where }),
+      provider,
+      reporter,
+      user,
+      window,
+    },
     accounts
   );
 
