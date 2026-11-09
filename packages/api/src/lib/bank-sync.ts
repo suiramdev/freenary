@@ -389,20 +389,6 @@ const replaceHoldings = async (
   });
 };
 
-export const syncWindowStart = (
-  connection: Pick<ConnectionWithAccounts, "lastSyncedAt">,
-  now: Date,
-  reReadFullWindow: boolean
-): Date => {
-  const fullWindowStart = new Date(
-    now.getTime() - PROVIDER_SERVED_HISTORY_DAYS * MS_PER_DAY
-  );
-
-  return reReadFullWindow
-    ? fullWindowStart
-    : (connection.lastSyncedAt ?? fullWindowStart);
-};
-
 export const syncWindow = (
   lastSyncedAt: Date | null,
   now: Date,
@@ -413,7 +399,9 @@ export const syncWindow = (
     now.getTime() - PROVIDER_SERVED_HISTORY_DAYS * MS_PER_DAY
   );
 
-  const lastSync = syncWindowStart({ lastSyncedAt }, now, reReadFullWindow);
+  const lastSync = reReadFullWindow
+    ? fullWindowStart
+    : (lastSyncedAt ?? fullWindowStart);
 
   const earliest =
     oldestPending && oldestPending < lastSync ? oldestPending : lastSync;
@@ -424,6 +412,35 @@ export const syncWindow = (
     dateFrom: start.toISOString().split("T")[0] ?? "",
     dateTo: now.toISOString().split("T")[0] ?? "",
   };
+};
+
+export const earliestImportedDay = (
+  connections: { lastSyncedAt: Date | null }[],
+  force: boolean,
+  oldestPending: Date | null,
+  now: Date = new Date()
+): Date | null => {
+  const starts = connections.map((connection) =>
+    new Date(
+      syncWindow(connection.lastSyncedAt, now, force, oldestPending).dateFrom
+    ).getTime()
+  );
+
+  return starts.length === 0 ? null : new Date(Math.min(...starts));
+};
+
+export const oldestPendingDate = async (
+  connectionIds: readonly string[]
+): Promise<Date | null> => {
+  const pending = await prisma.transaction.aggregate({
+    _min: { date: true },
+    where: {
+      account: { connectionId: { in: [...connectionIds] } },
+      status: PENDING,
+    },
+  });
+
+  return pending._min.date;
 };
 
 export const staleTransactionsWhere = (
@@ -512,20 +529,16 @@ const connectionSteps = Effect.fnUntraced(function* connectionSteps(
 ) {
   const failed = connectionFailure(connection);
   const now = new Date();
-  const pending = yield* Effect.tryPromise({
+  const oldestPending = yield* Effect.tryPromise({
     catch: failed,
-    try: () =>
-      prisma.transaction.aggregate({
-        _min: { date: true },
-        where: { account: { connectionId: connection.id }, status: PENDING },
-      }),
+    try: () => oldestPendingDate([connection.id]),
   });
 
   const window = syncWindow(
     connection.lastSyncedAt,
     now,
     reReadFullWindow,
-    pending._min.date
+    oldestPending
   );
 
   const provider = yield* Effect.try({
