@@ -77,7 +77,7 @@ export const BrandAvatarPage = () => {
   const [cycling, setCycling] = React.useState(false);
   const [gridReplayNonce, setGridReplayNonce] = React.useState(0);
   const gridRef = React.useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(gridRef, { axis: "xy" });
+  const hover = useFluidHover(gridRef, { axis: "xy", nearest: true });
   const { setTheme, resolvedTheme } = useTheme();
 
   const reduced = React.useSyncExternalStore(

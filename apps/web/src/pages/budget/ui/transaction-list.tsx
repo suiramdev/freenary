@@ -1,10 +1,6 @@
 import type { TransactionFilter } from "@freenary/api/lib/transaction-filters";
-import {
-  TabItem,
-  TabPanel,
-  Tabs,
-  TabsList,
-} from "@freenary/ui/components/tabs";
+import { Tabs, TabsItem, TabsPanel } from "@freenary/ui/components/tabs";
+import { useId } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
@@ -17,6 +13,11 @@ import { FilterTokenSearch } from "./filter-token-search";
 import { ListFilterBar, ListSortToggle } from "./list-controls";
 import { SavedFiltersMenu } from "./saved-filters-menu";
 import { TransactionRows } from "./transaction-rows";
+
+const DIRECTIONS = [
+  "outgoing",
+  "incoming",
+] as const satisfies readonly TransactionDirection[];
 
 const SORT_OPTIONS = [
   { label: m.budget_sort_date, value: "date" },
@@ -80,10 +81,16 @@ export const TransactionList = ({
   range: TimeRange;
 }) => {
   const directionIntent = useHoverIntent(onDirectionIntent);
+  const tabsId = useId();
+  const selectedIndex = DIRECTIONS.indexOf(direction);
 
-  // SAFETY: TabItem values are constrained to the two directions
-  const handleDirectionChange = (value: string) =>
-    onDirectionChange(value as TransactionDirection);
+  const handleDirectionSelect = (index: number) => {
+    const next = DIRECTIONS[index];
+
+    if (next) {
+      onDirectionChange(next);
+    }
+  };
 
   const outgoingLabel = isError
     ? m.budget_tab_outgoing_unknown()
@@ -128,58 +135,47 @@ export const TransactionList = ({
         />
       </ListFilterBar>
 
-      <Tabs
-        value={direction}
-        onValueChange={handleDirectionChange}
-        className="flex flex-1 flex-col"
-      >
-        <TabsList>
-          <TabItem
-            label={outgoingLabel}
-            value="outgoing"
-            {...(direction === "outgoing"
-              ? undefined
-              : directionIntent("outgoing"))}
-          />
-          <TabItem
-            label={incomingLabel}
-            value="incoming"
-            {...(direction === "incoming"
-              ? undefined
-              : directionIntent("incoming"))}
-          />
-        </TabsList>
-        <TabPanel value="outgoing" className="flex flex-1 flex-col">
-          <TransactionRows
-            transactions={transactions}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            isLoading={isLoading}
-            isError={isError}
-            isRetrying={isRetrying}
-            onRetry={onRetry}
-            isIncoming={false}
-            isStale={isStale}
-            onTransactionClick={onTransactionClick}
-            range={range}
-          />
-        </TabPanel>
-        <TabPanel value="incoming" className="flex flex-1 flex-col">
-          <TransactionRows
-            transactions={transactions}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            isLoading={isLoading}
-            isError={isError}
-            isRetrying={isRetrying}
-            onRetry={onRetry}
-            isIncoming={true}
-            isStale={isStale}
-            onTransactionClick={onTransactionClick}
-            range={range}
-          />
-        </TabPanel>
-      </Tabs>
+      <div className="flex flex-1 flex-col">
+        <Tabs
+          idPrefix={tabsId}
+          onSelect={handleDirectionSelect}
+          selectedIndex={selectedIndex}
+        >
+          {DIRECTIONS.map((candidate, index) => (
+            <TabsItem
+              index={index}
+              key={candidate}
+              label={candidate === "incoming" ? incomingLabel : outgoingLabel}
+              {...(direction === candidate
+                ? undefined
+                : directionIntent(candidate))}
+            />
+          ))}
+        </Tabs>
+        {DIRECTIONS.map((candidate, index) => (
+          <TabsPanel
+            className="flex flex-1 flex-col"
+            idPrefix={tabsId}
+            index={index}
+            key={candidate}
+            selectedIndex={selectedIndex}
+          >
+            <TransactionRows
+              transactions={transactions}
+              hasMore={hasMore}
+              onLoadMore={onLoadMore}
+              isLoading={isLoading}
+              isError={isError}
+              isRetrying={isRetrying}
+              onRetry={onRetry}
+              isIncoming={candidate === "incoming"}
+              isStale={isStale}
+              onTransactionClick={onTransactionClick}
+              range={range}
+            />
+          </TabsPanel>
+        ))}
+      </div>
     </div>
   );
 };

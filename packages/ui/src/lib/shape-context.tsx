@@ -78,6 +78,13 @@ function useShape(): ShapeClasses {
   return ctx.classes;
 }
 
+// Popup surfaces (menus, select and combobox lists, date picker popups) cap
+// at rounded: pill corners distort their padding at this scale and skew the
+// corner shadows.
+function usePopupShape(): ShapeClasses {
+  return shapeMap.rounded;
+}
+
 function useShapeContext() {
   const ctx = useContext(ShapeContext);
   if (!ctx)
@@ -141,5 +148,5 @@ function ShapeProvider({
   );
 }
 
-export { ShapeProvider, useShape, useShapeContext, shapeMap };
+export { ShapeProvider, useShape, usePopupShape, useShapeContext, shapeMap };
 export type { ShapeVariant, ShapeClasses };

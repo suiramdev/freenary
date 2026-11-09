@@ -58,7 +58,7 @@ export const TransactionRows = ({
 }) => {
   "use no memo";
   const parentRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(parentRef, { gapClick: false });
+  const hover = useFluidHover(parentRef, { gapClick: false, nearest: true });
   const { handlers, registerItem, remeasure } = hover;
 
   const locale = getLocale();

@@ -186,7 +186,7 @@ function useMenuScope(
     setActiveIndex,
     itemRects,
     isMeasured,
-    sessionRef,
+    session,
     handlers,
     registerItem,
   } = useFluidHover(containerRef, { isItemDisabled: rowSkipped });
@@ -527,7 +527,7 @@ function useMenuScope(
           travel) when only a reflow moved the rows underneath. */}
       <FluidHoverHighlight
         rect={hoverRect}
-        session={sessionRef.current}
+        session={session}
         from={hoverAnchorRect}
         className={shape.bg}
         transition={hoverRowChanged ? undefined : false}

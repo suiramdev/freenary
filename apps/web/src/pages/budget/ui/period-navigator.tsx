@@ -125,6 +125,7 @@ const PeriodYearPicker = ({
   const hover = useFluidHover(gridRef, {
     axis: "xy",
     isItemDisabled: (element) => element.matches(":disabled"),
+    nearest: true,
   });
 
   return (

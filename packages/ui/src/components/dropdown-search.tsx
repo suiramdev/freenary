@@ -1,6 +1,6 @@
 "use client";
 
-import { useIcon } from "@freenary/ui/lib/icon-context";
+import { useIcons } from "@freenary/ui/lib/icon-context";
 import { useSize } from "@freenary/ui/lib/size-context";
 import { SURFACE_BG } from "@freenary/ui/lib/surface-classes";
 import { useSurface } from "@freenary/ui/lib/surface-context";
@@ -11,13 +11,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
-  type RefObject,
 } from "react";
 
 // ---------------------------------------------------------------------------
@@ -35,14 +35,21 @@ import {
 //      hosts a capture-phase keydown handler (useDropdownSearchHost) that
 //      refocuses the input and appends the character.
 //
-// Arrow keys leave the field for the list (first / last row), Enter picks
-// the first row, Escape closes the menu as usual. While the field has focus
-// the first row carries the hover background, so what Enter will pick is
-// always in view; it follows the query as the rows re-filter.
+// Arrow keys leave the field for the list (first / last row) and arrowing
+// off either end of the list comes back to it, so the field is one stop in
+// the ring of rows. While the field has focus no row is highlighted: the
+// field is the active stop, like a row, it just draws no background of its
+// own. So Enter in the field picks nothing (only a row you arrowed onto
+// activates), and Escape closes the menu as usual.
 // ---------------------------------------------------------------------------
+
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface SearchHandle {
   input: HTMLInputElement | null;
+  /** Whether the field takes focus when the popup opens. */
+  autoFocus: boolean;
   append: (text: string) => void;
   deleteBackward: () => void;
 }
@@ -52,8 +59,6 @@ interface DropdownSearchHostValue {
   /** Whether the popup is open. Popups stay mounted through their exit
    *  animation, so the field watches this rather than its own mount. */
   open: boolean;
-  /** Move the hover background to the first enabled row (what Enter picks). */
-  highlightFirst: () => void;
 }
 
 export const DropdownSearchHostContext =
@@ -65,6 +70,16 @@ const ROW_SELECTOR = [
   '[role="menuitemcheckbox"]:not([aria-disabled="true"])',
 ].join(", ");
 
+const ANY_ROW =
+  '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+
+/** Whether `a` comes before `b` in the document. */
+function precedes(a: Node, b: Node) {
+  return (
+    (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  );
+}
+
 function menuRows(from: HTMLElement | null): HTMLElement[] {
   const menu = from?.closest<HTMLElement>('[role="menu"]');
   return menu
@@ -72,25 +87,42 @@ function menuRows(from: HTMLElement | null): HTMLElement[] {
     : [];
 }
 
-interface DropdownSearchHostOptions {
-  /** The rows' container: where the first enabled row is looked up. */
-  containerRef: RefObject<HTMLElement | null>;
-  /** The popup's fluid-hover setter, for the first-row highlight. */
-  setActiveIndex: (index: number | null) => void;
+/** The box the rows sit in: the search field's parent, skipping
+ *  display:contents wrappers (the menu's radio group) that have no box. */
+function rowsBox(from: HTMLElement | null): HTMLElement | null {
+  let el = from?.closest<HTMLElement>(".group\\/search")?.parentElement ?? null;
+  while (el && getComputedStyle(el).display === "contents")
+    el = el.parentElement;
+  return el;
+}
+
+/** Scroll the menu's scrolling list back to its top. The walk stops at the
+ *  menu, so a list that fits never scrolls the page. */
+function scrollToTop(row: HTMLElement) {
+  const menu = row.closest<HTMLElement>('[role="menu"]');
+  for (
+    let el = row.parentElement;
+    el && menu?.contains(el);
+    el = el.parentElement
+  ) {
+    const { overflowY } = getComputedStyle(el);
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      el.scrollHeight > el.clientHeight
+    ) {
+      el.scrollTop = 0;
+      return;
+    }
+  }
 }
 
 /**
  * Hosts a DropdownSearch inside a popup. Returns the context value to
- * provide, a capture-phase keydown handler for the popup element,
+ * provide, a capture-phase keydown handler for the popup element, and
  * `hasSearch()` / `searchMounted` for decisions that depend on a field
- * being present, and the first-row highlight the field keeps while it has
- * focus (`isSearchField` / `highlightFirst`, for the popup's focus and
- * mouse-leave handlers).
+ * being present.
  */
-export function useDropdownSearchHost(
-  open: boolean,
-  { containerRef, setActiveIndex }: DropdownSearchHostOptions
-) {
+export function useDropdownSearchHost(open: boolean) {
   const handleRef = useRef<SearchHandle | null>(null);
   // Reactive twin of the ref, for render-time decisions (the popup drops its
   // scroll fade while a field is pinned at the top).
@@ -107,37 +139,41 @@ export function useDropdownSearchHost(
     };
   }, []);
 
-  // The row Enter will pick carries the hover background while the field
-  // has focus. Rows re-index from 0 on every filter, so this is looked up
-  // in the DOM each time rather than remembered.
-  const highlightFirst = useCallback(() => {
-    const first =
-      containerRef.current?.querySelector<HTMLElement>(ROW_SELECTOR);
-    const index = first?.getAttribute("data-fluid-hover-index");
-    setActiveIndex(index != null ? Number(index) : null);
-  }, [containerRef, setActiveIndex]);
-
-  /** Whether `target` is the mounted search field. */
-  const isSearchField = useCallback(
-    (target: EventTarget | null) =>
-      target !== null && target === handleRef.current?.input,
-    []
-  );
-
-  const host = useMemo(
-    () => ({ register, open, highlightFirst }),
-    [register, open, highlightFirst]
-  );
+  const host = useMemo(() => ({ register, open }), [register, open]);
 
   // Typing on a focused row: redirect the character (or Backspace) into the
-  // field. Space is left alone — on a row it activates the item, which is
-  // what a menu user expects once they have arrowed down.
+  // field. Space is left alone: on a row it activates the item, which is
+  // what a menu user expects once they have arrowed down. Arrowing off the
+  // first or last row returns to the field instead of stopping (Radix) or
+  // wrapping past it (Base UI), mirroring the field's own ↓ / ↑.
   const onKeyDownCapture = useCallback((e: ReactKeyboardEvent<HTMLElement>) => {
     const handle = handleRef.current;
     if (!handle?.input) return;
     if (e.target === handle.input) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key.length === 1 && e.key !== " ") {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (!target?.matches(ANY_ROW)) return;
+      const up = e.key === "ArrowUp";
+      const rows = menuRows(target);
+      const edge = up ? rows[0] : rows[rows.length - 1];
+      // At or past the first / last enabled row. Base UI lets arrows land on
+      // a disabled row (Radix skips them), so a disabled row beyond the edge
+      // leads back to the field too.
+      const pastEdge =
+        !edge ||
+        edge === target ||
+        (up ? precedes(target, edge) : precedes(edge, target));
+      if (pastEdge) {
+        e.preventDefault();
+        e.stopPropagation();
+        handle.input.focus();
+        // The field sits before the first row, so coming back to it from the
+        // bottom of a long list returns the list to its top, where the next
+        // ↓ lands.
+        scrollToTop(target);
+      }
+    } else if (e.key.length === 1 && e.key !== " ") {
       e.preventDefault();
       e.stopPropagation();
       handle.input.focus();
@@ -153,13 +189,19 @@ export function useDropdownSearchHost(
   /** Whether a search field is mounted in the popup right now. */
   const hasSearch = useCallback(() => handleRef.current !== null, []);
 
+  /** Whether a mounted field takes focus when the popup opens, a frame after
+   *  the primitive's own open autofocus. */
+  const searchTakesFocus = useCallback(
+    () => handleRef.current?.autoFocus ?? false,
+    []
+  );
+
   return {
     host,
     hasSearch,
+    searchTakesFocus,
     searchMounted,
     onKeyDownCapture,
-    isSearchField,
-    highlightFirst,
   };
 }
 
@@ -196,7 +238,8 @@ const DropdownSearch = forwardRef<HTMLInputElement, DropdownSearchProps>(
     },
     ref
   ) => {
-    const SearchIcon = useIcon("search");
+    const icons = useIcons();
+    const SearchIcon = icons.search;
     const sizeClasses = useSize();
     const compact = sizeClasses.variant === "compact";
     const host = useContext(DropdownSearchHostContext);
@@ -209,19 +252,50 @@ const DropdownSearch = forwardRef<HTMLInputElement, DropdownSearchProps>(
     const inputRef = useRef<HTMLInputElement | null>(null);
 
     // Latest value / callback for the imperative handle and the unmount
-    // cleanup, without re-registering on every keystroke.
+    // cleanup, without re-registering on every keystroke. Refreshed after
+    // each commit, before any effect or handler reads them.
     const valueRef = useRef(value);
-    valueRef.current = value;
     const onValueChangeRef = useRef(onValueChange);
-    onValueChangeRef.current = onValueChange;
     const clearOnCloseRef = useRef(clearOnClose);
-    clearOnCloseRef.current = clearOnClose;
+    const autoFocusRef = useRef(autoFocus);
+    useIsoLayoutEffect(() => {
+      valueRef.current = value;
+      onValueChangeRef.current = onValueChange;
+      clearOnCloseRef.current = clearOnClose;
+      autoFocusRef.current = autoFocus;
+    });
+
+    // No results keeps the height the last results showed (what was on
+    // screen of it, not what scrolled), so DropdownEmpty sits where the rows
+    // were and the menu doesn't jump on each keystroke into and out of an
+    // empty query. Runs after every commit: the query and the rows it
+    // filters change together.
+    const shownHeightRef = useRef(0);
+    useIsoLayoutEffect(() => {
+      const list = rowsBox(inputRef.current);
+      if (!list) return;
+      if (menuRows(inputRef.current).length > 0) {
+        list.style.minHeight = "";
+        const viewport = list.closest<HTMLElement>(
+          '[data-slot="scroll-area-viewport"]'
+        );
+        shownHeightRef.current = Math.min(
+          list.offsetHeight,
+          viewport?.clientHeight ?? Infinity
+        );
+      } else if (shownHeightRef.current) {
+        list.style.minHeight = `${shownHeightRef.current}px`;
+      }
+    });
 
     useEffect(() => {
       if (!host) return;
       return host.register({
         get input() {
           return inputRef.current;
+        },
+        get autoFocus() {
+          return autoFocusRef.current;
         },
         append: (text) => onValueChangeRef.current(valueRef.current + text),
         deleteBackward: () =>
@@ -250,15 +324,6 @@ const DropdownSearch = forwardRef<HTMLInputElement, DropdownSearchProps>(
       };
     }, [open, autoFocus]);
 
-    // The rows re-filter in the same commit as the query, so after it the
-    // first enabled row is whatever Enter would pick now: highlight it while
-    // the field has focus. (Focus arriving at the field is the popup's
-    // onFocus; this covers the query moving under a focused field.)
-    useEffect(() => {
-      if (!host || document.activeElement !== inputRef.current) return;
-      host.highlightFirst();
-    }, [host, value]);
-
     // Unmount (the popup finished closing): reset the query so the next
     // open shows the full list.
     useEffect(
@@ -284,8 +349,9 @@ const DropdownSearch = forwardRef<HTMLInputElement, DropdownSearchProps>(
         e.preventDefault();
         (e.key === "ArrowDown" ? rows[0] : rows[rows.length - 1]).focus();
       } else if (e.key === "Enter") {
+        // No row has focus, so there is nothing to pick. preventDefault
+        // keeps a surrounding form from submitting.
         e.preventDefault();
-        menuRows(e.currentTarget)[0]?.click();
       }
     };
 
@@ -359,7 +425,8 @@ const DropdownEmpty = forwardRef<
       role="status"
       aria-live="polite"
       className={cn(
-        "text-muted-foreground px-2 py-6 text-center",
+        // my-auto centers the message in the height the rows left.
+        "text-muted-foreground my-auto px-2 py-6 text-center",
         sizeClasses.text,
         className
       )}

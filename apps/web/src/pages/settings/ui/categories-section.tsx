@@ -188,7 +188,11 @@ export const CategoriesSection = ({
   const PlusIcon = useIcon("plus");
   const shape = useShape();
   const { control } = useSize(LIST_SIZE);
-  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
+  const hover = useFluidHover(listRef, {
+    axis: "y",
+    gapClick: false,
+    nearest: true,
+  });
 
   const remeasureAfterTheHeightSettles = (
     event: TransitionEvent<HTMLElement>
