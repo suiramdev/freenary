@@ -29,7 +29,7 @@ import {
  *  measured rects, whether they are current, and the pointer session. */
 export type FluidHoverSource = Pick<
   UseFluidHoverReturn,
-  "activeIndex" | "itemRects" | "isMeasured" | "sessionRef"
+  "activeIndex" | "itemRects" | "isMeasured" | "session"
 >;
 
 interface HighlightFromHook {
@@ -48,9 +48,9 @@ interface HighlightFromRect {
    *  the rect to sit on, in the container's coordinate space. `null` hides
    *  the highlight (it fades out on `spring.fast.exit`). */
   rect: ItemRect | null;
-  /** `sessionRef.current` from `useFluidHover`. It increments when the
-   *  cursor enters the container, which re-keys the highlight so it fades in
-   *  at `from ?? rect` instead of sliding over from wherever it was last. */
+  /** `session` from `useFluidHover`. It steps when the cursor enters the
+   *  container, which re-keys the highlight so it fades in at `from ?? rect`
+   *  instead of sliding over from wherever it was last. */
   session: number;
   hover?: never;
   hidden?: never;
@@ -63,6 +63,10 @@ export type FluidHoverHighlightProps = (
   /** Where a fresh session fades in from. A dropdown passes its checked row,
    *  a nav menu its active route. Defaults to the rect itself. */
   from?: ItemRect | null;
+  /** `false` starts a fresh session opaque instead of fading in: for a
+   *  `from` under a filled item (the calendar's range start), so the
+   *  highlight reads as sliding out of it. */
+  fadeIn?: boolean;
   /** Radius, z-index, anything else. Merged onto
    *  `absolute bg-hover pointer-events-none`. */
   className?: string;
@@ -101,18 +105,18 @@ export function resolveHighlightSource(props: FluidHoverHighlightProps): {
   session: number;
 } {
   if (props.hover) {
-    const { activeIndex, itemRects, isMeasured, sessionRef } = props.hover;
+    const { activeIndex, itemRects, isMeasured, session } = props.hover;
     const rect =
       !props.hidden && isMeasured && activeIndex !== null
         ? (itemRects[activeIndex] ?? null)
         : null;
-    return { rect, session: sessionRef.current };
+    return { rect, session };
   }
   return { rect: props.rect, session: props.session };
 }
 
 export function FluidHoverHighlight(props: FluidHoverHighlightProps) {
-  const { from, className, transition } = props;
+  const { from, fadeIn = true, className, transition } = props;
   const { rect, session } = resolveHighlightSource(props);
   // Reads the OS media query directly, so an installed copy honours reduced
   // motion without the app wrapping its tree in MotionConfig. A wrapped app
@@ -134,7 +138,7 @@ export function FluidHoverHighlight(props: FluidHoverHighlightProps) {
             "bg-hover pointer-events-none absolute top-0 left-0",
             className
           )}
-          initial={{ opacity: 0, ...toTarget(from ?? rect) }}
+          initial={{ opacity: fadeIn ? 0 : 1, ...toTarget(from ?? rect) }}
           animate={{ opacity: 1, ...toTarget(rect) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
           transition={resolveHighlightTransition(transition, reduceMotion)}

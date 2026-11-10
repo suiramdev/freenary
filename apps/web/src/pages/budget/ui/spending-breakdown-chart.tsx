@@ -191,7 +191,7 @@ export const SpendingBreakdownChart = ({
   const config = buildConfigKeyedByCategorySlug(slices);
 
   const legendRef = useRef<HTMLUListElement>(null);
-  const legendHover = useFluidHover(legendRef, { axis: "xy" });
+  const legendHover = useFluidHover(legendRef, { axis: "xy", nearest: true });
 
   const total = categories.reduce((sum, entry) => sum + entry.amount, 0);
   const isSelected = (slice: BreakdownSlice) =>

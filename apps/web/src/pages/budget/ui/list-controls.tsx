@@ -115,7 +115,7 @@ export const ListFilterChips = ({
   children: (position: (index: number) => ChipPosition) => ReactNode;
 }) => {
   const stripRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(stripRef, { axis: "x" });
+  const hover = useFluidHover(stripRef, { axis: "x", nearest: true });
 
   return (
     <div

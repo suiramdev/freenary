@@ -138,7 +138,7 @@ export const BudgetVsActualChart = ({
   onSelect,
 }: BudgetVsActualChartProps) => {
   const listRef = useRef<HTMLUListElement>(null);
-  const hover = useFluidHover(listRef);
+  const hover = useFluidHover(listRef, { nearest: true });
 
   if (!hasPlan) {
     return (

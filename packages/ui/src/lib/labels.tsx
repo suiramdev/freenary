@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
  * once with `UiLabelsProvider` instead of threading a prop through every call.
  */
 export interface UiLabels {
+  /** Suffix a calendar adds to a booked day's accessible name. */
+  booked: string;
   /** Accessible name of a breadcrumb trail's nav landmark. */
   breadcrumb: string;
   /** Clear control of a combobox field. */
@@ -16,8 +18,19 @@ export interface UiLabels {
   close: string;
   /** Sidebar trigger's tooltip while the sidebar is open. */
   collapseSidebar: string;
-  /** Dismiss control of a card. */
+  /** Dismiss control of a card or a banner. */
   dismiss: string;
+  /** Date picker placeholders: one day, and a range. */
+  pickDate: string;
+  pickDates: string;
+  /** Date picker time fields: the placeholders, then the accessible names. */
+  time: string;
+  start: string;
+  end: string;
+  startTime: string;
+  endTime: string;
+  /** Accessible name of a date picker's preset list. */
+  presets: string;
   /** Sidebar trigger's tooltip while the sidebar is collapsed. */
   expandSidebar: string;
   /** Accessible name of a command menu's tab strip. */
@@ -28,6 +41,9 @@ export interface UiLabels {
   loadingPreview: string;
   /** Collapsed overflow of a breadcrumb trail. */
   more: string;
+  /** Calendar navigation tooltips. */
+  nextMonth: string;
+  previousMonth: string;
   /** Control that opens a combobox popup. */
   open: string;
   /** Edge strip that floats a collapsed sidebar out without pinning it. */
@@ -59,18 +75,26 @@ export interface UiLabels {
 }
 
 const DEFAULT_UI_LABELS: UiLabels = {
+  booked: "booked",
   breadcrumb: "Breadcrumb",
   clear: "Clear",
   close: "Close",
   collapseSidebar: "Collapse sidebar",
   dismiss: "Dismiss",
+  end: "End",
+  endTime: "End time",
   expandSidebar: "Expand sidebar",
   filterResults: "Filter results",
   loading: "Loading",
   loadingPreview: "Loading preview",
   more: "More",
+  nextMonth: "Next month",
   open: "Open",
   peekSidebar: "Peek sidebar",
+  pickDate: "Pick a date",
+  pickDates: "Pick dates",
+  presets: "Presets",
+  previousMonth: "Previous month",
   railClick: "Click",
   railClickHint: "to collapse",
   railDrag: "Drag",
@@ -80,10 +104,13 @@ const DEFAULT_UI_LABELS: UiLabels = {
   run: "Run",
   select: "Select",
   sidebar: "Sidebar",
+  start: "Start",
+  startTime: "Start time",
   suggestedPrompts: "Suggested prompts",
   tabs: "Tabs",
   thinking: "Thinking…",
   thinkingWords: ["Thinking", "Planning", "Refining"],
+  time: "Time",
   toggleSidebar: "Toggle Sidebar",
 };
 

@@ -70,7 +70,11 @@ export const BankList = ({
   unavailableCountries,
 }: BankListProps) => {
   const listRef = useRef<HTMLDivElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
+  const hover = useFluidHover(listRef, {
+    axis: "y",
+    gapClick: false,
+    nearest: true,
+  });
 
   if (isPending) {
     return (

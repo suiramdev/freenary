@@ -178,7 +178,11 @@ export const SecurityAccountsSection = ({
     useLinkedAccountActions();
 
   const listRef = useRef<HTMLUListElement>(null);
-  const hover = useFluidHover(listRef, { axis: "y", gapClick: false });
+  const hover = useFluidHover(listRef, {
+    axis: "y",
+    gapClick: false,
+    nearest: true,
+  });
 
   const locale = getLocale();
   const formatter = useMemo(
