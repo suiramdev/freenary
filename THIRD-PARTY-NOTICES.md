@@ -62,20 +62,21 @@ SOFTWARE.
 
 The published `ghcr.io/suiramdev/freenary-server` and `ghcr.io/suiramdev/freenary-web` images carry the **whole** install tree, not a production subset: both Dockerfiles run `bun install` with no production flag and then copy `/app` wholesale into the runner stage (`apps/web/Dockerfile:6-7,24`, `apps/server/Dockerfile:8-9,26`). Build tooling and developer tooling therefore travel with the image.
 
-Each of those packages stays under its own license. The AGPL covers Freenary's own source; shipping separately licensed packages beside it on one image is aggregation, and every license below permits that. A census of the locked tree counts 1025 distinct packages:
+Each of those packages stays under its own license. The AGPL covers Freenary's own source; shipping separately licensed packages beside it on one image is aggregation, and every license below permits that. A census of the locked tree counts 1125 distinct packages:
 
 | License | Count | Notes |
 | --- | --- | --- |
-| MIT | 877 | React, TanStack, Better Auth, Base UI, Hono, date-fns and most of the rest |
-| Apache-2.0 | 51 | Prisma and its engines, and others |
-| ISC | 49 | Build and runtime utilities |
-| BSD-3-Clause, BSD-2-Clause, 0BSD | 23 | Build and runtime utilities |
+| MIT | 950 | React, TanStack, Better Auth, Base UI, Hono, date-fns and most of the rest |
+| Apache-2.0 | 64 | Prisma and its engines, and others |
+| ISC | 55 | Build and runtime utilities |
+| BSD-3-Clause, BSD-2-Clause, 0BSD | 30 | Build and runtime utilities |
 | Unlicense, MIT-0, CC0-1.0, `MIT OR CC0-1.0` | 8 | Public-domain-equivalent utilities |
 | MPL-2.0 | 4 | `lightningcss` and its platform binaries, build only |
 | BlueOak-1.0.0 | 3 | `npm` ecosystem utilities |
 | `MIT AND ISC` | 2 | `victory-vendor` and `@visx/vendor`, bundled d3 forks under Recharts |
 | `AFL-2.1 OR BSD-3-Clause` | 1 | `json-schema`, through the AI SDK; Freenary takes it under BSD-3-Clause |
 | CC-BY-4.0 | 1 | `caniuse-lite`, the browser-support data behind `browserslist`, build only |
+| WTFPL | 1 | `prexit`, through `steiger`, the architecture linter, developer tooling only |
 | Python-2.0 | 1 | `argparse`, through `js-yaml`, through the `shadcn` CLI |
 | EPL-2.0 | 1 | `elkjs`, a graph-layout library inside `@prisma/studio-core`, reached from the `prisma` CLI |
 | Remix Icon License 1.0 (Apache-2.0) | 1 | `@remixicon/react` |

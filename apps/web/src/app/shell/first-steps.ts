@@ -1,12 +1,10 @@
-import {
-  RiBankLine,
-  RiMoneyDollarCircleLine,
-  RiShieldKeyholeLine,
-} from "@remixicon/react";
-import type { RemixiconComponentType } from "@remixicon/react";
+import { CurrencyDollar, Link, ShieldLock } from "kubai-icons-react";
+import type { KubaiIconComponent } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
 import type { SettingsSection } from "@/shared/config";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import type { ChartColorVar } from "@/shared/lib/chart-colors";
 
 export interface FirstStepsState {
   hasAccountProtection: boolean;
@@ -15,7 +13,8 @@ export interface FirstStepsState {
 }
 
 interface FirstStep {
-  icon: RemixiconComponentType;
+  color: ChartColorVar;
+  icon: KubaiIconComponent;
   id: string;
   isDone: (state: FirstStepsState) => boolean;
   label: () => string;
@@ -25,7 +24,8 @@ interface FirstStep {
 
 export const FIRST_STEPS = [
   {
-    icon: RiBankLine,
+    color: CHART_COLOR_VARS.blue,
+    icon: Link,
     id: "bank-connection",
     isDone: (state) => state.hasBankConnection,
     label: m.first_steps_connect_bank,
@@ -33,7 +33,8 @@ export const FIRST_STEPS = [
     to: "/settings",
   },
   {
-    icon: RiMoneyDollarCircleLine,
+    color: CHART_COLOR_VARS.green,
+    icon: CurrencyDollar,
     id: "budgeting-profile",
     isDone: (state) => state.hasBudgetLine,
     label: m.first_steps_budgeting_profile,
@@ -41,7 +42,8 @@ export const FIRST_STEPS = [
     to: "/settings",
   },
   {
-    icon: RiShieldKeyholeLine,
+    color: CHART_COLOR_VARS.purple,
+    icon: ShieldLock,
     id: "account-protection",
     isDone: (state) => state.hasAccountProtection,
     label: m.first_steps_protect_account,

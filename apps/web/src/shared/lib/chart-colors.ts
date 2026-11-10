@@ -8,4 +8,7 @@ export const CHART_COLOR_VARS = {
   pink: "var(--chart-pink)",
   purple: "var(--chart-purple)",
   red: "var(--chart-red)",
-} satisfies Record<CategoryColor, string>;
+} as const satisfies Record<CategoryColor, string>;
+
+export type ChartColorVar =
+  (typeof CHART_COLOR_VARS)[keyof typeof CHART_COLOR_VARS];

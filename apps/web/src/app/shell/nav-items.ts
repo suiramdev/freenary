@@ -10,6 +10,7 @@ import type { KubaiIconComponent } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import type { ChartColorVar } from "@/shared/lib/chart-colors";
 
 interface NavChild {
   label: () => string;
@@ -19,7 +20,7 @@ interface NavChild {
 
 interface NavItem extends NavChild {
   children?: readonly NavChild[];
-  color: string;
+  color: ChartColorVar;
   icon: KubaiIconComponent;
   planned: boolean;
 }

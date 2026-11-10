@@ -77,8 +77,8 @@ const FirstStepRow = ({
   variants: typeof ITEM_VARIANTS | undefined;
 }) => {
   const iconState = useMemo(
-    () => ({ done, icon: step.icon }),
-    [done, step.icon]
+    () => ({ color: step.color, done, icon: step.icon }),
+    [done, step.color, step.icon]
   );
 
   return (

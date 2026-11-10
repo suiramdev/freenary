@@ -23,13 +23,11 @@ import {
   RiMoreLine,
   RiPencilLine,
   RiSearchLine,
+  RiSidebarFoldLine,
   RiSidebarUnfoldLine,
   RiSunLine,
 } from "@remixicon/react";
-import { Sidebar } from "kubai-icons-react";
 
-import { CHART_COLOR_VARS } from "./chart-colors";
-import { kubaiIcon } from "./kubai-icon";
 import { remixIcon } from "./remix-icon";
 
 export const ffIcons = {
@@ -52,7 +50,7 @@ export const ffIcons = {
   moon: remixIcon(RiMoonLine),
   "more-horizontal": remixIcon(RiMoreLine),
   "more-vertical": remixIcon(RiMore2Line),
-  "panel-left": kubaiIcon(Sidebar, CHART_COLOR_VARS.grey),
+  "panel-left": remixIcon(RiSidebarFoldLine),
   "panel-right": remixIcon(RiSidebarUnfoldLine),
   pencil: remixIcon(RiPencilLine),
   plus: remixIcon(RiAddLine),

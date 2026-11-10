@@ -1,14 +1,17 @@
 import type { IconComponentProps } from "@freenary/ui/lib/icon-context";
 import { spring } from "@freenary/ui/lib/springs";
 import { cn } from "@freenary/ui/lib/utils";
-import type { RemixiconComponentType } from "@remixicon/react";
 import { RiCheckboxCircleFill } from "@remixicon/react";
+import type { KubaiIconComponent } from "kubai-icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { createContext, useContext } from "react";
 
+import type { ChartColorVar } from "@/shared/lib/chart-colors";
+
 interface FirstStepIconState {
+  color: ChartColorVar;
   done: boolean;
-  icon: RemixiconComponentType;
+  icon: KubaiIconComponent;
 }
 
 const HIDDEN = { opacity: 0, scale: 0.25 };
@@ -30,10 +33,15 @@ export const SidebarFirstStepIcon = ({
     return null;
   }
 
-  const Rendered = state.done ? RiCheckboxCircleFill : state.icon;
-  const iconClassName = cn(className, state.done && "text-primary");
-  const icon = (
-    <Rendered className={iconClassName} size={size} strokeWidth={strokeWidth} />
+  const { color, done, icon: StepIcon } = state;
+  const icon = done ? (
+    <RiCheckboxCircleFill
+      className={cn(className, "text-primary")}
+      size={size}
+      strokeWidth={strokeWidth}
+    />
+  ) : (
+    <StepIcon className={className} color={color} size={size} />
   );
 
   if (prefersReducedMotion) {
@@ -47,7 +55,7 @@ export const SidebarFirstStepIcon = ({
         className="flex shrink-0 items-center"
         exit={{ ...HIDDEN, transition: spring.slow.exit }}
         initial={HIDDEN}
-        key={state.done ? "done" : "todo"}
+        key={done ? "done" : "todo"}
         transition={spring.slow}
       >
         {icon}

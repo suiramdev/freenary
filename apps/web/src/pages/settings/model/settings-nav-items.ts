@@ -4,11 +4,12 @@ import type { KubaiIconComponent } from "kubai-icons-react";
 import { m } from "@/paraglide/messages.js";
 import type { SettingsSection } from "@/shared/config";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import type { ChartColorVar } from "@/shared/lib/chart-colors";
 
 export type OperatorStanding = "member" | "operator" | "pending";
 
 interface SettingsNavItem {
-  color: string;
+  color: ChartColorVar;
   icon: KubaiIconComponent;
   label: () => string;
   section: SettingsSection;

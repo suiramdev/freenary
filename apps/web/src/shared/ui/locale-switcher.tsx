@@ -5,19 +5,25 @@ import {
   DropdownMenu,
   DropdownTrigger,
 } from "@freenary/ui/components/dropdown";
-import { RiTranslate2 } from "@remixicon/react";
+import { Languages } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
 import { LOCALE_LABELS } from "../i18n/locales";
-import { remixIcon } from "../lib/remix-icon";
+import { CHART_COLOR_VARS } from "../lib/chart-colors";
+import { kubaiIcon } from "../lib/kubai-icon";
 import { LocaleMenuItems, localeCheckedIndex } from "./locale-menu-items";
 
 export const LocaleSwitcher = () => (
   <DropdownMenu>
     <DropdownTrigger
-      render={<Button leadingIcon={remixIcon(RiTranslate2)} variant="ghost" />}
+      render={
+        <Button
+          leadingIcon={kubaiIcon(Languages, CHART_COLOR_VARS.blue)}
+          variant="ghost"
+        />
+      }
     >
       {LOCALE_LABELS[getLocale()]}
     </DropdownTrigger>

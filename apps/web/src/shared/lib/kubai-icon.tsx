@@ -4,15 +4,15 @@ import type {
 } from "@freenary/ui/lib/icon-context";
 import type { KubaiIconComponent } from "kubai-icons-react";
 
-const CURRENT_COLOR = "currentColor";
+import type { ChartColorVar } from "./chart-colors";
 
-const cache = new Map<KubaiIconComponent, Map<string, IconComponent>>();
+const cache = new Map<KubaiIconComponent, Map<ChartColorVar, IconComponent>>();
 
 export const kubaiIcon = (
   Icon: KubaiIconComponent,
-  color: string = CURRENT_COLOR
+  color: ChartColorVar
 ): IconComponent => {
-  const byColor = cache.get(Icon) ?? new Map<string, IconComponent>();
+  const byColor = cache.get(Icon) ?? new Map<ChartColorVar, IconComponent>();
   let adapted = byColor.get(color);
 
   if (!adapted) {
