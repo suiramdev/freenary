@@ -1,40 +1,45 @@
 import { ASSISTANT_UI } from "@freenary/api/assistant/ui";
+import { Bar } from "@freenary/ui/components/charts/bar";
+import { BarChart } from "@freenary/ui/components/charts/bar-chart";
+import { BarXAxis } from "@freenary/ui/components/charts/bar-x-axis";
+import { Grid } from "@freenary/ui/components/charts/grid";
+import { Line, LineChart } from "@freenary/ui/components/charts/line-chart";
+import { PieChart } from "@freenary/ui/components/charts/pie-chart";
+import type { PieData } from "@freenary/ui/components/charts/pie-context";
+import { PieSlice } from "@freenary/ui/components/charts/pie-slice";
 import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
-} from "@freenary/ui/components/chart";
-import type { ChartConfig } from "@freenary/ui/components/chart";
+  TooltipContent,
+} from "@freenary/ui/components/charts/tooltip";
+import type { TooltipRow } from "@freenary/ui/components/charts/tooltip";
+import { XAxis } from "@freenary/ui/components/charts/x-axis";
+import { YAxis } from "@freenary/ui/components/charts/y-axis";
 import { createLibrary, defineComponent } from "@openuidev/react-lang";
 import type { LibraryDefinition } from "@openuidev/react-lang";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { useState } from "react";
+import { z } from "zod";
 
+import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
-import { ChartTooltipCard } from "@/shared/ui/chart-tooltip";
 
 interface Series {
   name: string;
   values: number[];
 }
 
-interface TooltipItem {
-  color?: string;
-  dataKey?: string | number;
-  payload?: { fill?: string; label?: string; value?: number };
-  value?: number | null;
+interface SeriesRow extends Record<string, unknown> {
+  label: string;
+  tooltipRows: TooltipRow[];
+}
+
+interface LineRow extends SeriesRow {
+  date: Date;
+}
+
+interface Slice extends PieData {
+  color: string;
+  key: string;
 }
 
 const PALETTE = [
@@ -49,6 +54,16 @@ const PALETTE = [
 
 const ISO_CURRENCY_CODE = /^[A-Z]{3}$/u;
 
+const CHART_HEIGHT_CLASS = "h-56 w-full";
+
+const CHART_MARGIN = { bottom: 28, left: 56, right: 8, top: 8 };
+
+const DONUT_SIZE = 160;
+
+const DONUT_INNER_RADIUS = 40;
+
+const LINE_EPOCH_YEAR = 2000;
+
 const currencyOf = (code: string | undefined): string | undefined =>
   code !== undefined && ISO_CURRENCY_CODE.test(code) ? code : undefined;
 
@@ -61,13 +76,45 @@ const formatDecimalCurrency = (
 ): string =>
   new Intl.NumberFormat(getLocale(), currencyStyle(currency)).format(value);
 
-const CHART_HEIGHT_CLASS = "aspect-auto h-56 w-full";
+const compactCurrency = (value: number, currency: string | undefined): string =>
+  new Intl.NumberFormat(getLocale(), {
+    ...currencyStyle(currency),
+    maximumFractionDigits: 1,
+    notation: "compact",
+  }).format(value);
 
 const seriesKey = (index: number): string => `s${index}`;
 
-const toRowsWithGaps = (labels: string[], series: Series[]) =>
+const seriesColor = (index: number): string =>
+  PALETTE[index % PALETTE.length] ?? CHART_COLOR_VARS.grey;
+
+const seriesTooltipRows = (
+  series: Series[],
+  index: number,
+  currency: string | undefined
+): TooltipRow[] =>
+  series.flatMap((entry, seriesIndex) => {
+    const value = entry.values[index];
+
+    return value === undefined
+      ? []
+      : [
+          {
+            color: seriesColor(seriesIndex),
+            label: entry.name,
+            value: formatDecimalCurrency(value, currency),
+          },
+        ];
+  });
+
+const toRowsWithGaps = (
+  labels: string[],
+  series: Series[],
+  currency: string | undefined
+): SeriesRow[] =>
   labels.map((label, index) => ({
     label,
+    tooltipRows: seriesTooltipRows(series, index, currency),
     ...Object.fromEntries(
       series.map((entry, seriesIndex) => [
         seriesKey(seriesIndex),
@@ -76,106 +123,144 @@ const toRowsWithGaps = (labels: string[], series: Series[]) =>
     ),
   }));
 
-const seriesConfig = (series: Series[]): ChartConfig =>
-  Object.fromEntries(
-    series.map((entry, index) => [
-      seriesKey(index),
-      { color: PALETTE[index % PALETTE.length], label: entry.name },
-    ])
-  );
+const nearestDefined = (
+  values: number[],
+  index: number,
+  step: 1 | -1
+): { at: number; value: number } | undefined => {
+  for (let at = index; at >= 0 && at < values.length; at += step) {
+    const value = values[at];
 
-const compactCurrency = (value: number, currency: string | undefined): string =>
-  new Intl.NumberFormat(getLocale(), {
-    ...currencyStyle(currency),
-    maximumFractionDigits: 1,
-    notation: "compact",
-  }).format(value);
-
-const SeriesTooltip = ({
-  active,
-  config,
-  currency,
-  label,
-  payload,
-}: {
-  active?: boolean;
-  config: ChartConfig;
-  currency: string | undefined;
-  label?: string;
-  payload?: TooltipItem[];
-}) => {
-  if (!(active && payload?.length)) {
-    return null;
+    if (value !== undefined) {
+      return { at, value };
+    }
   }
 
-  return (
-    <ChartTooltipCard className="min-w-32">
-      {label && <div className="font-medium">{label}</div>}
-      {payload.map((item) => {
-        const key = String(item.dataKey);
-
-        if (item.value === undefined || item.value === null) {
-          return null;
-        }
-
-        return (
-          <div
-            className="flex items-center justify-between gap-3 leading-none"
-            key={key}
-          >
-            <span className="flex items-center gap-1.5">
-              <span
-                className="size-2.5 shrink-0 rounded-[2px]"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="text-muted-foreground">
-                {config[key]?.label}
-              </span>
-            </span>
-            <span className="text-foreground font-mono font-medium tabular-nums">
-              {formatDecimalCurrency(item.value, currency)}
-            </span>
-          </div>
-        );
-      })}
-    </ChartTooltipCard>
-  );
+  return undefined;
 };
 
-const SliceTooltip = ({
-  active,
-  currency,
-  payload,
-  total,
-}: {
-  active?: boolean;
-  currency: string | undefined;
-  payload?: TooltipItem[];
-  total: number;
-}) => {
-  const slice = active ? payload?.[0]?.payload : undefined;
+const valueOrInterpolated = (values: number[], index: number): number => {
+  const before = nearestDefined(values, index, -1);
+  const after = nearestDefined(values, index, 1);
 
-  if (!slice || slice.value === undefined) {
-    return null;
+  if (before && after && after.at !== before.at) {
+    const progress = (index - before.at) / (after.at - before.at);
+
+    return before.value + (after.value - before.value) * progress;
   }
 
-  const share = total > 0 ? Math.round((slice.value / total) * 100) : 0;
+  return before?.value ?? after?.value ?? 0;
+};
+
+const toLineRows = (
+  labels: string[],
+  series: Series[],
+  currency: string | undefined
+): LineRow[] =>
+  labels.map((label, index) => ({
+    date: new Date(LINE_EPOCH_YEAR, 0, index + 1),
+    label,
+    tooltipRows: seriesTooltipRows(series, index, currency),
+    ...Object.fromEntries(
+      series.map((entry, seriesIndex) => [
+        seriesKey(seriesIndex),
+        valueOrInterpolated(entry.values, index),
+      ])
+    ),
+  }));
+
+const seriesPointSchema = z.object({
+  label: z.string(),
+  tooltipRows: z.array(
+    z.object({ color: z.string(), label: z.string(), value: z.string() })
+  ),
+});
+
+const LineTooltip = ({ point }: { point: unknown }) => {
+  const parsed = seriesPointSchema.safeParse(point);
+
+  return parsed.success ? (
+    <TooltipContent rows={parsed.data.tooltipRows} title={parsed.data.label} />
+  ) : null;
+};
+
+const SeriesLegend = ({ series }: { series: Series[] }) =>
+  series.length > 1 ? (
+    <ul className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-1">
+      {series.map((entry, index) => (
+        <li
+          className="text-muted-foreground flex items-center gap-1.5 text-[11px]"
+          key={seriesKey(index)}
+        >
+          <span
+            className="size-2 shrink-0 rounded-[1px]"
+            style={{ backgroundColor: seriesColor(index) }}
+          />
+          {entry.name}
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
+const DonutBody = ({
+  currency,
+  slices,
+}: {
+  currency: string | undefined;
+  slices: Slice[];
+}) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  const hovered = hoveredIndex === null ? undefined : slices[hoveredIndex];
+  const share =
+    hovered && total > 0 ? Math.round((hovered.value / total) * 100) : 0;
 
   return (
-    <ChartTooltipCard className="min-w-32">
-      <div className="flex items-center justify-between gap-3 leading-none">
-        <span className="flex items-center gap-1.5">
-          <span
-            className="size-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: slice.fill }}
-          />
-          <span className="text-muted-foreground">{slice.label}</span>
-        </span>
-        <span className="text-foreground font-mono font-medium tabular-nums">
-          {formatDecimalCurrency(slice.value, currency)} ({share}%)
-        </span>
+    <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-10">
+      <div className="relative shrink-0">
+        <PieChart
+          data={slices}
+          hoveredIndex={hoveredIndex}
+          innerRadius={DONUT_INNER_RADIUS}
+          onHoverChange={setHoveredIndex}
+          size={DONUT_SIZE}
+        >
+          {slices.map((slice, index) => (
+            <PieSlice hoverEffect="grow" index={index} key={slice.key} />
+          ))}
+        </PieChart>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <div className="flex max-w-18 flex-col items-center gap-0.5 text-center">
+            <span className="font-mono text-[11px] font-medium tabular-nums">
+              {compactCurrency(hovered?.value ?? total, currency)}
+            </span>
+            <span className="text-muted-foreground max-w-full truncate text-[10px] leading-tight">
+              {hovered ? `${hovered.label} · ${share}%` : m.chart_total()}
+            </span>
+          </div>
+        </div>
       </div>
-    </ChartTooltipCard>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 px-1 sm:flex-col">
+        {slices.map((slice, index) => (
+          <li
+            className="flex items-center gap-1.5 font-mono text-[11px]"
+            key={slice.key}
+            onPointerEnter={() => setHoveredIndex(index)}
+            onPointerLeave={() => setHoveredIndex(null)}
+          >
+            <span
+              className="size-2 rounded-[1px]"
+              style={{ backgroundColor: slice.color }}
+            />
+            <span className="text-muted-foreground">{slice.label}</span>
+            <span>{formatDecimalCurrency(slice.value, currency)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 
@@ -195,40 +280,35 @@ const AssistantBarChart = defineComponent({
   ...ASSISTANT_UI.BarChart,
   component: ({ props }) => {
     const currency = currencyOf(props.currency);
-    const config = seriesConfig(props.series);
 
     return (
-      <ChartContainer className={CHART_HEIGHT_CLASS} config={config}>
+      <div className="flex flex-col gap-2">
         <BarChart
-          accessibilityLayer
-          data={toRowsWithGaps(props.labels, props.series)}
+          aspectRatio="auto"
+          className={CHART_HEIGHT_CLASS}
+          data={toRowsWithGaps(props.labels, props.series, currency)}
+          margin={CHART_MARGIN}
+          xDataKey="label"
         >
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} />
-          <YAxis
-            axisLine={false}
-            tickFormatter={(value: number) => compactCurrency(value, currency)}
-            tickLine={false}
-            width={56}
-          />
-          <ChartTooltip
-            content={<SeriesTooltip config={config} currency={currency} />}
-            cursor={false}
-          />
-          {props.series.length > 1 && (
-            <ChartLegend content={<ChartLegendContent />} />
-          )}
+          <Grid horizontal />
+          <YAxis formatValue={(value) => compactCurrency(value, currency)} />
           {props.series.map((_entry, index) => (
             <Bar
               dataKey={seriesKey(index)}
-              fill={`var(--color-${seriesKey(index)})`}
+              fill={seriesColor(index)}
               key={seriesKey(index)}
-              maxBarSize={48}
-              radius={4}
             />
           ))}
+          <BarXAxis />
+          <ChartTooltip
+            rows={(point) =>
+              seriesPointSchema.safeParse(point).data?.tooltipRows ?? []
+            }
+            showDatePill={false}
+          />
         </BarChart>
-      </ChartContainer>
+        <SeriesLegend series={props.series} />
+      </div>
     );
   },
 });
@@ -237,109 +317,58 @@ const AssistantLineChart = defineComponent({
   ...ASSISTANT_UI.LineChart,
   component: ({ props }) => {
     const currency = currencyOf(props.currency);
-    const config = seriesConfig(props.series);
 
     return (
-      <ChartContainer className={CHART_HEIGHT_CLASS} config={config}>
+      <div className="flex flex-col gap-2">
         <LineChart
-          accessibilityLayer
-          data={toRowsWithGaps(props.labels, props.series)}
+          aspectRatio="auto"
+          className={CHART_HEIGHT_CLASS}
+          data={toLineRows(props.labels, props.series, currency)}
+          margin={CHART_MARGIN}
         >
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} />
-          <YAxis
-            axisLine={false}
-            tickFormatter={(value: number) => compactCurrency(value, currency)}
-            tickLine={false}
-            width={56}
-          />
-          <ChartTooltip
-            content={<SeriesTooltip config={config} currency={currency} />}
-          />
-          {props.series.length > 1 && (
-            <ChartLegend content={<ChartLegendContent />} />
-          )}
+          <Grid horizontal />
+          <YAxis formatValue={(value) => compactCurrency(value, currency)} />
           {props.series.map((_entry, index) => (
             <Line
               dataKey={seriesKey(index)}
-              dot={false}
               key={seriesKey(index)}
-              stroke={`var(--color-${seriesKey(index)})`}
-              strokeWidth={2}
-              type="monotone"
+              stroke={seriesColor(index)}
             />
           ))}
+          <XAxis labels={props.labels} />
+          <ChartTooltip
+            content={LineTooltip}
+            dateLabels={props.labels}
+            showDatePill={false}
+          />
         </LineChart>
-      </ChartContainer>
+        <SeriesLegend series={props.series} />
+      </div>
     );
   },
 });
 
 const AssistantDonutChart = defineComponent({
   ...ASSISTANT_UI.DonutChart,
-  component: ({ props }) => {
-    const currency = currencyOf(props.currency);
-    const slices = props.labels.flatMap((label, index) => {
-      const value = props.values[index];
+  component: ({ props }) => (
+    <DonutBody
+      currency={currencyOf(props.currency)}
+      slices={props.labels.flatMap((label, index) => {
+        const value = props.values[index];
 
-      return value === undefined
-        ? []
-        : [
-            {
-              fill: PALETTE[index % PALETTE.length] ?? CHART_COLOR_VARS.grey,
-              key: seriesKey(index),
-              label,
-              value,
-            },
-          ];
-    });
-
-    const total = slices.reduce((sum, slice) => sum + slice.value, 0);
-    const config: ChartConfig = Object.fromEntries(
-      slices.map((slice) => [slice.key, { label: slice.label }])
-    );
-
-    return (
-      <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-10">
-        <ChartContainer
-          className="aspect-square h-40 w-40 shrink-0"
-          config={config}
-        >
-          <PieChart>
-            <ChartTooltip
-              content={<SliceTooltip currency={currency} total={total} />}
-            />
-            <Pie
-              data={slices}
-              dataKey="value"
-              innerRadius="55%"
-              nameKey="label"
-              outerRadius="100%"
-            >
-              {slices.map((slice) => (
-                <Cell fill={slice.fill} key={slice.key} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 px-1 sm:flex-col">
-          {slices.map((slice) => (
-            <li
-              className="flex items-center gap-1.5 font-mono text-[11px]"
-              key={slice.key}
-            >
-              <span
-                className="size-2 rounded-[1px]"
-                style={{ backgroundColor: slice.fill }}
-              />
-              <span className="text-muted-foreground">{slice.label}</span>
-              <span>{formatDecimalCurrency(slice.value, currency)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  },
+        return value === undefined
+          ? []
+          : [
+              {
+                color: seriesColor(index),
+                key: seriesKey(index),
+                label,
+                value,
+              },
+            ];
+      })}
+    />
+  ),
 });
 
 const Card = defineComponent({

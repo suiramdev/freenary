@@ -502,6 +502,8 @@
   "budget_recurring_column_merchant": "Entreprise",
   "budget_recurring_column_monthly": "Par mois",
   "budget_recurring_column_next": "Prochain",
+  "budget_recurring_cost_rank_chart_label": "Coût annuel des paiements récurrents les plus chers, une barre par entreprise, avec le nombre de paiements par an au survol",
+  "budget_recurring_cost_rank_top": "{shown} premiers sur {total} par coût annuel",
   "budget_recurring_empty_body": "Freenary a besoin de plusieurs mois de transactions de la même entreprise avant de reconnaître une cadence.",
   "budget_recurring_empty_title": "Aucun paiement récurrent détecté",
   "budget_recurring_filter_cost": "Coût",
@@ -556,6 +558,7 @@
   "budget_recurring_loading": "Chargement des paiements récurrents",
   "budget_recurring_no_match_body": "Aucun paiement récurrent ne correspond à ces filtres.",
   "budget_recurring_no_match_title": "Aucun résultat",
+  "budget_recurring_payments_short": "{count}×",
   "budget_recurring_per_year": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -566,7 +569,6 @@
       }
     }
   ],
-  "budget_recurring_scatter_chart_label": "Coût annuel et nombre de paiements par an, un point par entreprise",
   "budget_recurring_scatter_empty": "Aucun paiement récurrent à placer.",
   "budget_recurring_scatter_loading": "Chargement du coût et de la fréquence",
   "budget_recurring_scatter_title": "Coût et fréquence",
@@ -766,6 +768,7 @@
   "category_taxes": "Impôts et taxes",
   "category_transport_travel": "Transports et voyages",
   "category_uncategorised": "Non catégorisé",
+  "chart_total": "Total",
   "first_steps_budgeting_profile": "Définir votre budget",
   "first_steps_connect_bank": "Connecter votre banque",
   "first_steps_progress": "{done}/{total}",

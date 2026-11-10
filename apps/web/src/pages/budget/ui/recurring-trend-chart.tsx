@@ -1,12 +1,17 @@
-import { ChartContainer, ChartTooltip } from "@freenary/ui/components/chart";
-import type { ChartConfig } from "@freenary/ui/components/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar } from "@freenary/ui/components/charts/bar";
+import { BarChart } from "@freenary/ui/components/charts/bar-chart";
+import { BarXAxis } from "@freenary/ui/components/charts/bar-x-axis";
+import { Grid } from "@freenary/ui/components/charts/grid";
+import { ChartTooltip } from "@freenary/ui/components/charts/tooltip";
+import { YAxis } from "@freenary/ui/components/charts/y-axis";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
-import { formatCurrency } from "@/shared/lib/format-currency";
-import { ChartTooltipCard } from "@/shared/ui/chart-tooltip";
+import {
+  formatCompactCurrency,
+  formatCurrency,
+} from "@/shared/lib/format-currency";
 
 import { monthKeyLabel } from "../model/recurring";
 import type { RecurringMonth } from "../model/recurring";
@@ -16,7 +21,7 @@ interface RecurringTrendChartProps {
   monthly: RecurringMonth[];
 }
 
-interface TrendRow {
+interface TrendRow extends Record<string, unknown> {
   behavioralMinor: number;
   discretionaryMinor: number;
   fixedMinor: number;
@@ -41,41 +46,7 @@ const STACKED_SERIES_BOTTOM_UP = [
   },
 ] as const;
 
-const STACK_ID = "recurring";
-
-const TrendTooltip = ({
-  active,
-  currency,
-  payload,
-}: {
-  active?: boolean;
-  currency: string;
-  payload?: { payload?: TrendRow }[];
-}) => {
-  const row = active ? payload?.[0]?.payload : undefined;
-
-  if (!row) {
-    return null;
-  }
-
-  return (
-    <ChartTooltipCard className="min-w-40">
-      <div className="font-medium">{row.label}</div>
-      {STACKED_SERIES_BOTTOM_UP.map((series) => (
-        <div className="flex items-center gap-2 leading-none" key={series.key}>
-          <span
-            className="size-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: series.color }}
-          />
-          <span className="text-muted-foreground flex-1">{series.label()}</span>
-          <span className="text-foreground font-mono font-medium tabular-nums">
-            {formatCurrency(row[series.key], currency)}
-          </span>
-        </div>
-      ))}
-    </ChartTooltipCard>
-  );
-};
+const CHART_MARGIN = { bottom: 28, left: 48, right: 8, top: 8 };
 
 export const RecurringTrendChart = ({
   currency,
@@ -95,13 +66,6 @@ export const RecurringTrendChart = ({
     );
   }
 
-  const config: ChartConfig = Object.fromEntries(
-    STACKED_SERIES_BOTTOM_UP.map((series) => [
-      series.key,
-      { color: series.color, label: series.label() },
-    ])
-  );
-
   const locale = getLocale();
   const rows: TrendRow[] = monthly.map((month) => ({
     behavioralMinor: month.behavioralMinor,
@@ -115,45 +79,38 @@ export const RecurringTrendChart = ({
       <figcaption className="sr-only">
         {m.budget_recurring_trend_chart_label()}
       </figcaption>
-      <ChartContainer
-        className="aspect-auto min-h-0 w-full flex-1"
-        config={config}
+      <BarChart
+        aspectRatio="auto"
+        className="min-h-0 flex-1"
+        data={rows}
+        margin={CHART_MARGIN}
+        stacked
+        xDataKey="label"
       >
-        <BarChart
-          accessibilityLayer
-          data={rows}
-          margin={{ left: 6, right: 4, top: 4 }}
-        >
-          <CartesianGrid vertical={false} />
-          <XAxis
-            axisLine={false}
-            dataKey="label"
-            tickLine={false}
-            tickMargin={8}
+        <Grid horizontal />
+        <YAxis
+          formatValue={(value) => formatCompactCurrency(value, currency)}
+        />
+        {STACKED_SERIES_BOTTOM_UP.map((series) => (
+          <Bar
+            dataKey={series.key}
+            fill={series.color}
+            key={series.key}
+            lineCap="butt"
           />
-          <YAxis
-            axisLine={false}
-            tickFormatter={(value: number) => formatCurrency(value, currency)}
-            tickLine={false}
-            width="auto"
-          />
-          <ChartTooltip
-            content={<TrendTooltip currency={currency} />}
-            cursor={false}
-          />
-          {STACKED_SERIES_BOTTOM_UP.map((series) => (
-            <Bar
-              dataKey={series.key}
-              fill={`var(--color-${series.key})`}
-              isAnimationActive={false}
-              key={series.key}
-              maxBarSize={40}
-              name={series.key}
-              stackId={STACK_ID}
-            />
-          ))}
-        </BarChart>
-      </ChartContainer>
+        ))}
+        <BarXAxis />
+        <ChartTooltip
+          rows={(point) =>
+            STACKED_SERIES_BOTTOM_UP.map((series) => ({
+              color: series.color,
+              label: series.label(),
+              value: formatCurrency(Number(point[series.key]), currency),
+            }))
+          }
+          showDatePill={false}
+        />
+      </BarChart>
       <ul className="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 px-1">
         {STACKED_SERIES_BOTTOM_UP.map((series) => (
           <li
