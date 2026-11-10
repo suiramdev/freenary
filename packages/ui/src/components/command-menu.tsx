@@ -11,10 +11,7 @@ import {
   type FluidHoverSource,
 } from "@freenary/ui/components/fluid-hover-highlight";
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
-import {
-  TabsSubtle,
-  TabsSubtleItem,
-} from "@freenary/ui/components/tabs-subtle";
+import { Tabs, TabsItem } from "@freenary/ui/components/tabs";
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
@@ -553,7 +550,7 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
       registerItem,
       itemRects,
       isMeasured,
-      sessionRef,
+      session,
     } = hover;
     const { onMouseEnter, onMouseMove, onMouseLeave, onClick } = hover.handlers;
     const listHandlers = useMemo(
@@ -583,8 +580,8 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
       listenersRef.current.forEach((listener) => listener());
     }, [activeIndex]);
     const fill = useMemo<FluidHoverSource>(
-      () => ({ activeIndex, itemRects, isMeasured, sessionRef }),
-      [activeIndex, itemRects, isMeasured, sessionRef]
+      () => ({ activeIndex, itemRects, isMeasured, session }),
+      [activeIndex, itemRects, isMeasured, session]
     );
 
     // Scrolling is the root's, done the moment a move is decided rather
@@ -1018,7 +1015,7 @@ const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
           onMouseDown={(e) => e.preventDefault()}
           className="scrollbar-hide flex min-w-0 flex-1 items-center overflow-x-auto"
         >
-          <TabsSubtle
+          <Tabs
             size="compact"
             selectedIndex={selectedIndex}
             onSelect={(index) => {
@@ -1028,14 +1025,14 @@ const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
             aria-label={labels.filterResults}
           >
             {tabs.map((tab, index) => (
-              <TabsSubtleItem
+              <TabsItem
                 key={tab.value}
                 index={index}
                 label={tab.label}
                 icon={tab.icon}
               />
             ))}
-          </TabsSubtle>
+          </Tabs>
         </div>
         {children && (
           <TabsRowContext.Provider value={true}>

@@ -8,6 +8,7 @@ import { forwardRef, type HTMLAttributes } from "react";
 
 const badgeColors = {
   gray: "#a3a3a3",
+  accent: "var(--fluid-accent, #6B97FF)",
   red: "#ef4444",
   orange: "#f97316",
   amber: "#f59e0b",

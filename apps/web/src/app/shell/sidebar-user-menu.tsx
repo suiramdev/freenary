@@ -5,7 +5,9 @@ import {
   DropdownLabel,
   DropdownMenu,
   DropdownSeparator,
-  DropdownSubmenu,
+  DropdownSub,
+  DropdownSubContent,
+  DropdownSubTrigger,
   DropdownTrigger,
 } from "@freenary/ui/components/dropdown";
 import { MenuItem } from "@freenary/ui/components/menu-item";
@@ -145,40 +147,34 @@ export const SidebarUserMenu = () => {
                 <DropdownSeparator />
               </>
             )}
-            <DropdownSubmenu>
-              <MenuItem
+            <DropdownSub>
+              <DropdownSubTrigger
                 icon={kubaiIcon(Languages, CHART_COLOR_VARS.blue)}
                 index={LOCALE_ROW}
                 label={m.locale_switcher_label()}
-                submenu
               />
-              <DropdownContent
-                align="start"
+              <DropdownSubContent
                 checkedIndex={localeCheckedIndex()}
                 className={SUBMENU_CLASS}
-                side="right"
               >
                 <DropdownLabel>{m.locale_switcher_label()}</DropdownLabel>
                 <LocaleMenuItems />
-              </DropdownContent>
-            </DropdownSubmenu>
-            <DropdownSubmenu>
-              <MenuItem
+              </DropdownSubContent>
+            </DropdownSub>
+            <DropdownSub>
+              <DropdownSubTrigger
                 icon={kubaiIcon(Appearance, CHART_COLOR_VARS.purple)}
                 index={THEME_ROW}
                 label={m.theme_switcher_label()}
-                submenu
               />
-              <DropdownContent
-                align="start"
+              <DropdownSubContent
                 checkedIndex={themeCheckedIndex}
                 className={SUBMENU_CLASS}
-                side="right"
               >
                 <DropdownLabel>{m.theme_switcher_label()}</DropdownLabel>
                 <ThemeMenuItems />
-              </DropdownContent>
-            </DropdownSubmenu>
+              </DropdownSubContent>
+            </DropdownSub>
             <DropdownSeparator />
             <MenuItem
               icon={kubaiIcon(BookOpen, CHART_COLOR_VARS.green)}

@@ -1,10 +1,6 @@
-import {
-  TabItem,
-  TabPanel,
-  Tabs,
-  TabsList,
-} from "@freenary/ui/components/tabs";
+import { Tabs, TabsItem, TabsPanel } from "@freenary/ui/components/tabs";
 import { RiCoinsLine, RiRepeatLine } from "@remixicon/react";
+import { useId } from "react";
 
 import type { CategoryFilter } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
@@ -115,6 +111,8 @@ export const RecurringList = ({
   search,
   sort,
 }: RecurringListProps) => {
+  const tabsId = useId();
+  const selectedKindIndex = KIND_TABS.indexOf(kind);
   const activeCount = recurringFilterCount(filter);
   const hasAmountBound = filter.amount.min > 0 || filter.amount.max > 0;
   const { categories } = filter;
@@ -206,20 +204,21 @@ export const RecurringList = ({
         </ListFilterChips>
       )}
 
-      <Tabs
-        className="flex flex-1 flex-col gap-3"
-        onValueChange={(next) => {
-          const chosen = KIND_TABS.find((candidate) => candidate === next);
+      <div className="flex flex-1 flex-col gap-3">
+        <Tabs
+          idPrefix={tabsId}
+          onSelect={(index) => {
+            const chosen = KIND_TABS[index];
 
-          if (chosen) {
-            onKindChange(chosen);
-          }
-        }}
-        value={kind}
-      >
-        <TabsList>
-          {KIND_TABS.map((candidate) => (
-            <TabItem
+            if (chosen) {
+              onKindChange(chosen);
+            }
+          }}
+          selectedIndex={selectedKindIndex}
+        >
+          {KIND_TABS.map((candidate, index) => (
+            <TabsItem
+              index={index}
               key={candidate}
               label={KIND_TAB_LABELS[candidate]({
                 amount: formatCurrency(
@@ -227,15 +226,16 @@ export const RecurringList = ({
                   currency
                 ),
               })}
-              value={candidate}
             />
           ))}
-        </TabsList>
-        {KIND_TABS.map((candidate) => (
-          <TabPanel
+        </Tabs>
+        {KIND_TABS.map((candidate, index) => (
+          <TabsPanel
             className="flex flex-1 flex-col gap-3"
+            idPrefix={tabsId}
+            index={index}
             key={candidate}
-            value={candidate}
+            selectedIndex={selectedKindIndex}
           >
             <p className="text-muted-foreground text-xs">
               {sectionHint(candidate)}
@@ -248,9 +248,9 @@ export const RecurringList = ({
               items={groups[candidate].items}
               kind={candidate}
             />
-          </TabPanel>
+          </TabsPanel>
         ))}
-      </Tabs>
+      </div>
     </div>
   );
 };

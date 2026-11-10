@@ -58,6 +58,7 @@ import {
   EllipsisVertical,
   Calendar,
   Folder,
+  Info,
   SlidersHorizontal,
 } from "lucide-react";
 import {
@@ -134,6 +135,7 @@ export type IconName =
   | "more-vertical"
   | "calendar"
   | "folder"
+  | "info"
   | "sliders-horizontal";
 
 export const defaultIcons: Record<IconName, IconComponent> = {
@@ -194,6 +196,7 @@ export const defaultIcons: Record<IconName, IconComponent> = {
   "more-vertical": EllipsisVertical,
   calendar: Calendar,
   folder: Folder,
+  info: Info,
   "sliders-horizontal": SlidersHorizontal,
 };
 
