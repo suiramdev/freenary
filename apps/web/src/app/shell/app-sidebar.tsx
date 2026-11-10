@@ -20,8 +20,8 @@ import {
   SidebarMenuSubItem,
 } from "@freenary/ui/components/sidebar";
 import { spring } from "@freenary/ui/lib/springs";
+import { RiArrowRightSLine } from "@remixicon/react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronRight } from "kubai-icons-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
@@ -106,7 +106,7 @@ const NavAreaDisclosure = ({
           initial={false}
           transition={spring.fast}
         >
-          <ChevronRight className="size-3.5" />
+          <RiArrowRightSLine className="size-3.5" />
         </motion.span>
       </SidebarMenuButton>
       <CollapsibleContent>

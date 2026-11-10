@@ -7,20 +7,17 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@freenary/ui/components/combobox";
-import { RiEarthLine } from "@remixicon/react";
-import { ArrowRight } from "kubai-icons-react";
+import { RiArrowRightLine, RiEarthLine } from "@remixicon/react";
 import { useMemo } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { GITHUB_REPO_URL } from "@/shared/config";
-import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import {
   countriesFor,
   countryMatches,
   isFullySupportedCountry,
 } from "@/shared/lib/countries";
-import { kubaiIcon } from "@/shared/lib/kubai-icon";
 import { remixIcon } from "@/shared/lib/remix-icon";
 import { WizardStepHeader } from "@/shared/ui/wizard-step-header";
 
@@ -120,7 +117,7 @@ export const CountrySelectionStep = ({
         <Button
           disabled={selected.length === 0}
           onClick={onContinue}
-          trailingIcon={kubaiIcon(ArrowRight, CHART_COLOR_VARS.green)}
+          trailingIcon={remixIcon(RiArrowRightLine)}
           type="button"
         >
           {m.onboarding_continue()}
