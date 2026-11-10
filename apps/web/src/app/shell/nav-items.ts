@@ -1,14 +1,16 @@
 import {
-  RiBarChartLine,
-  RiHomeLine,
-  RiMoneyDollarCircleLine,
-  RiSettings3Line,
-  RiTargetLine,
-  RiWalletLine,
-} from "@remixicon/react";
-import type { RemixiconComponentType } from "@remixicon/react";
+  ChartBar,
+  CurrencyDollar,
+  Home,
+  Settings,
+  Target,
+  Wallet,
+} from "kubai-icons-react";
+import type { KubaiIconComponent } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
+import type { ChartColorVar } from "@/shared/lib/chart-colors";
 
 interface NavChild {
   label: () => string;
@@ -18,7 +20,8 @@ interface NavChild {
 
 interface NavItem extends NavChild {
   children?: readonly NavChild[];
-  icon: RemixiconComponentType;
+  color: ChartColorVar;
+  icon: KubaiIconComponent;
   planned: boolean;
 }
 
@@ -28,14 +31,16 @@ export type NavAreaEntry = Extract<NavEntry, { children: readonly unknown[] }>;
 
 export const NAV_ITEMS = [
   {
-    icon: RiHomeLine,
+    color: CHART_COLOR_VARS.blue,
+    icon: Home,
     label: m.nav_home,
     planned: false,
     routeId: "/_auth/",
     to: "/",
   },
   {
-    icon: RiWalletLine,
+    color: CHART_COLOR_VARS.purple,
+    icon: Wallet,
     label: m.nav_portfolio,
     planned: true,
     routeId: "/_auth/portfolio",
@@ -54,28 +59,32 @@ export const NAV_ITEMS = [
         to: "/budget/recurring",
       },
     ],
-    icon: RiMoneyDollarCircleLine,
+    color: CHART_COLOR_VARS.green,
+    icon: CurrencyDollar,
     label: m.nav_budget,
     planned: false,
     routeId: "/_auth/budget",
     to: "/budget",
   },
   {
-    icon: RiBarChartLine,
+    color: CHART_COLOR_VARS.orange,
+    icon: ChartBar,
     label: m.nav_analysis,
     planned: true,
     routeId: "/_auth/analysis",
     to: "/analysis",
   },
   {
-    icon: RiTargetLine,
+    color: CHART_COLOR_VARS.red,
+    icon: Target,
     label: m.nav_goals,
     planned: true,
     routeId: "/_auth/goals",
     to: "/goals",
   },
   {
-    icon: RiSettings3Line,
+    color: CHART_COLOR_VARS.grey,
+    icon: Settings,
     label: m.nav_settings,
     planned: false,
     routeId: "/_auth/settings",

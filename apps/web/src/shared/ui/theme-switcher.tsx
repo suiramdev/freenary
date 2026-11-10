@@ -5,11 +5,12 @@ import {
   DropdownMenu,
   DropdownTrigger,
 } from "@freenary/ui/components/dropdown";
-import { RiContrastLine } from "@remixicon/react";
+import { Appearance } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
 
-import { remixIcon } from "../lib/remix-icon";
+import { CHART_COLOR_VARS } from "../lib/chart-colors";
+import { kubaiIcon } from "../lib/kubai-icon";
 import { ThemeMenuItems, useThemeCheckedIndex } from "./theme-menu-items";
 
 export const ThemeSwitcher = () => {
@@ -19,7 +20,10 @@ export const ThemeSwitcher = () => {
     <DropdownMenu>
       <DropdownTrigger
         render={
-          <Button leadingIcon={remixIcon(RiContrastLine)} variant="ghost" />
+          <Button
+            leadingIcon={kubaiIcon(Appearance, CHART_COLOR_VARS.purple)}
+            variant="ghost"
+          />
         }
       >
         {m.theme_switcher_label()}
