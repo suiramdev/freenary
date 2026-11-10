@@ -2,13 +2,13 @@ import type { TransactionFilter } from "@freenary/api/lib/transaction-filters";
 import { Tabs, TabsItem, TabsPanel } from "@freenary/ui/components/tabs";
 import { useId } from "react";
 
+import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
 import { useHoverIntent } from "../lib/use-hover-intent";
 import type { TimeRange } from "../model/period";
 import type { SortMode, TransactionDirection } from "../model/search";
-import type { Transaction } from "../model/transaction";
 import { FilterTokenSearch } from "./filter-token-search";
 import { ListFilterBar, ListSortToggle } from "./list-controls";
 import { SavedFiltersMenu } from "./saved-filters-menu";

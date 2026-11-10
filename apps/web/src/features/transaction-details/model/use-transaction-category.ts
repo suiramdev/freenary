@@ -3,10 +3,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { TRANSACTIONS_QUERY_KEY } from "@/entities/budget";
+import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { client } from "@/shared/api";
-
-import type { Transaction } from "./transaction";
 
 const isBudgetQuery = ({ queryKey: [key] }: { queryKey: readonly unknown[] }) =>
   key === "budget" || (Array.isArray(key) && key[0] === "budget");

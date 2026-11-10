@@ -42,11 +42,19 @@ interface CashFlowPeriod {
   outgoing: number;
 }
 
+export interface CashFlow {
+  currency: string;
+  periods: (CashFlowPeriod & { incoming: number })[];
+}
+
 const LAST_DAY_OF_PREVIOUS_MONTH = 0;
 const END_OF_DAY = { hours: 23, milliseconds: 999, minutes: 59, seconds: 59 };
 const DAY_OF_MONTH_START = 8;
 const DAY_OF_MONTH_END = 10;
 
+const UNSORTED: SpendingCategory = "uncategorised";
+
+export const RECENT_TRANSACTIONS_SHOWN = 6;
 export const UPCOMING_WINDOW_DAYS = 14;
 export const UPCOMING_ROWS_SHOWN = 5;
 export const TOP_CATEGORIES_SHOWN = 4;
@@ -180,7 +188,7 @@ export const topCategories = (
   }
 
   return categories
-    .filter((category) => category.amount > 0)
+    .filter((category) => category.amount > 0 && category.category !== UNSORTED)
     .toSorted((a, b) => b.amount - a.amount)
     .slice(0, count)
     .map((category) => ({
@@ -189,3 +197,10 @@ export const topCategories = (
       share: category.amount / total,
     }));
 };
+
+export const unsortedSpendMinor = (
+  categories: { amount: number; category: SpendingCategory }[]
+): number =>
+  categories
+    .filter((category) => category.category === UNSORTED)
+    .reduce((total, category) => total + Math.max(category.amount, 0), 0);

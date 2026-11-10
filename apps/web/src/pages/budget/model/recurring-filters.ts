@@ -6,7 +6,7 @@ import { EMPTY_CATEGORY_FILTER, filterCount } from "@/entities/category";
 import type { CategoryFilter } from "@/entities/category";
 import { merchantLabel } from "@/entities/recurring";
 import type { RecurringItem } from "@/entities/recurring";
-import { foldForSearch } from "@/shared/lib/search-text";
+import { foldForSearch } from "@/shared/lib/text";
 
 import { monthlyEquivalentMinor, recurringSections } from "./recurring";
 import type {

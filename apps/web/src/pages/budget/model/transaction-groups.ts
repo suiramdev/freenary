@@ -1,9 +1,9 @@
+import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import type { Locale } from "@/paraglide/runtime.js";
 import { localDayOfBankDate } from "@/shared/lib/calendar-day";
 
 import type { TimeRange } from "./period";
-import type { Transaction } from "./transaction";
 
 interface GroupHeader {
   type: "header";

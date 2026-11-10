@@ -29,10 +29,6 @@ const AvailableSkeleton = () => (
       <Skeleton className="h-9 w-44" />
       <Skeleton className="h-5 w-64 max-w-full" />
     </div>
-    <div className="flex flex-col gap-2">
-      <Skeleton className="h-5" />
-      <Skeleton className="h-5" />
-    </div>
   </WidgetLoading>
 );
 
@@ -56,38 +52,18 @@ const AvailableBody = ({
   );
 
   return (
-    <>
-      <div className="flex flex-col gap-1">
-        <HeadlineAmount
-          className={cn(available.availableMinor < 0 && "text-destructive")}
-        >
-          {formatCurrency(available.availableMinor, currency)}
-        </HeadlineAmount>
-        <p className="text-muted-foreground text-sm text-pretty">
-          {available.availableMinor < 0
-            ? m.home_available_short({ date: monthEnd })
-            : m.home_available_description({ date: monthEnd })}
-        </p>
-      </div>
-      <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 text-sm">
-        <dt className="text-muted-foreground">{m.home_available_balance()}</dt>
-        <dd className="text-end tabular-nums">
-          {formatCurrency(available.balanceMinor, currency)}
-        </dd>
-        <dt className="text-muted-foreground">
-          {m.home_available_commitments({
-            count: available.billCount,
-            date: monthEnd,
-          })}
-        </dt>
-        <dd className="text-end tabular-nums">
-          {formatCurrency(
-            available.billsMinor > 0 ? -available.billsMinor : 0,
-            currency
-          )}
-        </dd>
-      </dl>
-    </>
+    <div className="flex flex-col gap-1">
+      <HeadlineAmount
+        className={cn(available.availableMinor < 0 && "text-destructive")}
+      >
+        {formatCurrency(available.availableMinor, currency)}
+      </HeadlineAmount>
+      <p className="text-muted-foreground text-sm text-pretty">
+        {available.availableMinor < 0
+          ? m.home_available_short({ date: monthEnd })
+          : m.home_available_description({ date: monthEnd })}
+      </p>
+    </div>
   );
 };
 

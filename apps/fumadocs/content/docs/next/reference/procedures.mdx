@@ -289,6 +289,7 @@ The one paged procedure: pass `nextCursor` back as `cursor`.
 **Input**
 
 - `limit` is a whole number from 1 to 100.
+- `accountId`, when set, keeps the transactions of that one account. An account of another user matches nothing.
 - `filters` holds up to 20 filters, and a transaction must match all of them, and `direction` and `search` too. A filter is `{ field, operator, values }` for `field` `company` or `category`, and `{ field: "amount", operator, value }` for an amount.
   - `company` and `category` take `operator` `is`, `isNot` or `isAnyOf`. `is` and `isNot` take exactly one value, `isAnyOf` up to 50.
   - A `company` value is a name as `getMerchants` returns it, matched without case against the counterparty name, or the normalised descriptor when there is none. `isNot` keeps a transaction with no company name.
@@ -305,6 +306,7 @@ The one paged procedure: pass `nextCursor` back as `cursor`.
 | `category` | The effective category: the user's override wins |
 | `derivedCategory` | What the pipeline resolved, before any override |
 | `counterpartyName` | As the bank sends it, or `null` |
+| `normalisedDescriptor` | The bank's label cleaned by the categorisation pipeline, or `null` |
 | `currency`, `date`, `description`, `id` | As stored |
 
 ### budget.listSavedFilters
@@ -414,9 +416,10 @@ Same input as `instance.check`. It stores only the values the environment doesn'
 
 ### portfolio.getOverview
 
-**Output**: `{ accounts, currency, holdings, netWorth }`. `currency` is the code most of the caller's accounts use, or `EUR` when none has one; `netWorth` and `holdings` count only what is in that currency.
+**Output**: `{ accounts, currency, currentAccounts, holdings, netWorth }`. `currency` is the code most of the caller's accounts use, or `EUR` when none has one; `netWorth` and `holdings` count only what is in that currency.
 
 - `accounts` holds `{ balanceMinor, currency, id, institutionName, name, type }`, oldest first. `type` is `CHECKING`, `SAVINGS`, `CARD`, `LOAN`, `BROKERAGE`, `LIFE_INSURANCE`, `RETIREMENT`, `EMPLOYEE_SAVINGS`, `REAL_ESTATE`, `CROWDLENDING` or `UNKNOWN`. `balanceMinor` and `currency` are `null` when the provider sent none.
+- `currentAccounts` is `{ balanceMinor, balancesAt, currency }`: the sum of the `CHECKING` balances in the currency most of them use, or `EUR` when none has one, and the latest balance date among the accounts it adds up. `balanceMinor` and `balancesAt` are `null` when no such account reports a balance.
 - `netWorth` is `{ assetClasses, assetsMinor, balancesAt, excludedAccountCount, liabilitiesMinor, netWorthMinor }`. A balance below zero counts in `liabilitiesMinor`, as a positive amount; every other balance counts in `assetsMinor` and in its entry of `assetClasses`, `{ amountMinor, assetClass }`, where `assetClass` is `cash`, `savings`, `investments`, `property` or `other`. `excludedAccountCount` counts the accounts with no balance or in another currency. `balancesAt` is the latest balance date, and `netWorthMinor` is `null` when no account counts.
 - `holdings` is `{ costBasisMinor, holdingCount, topHoldings, unrealisedGainMinor, valuationMinor }`. `unrealisedGainMinor` and `costBasisMinor` sum the holdings that report a gain, and are `null` when none does. `topHoldings` holds the three largest, `{ id, label, unrealisedGainMinor, valuationMinor }`.
 

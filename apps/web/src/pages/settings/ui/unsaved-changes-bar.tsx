@@ -24,7 +24,7 @@ export const UnsavedChangesBar = ({
     {changeCount > 0 && (
       <motion.div
         animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-        className="fixed inset-x-0 bottom-4 z-50 mx-auto w-fit"
+        className="fixed inset-x-0 bottom-[calc(var(--bottom-tab-bar-height)+1rem)] z-50 mx-auto w-fit md:bottom-4"
         exit={{
           filter: "blur(4px)",
           opacity: 0,

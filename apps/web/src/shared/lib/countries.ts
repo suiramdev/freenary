@@ -1,5 +1,5 @@
 import type { Locale } from "@/paraglide/runtime.js";
-import { foldForSearch } from "@/shared/lib/search-text";
+import { foldForSearch } from "@/shared/lib/text";
 
 export interface Country {
   code: string;

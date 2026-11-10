@@ -2,25 +2,22 @@ import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import {
   Item,
   ItemContent,
-  ItemDescription,
   ItemMedia,
   ItemTitle,
 } from "@freenary/ui/components/item";
 import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
 import { useSize } from "@freenary/ui/lib/size-context";
-import { cn } from "@freenary/ui/lib/utils";
 import { useCallback, useRef } from "react";
 
+import {
+  CATEGORY_MEDIA_BOX,
+  TransactionAmount,
+  transactionTitle,
+} from "@/entities/budget";
+import type { Transaction } from "@/entities/budget";
 import { CategoryIcon } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
-
-import type { Transaction } from "../model/transaction";
-
-export const CATEGORY_MEDIA_BOX = {
-  compact: "size-7 [&_svg]:size-3.5",
-  default: "size-9 [&_svg]:size-4",
-} as const;
 
 export const TransactionRow = ({
   transaction,
@@ -44,7 +41,7 @@ export const TransactionRow = ({
     transaction.currency
   );
 
-  const title = transaction.counterpartyName ?? transaction.description;
+  const title = transactionTitle(transaction);
   const { variant } = useSize();
 
   const rowRef = useRef<HTMLDivElement | null>(null);
@@ -84,20 +81,12 @@ export const TransactionRow = ({
       </ItemMedia>
       <ItemContent className="min-w-0">
         <ItemTitle className="block w-full truncate">{title}</ItemTitle>
-        {transaction.counterpartyName && transaction.description ? (
-          <ItemDescription className="block truncate">
-            {transaction.description}
-          </ItemDescription>
-        ) : null}
       </ItemContent>
-      <ItemContent
-        className={cn(
-          "font-medium tabular-nums",
-          isIncoming ? "text-success" : "text-destructive"
-        )}
-      >
-        {isIncoming ? "+" : "−"}
-        {amount}
+      <ItemContent className="font-medium">
+        <TransactionAmount
+          amount={transaction.amount}
+          currency={transaction.currency}
+        />
       </ItemContent>
     </Item>
   );

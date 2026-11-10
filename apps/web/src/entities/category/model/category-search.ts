@@ -1,4 +1,4 @@
-import { foldForSearch } from "@/shared/lib/search-text";
+import { foldForSearch } from "@/shared/lib/text";
 
 export interface CategoryRow {
   group: string;

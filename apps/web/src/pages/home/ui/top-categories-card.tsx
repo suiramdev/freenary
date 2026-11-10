@@ -1,5 +1,6 @@
 import { predefinedCategoryAppearance } from "@freenary/api/lib/categories";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
+import type { TransactionFilter } from "@freenary/api/lib/transaction-filters";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
 
@@ -12,7 +13,11 @@ import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
-import { TOP_CATEGORIES_SHOWN, topCategories } from "../model/dashboard";
+import {
+  TOP_CATEGORIES_SHOWN,
+  topCategories,
+  unsortedSpendMinor,
+} from "../model/dashboard";
 import type { CategoryShare } from "../model/dashboard";
 import type { WidgetQuery } from "../model/widget-query";
 import {
@@ -91,26 +96,64 @@ const CategoryRow = ({
   </li>
 );
 
+const UNSORTED_FILTER = [
+  { field: "category", operator: "is", values: ["uncategorised"] },
+] as const satisfies TransactionFilter[];
+
+const UnsortedNote = ({
+  amountMinor,
+  currency,
+}: {
+  amountMinor: number;
+  currency: string;
+}) => (
+  <p className="text-muted-foreground flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+    <span>
+      {m.home_categories_unsorted({
+        amount: formatCurrency(amountMinor, currency),
+      })}
+    </span>
+    <Link
+      className="text-foreground font-medium underline underline-offset-4"
+      search={{ filters: [...UNSORTED_FILTER] }}
+      to="/budget/transactions"
+    >
+      {m.home_categories_unsorted_review()}
+    </Link>
+  </p>
+);
+
 const TopCategoriesBody = ({ breakdown }: { breakdown: Breakdown }) => {
   const rows = topCategories(breakdown.categories, TOP_CATEGORIES_SHOWN);
+  const unsortedMinor = unsortedSpendMinor(breakdown.categories);
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && unsortedMinor === 0) {
     return <WidgetEmpty>{m.home_categories_empty()}</WidgetEmpty>;
   }
 
   const percent = new Intl.NumberFormat(getLocale(), SHARE_FORMAT);
 
   return (
-    <ul className="flex flex-col gap-3">
-      {rows.map((row) => (
-        <CategoryRow
+    <>
+      {rows.length > 0 ? (
+        <ul className="flex flex-col gap-3">
+          {rows.map((row) => (
+            <CategoryRow
+              currency={breakdown.currency}
+              key={row.category}
+              percent={percent}
+              row={row}
+            />
+          ))}
+        </ul>
+      ) : null}
+      {unsortedMinor > 0 ? (
+        <UnsortedNote
+          amountMinor={unsortedMinor}
           currency={breakdown.currency}
-          key={row.category}
-          percent={percent}
-          row={row}
         />
-      ))}
-    </ul>
+      ) : null}
+    </>
   );
 };
 
