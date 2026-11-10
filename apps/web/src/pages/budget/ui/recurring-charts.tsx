@@ -22,9 +22,9 @@ import { motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useMemo } from "react";
 
+import type { RecurringData } from "@/entities/recurring";
 import { m } from "@/paraglide/messages.js";
 
-import type { RecurringData } from "../model/recurring";
 import {
   forecastSeries,
   frequencyCostPoints,

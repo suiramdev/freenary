@@ -4,7 +4,7 @@ description: Every procedure of the Freenary API, with who can call it, the inpu
 icon: ListTree
 ---
 
-All 47 procedures, grouped by router. [API](/docs/reference/api) covers the base URL, the cookie, the request shapes and the rate limits.
+All 48 procedures, grouped by router. [API](/docs/reference/api) covers the base URL, the cookie, the request shapes and the rate limits.
 
 - **Path.** `budget.getTransactions` is `POST /rpc/budget/getTransactions` or `POST /api-reference/budget/getTransactions`.
 - **Input.** `/api-reference/spec.json` on your instance holds every input schema: types, required fields, enums, bounds and defaults. This page adds only the rules a schema can't express.
@@ -55,6 +55,7 @@ All 47 procedures, grouped by router. [API](/docs/reference/api) covers the base
 | [`instance.bankConnectionCount`](#instancebankconnectioncount) | Operator | Counts every member's bank connections |
 | [`onboarding.completeOnboarding`](#onboardingcompleteonboarding) | Protected | Stores the tax countries and ends the first-run flow |
 | [`onboarding.getStatus`](#onboardinggetstatus) | Protected | Whether the first-run flow is done |
+| [`portfolio.getOverview`](#portfoliogetoverview) | Protected | The caller's accounts with their balances, net worth and holdings |
 | [`settings.createCustomCategory`](#settingscreatecustomcategory) | Protected | Creates a custom category |
 | [`settings.deleteCustomCategory`](#settingsdeletecustomcategory) | Protected | Deletes a custom category and rehomes its budget lines |
 | [`settings.getBudgetProfile`](#settingsgetbudgetprofile) | Protected | The caller's budget lines |
@@ -408,6 +409,16 @@ Same input as `instance.check`. It stores only the values the environment doesn'
 ### onboarding.getStatus
 
 **Output**: `{ completed, taxCountries }`. `taxCountries` is empty until the caller picks countries.
+
+## `portfolio`
+
+### portfolio.getOverview
+
+**Output**: `{ accounts, currency, holdings, netWorth }`. `currency` is the code most of the caller's accounts use, or `EUR` when none has one; `netWorth` and `holdings` count only what is in that currency.
+
+- `accounts` holds `{ balanceMinor, currency, id, institutionName, name, type }`, oldest first. `type` is `CHECKING`, `SAVINGS`, `CARD`, `LOAN`, `BROKERAGE`, `LIFE_INSURANCE`, `RETIREMENT`, `EMPLOYEE_SAVINGS`, `REAL_ESTATE`, `CROWDLENDING` or `UNKNOWN`. `balanceMinor` and `currency` are `null` when the provider sent none.
+- `netWorth` is `{ assetClasses, assetsMinor, balancesAt, excludedAccountCount, liabilitiesMinor, netWorthMinor }`. A balance below zero counts in `liabilitiesMinor`, as a positive amount; every other balance counts in `assetsMinor` and in its entry of `assetClasses`, `{ amountMinor, assetClass }`, where `assetClass` is `cash`, `savings`, `investments`, `property` or `other`. `excludedAccountCount` counts the accounts with no balance or in another currency. `balancesAt` is the latest balance date, and `netWorthMinor` is `null` when no account counts.
+- `holdings` is `{ costBasisMinor, holdingCount, topHoldings, unrealisedGainMinor, valuationMinor }`. `unrealisedGainMinor` and `costBasisMinor` sum the holdings that report a gain, and are `null` when none does. `topHoldings` holds the three largest, `{ id, label, unrealisedGainMinor, valuationMinor }`.
 
 ## `settings`
 

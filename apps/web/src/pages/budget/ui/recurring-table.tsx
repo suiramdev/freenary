@@ -19,11 +19,13 @@ import { cn } from "@freenary/ui/lib/utils";
 import { RiRepeatLine } from "@remixicon/react";
 
 import { categoryLabel } from "@/entities/category";
+import { merchantLabel } from "@/entities/recurring";
+import type { RecurringItem } from "@/entities/recurring";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
+import { dayDelta, localDayOfBankDate } from "@/shared/lib/calendar-day";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
-import { localDayOfBankDate } from "../model/period";
 import {
   frequencyLabel,
   relativeDayLabel,
@@ -32,12 +34,10 @@ import {
 } from "../model/recurrence-labels";
 import {
   annualCostMinor,
-  dayDelta,
-  merchantLabel,
   monthlyEquivalentMinor,
   UPCOMING_HORIZON_DAYS,
 } from "../model/recurring";
-import type { RecurrenceKind, RecurringItem } from "../model/recurring";
+import type { RecurrenceKind } from "../model/recurring";
 import { ConfidenceBadge } from "./recurrence-badge";
 
 interface RecurringTableProps {

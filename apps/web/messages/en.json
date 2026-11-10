@@ -767,6 +767,131 @@
   "first_steps_state_done": "Done",
   "first_steps_state_todo": "To do",
   "first_steps_title": "First steps",
+  "home_account_type_brokerage": "Brokerage account",
+  "home_account_type_card": "Card",
+  "home_account_type_checking": "Current account",
+  "home_account_type_crowdlending": "Crowdlending",
+  "home_account_type_employee_savings": "Employee savings",
+  "home_account_type_life_insurance": "Life insurance",
+  "home_account_type_loan": "Loan",
+  "home_account_type_real_estate": "Real estate",
+  "home_account_type_retirement": "Retirement savings",
+  "home_account_type_savings": "Savings account",
+  "home_account_type_unknown": "Account",
+  "home_accounts_error": "Could not load your accounts.",
+  "home_accounts_loading": "Loading your accounts",
+  "home_accounts_meta": "{institution} · {type}",
+  "home_accounts_no_balance": "No balance reported",
+  "home_accounts_title": "Accounts",
+  "home_asset_class_cash": "Cash",
+  "home_asset_class_investments": "Investments",
+  "home_asset_class_other": "Other",
+  "home_asset_class_property": "Property",
+  "home_asset_class_savings": "Savings",
+  "home_available_balance": "In your current accounts",
+  "home_available_commitments": [
+    {
+      "declarations": [
+        "input count",
+        "input date",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} commitment due by {date}",
+        "countPlural=other": "{count} commitments due by {date}"
+      }
+    }
+  ],
+  "home_available_description": "Left in your current accounts once the commitments due by {date} are paid.",
+  "home_available_empty": "Your banks have not reported a current-account balance yet.",
+  "home_available_error": "Could not load what you have available to spend.",
+  "home_available_loading": "Loading what you have available to spend",
+  "home_available_short": "Your current accounts do not cover the commitments due by {date}.",
+  "home_available_title": "Available to Spend",
+  "home_categories_empty": "Nothing spent this month yet.",
+  "home_categories_error": "Could not load this month's spending by category.",
+  "home_categories_loading": "Loading this month's top categories",
+  "home_categories_title": "Top Categories This Month",
+  "home_investments_empty": "No investment account connected. Connect a brokerage account or a life insurance contract to follow it here.",
+  "home_investments_error": "Could not load your investments.",
+  "home_investments_gain_down": "{amount} ({ratio}) unrealised loss",
+  "home_investments_gain_up": "{amount} ({ratio}) unrealised gain",
+  "home_investments_loading": "Loading your investments",
+  "home_investments_title": "Investments",
+  "home_investments_top": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Your holding",
+        "countPlural=other": "Largest of your {count} holdings"
+      }
+    }
+  ],
+  "home_link_connections": "Bank connections",
+  "home_net_worth_assets_and_debts": "{assets} in assets, {debts} in debts",
+  "home_net_worth_balances_at": "Balances as of {date}",
+  "home_net_worth_empty": "Your banks have not reported a balance yet. It appears after the next sync.",
+  "home_net_worth_error": "Could not load your net worth.",
+  "home_net_worth_excluded": [
+    {
+      "declarations": [
+        "input count",
+        "input currency",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} account is not counted: it has no balance or is not in {currency}.",
+        "countPlural=other": "{count} accounts are not counted: they have no balance or are not in {currency}."
+      }
+    }
+  ],
+  "home_net_worth_loading": "Loading your net worth",
+  "home_net_worth_title": "Net Worth",
+  "home_no_account_description": "Connect a bank account to see your net worth, what you have left to spend and where your money goes.",
+  "home_no_account_title": "Connect a bank account",
+  "home_retry": "Retry",
+  "home_spent_chart_label": "Spending so far this month, day by day, against the same days last month",
+  "home_spent_error": "Could not load this month's spending.",
+  "home_spent_last_month_series": "Last month",
+  "home_spent_last_month_total": "Last month, {amount} in total",
+  "home_spent_less": "{amount} less than by this day last month",
+  "home_spent_loading": "Loading this month's spending",
+  "home_spent_more": "{amount} more than by this day last month",
+  "home_spent_same": "Same as by this day last month",
+  "home_spent_this_month_series": "This month",
+  "home_spent_title": "Spent This Month",
+  "home_upcoming_empty": "No commitment falls due in the next {days} days.",
+  "home_upcoming_error": "Could not load your upcoming payments.",
+  "home_upcoming_loading": "Loading your upcoming payments",
+  "home_upcoming_more": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} more on the Recurring page",
+        "countPlural=other": "{count} more on the Recurring page"
+      }
+    }
+  ],
+  "home_upcoming_summary": [
+    {
+      "declarations": [
+        "input count",
+        "input amount",
+        "input days",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} commitment, {amount}, in the next {days} days",
+        "countPlural=other": "{count} commitments, {amount} in total, in the next {days} days"
+      }
+    }
+  ],
+  "home_upcoming_title": "Upcoming Payments",
   "locale_switcher_label": "Language",
   "mutation_error_generic": "Something went wrong. Try again.",
   "nav_analysis": "Analysis",
@@ -1027,7 +1152,7 @@
   "settings_integrations_apply": "Apply now",
   "settings_integrations_apply_failed": "The settings could not be applied. Try again.",
   "settings_integrations_apply_needs_bank_provider": "Set up the bank provider before you apply these settings.",
-  "settings_integrations_assistant_description": "Lets members ask questions about their finances.",
+  "settings_integrations_assistant_api_description": "Answers questions sent to the assistant API. The app doesn't show the assistant yet.",
   "settings_integrations_banking_description": "Links members' banks so their transactions arrive on their own.",
   "settings_integrations_categorisation_description": "Puts new transactions in the right category for everyone.",
   "settings_integrations_email_description": "Sends sign-up and password-reset codes, so members can get back into their account.",
@@ -1222,7 +1347,7 @@
   "setup_finish_error_bank": "Set up a bank provider on the Bank step before you finish.",
   "setup_finish_error_generic": "Setup could not be finished. Try again.",
   "setup_finish_title": "Review and finish",
-  "setup_integration_assistant_description": "Lets members ask questions about their finances.",
+  "setup_integration_assistant_api_description": "Answers questions sent to the assistant API. The app doesn't show the assistant yet.",
   "setup_integration_assistant_title": "Assistant model",
   "setup_integration_banking_description": "Pick the service that connects bank accounts.",
   "setup_integration_banking_title": "Bank provider",

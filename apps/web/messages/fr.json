@@ -776,6 +776,131 @@
   "first_steps_state_done": "Fait",
   "first_steps_state_todo": "À faire",
   "first_steps_title": "Premiers pas",
+  "home_account_type_brokerage": "Compte-titres",
+  "home_account_type_card": "Carte",
+  "home_account_type_checking": "Compte courant",
+  "home_account_type_crowdlending": "Financement participatif",
+  "home_account_type_employee_savings": "Épargne salariale",
+  "home_account_type_life_insurance": "Assurance vie",
+  "home_account_type_loan": "Prêt",
+  "home_account_type_real_estate": "Immobilier",
+  "home_account_type_retirement": "Épargne retraite",
+  "home_account_type_savings": "Compte d’épargne",
+  "home_account_type_unknown": "Compte",
+  "home_accounts_error": "Impossible de charger vos comptes.",
+  "home_accounts_loading": "Chargement de vos comptes",
+  "home_accounts_meta": "{institution} · {type}",
+  "home_accounts_no_balance": "Aucun solde transmis",
+  "home_accounts_title": "Comptes",
+  "home_asset_class_cash": "Liquidités",
+  "home_asset_class_investments": "Placements",
+  "home_asset_class_other": "Autres",
+  "home_asset_class_property": "Immobilier",
+  "home_asset_class_savings": "Épargne",
+  "home_available_balance": "Sur vos comptes courants",
+  "home_available_commitments": [
+    {
+      "declarations": [
+        "input count",
+        "input date",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} engagement dû d’ici le {date}",
+        "countPlural=other": "{count} engagements dus d’ici le {date}"
+      }
+    }
+  ],
+  "home_available_description": "Ce qui reste sur vos comptes courants une fois réglés les engagements dus d’ici le {date}.",
+  "home_available_empty": "Vos banques n’ont pas encore transmis de solde de compte courant.",
+  "home_available_error": "Impossible de charger ce qu’il vous reste à dépenser.",
+  "home_available_loading": "Chargement de ce qu’il vous reste à dépenser",
+  "home_available_short": "Vos comptes courants ne couvrent pas les engagements dus d’ici le {date}.",
+  "home_available_title": "Reste à dépenser",
+  "home_categories_empty": "Aucune dépense ce mois-ci pour l’instant.",
+  "home_categories_error": "Impossible de charger les dépenses du mois par catégorie.",
+  "home_categories_loading": "Chargement des principales catégories du mois",
+  "home_categories_title": "Principales catégories du mois",
+  "home_investments_empty": "Aucun compte de placement connecté. Connectez un compte-titres ou un contrat d’assurance vie pour le suivre ici.",
+  "home_investments_error": "Impossible de charger vos placements.",
+  "home_investments_gain_down": "{amount} ({ratio}) de moins-value latente",
+  "home_investments_gain_up": "{amount} ({ratio}) de plus-value latente",
+  "home_investments_loading": "Chargement de vos placements",
+  "home_investments_title": "Placements",
+  "home_investments_top": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Votre ligne",
+        "countPlural=other": "Les plus grosses de vos {count} lignes"
+      }
+    }
+  ],
+  "home_link_connections": "Connexions bancaires",
+  "home_net_worth_assets_and_debts": "{assets} d’actifs, {debts} de dettes",
+  "home_net_worth_balances_at": "Soldes au {date}",
+  "home_net_worth_empty": "Vos banques n’ont pas encore transmis de solde. Il apparaîtra après la prochaine synchronisation.",
+  "home_net_worth_error": "Impossible de charger votre patrimoine net.",
+  "home_net_worth_excluded": [
+    {
+      "declarations": [
+        "input count",
+        "input currency",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} compte n’est pas compté : il n’a pas de solde ou n’est pas en {currency}.",
+        "countPlural=other": "{count} comptes ne sont pas comptés : ils n’ont pas de solde ou ne sont pas en {currency}."
+      }
+    }
+  ],
+  "home_net_worth_loading": "Chargement de votre patrimoine net",
+  "home_net_worth_title": "Patrimoine net",
+  "home_no_account_description": "Connectez un compte bancaire pour voir votre patrimoine net, ce qu’il vous reste à dépenser et où va votre argent.",
+  "home_no_account_title": "Connecter un compte bancaire",
+  "home_retry": "Réessayer",
+  "home_spent_chart_label": "Dépenses du mois jusqu’à aujourd’hui, jour par jour, face aux mêmes jours du mois dernier",
+  "home_spent_error": "Impossible de charger les dépenses du mois.",
+  "home_spent_last_month_series": "Mois dernier",
+  "home_spent_last_month_total": "Mois dernier, {amount} au total",
+  "home_spent_less": "{amount} de moins qu’à la même date le mois dernier",
+  "home_spent_loading": "Chargement des dépenses du mois",
+  "home_spent_more": "{amount} de plus qu’à la même date le mois dernier",
+  "home_spent_same": "Autant qu’à la même date le mois dernier",
+  "home_spent_this_month_series": "Ce mois-ci",
+  "home_spent_title": "Dépensé ce mois-ci",
+  "home_upcoming_empty": "Aucun engagement à payer dans les {days} prochains jours.",
+  "home_upcoming_error": "Impossible de charger vos prochains paiements.",
+  "home_upcoming_loading": "Chargement de vos prochains paiements",
+  "home_upcoming_more": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} autre sur la page Récurrent",
+        "countPlural=other": "{count} autres sur la page Récurrent"
+      }
+    }
+  ],
+  "home_upcoming_summary": [
+    {
+      "declarations": [
+        "input count",
+        "input amount",
+        "input days",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} engagement, {amount}, dans les {days} prochains jours",
+        "countPlural=other": "{count} engagements, {amount} au total, dans les {days} prochains jours"
+      }
+    }
+  ],
+  "home_upcoming_title": "Prochains paiements",
   "locale_switcher_label": "Langue",
   "mutation_error_generic": "Une erreur est survenue. Réessayez.",
   "nav_analysis": "Analyse",
@@ -1036,7 +1161,7 @@
   "settings_integrations_apply": "Appliquer maintenant",
   "settings_integrations_apply_failed": "Les réglages n’ont pas pu être appliqués. Réessayez.",
   "settings_integrations_apply_needs_bank_provider": "Configurez le fournisseur bancaire avant d’appliquer ces réglages.",
-  "settings_integrations_assistant_description": "Permet aux membres de poser des questions sur leurs finances.",
+  "settings_integrations_assistant_api_description": "Répond aux questions envoyées à l’API de l’assistant. L’application n’affiche pas encore l’assistant.",
   "settings_integrations_banking_description": "Relie les banques des membres pour que leurs transactions arrivent toutes seules.",
   "settings_integrations_categorisation_description": "Range les nouvelles transactions dans la bonne catégorie pour tout le monde.",
   "settings_integrations_email_description": "Envoie les codes d’inscription et de réinitialisation, pour que les membres puissent retrouver l’accès à leur compte.",
@@ -1231,7 +1356,7 @@
   "setup_finish_error_bank": "Configurez un fournisseur bancaire à l’étape Banque avant de terminer.",
   "setup_finish_error_generic": "La configuration n’a pas pu être terminée. Réessayez.",
   "setup_finish_title": "Vérifier et terminer",
-  "setup_integration_assistant_description": "Permet aux membres de poser des questions sur leurs finances.",
+  "setup_integration_assistant_api_description": "Répond aux questions envoyées à l’API de l’assistant. L’application n’affiche pas encore l’assistant.",
   "setup_integration_assistant_title": "Modèle de l'assistant",
   "setup_integration_banking_description": "Choisissez le service qui connecte les comptes bancaires.",
   "setup_integration_banking_title": "Fournisseur bancaire",
