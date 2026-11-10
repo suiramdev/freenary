@@ -7,6 +7,7 @@ import {
   dayDelta,
   localDayOfBankDate,
 } from "@/shared/lib/calendar-day";
+import { readableName } from "@/shared/lib/text";
 
 export type RecurringData =
   InferRouterOutputs<AppRouter>["budget"]["getRecurring"];
@@ -37,7 +38,7 @@ export const usableCadenceDays = (item: RecurringItem): number =>
   item.intervalDays >= 1 ? item.intervalDays : NO_USABLE_CADENCE;
 
 export const merchantLabel = (item: RecurringItem): string =>
-  item.merchantName ?? item.merchantKey;
+  readableName(item.merchantName ?? item.merchantKey);
 
 const rollForwardToNextSlot = (
   expected: Date,

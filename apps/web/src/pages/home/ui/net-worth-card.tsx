@@ -164,7 +164,11 @@ export const NetWorthCard = ({
   className?: string;
   query: WidgetQuery<PortfolioOverview>;
 }) => (
-  <WidgetCard className={className} title={m.home_net_worth_title()}>
+  <WidgetCard
+    className={className}
+    headingLevel="h3"
+    title={m.home_net_worth_title()}
+  >
     {query.isPending ? <NetWorthSkeleton /> : null}
     {query.isError ? (
       <WidgetError

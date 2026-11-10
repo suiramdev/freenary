@@ -1,8 +1,12 @@
+import type { AppRouter } from "@freenary/api/routers/index";
+import type { InferRouterOutputs } from "@orpc/server";
+
 import { m } from "@/paraglide/messages.js";
 
-import type { PortfolioOverview } from "./widget-query";
+export type PortfolioAccount =
+  InferRouterOutputs<AppRouter>["portfolio"]["getOverview"]["accounts"][number];
 
-type AccountType = PortfolioOverview["accounts"][number]["type"];
+type AccountType = PortfolioAccount["type"];
 
 export const ACCOUNT_TYPE_LABELS = {
   BROKERAGE: m.home_account_type_brokerage,
@@ -17,3 +21,6 @@ export const ACCOUNT_TYPE_LABELS = {
   SAVINGS: m.home_account_type_savings,
   UNKNOWN: m.home_account_type_unknown,
 } satisfies Record<AccountType, () => string>;
+
+export const accountName = (account: PortfolioAccount): string =>
+  account.name ?? ACCOUNT_TYPE_LABELS[account.type]();

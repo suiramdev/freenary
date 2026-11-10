@@ -4,7 +4,6 @@ import { Tooltip } from "@freenary/ui/components/tooltip";
 import { Sync } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
-import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 
 interface SyncButtonProps {
   isSyncing: boolean;
@@ -28,7 +27,7 @@ export const SyncButton = ({
       type="button"
       variant="ghost"
     >
-      {isSyncing ? <Spinner /> : <Sync color={CHART_COLOR_VARS.blue} />}
+      {isSyncing ? <Spinner /> : <Sync color="currentColor" />}
     </Button>
   </Tooltip>
 );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { holdingsSummaryOf, netWorthOf } from "./net-worth";
+import { currentAccountsOf, holdingsSummaryOf, netWorthOf } from "./net-worth";
 
 const MAY_FIRST = new Date("2026-05-01T08:00:00Z");
 const MAY_SECOND = new Date("2026-05-02T08:00:00Z");
@@ -192,5 +192,43 @@ describe("holdingsSummaryOf", () => {
 
     expect(summary.unrealisedGainMinor).toBeNull();
     expect(summary.costBasisMinor).toBeNull();
+  });
+});
+
+describe("currentAccountsOf", () => {
+  it("dates the balance by the checking accounts it adds up, not by the others", () => {
+    expect(
+      currentAccountsOf([
+        {
+          balanceAt: MAY_FIRST,
+          balanceMinor: 120_000,
+          currency: "EUR",
+          type: "CHECKING",
+        },
+        {
+          balanceAt: MAY_SECOND,
+          balanceMinor: 500_000,
+          currency: "EUR",
+          type: "BROKERAGE",
+        },
+      ])
+    ).toEqual({
+      balanceMinor: 120_000,
+      balancesAt: MAY_FIRST,
+      currency: "EUR",
+    });
+  });
+
+  it("has no date when no checking account reports a balance", () => {
+    expect(
+      currentAccountsOf([
+        {
+          balanceAt: MAY_SECOND,
+          balanceMinor: null,
+          currency: "EUR",
+          type: "CHECKING",
+        },
+      ])
+    ).toEqual({ balanceMinor: null, balancesAt: null, currency: "EUR" });
   });
 });

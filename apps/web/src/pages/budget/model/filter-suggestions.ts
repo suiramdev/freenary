@@ -17,7 +17,7 @@ import type {
 import { categoryRowMatches } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
-import { foldForSearch } from "@/shared/lib/search-text";
+import { foldForSearch } from "@/shared/lib/text";
 
 import type {
   AmountDraft,

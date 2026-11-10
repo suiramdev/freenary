@@ -6,9 +6,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 
 import type { CategorySelection } from "@/entities/category";
+import { TransactionDetailDrawer } from "@/features/transaction-details";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/shared/api";
 
@@ -30,8 +31,8 @@ import { useBudgetView } from "../model/use-budget-view";
 import { useSyncProgress } from "../model/use-sync-progress";
 import { BudgetCharts } from "./budget-charts";
 import { BudgetKpiStrip } from "./budget-kpi-strip";
+import { ChartsToggle } from "./charts-toggle";
 import { PeriodNavigator } from "./period-navigator";
-import { TransactionDetailDrawer } from "./transaction-detail-drawer";
 import { TransactionList } from "./transaction-list";
 
 type PeriodOverview =
@@ -82,6 +83,7 @@ export const TransactionsPage = () => {
     to,
   } = period;
 
+  const [chartsOpen, setChartsOpen] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
@@ -182,6 +184,7 @@ export const TransactionsPage = () => {
     : null;
 
   const isUpdating = [overviewQuery, transactionsQuery].some(isStaleView);
+  const chartsId = useId();
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -212,22 +215,35 @@ export const TransactionsPage = () => {
         totalIncome={overview.totalIncome}
       />
 
-      <BudgetCharts
-        activeCategories={chartCategories}
-        aggregation={aggregation}
-        breakdown={{
-          ...overviewState,
-          data: overview.spendingBreakdown,
-        }}
-        cashFlow={{ ...overviewState, data: overview.sankey }}
-        companion={companion}
-        fixedVsVariable={{ ...overviewState, data: overview.fixedVsVariable }}
-        onCompanionChange={(next) => applyPatch({ companion: next })}
-        onSelect={handleSelect}
-        onViewChange={(next) => applyPatch({ view: next })}
-        planned={{ ...overviewState, data: overview.budgetVsActual }}
-        view={view}
+      <ChartsToggle
+        controls={chartsId}
+        isOpen={chartsOpen}
+        onToggle={() => setChartsOpen((open) => !open)}
       />
+
+      <div hidden={!chartsOpen} id={chartsId}>
+        {chartsOpen ? (
+          <BudgetCharts
+            activeCategories={chartCategories}
+            aggregation={aggregation}
+            breakdown={{
+              ...overviewState,
+              data: overview.spendingBreakdown,
+            }}
+            cashFlow={{ ...overviewState, data: overview.sankey }}
+            companion={companion}
+            fixedVsVariable={{
+              ...overviewState,
+              data: overview.fixedVsVariable,
+            }}
+            onCompanionChange={(next) => applyPatch({ companion: next })}
+            onSelect={handleSelect}
+            onViewChange={(next) => applyPatch({ view: next })}
+            planned={{ ...overviewState, data: overview.budgetVsActual }}
+            view={view}
+          />
+        ) : null}
+      </div>
 
       <TransactionList
         transactions={allTransactions}

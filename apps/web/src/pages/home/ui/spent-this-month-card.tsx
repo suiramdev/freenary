@@ -10,9 +10,8 @@ import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
 import { spendingPace } from "../model/dashboard";
-import type { SpendingPace } from "../model/dashboard";
+import type { CashFlow, SpendingPace } from "../model/dashboard";
 import type { WidgetQuery } from "../model/widget-query";
-import { SpendingPaceChart } from "./spending-pace-chart";
 import {
   HeadlineAmount,
   WidgetAction,
@@ -21,21 +20,12 @@ import {
   WidgetLoading,
 } from "./widget-card";
 
-interface CashFlow {
-  currency: string;
-  periods: { incoming: number; label: string; outgoing: number }[];
-}
-
-const MIN_POINTS_FOR_A_LINE = 2;
-
 const PaceSkeleton = () => (
   <WidgetLoading label={m.home_spent_loading()}>
     <div className="flex flex-col gap-2">
       <Skeleton className="h-9 w-40" />
       <Skeleton className="h-5 w-64 max-w-full" />
     </div>
-    <Skeleton className="h-32" />
-    <Skeleton className="h-4 w-56" />
   </WidgetLoading>
 );
 
@@ -82,22 +72,12 @@ const SpentBody = ({
   const pace = spendingPace(current.periods, previous.periods, today);
 
   return (
-    <>
-      <div className="flex flex-col gap-1">
-        <HeadlineAmount>
-          {formatCurrency(pace.monthTotalMinor, current.currency)}
-        </HeadlineAmount>
-        <PaceComparison currency={current.currency} pace={pace} />
-      </div>
-      {pace.points.length >= MIN_POINTS_FOR_A_LINE ? (
-        <SpendingPaceChart
-          currency={current.currency}
-          points={pace.points}
-          previousMonthTotalMinor={pace.previousMonthTotalMinor}
-          today={today}
-        />
-      ) : null}
-    </>
+    <div className="flex flex-col gap-1">
+      <HeadlineAmount>
+        {formatCurrency(pace.monthTotalMinor, current.currency)}
+      </HeadlineAmount>
+      <PaceComparison currency={current.currency} pace={pace} />
+    </div>
   );
 };
 

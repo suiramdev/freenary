@@ -1,4 +1,5 @@
 import type { ProviderAccountType } from "../providers/types";
+import { accountsSummary } from "./accounts-summary";
 
 export const ASSET_CLASSES = [
   "cash",
@@ -40,12 +41,38 @@ export interface NetWorth {
   netWorthMinor: number | null;
 }
 
+export interface CurrentAccounts {
+  balanceMinor: number | null;
+  balancesAt: Date | null;
+  currency: string;
+}
+
 const laterOf = (current: Date | null, candidate: Date | null) => {
   if (candidate === null) {
     return current;
   }
 
   return current === null || candidate > current ? candidate : current;
+};
+
+export const currentAccountsOf = (
+  accounts: ValuedAccount[]
+): CurrentAccounts => {
+  const { availableBalanceMinor, currency } = accountsSummary(accounts);
+  let balancesAt: Date | null = null;
+
+  for (const account of accounts) {
+    const isCounted =
+      account.type === "CHECKING" &&
+      account.currency === currency &&
+      account.balanceMinor !== null;
+
+    if (isCounted) {
+      balancesAt = laterOf(balancesAt, account.balanceAt);
+    }
+  }
+
+  return { balanceMinor: availableBalanceMinor, balancesAt, currency };
 };
 
 export const assetClassOf = (type: ProviderAccountType): AssetClass =>

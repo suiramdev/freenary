@@ -1,7 +1,11 @@
 import prisma from "@freenary/db";
 
 import { protectedProcedure } from "../index";
-import { holdingsSummaryOf, netWorthOf } from "../lib/net-worth";
+import {
+  currentAccountsOf,
+  holdingsSummaryOf,
+  netWorthOf,
+} from "../lib/net-worth";
 import { userCurrency } from "../lib/user-currency";
 
 export const portfolioRouter = {
@@ -45,6 +49,7 @@ export const portfolioRouter = {
         type: account.type,
       })),
       currency,
+      currentAccounts: currentAccountsOf(accounts),
       holdings: holdingsSummaryOf(holdings, currency),
       netWorth: netWorthOf(accounts, currency),
     };

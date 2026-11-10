@@ -155,7 +155,10 @@ export const SidebarFirstSteps = () => {
           className="bg-sidebar-accent/50 ring-sidebar-border rounded-[calc(var(--radius-sm)+6px)] p-1 ring-1 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:ring-0"
         >
           <motion.div variants={itemVariants}>
-            <SidebarGroupLabel className="justify-between" id={HEADING_ID}>
+            <SidebarGroupLabel
+              className="text-muted-foreground justify-between"
+              id={HEADING_ID}
+            >
               <span>{m.first_steps_title()}</span>
               <span className="text-sidebar-foreground/50 tabular-nums">
                 {m.first_steps_progress({

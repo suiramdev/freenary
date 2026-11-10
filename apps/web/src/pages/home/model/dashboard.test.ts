@@ -7,6 +7,7 @@ import {
   dashboardMonths,
   spendingPace,
   topCategories,
+  unsortedSpendMinor,
 } from "./dashboard";
 
 const item = (overrides: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -137,6 +138,18 @@ describe("availableToSpend", () => {
 });
 
 describe("topCategories", () => {
+  it("leaves unsorted spending out of the ranking but in the shares", () => {
+    expect(
+      topCategories(
+        [
+          { amount: 3000, category: "uncategorised" },
+          { amount: 1000, category: "groceries" },
+        ],
+        2
+      )
+    ).toEqual([{ amountMinor: 1000, category: "groceries", share: 0.25 }]);
+  });
+
   it("ranks the largest categories with their share of all spending", () => {
     expect(
       topCategories(
@@ -155,5 +168,22 @@ describe("topCategories", () => {
 
   it("is empty when nothing was spent", () => {
     expect(topCategories([], 4)).toEqual([]);
+  });
+});
+
+describe("unsortedSpendMinor", () => {
+  it("adds up what no category claims yet", () => {
+    expect(
+      unsortedSpendMinor([
+        { amount: 3000, category: "uncategorised" },
+        { amount: 1000, category: "groceries" },
+      ])
+    ).toBe(3000);
+  });
+
+  it("is zero when every payment has a category", () => {
+    expect(unsortedSpendMinor([{ amount: 1000, category: "groceries" }])).toBe(
+      0
+    );
   });
 });

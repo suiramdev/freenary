@@ -11,20 +11,22 @@ import {
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
 import { Separator } from "@freenary/ui/components/separator";
 import { useSize } from "@freenary/ui/lib/size-context";
-import { cn } from "@freenary/ui/lib/utils";
 import { RiCalendarLine, RiCloseLine, RiPriceTag3Line } from "@remixicon/react";
 import { useEffect, useState } from "react";
 
+import {
+  CATEGORY_MEDIA_BOX,
+  TransactionAmount,
+  transactionTitle,
+} from "@/entities/budget";
+import type { Transaction } from "@/entities/budget";
 import { CategoryIcon } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
-import { formatCurrency } from "@/shared/lib/format-currency";
 
-import type { Transaction } from "../model/transaction";
 import { useTransactionCategory } from "../model/use-transaction-category";
 import { TransactionCategoryPicker } from "./transaction-category-picker";
 import { TransactionDetailRow } from "./transaction-detail-row";
-import { CATEGORY_MEDIA_BOX } from "./transaction-row";
 
 const HERO_BOX = {
   compact: "size-10 [&_svg]:size-5",
@@ -36,6 +38,8 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
   const { variant } = useSize();
 
   const isIncoming = transaction.amount > 0;
+  const title = transactionTitle(transaction);
+  const showsBankText = title !== transaction.description;
   const isOverridden = transaction.category !== transaction.derivedCategory;
   const displayDate = new Date(transaction.date).toLocaleDateString(
     getLocale(),
@@ -77,20 +81,13 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
               className={HERO_BOX[variant]}
             />
             <div className="flex flex-col items-center gap-1">
-              <span
-                className={cn(
-                  "text-2xl font-semibold tabular-nums",
-                  isIncoming ? "text-success" : "text-foreground"
-                )}
-              >
-                {isIncoming ? "+" : "−"}
-                {formatCurrency(
-                  Math.abs(transaction.amount),
-                  transaction.currency
-                )}
-              </span>
-              <span className="text-muted-foreground text-sm">
-                {transaction.counterpartyName ?? transaction.description}
+              <TransactionAmount
+                amount={transaction.amount}
+                className="text-2xl font-semibold"
+                currency={transaction.currency}
+              />
+              <span className="text-muted-foreground text-center text-sm text-balance">
+                {title}
               </span>
             </div>
           </div>
@@ -105,7 +102,7 @@ const TransactionDetails = ({ transaction }: { transaction: Transaction }) => {
               <span className="text-sm">{displayDate}</span>
             </TransactionDetailRow>
 
-            {transaction.counterpartyName && transaction.description ? (
+            {showsBankText && transaction.description ? (
               <TransactionDetailRow
                 icon={<RiPriceTag3Line />}
                 label={m.budget_detail_description_label()}

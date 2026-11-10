@@ -111,9 +111,9 @@ const InvestmentsBody = ({ overview }: { overview: PortfolioOverview }) => {
       </div>
       {holdings.topHoldings.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h3 className="text-muted-foreground text-xs">
+          <h4 className="text-muted-foreground text-xs">
             {m.home_investments_top({ count: holdings.holdingCount })}
-          </h3>
+          </h4>
           <ul className="flex flex-col gap-2">
             {holdings.topHoldings.map((holding) => (
               <li
@@ -153,7 +153,7 @@ export const InvestmentsCard = ({
 }: {
   query: WidgetQuery<PortfolioOverview>;
 }) => (
-  <WidgetCard title={m.home_investments_title()}>
+  <WidgetCard headingLevel="h3" title={m.home_investments_title()}>
     {query.isPending ? <InvestmentsSkeleton /> : null}
     {query.isError ? (
       <WidgetError

@@ -1303,6 +1303,7 @@ export const budgetRouter = {
   getTransactions: protectedProcedure
     .input(
       z.object({
+        accountId: z.string().min(1).optional(),
         cursor: z.string().optional(),
         direction: z.enum(["incoming", "outgoing"]).optional(),
         filters: transactionFiltersSchema.optional(),
@@ -1315,8 +1316,17 @@ export const budgetRouter = {
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { cursor, direction, filters, from, limit, search, sort, to } =
-        input;
+      const {
+        accountId,
+        cursor,
+        direction,
+        filters,
+        from,
+        limit,
+        search,
+        sort,
+        to,
+      } = input;
 
       const dateFilter = { gte: from, lte: to };
       let directionFilter: { gt: number } | { lt: number } | undefined;
@@ -1352,6 +1362,7 @@ export const budgetRouter = {
 
       const baseWhere: Prisma.TransactionWhereInput = {
         account: { connection: { userId } },
+        accountId,
         amount: directionFilter,
         date: dateFilter,
       };
@@ -1374,6 +1385,7 @@ export const budgetRouter = {
           date: true,
           description: true,
           id: true,
+          normalisedDescriptor: true,
           resolvedCategory: true,
         },
         take: limit + 1,
@@ -1406,6 +1418,7 @@ export const budgetRouter = {
           derivedCategory: pipelineCategory(t),
           description: t.description,
           id: t.id,
+          normalisedDescriptor: t.normalisedDescriptor,
         })),
       };
     }),

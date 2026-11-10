@@ -19,6 +19,7 @@ interface WidgetCardProps {
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  headingLevel?: "h2" | "h3";
   title: string;
 }
 
@@ -34,6 +35,7 @@ export const WidgetCard = ({
   action,
   children,
   className,
+  headingLevel: Heading = "h2",
   title,
 }: WidgetCardProps) => {
   const headingId = useId();
@@ -43,9 +45,9 @@ export const WidgetCard = ({
       <section aria-labelledby={headingId} className="h-full">
         <Card className="h-full">
           <CardHeader className="min-h-9 items-center">
-            <h2 className="min-w-0" id={headingId}>
+            <Heading className="min-w-0" id={headingId}>
               <CardTitle className="truncate">{title}</CardTitle>
-            </h2>
+            </Heading>
             {action ? (
               <CardAction className="self-center">{action}</CardAction>
             ) : null}
@@ -108,7 +110,7 @@ export const HeadlineAmount = ({
 }) => (
   <p
     className={cn(
-      "text-3xl leading-tight font-semibold tracking-tight tabular-nums",
+      "text-2xl leading-tight font-semibold tracking-tight tabular-nums",
       className
     )}
   >

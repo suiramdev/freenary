@@ -11,11 +11,11 @@ import { RiReceiptLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
 import type { TimeRange } from "../model/period";
-import type { Transaction } from "../model/transaction";
 import {
   buildVirtualItems,
   HEADER_HEIGHT,

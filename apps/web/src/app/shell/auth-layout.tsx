@@ -18,6 +18,7 @@ import { Fragment } from "react";
 import { AuthGate } from "@/features/auth-gate";
 
 import { AppSidebar } from "./app-sidebar";
+import { BOTTOM_TAB_BAR_CLEARANCE, BottomTabBar } from "./bottom-tab-bar";
 import { navTrailOf } from "./nav-items";
 import { SyncProgressToast } from "./sync-progress-toast";
 import { UpdateBanner } from "./update-banner";
@@ -37,7 +38,7 @@ export const AuthLayout = () => {
         <UpdateBanner latest={latestRelease} />
         <SidebarProvider className={SHELL_BELOW_THE_BANNER}>
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className={BOTTOM_TAB_BAR_CLEARANCE}>
             <header className="flex h-16 shrink-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ms-1" size="icon" />
               <Separator
@@ -72,6 +73,7 @@ export const AuthLayout = () => {
               </AuthGate>
             </div>
           </SidebarInset>
+          <BottomTabBar />
         </SidebarProvider>
       </div>
     </TooltipProvider>
