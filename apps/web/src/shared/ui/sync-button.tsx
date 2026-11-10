@@ -1,7 +1,7 @@
 import { Button } from "@freenary/ui/components/button";
 import { Spinner } from "@freenary/ui/components/spinner";
 import { Tooltip } from "@freenary/ui/components/tooltip";
-import { Sync } from "kubai-icons-react";
+import { RiRefreshLine } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
 
@@ -27,7 +27,7 @@ export const SyncButton = ({
       type="button"
       variant="ghost"
     >
-      {isSyncing ? <Spinner /> : <Sync color="currentColor" />}
+      {isSyncing ? <Spinner /> : <RiRefreshLine />}
     </Button>
   </Tooltip>
 );
