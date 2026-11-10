@@ -60,7 +60,7 @@ The site serves first-time readers who want a working instance, then the people 
 ```
 index.mdx             what Freenary is, who it is for, two buttons
 get-started/          before-you-install → install → connect-a-bank
-use/                  budget, bank-connections, assistant, account
+use/                  home, budget, bank-connections, account
 run/                  email, sign-in, updates-and-backups, troubleshooting
 reference/            configuration, bank-providers, reverse-proxy, security,
                       from-source, api, procedures, glossary

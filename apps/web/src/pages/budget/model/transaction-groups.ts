@@ -1,7 +1,7 @@
 import { m } from "@/paraglide/messages.js";
 import type { Locale } from "@/paraglide/runtime.js";
+import { localDayOfBankDate } from "@/shared/lib/calendar-day";
 
-import { localDayOfBankDate } from "./period";
 import type { TimeRange } from "./period";
 import type { Transaction } from "./transaction";
 

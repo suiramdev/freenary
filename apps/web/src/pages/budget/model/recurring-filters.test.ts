@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import type { RecurringItem } from "./recurring";
+import type { RecurringItem } from "@/entities/recurring";
+
 import {
   EMPTY_RECURRING_FILTER,
   groupRecurringItems,

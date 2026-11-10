@@ -9,21 +9,31 @@ import {
 import { RiWalletLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 
-import { m } from "@/paraglide/messages.js";
+interface NoBankAccountProps {
+  actionLabel: string;
+  description: string;
+  title: string;
+}
 
-export const NoBankAccount = () => (
+export const NoBankAccount = ({
+  actionLabel,
+  description,
+  title,
+}: NoBankAccountProps) => (
   <div className="flex flex-1 flex-col items-center justify-center p-4">
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <RiWalletLine />
         </EmptyMedia>
-        <EmptyTitle>{m.budget_no_account_title()}</EmptyTitle>
-        <EmptyDescription>{m.budget_no_account_description()}</EmptyDescription>
+        <EmptyTitle>
+          <h1>{title}</h1>
+        </EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       <Button asChild>
         <Link search={{ section: "connections" }} to="/settings">
-          {m.budget_no_account_cta()}
+          {actionLabel}
         </Link>
       </Button>
     </Empty>

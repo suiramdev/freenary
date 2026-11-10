@@ -80,8 +80,6 @@ Data leaves the instance through these paths:
 - **Email and sign-in providers** receive the addresses, codes and provider requests their feature needs.
 - **The breach check** receives the five-character hash prefix described above.
 
-A device model downloads into the user's browser. Finance data stays there, while the conversation is saved on the instance.
-
 The server-image build downloads its merchant dictionary from this repository's GitHub releases. Its fallback contacts GeoNames, Wikidata and npm. It sends no user data, and the running image reads the file locally.
 
 `/api-reference` is a live OpenAPI endpoint. It and `/rpc` reach the same handlers with the same session and role checks. See [API](/docs/reference/api) before automating either path.

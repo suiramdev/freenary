@@ -55,3 +55,13 @@ export const formatCompactCurrency = (
     notation: "compact",
     style: "currency",
   }).format(fromMinor(amountMinorUnits, currency));
+
+export const formatSignedCurrency = (
+  amountMinorUnits: number,
+  currency: string
+): string =>
+  new Intl.NumberFormat(getLocale(), {
+    currency,
+    signDisplay: "exceptZero",
+    style: "currency",
+  }).format(fromMinor(amountMinorUnits, currency));

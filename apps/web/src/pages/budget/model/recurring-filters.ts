@@ -4,17 +4,14 @@ import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 
 import { EMPTY_CATEGORY_FILTER, filterCount } from "@/entities/category";
 import type { CategoryFilter } from "@/entities/category";
+import { merchantLabel } from "@/entities/recurring";
+import type { RecurringItem } from "@/entities/recurring";
 import { foldForSearch } from "@/shared/lib/search-text";
 
-import {
-  merchantLabel,
-  monthlyEquivalentMinor,
-  recurringSections,
-} from "./recurring";
+import { monthlyEquivalentMinor, recurringSections } from "./recurring";
 import type {
   RecurrenceConfidence,
   RecurrenceFrequency,
-  RecurringItem,
   RecurringSection,
 } from "./recurring";
 import type { RecurringSortMode } from "./search";

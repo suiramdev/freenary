@@ -96,7 +96,6 @@ Use exactly these terms, and keep the same one on every page:
 | bank connection | One link to one bank |
 | sync | Fetching new transactions |
 | category, custom category, budget line, period | As the app names them |
-| assistant | The question box on Home |
 
 Avoid "the stack" (say "Freenary" or "the containers") and "origin" on beginner pages (say "address" or "URL"). `reference/glossary.mdx` holds the reader-facing term list.
 
