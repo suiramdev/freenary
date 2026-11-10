@@ -24,7 +24,7 @@ The search box takes free text and filters together:
 
 - Type to match the bank's label or the other party's name.
 - Pick `Company`, `Category` or `Amount` from the list under the box, then a comparison, then a value. Each filter shows as a chip in the box.
-- Press a part of a chart to filter the list to that category, in place of any category filter you set. Press it again to remove that filter.
+- Press a part of a chart to filter the list to that category, in place of any category filter you set. On `Flow`, a group's bar filters to every category in it. Press it again to remove that filter.
 - With more than seven categories, the spending breakdown shows the six largest and adds the rest up as `Other`, with the number of categories it holds. Press `Other` to filter the list to those categories and list them under the chart, then press one of them to keep only that category.
 
 | Filter     | Comparisons                 |
@@ -80,7 +80,19 @@ On **Transactions**, internal transfers still count: they're in the totals, the 
 
 ## Recurring
 
-**Recurring** lists the payments that repeat, such as rent and subscriptions: what each one costs per month and per year, and when the next one is due. It always looks at your last 26 months, whatever period you picked on **Transactions**, so a payment that comes once a year shows from its second occurrence. A payment leaves the list once it is later than its rhythm allows: a monthly one after 35 days without a charge, a yearly one after 395. The month chart covers your last 12 months.
+**Recurring** lists the payments that repeat, such as rent and subscriptions: what each one costs per month and per year, and when the next one is due. It always looks at your last 26 months, whatever period you picked on **Transactions**, so a payment that comes once a year shows from its second occurrence. A payment leaves the list once it is later than its rhythm allows: a monthly one after 35 days without a charge, a yearly one after 395.
+
+The charts above the list cover every recurring payment, whatever you filter in the list. The first card has three views:
+
+- `Over time`: what you spent each month over your last 12 months, split into `Commitments`, `Repeated` and `Other`.
+- `Forecast`: your available balance over the next 30 days as recurring payments fall due. A dashed line marks zero when the balance would drop below it. It stays empty when your bank reports no balance.
+- `Cost vs. frequency`: the 8 payments that cost the most per year. Hover over a bar to see how many times a year it comes.
+
+The menu on the second card picks one of three more:
+
+- `By category`: the monthly recurring cost of each category, up to 8.
+- `Most frequent`: the 8 companies with the most payments, and how many.
+- `Recurring vs. other`: commitments, repeated purchases and other spending over your last 12 months, with each one's share.
 
 ## Plan a budget
 

@@ -1,4 +1,4 @@
-import type { SankeyLink } from "./layout";
+import type { SankeyLink } from "./flow";
 
 export interface FlowEnd {
   id: string;

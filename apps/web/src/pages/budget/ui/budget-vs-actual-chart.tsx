@@ -1,5 +1,7 @@
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
+import { Bar } from "@freenary/ui/components/charts/bar";
+import { BarChart } from "@freenary/ui/components/charts/bar-chart";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
 import { ScrollArea } from "@freenary/ui/components/scroll-area";
 import {
@@ -9,7 +11,7 @@ import {
 import { cn } from "@freenary/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import type { CategorySelection } from "@/entities/category";
 import { categoryChartColor, categoryLabel } from "@/entities/category";
@@ -32,26 +34,90 @@ interface BudgetVsActualChartProps {
   onSelect: (selection: CategorySelection) => void;
 }
 
-const PlanTrack = ({
-  actualColor,
-  actualShare,
-  plannedShare,
-}: {
-  actualColor: string;
-  actualShare: number;
-  plannedShare: number;
-}) => (
-  <span className="bg-muted relative block h-2 w-full overflow-hidden rounded-full">
-    <span
-      className="bg-muted-foreground/25 absolute inset-y-0 start-0 rounded-full"
-      style={{ width: `${plannedShare * 100}%` }}
-    />
-    <span
-      className="absolute inset-y-0 start-0 rounded-full"
-      style={{ backgroundColor: actualColor, width: `${actualShare * 100}%` }}
-    />
-  </span>
-);
+interface PlanBarRow extends Record<string, unknown> {
+  name: SpendingCategory;
+}
+
+const ROW_HEIGHT_PX = 40;
+const BAR_THICKNESS_PX = 8;
+const BAR_BOTTOM_INSET_PX = 6;
+const BAND_PADDING = 1 - BAR_THICKNESS_PX / ROW_HEIGHT_PX;
+
+const BARS_MARGIN = {
+  bottom: BAR_BOTTOM_INSET_PX - BAND_PADDING * ROW_HEIGHT_PX,
+  left: 4,
+  right: 4,
+  top: -BAR_BOTTOM_INSET_PX,
+};
+
+const OVER_PLAN_KEY = "overPlan";
+const LEFT_IN_PLAN_KEY = "leftInPlan";
+
+const LEFT_IN_PLAN_COLOR =
+  "color-mix(in oklab, var(--muted-foreground) 25%, transparent)";
+
+const spentKeyOf = (category: SpendingCategory) => `spent:${category}`;
+
+const planBarRow = (entry: PlannedCategory): PlanBarRow => {
+  const spentKey = spentKeyOf(entry.category);
+
+  if (entry.planned <= 0) {
+    return { [spentKey]: entry.actual, name: entry.category };
+  }
+
+  if (entry.actual > entry.planned) {
+    return {
+      [OVER_PLAN_KEY]: entry.actual - entry.planned,
+      [spentKey]: entry.planned,
+      name: entry.category,
+    };
+  }
+
+  return {
+    [LEFT_IN_PLAN_KEY]: entry.planned - entry.actual,
+    [spentKey]: entry.actual,
+    name: entry.category,
+  };
+};
+
+const PlanBars = ({ categories }: { categories: PlannedCategory[] }) => {
+  const rows = useMemo(() => categories.map(planBarRow), [categories]);
+  const chartHeight = categories.length * ROW_HEIGHT_PX;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 top-0"
+      style={{ height: chartHeight }}
+    >
+      <BarChart
+        aspectRatio="auto"
+        barGap={BAND_PADDING}
+        className="h-full"
+        data={rows}
+        margin={BARS_MARGIN}
+        orientation="horizontal"
+        stacked
+        xDataKey="name"
+      >
+        {categories.map((entry) => (
+          <Bar
+            dataKey={spentKeyOf(entry.category)}
+            fill={categoryChartColor(entry.category)}
+            key={entry.category}
+            lineCap="butt"
+          />
+        ))}
+        <Bar dataKey={OVER_PLAN_KEY} fill="var(--destructive)" lineCap="butt" />
+        <Bar
+          dataKey={LEFT_IN_PLAN_KEY}
+          fill={LEFT_IN_PLAN_COLOR}
+          lineCap="butt"
+        />
+      </BarChart>
+    </div>
+  );
+};
 
 const PlannedRow = ({
   currency,
@@ -60,7 +126,6 @@ const PlannedRow = ({
   isSelected,
   onSelect,
   registerItem,
-  scale,
 }: {
   currency: string;
   entry: PlannedCategory;
@@ -68,7 +133,6 @@ const PlannedRow = ({
   isSelected: boolean;
   onSelect: (selection: CategorySelection) => void;
   registerItem: (index: number, element: HTMLElement | null) => void;
-  scale: number;
 }) => {
   const hasPlanForCategory = entry.planned > 0;
   const isOverPlan = hasPlanForCategory && entry.actual > entry.planned;
@@ -81,7 +145,7 @@ const PlannedRow = ({
       {...PRESS_MOTION}
       aria-pressed={isSelected}
       className={cn(
-        "flex w-full cursor-pointer flex-col gap-1.5 rounded-md p-1 text-start",
+        "flex h-10 w-full cursor-pointer flex-col rounded-md p-1 text-start",
         isSelected ? "text-foreground" : "text-muted-foreground"
       )}
       onClick={() => onSelect({ category: entry.category, kind: "category" })}
@@ -119,13 +183,6 @@ const PlannedRow = ({
           )}
         </span>
       </span>
-      <PlanTrack
-        actualColor={
-          isOverPlan ? "var(--destructive)" : categoryChartColor(entry.category)
-        }
-        actualShare={entry.actual / scale}
-        plannedShare={entry.planned / scale}
-      />
     </motion.button>
   );
 };
@@ -165,10 +222,6 @@ export const BudgetVsActualChart = ({
     );
   }
 
-  const sharedScale = Math.max(
-    ...categories.map((entry) => Math.max(entry.planned, entry.actual))
-  );
-
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="text-muted-foreground flex justify-end gap-1 font-mono text-[10px]">
@@ -177,27 +230,29 @@ export const BudgetVsActualChart = ({
         <span>{m.budget_planned_column_planned()}</span>
       </div>
       <ScrollArea className="min-h-0 flex-1">
-        <ul
-          aria-label={m.budget_planned_chart_label()}
-          className="relative flex flex-col gap-2"
-          ref={listRef}
-          {...hover.handlers}
-        >
-          <FluidHoverHighlight className="rounded-lg" hover={hover} />
-          {categories.map((entry, index) => (
-            <li key={entry.category}>
-              <PlannedRow
-                currency={currency}
-                entry={entry}
-                index={index}
-                isSelected={activeCategories.includes(entry.category)}
-                onSelect={onSelect}
-                registerItem={hover.registerItem}
-                scale={sharedScale}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="relative">
+          <ul
+            aria-label={m.budget_planned_chart_label()}
+            className="relative flex flex-col"
+            ref={listRef}
+            {...hover.handlers}
+          >
+            <FluidHoverHighlight className="rounded-lg" hover={hover} />
+            {categories.map((entry, index) => (
+              <li key={entry.category}>
+                <PlannedRow
+                  currency={currency}
+                  entry={entry}
+                  index={index}
+                  isSelected={activeCategories.includes(entry.category)}
+                  onSelect={onSelect}
+                  registerItem={hover.registerItem}
+                />
+              </li>
+            ))}
+          </ul>
+          <PlanBars categories={categories} />
+        </div>
       </ScrollArea>
     </div>
   );

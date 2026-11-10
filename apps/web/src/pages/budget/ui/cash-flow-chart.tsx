@@ -46,9 +46,10 @@ export const CashFlowChart = ({
   }
 
   return (
-    <div className="flex h-full items-center justify-center">
+    <div className="h-full">
       <SankeyChart
-        className="max-h-full"
+        aspectRatio="auto"
+        className="h-full"
         columns={flow.columns}
         formatValue={(value) => formatCurrency(value, currency)}
         label={m.budget_cash_flow_chart_label()}

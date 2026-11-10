@@ -44,3 +44,14 @@ export const formatAmountInput = (
     useGrouping: false,
   }).format(fromMinor(amountMinorUnits, currency));
 };
+
+export const formatCompactCurrency = (
+  amountMinorUnits: number,
+  currency: string
+): string =>
+  new Intl.NumberFormat(getLocale(), {
+    currency,
+    maximumFractionDigits: 1,
+    notation: "compact",
+    style: "currency",
+  }).format(fromMinor(amountMinorUnits, currency));

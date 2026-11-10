@@ -4,7 +4,7 @@ Freenary is distributed under the [GNU Affero General Public License v3.0 or lat
 
 ## Vendored source
 
-`packages/ui/src/components` is vendored registry source: it is fetched through the registries listed in `packages/ui/components.json` and then edited in this repository. Two upstreams are reproduced below, and both are MIT, which the AGPL permits Freenary to combine with.
+`packages/ui/src/components` is vendored registry source: it is fetched through the registries listed in `packages/ui/components.json` and then edited in this repository. Three upstreams are reproduced below, and all are MIT, which the AGPL permits Freenary to combine with.
 
 Most of that directory — and almost all of its volume — comes from the `@fluid` registry, which serves [Fluid Functionalism](https://github.com/mickadesign/fluid-functionalism):
 
@@ -31,6 +31,34 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+The charts in `packages/ui/src/components/charts` come from the `@bklit` registry, which serves [Bklit UI](https://github.com/bklit/bklit-ui):
+
+```
+MIT License
+
+Copyright (c) 2026 uixmat
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+`packages/ui/src/components/charts/patterns` adapts `@visx/pattern`; its notice travels beside it in `LICENSE-visx-pattern`.
 
 The remaining components, and the `components.json` scaffolding that reaches both registries, come from the [shadcn](https://ui.shadcn.com) CLI:
 
@@ -73,7 +101,7 @@ Each of those packages stays under its own license. The AGPL covers Freenary's o
 | Unlicense, MIT-0, CC0-1.0, `MIT OR CC0-1.0` | 8 | Public-domain-equivalent utilities |
 | MPL-2.0 | 4 | `lightningcss` and its platform binaries, build only |
 | BlueOak-1.0.0 | 3 | `npm` ecosystem utilities |
-| `MIT AND ISC` | 2 | `victory-vendor` and `@visx/vendor`, bundled d3 forks under Recharts |
+| `MIT AND ISC` | 1 | `@visx/vendor`, a bundled d3 fork under `@visx/shape` |
 | `AFL-2.1 OR BSD-3-Clause` | 1 | `json-schema`, through the AI SDK; Freenary takes it under BSD-3-Clause |
 | CC-BY-4.0 | 1 | `caniuse-lite`, the browser-support data behind `browserslist`, build only |
 | WTFPL | 1 | `prexit`, through `steiger`, the architecture linter, developer tooling only |

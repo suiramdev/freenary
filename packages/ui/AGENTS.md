@@ -12,7 +12,7 @@ src/
     brand-avatar/    # The mark's morph engine — see "The Brand Avatar"
   styles/
     globals.css      # Tailwind v4 layer + design tokens (colors, radii, spacing)
-components.json      # Registry config for this package — the `@fluid` registry and the shadcn CLI
+components.json      # Registry config for this package — the `@fluid` and `@bklit` registries and the shadcn CLI
 postcss.config.mjs   # Re-exported as @freenary/ui/postcss.config
 ```
 
@@ -31,10 +31,10 @@ import "@freenary/ui/globals.css";
   ```bash
   bunx shadcn@latest add @fluid/<component> -c packages/ui
   ```
-  A component that already exists is **overwritten, not merged** — read "Vendored Registry Source" below before you fetch one again.
+  The charts under `src/components/charts/` come from the `@bklit` registry the same way (`@bklit/<component>`). A component that already exists is **overwritten, not merged** — read "Vendored Registry Source" below before you fetch one again.
 - **App-specific composites** (e.g. a project-switcher built from Button + Popover + Avatar) belong in the app that needs them — a page slice under `apps/web/src/pages/`, or `apps/web/src/shared/ui/` once several pages share one — not here.
 - **Design tokens** (colors, radii, font stacks) live in `src/styles/globals.css`. Change them once; every app picks them up.
-- **No app imports allowed.** This package depends on React, Base UI and Tailwind, plus the libraries the registry components need — `motion`, `lucide-react`, `@remixicon/react`, `class-variance-authority`, `cn`, `recharts`, `d3-scale`, `d3-shape`, `sonner`, `next-themes`, `date-fns`, `react-day-picker`, `pdfjs-dist`, `tw-animate-css` and `shadcn`. It never depends on `@freenary/api`, `@freenary/db`, or any app workspace. `package.json` is the list that counts; this one goes stale.
+- **No app imports allowed.** This package depends on React, Base UI and Tailwind, plus the libraries the registry components need — `motion`, `lucide-react`, `@remixicon/react`, `class-variance-authority`, `cn`, `clsx`, `tailwind-merge`, `@number-flow/react`, `d3-array`, `d3-scale`, `d3-shape`, `d3-sankey`, `sonner`, `next-themes`, `date-fns`, `react-day-picker`, `pdfjs-dist`, `tw-animate-css` and `shadcn`. It never depends on `@freenary/api`, `@freenary/db`, or any app workspace. `package.json` is the list that counts; this one goes stale.
 - **Never hardcode a user-facing string in a primitive.** Visible text arrives as `children` or a prop from the app. The accessible names for controls with no visible text — "Toggle sidebar", "Loading", "Close" — come from `useUiLabels()` (`src/lib/labels.tsx`), which an app fills via `UiLabelsProvider`; the English defaults there keep the package usable on its own. It now also carries the sidebar, card, command-menu and file-thumbnail strings, which the registry shipped in English. A new primitive with an `aria-label`, `sr-only` line or `alt` adds a field to `UiLabels` and reads it from the hook, so the app that speaks two languages can translate it. This package never imports Paraglide — the labels context is the seam.
 - **Accessibility is non-negotiable.** Use the Base UI primitives' built-in ARIA that the registry components build on; follow the React + accessibility rules in the root `CLAUDE.md`.
 - **A `cn` upgrade is a restyle until proved otherwise.** `src/lib/utils.test.ts` replays the real merging call sites of the repository against the output of the previous class merger. A release that regroups a class fails it, and CI has no test job, so run `bun test src/lib/utils.test.ts` from this package after any change to the `cn` version — including one a transitive dependency forces through the lockfile. `@shadcn/lint` pins an exact `cn`, and a caret range here lets it move the whole workspace.

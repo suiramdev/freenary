@@ -1,47 +1,98 @@
-import { cn } from "@freenary/ui/lib/utils";
-import { useMemo, useState } from "react";
-
 import {
-  ACCENT_W,
-  computeSankeyLayout,
-  svgLinkPath,
-} from "../../lib/sankey/layout";
-import type { SankeyFlow, SankeyLayout } from "../../lib/sankey/layout";
-import { SankeyNodeLabel } from "./sankey-node-label";
+  SankeyChart as FlowChart,
+  SankeyLink as FlowLinks,
+  SankeyNode as FlowNodes,
+  useSankey,
+} from "@freenary/ui/components/charts/sankey";
+import type { SankeyContextValue } from "@freenary/ui/components/charts/sankey";
+import { cn } from "@freenary/ui/lib/utils";
+import { useCallback, useMemo } from "react";
+
+import type { SankeyFlow } from "../../lib/sankey";
+import { colorAt, toFlowGraph } from "./sankey-flow-data";
+import type { FlowGraph } from "./sankey-flow-data";
+import { SankeyFlowTooltip } from "./sankey-flow-tooltip";
+import { SankeyNodeLabels } from "./sankey-node-label";
 
 interface SankeyChartProps extends SankeyFlow {
+  aspectRatio?: string;
   className?: string;
   formatValue: (value: number) => string;
   label: string;
   onNodeClick?: (nodeId: string) => void;
 }
 
-const LINK_OPACITY = 0.28;
-const NODE_OPACITY = 0.5;
-const ACCENT_OPACITY = 0.85;
-const UNRELATED_DIM_FACTOR = 0.25;
+const DEFAULT_ASPECT_RATIO = "2 / 1";
+const LABEL_ROOM_PX = 112;
 
-const hoverLitIds = (layout: SankeyLayout, hovered: string | null) => {
-  const ids = new Set<string>();
+const CHART_MARGIN = {
+  bottom: 8,
+  left: LABEL_ROOM_PX,
+  right: LABEL_ROOM_PX,
+  top: 8,
+};
 
-  if (!hovered) {
-    return ids;
-  }
+const NODE_WIDTH_PX = 12;
+const NODE_PADDING_PX = 8;
+const NODE_CORNER_RADIUS_PX = 2;
+const LINK_OPACITY = 0.35;
+const LINK_FADED_OPACITY = 0.08;
+const NODE_FADED_OPACITY = 0.35;
 
-  ids.add(hovered);
+const SankeyNodeTargets = ({
+  graph,
+  onNodeClick,
+}: {
+  graph: FlowGraph;
+  onNodeClick: (nodeId: string) => void;
+}) => {
+  const { nodes, setHoveredNodeIndex, setTooltipData } = useSankey();
 
-  for (const ribbon of layout.links) {
-    if (ribbon.sourceId === hovered || ribbon.targetId === hovered) {
-      ids.add(ribbon.sourceId);
-      ids.add(ribbon.targetId);
-      ids.add(ribbon.id);
-    }
-  }
+  return (
+    <g>
+      {nodes.map((node, index) => {
+        const x0 = node.x0 ?? 0;
+        const y0 = node.y0 ?? 0;
 
-  return ids;
+        return (
+          <rect
+            className="cursor-pointer"
+            fill="transparent"
+            height={(node.y1 ?? 0) - y0}
+            key={`target-${node.index ?? index}`}
+            onClick={() => {
+              const target = graph.nodes[index];
+
+              if (target) {
+                onNodeClick(target.id);
+              }
+            }}
+            onMouseEnter={() => {
+              setHoveredNodeIndex(index);
+              setTooltipData({
+                data: node,
+                nodeIndex: index,
+                type: "node",
+                x: 0,
+                y: 0,
+              });
+            }}
+            onMouseLeave={() => {
+              setHoveredNodeIndex(null);
+              setTooltipData(null);
+            }}
+            width={(node.x1 ?? 0) - x0}
+            x={x0}
+            y={y0}
+          />
+        );
+      })}
+    </g>
+  );
 };
 
 export const SankeyChart = ({
+  aspectRatio = DEFAULT_ASPECT_RATIO,
   className,
   columns,
   formatValue,
@@ -49,92 +100,45 @@ export const SankeyChart = ({
   links,
   onNodeClick,
 }: SankeyChartProps) => {
-  const layout = useMemo(
-    () => computeSankeyLayout({ columns, links }),
+  const graph = useMemo(
+    () => toFlowGraph({ columns, links }),
     [columns, links]
   );
 
-  const [hovered, setHovered] = useState<string | null>(null);
-
-  const lit = useMemo(() => hoverLitIds(layout, hovered), [layout, hovered]);
-
-  const lastColumn = layout.columnCount - 1;
+  const colorOfNode = useCallback(
+    (_node: SankeyContextValue["nodes"][number], index: number) =>
+      colorAt(graph, index),
+    [graph]
+  );
 
   return (
-    <svg
-      aria-label={label}
-      className={cn("block w-full select-none", className)}
-      preserveAspectRatio="xMidYMid meet"
-      style={{ aspectRatio: `${layout.width} / ${layout.height}` }}
-      viewBox={`0 0 ${layout.width} ${layout.height}`}
-    >
-      <title>{label}</title>
-      {layout.links.map((ribbon) => (
-        <path
-          key={ribbon.id}
-          d={svgLinkPath(ribbon)}
-          fill={ribbon.color}
-          fillOpacity={
-            LINK_OPACITY *
-            (hovered && !lit.has(ribbon.id) ? UNRELATED_DIM_FACTOR : 1)
-          }
-          onPointerEnter={() => setHovered(ribbon.targetId)}
-          onPointerLeave={() => setHovered(null)}
+    <figure className={cn("w-full select-none", className)}>
+      <figcaption className="sr-only">{label}</figcaption>
+      <FlowChart
+        aspectRatio={aspectRatio}
+        className="h-full"
+        data={graph}
+        margin={CHART_MARGIN}
+        nodePadding={NODE_PADDING_PX}
+        nodeWidth={NODE_WIDTH_PX}
+      >
+        <FlowLinks
+          fadedOpacity={LINK_FADED_OPACITY}
+          getNodeColor={colorOfNode}
+          strokeOpacity={LINK_OPACITY}
         />
-      ))}
-
-      {layout.nodes.map((node) => {
-        const { color } = node;
-        const dim = hovered && !lit.has(node.id) ? UNRELATED_DIM_FACTOR : 1;
-
-        return (
-          <g key={node.id}>
-            <rect
-              x={node.x}
-              y={node.y}
-              width={node.w}
-              height={node.h}
-              fill={color}
-              fillOpacity={NODE_OPACITY * dim}
-              style={onNodeClick ? { cursor: "pointer" } : undefined}
-              onClick={onNodeClick ? () => onNodeClick(node.id) : undefined}
-              onPointerEnter={() => setHovered(node.id)}
-              onPointerLeave={() => setHovered(null)}
-            />
-            {node.column !== lastColumn && (
-              <rect
-                className="pointer-events-none"
-                x={node.x}
-                y={node.y}
-                width={ACCENT_W}
-                height={node.h}
-                fill={color}
-                fillOpacity={ACCENT_OPACITY * dim}
-              />
-            )}
-            {node.column !== 0 && (
-              <rect
-                className="pointer-events-none"
-                x={node.x + node.w - ACCENT_W}
-                y={node.y}
-                width={ACCENT_W}
-                height={node.h}
-                fill={color}
-                fillOpacity={ACCENT_OPACITY * dim}
-              />
-            )}
-          </g>
-        );
-      })}
-
-      {layout.nodes.map((node) => (
-        <SankeyNodeLabel
-          key={`label-${node.id}`}
-          formatValue={formatValue}
-          isFirstColumn={node.column === 0}
-          node={node}
+        <FlowNodes
+          fadedOpacity={NODE_FADED_OPACITY}
+          getNodeColor={colorOfNode}
+          lineCap={NODE_CORNER_RADIUS_PX}
+          showLabels={false}
         />
-      ))}
-    </svg>
+        <SankeyNodeLabels formatValue={formatValue} graph={graph} />
+        {onNodeClick && (
+          <SankeyNodeTargets graph={graph} onNodeClick={onNodeClick} />
+        )}
+        <SankeyFlowTooltip formatValue={formatValue} graph={graph} />
+      </FlowChart>
+    </figure>
   );
 };

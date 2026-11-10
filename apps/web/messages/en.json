@@ -493,6 +493,8 @@
   "budget_recurring_column_merchant": "Company",
   "budget_recurring_column_monthly": "Per month",
   "budget_recurring_column_next": "Next",
+  "budget_recurring_cost_rank_chart_label": "Yearly cost of the most expensive recurring payments, one bar per company, with payments per year on hover",
+  "budget_recurring_cost_rank_top": "Top {shown} of {total} by yearly cost",
   "budget_recurring_empty_body": "Freenary needs a few months of transactions from the same company before it can read a cadence.",
   "budget_recurring_empty_title": "No recurring payment detected yet",
   "budget_recurring_filter_cost": "Cost",
@@ -547,6 +549,7 @@
   "budget_recurring_loading": "Loading recurring payments",
   "budget_recurring_no_match_body": "No recurring payment matches these filters.",
   "budget_recurring_no_match_title": "No match",
+  "budget_recurring_payments_short": "{count}×",
   "budget_recurring_per_year": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -557,7 +560,6 @@
       }
     }
   ],
-  "budget_recurring_scatter_chart_label": "Yearly cost against payments per year, one point per company",
   "budget_recurring_scatter_empty": "No recurring payment to place.",
   "budget_recurring_scatter_loading": "Loading cost against frequency",
   "budget_recurring_scatter_title": "Cost vs. Frequency",
@@ -757,6 +759,7 @@
   "category_taxes": "Taxes",
   "category_transport_travel": "Transport & travel",
   "category_uncategorised": "Uncategorised",
+  "chart_total": "Total",
   "first_steps_budgeting_profile": "Set up your budget",
   "first_steps_connect_bank": "Connect your bank",
   "first_steps_progress": "{done}/{total}",
