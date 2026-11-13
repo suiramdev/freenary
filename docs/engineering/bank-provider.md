@@ -271,7 +271,7 @@ A sync failure changes no connection status. [Data model](./data-model.md#bankco
 
 ## Test an adapter with no live credentials
 
-A sandbox account is not a prerequisite. To exercise the connect flow, the sync and the screens with no adapter of your own, run the `mock` adapter: `bun run dev:up` picks it when `.env` names no provider. To test your own adapter, split the work in two.
+A sandbox account is not a prerequisite. To exercise the connect flow, the sync and the screens with no adapter of your own, run the `mock` adapter: pick **Mock bank (development only)** on the setup screen's **Bank** step, which lists it whenever `NODE_ENV` is not `production`. To test your own adapter, split the work in two.
 
 ### 1. Test the mappers directly
 
