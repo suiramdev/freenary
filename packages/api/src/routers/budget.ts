@@ -822,6 +822,32 @@ const runSyncAccounts = Effect.fnUntraced(function* runSyncAccounts(
   };
 });
 
+export const startAccountSync = async (
+  userId: string,
+  { connectionId, force }: { connectionId?: string; force: boolean }
+): Promise<Date | null> => {
+  const claimedAt = await claimSyncRun(userId, "IMPORTING");
+
+  if (claimedAt === null) {
+    return null;
+  }
+
+  const reporter = createSyncReporter(userId, "IMPORTING", claimedAt);
+
+  Effect.runFork(
+    runSyncAccounts(userId, connectionId, force, reporter).pipe(
+      Effect.tapCause(Effect.logError),
+      Effect.matchCauseEffect({
+        onFailure: () => Effect.promise(() => reporter.finished()),
+        onSuccess: (outcome) =>
+          Effect.promise(() => reporter.finishedWith(outcome)),
+      })
+    )
+  );
+
+  return claimedAt;
+};
+
 const sankeyOf = (
   transactions: PeriodRow[],
   aggregation: AggregationMode,
@@ -1452,34 +1478,12 @@ export const budgetRouter = {
         })
         .optional()
     )
-    .handler(async ({ context, input }) => {
-      const userId = context.session.user.id;
-      const claimedAt = await claimSyncRun(userId, "IMPORTING");
-
-      if (claimedAt === null) {
-        return { startedAt: null };
-      }
-
-      const reporter = createSyncReporter(userId, "IMPORTING", claimedAt);
-
-      Effect.runFork(
-        runSyncAccounts(
-          userId,
-          input?.connectionId,
-          input?.force ?? false,
-          reporter
-        ).pipe(
-          Effect.tapCause(Effect.logError),
-          Effect.matchCauseEffect({
-            onFailure: () => Effect.promise(() => reporter.finished()),
-            onSuccess: (outcome) =>
-              Effect.promise(() => reporter.finishedWith(outcome)),
-          })
-        )
-      );
-
-      return { startedAt: claimedAt };
-    }),
+    .handler(async ({ context, input }) => ({
+      startedAt: await startAccountSync(context.session.user.id, {
+        connectionId: input?.connectionId,
+        force: input?.force ?? false,
+      }),
+    })),
 
   updateTransactionCategory: protectedProcedure
     .input(

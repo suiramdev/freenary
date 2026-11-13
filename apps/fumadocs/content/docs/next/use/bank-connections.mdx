@@ -48,9 +48,7 @@ If you cancel at your bank, Freenary says `Bank connection cancelled. Nothing wa
 
 ## What arrives, and when
 
-Right after you connect, the bank and its accounts are in the list, marked `Not synced yet`. No transaction has arrived yet.
-
-Transactions arrive with the first sync, which starts on its own once you're back in Freenary: in Settings, or when you finish onboarding. The re-sync button on the bank's row starts one too. The first sync reads the last **90 days**. Anything older on the day you connect never arrives.
+Right after you connect, the bank and its accounts are in the list, marked `Not synced yet`, and its first sync has already started, so Home and Budget fill in without waiting for you to open them. If another sync was already running when you connected, the new bank waits for the next one; the re-sync button on its row starts it now. The first sync reads the last **90 days**. Anything older on the day you connect never arrives.
 
 While a sync runs, a message in the corner of the screen says what it's doing and how far it got, on every page once you're signed in. It goes away when the sync ends. Budget fills in as transactions arrive. Freenary then sorts them into categories; [Budget](/docs/use/budget#fix-a-category) shows how to fix the ones it gets wrong.
 
@@ -60,7 +58,8 @@ A sync fetches transactions from your banks. Freenary has no nightly sync: it sy
 
 | You | Freenary |
 | --- | --- |
-| Sign in, finish onboarding, or load or reload a page | Runs a quiet sync of every bank. It fetches what's new since the last sync and sorts only the new transactions. Moving between pages doesn't start another one |
+| Connect a bank | Syncs that bank right away, reading the last 90 days |
+| Sign in, finish onboarding, or load or reload a page | Runs a quiet sync of every bank, unless a sync is already running. It fetches what's new since the last sync and sorts only the new transactions. Moving between pages doesn't start another one |
 | Press `Sync transactions` on Budget | Reads the last 90 days again from every bank, and sorts all your transactions into categories again |
 | Press the re-sync button on a bank's row in Settings | Does the same for that one bank |
 

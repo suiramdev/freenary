@@ -61,13 +61,20 @@ export const useAccountSync = () => {
 
   const hasStartedBackgroundSync = useRef(false);
   const isIdle = statusQuery.isSuccess && progress === null;
+  const isAlreadySyncing = statusQuery.isSuccess && progress !== null;
 
   useEffect(() => {
+    if (isAlreadySyncing) {
+      hasStartedBackgroundSync.current = true;
+
+      return;
+    }
+
     if (hasActiveConnection && isIdle && !hasStartedBackgroundSync.current) {
       hasStartedBackgroundSync.current = true;
       sync({});
     }
-  }, [hasActiveConnection, isIdle, sync]);
+  }, [hasActiveConnection, isAlreadySyncing, isIdle, sync]);
 
   return progress;
 };
