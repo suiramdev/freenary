@@ -2,6 +2,7 @@ import { cn } from "@freenary/ui/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
+import { HostAnimatedKubaiIcon } from "@/shared/lib/kubai-icon";
 
 import { isCurrentNav, NAV_ITEMS } from "./nav-items";
 
@@ -20,7 +21,6 @@ export const BottomTabBar = () => {
       <ul className="mx-auto grid max-w-md grid-cols-4">
         {NAV_ITEMS.map((item) => {
           const isCurrent = isCurrentNav(pathname, item.to);
-          const Icon = item.icon;
 
           return (
             <li key={item.to}>
@@ -32,9 +32,10 @@ export const BottomTabBar = () => {
                 )}
                 to={item.to}
               >
-                <Icon
+                <HostAnimatedKubaiIcon
                   aria-hidden="true"
                   color={isCurrent ? item.color : "currentColor"}
+                  icon={item.icon}
                   size={22}
                 />
                 <span className="max-w-full truncate">{item.label()}</span>
