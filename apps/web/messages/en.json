@@ -406,8 +406,6 @@
   "budget_category_search_placeholder": "Search categories…",
   "budget_category_update_error": "Failed to update category",
   "budget_chart_unavailable": "Could not load this chart.",
-  "budget_charts_hide": "Hide charts",
-  "budget_charts_show": "Show charts",
   "budget_companion_switch_label": "Companion chart",
   "budget_detail_category_label": "Category",
   "budget_detail_close": "Close",
