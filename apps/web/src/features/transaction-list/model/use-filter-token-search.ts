@@ -7,9 +7,10 @@ import type { FocusEvent, KeyboardEvent } from "react";
 
 import { getLocale } from "@/paraglide/runtime.js";
 import { orpc } from "@/shared/api";
+import { parseAmountBound } from "@/shared/lib/text";
 import { useDebouncedValue } from "@/shared/lib/use-debounced-value";
+import { useSettledText } from "@/shared/ui/list-controls";
 
-import { useSettledText } from "../lib/use-settled-text";
 import {
   appliedAmount,
   appliedValues,
@@ -30,10 +31,10 @@ import {
 } from "./filter-suggestions";
 import type { FilterSuggestion } from "./filter-suggestions";
 import { searchKey, withoutFilterAt } from "./filter-tokens";
-import type { TransactionDirection } from "./search";
-import { parseAmountBound } from "./transaction-filters";
+import type { TransactionDirection } from "./list-search";
 
 export interface FilterTokenSearchOptions {
+  accountId?: string;
   currency: string;
   direction: TransactionDirection;
   filters: TransactionFilter[];
@@ -51,6 +52,7 @@ export const NO_HIGHLIGHT = -1;
 export const filterKey = (filter: TransactionFilter) => searchKey([filter], "");
 
 export const useFilterTokenSearch = ({
+  accountId,
   currency,
   direction,
   filters,
@@ -77,6 +79,7 @@ export const useFilterTokenSearch = ({
   const merchantsQuery = useQuery({
     ...orpc.budget.getMerchants.queryOptions({
       input: {
+        accountId,
         direction,
         from,
         search: settledCompanyQuery.trim() || undefined,

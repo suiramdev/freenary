@@ -40,13 +40,13 @@ src/app/        the application: routing, the router, the signed-in shell, globa
 src/pages/      one slice per screen; a page owns its composition, queries and handlers
 src/features/   a user interaction two or more pages share (auth-gate, bank-connection)
 src/entities/   a domain model two or more pages share (category)
-src/shared/     infrastructure with no business rule: ui, lib, api, auth, config, i18n
+src/shared/     infrastructure with no business rule: ui, lib, api, auth, config, i18n, routing
 ```
 
 Four rules carry the whole thing, and [Steiger](https://github.com/feature-sliced/steiger) enforces them:
 
 - **A module imports only from a layer strictly below it.** `shared < entities < features < pages < app`. Nothing imports from `app`.
-- **A slice is entered through its `index.ts`.** `@/pages/budget`, `@/features/bank-connection`, `@/entities/category` — never a path inside one. `shared` is entered per segment: `@/shared/api`, `@/shared/auth`, `@/shared/config`, `@/shared/i18n`, and per module for `@/shared/ui/<x>` and `@/shared/lib/<x>`.
+- **A slice is entered through its `index.ts`.** `@/pages/budget`, `@/features/bank-connection`, `@/entities/category` — never a path inside one. `shared` is entered per segment: `@/shared/api`, `@/shared/auth`, `@/shared/config`, `@/shared/i18n`, `@/shared/routing`, and per module for `@/shared/ui/<x>` and `@/shared/lib/<x>`.
 - **Inside a slice, imports are relative**; across slices they use the alias. Both mistakes fail the gate.
 - **Extraction is earned, never anticipated.** New code starts in the page that uses it. It moves down a layer when a second consumer exists, the responsibility is focused, and it has a reason to change of its own — which is why `features/` holds two slices and `entities/` one.
 

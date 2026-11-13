@@ -212,7 +212,7 @@ With `average` or `median`, `planned` is the monthly plan. With `total`, it's th
 
 ### budget.getMerchants
 
-**Input**: `search` is at most 200 characters and matches the counterparty name, or the descriptor when there is none, as a plain substring, without case. `%` and `_` in it are literal.
+**Input**: `search` is at most 200 characters and matches the counterparty name, or the descriptor when there is none, as a plain substring, without case. `%` and `_` in it are literal. `accountId`, when set, keeps the companies of that one account. An account of another user matches nothing.
 
 **Output**: `{ merchants }` of `{ count, name, totalMinor }`, highest count first, then by name. `totalMinor` sums absolute amounts.
 

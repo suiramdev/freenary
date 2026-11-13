@@ -1,8 +1,7 @@
 import { infiniteQueryOptions } from "@tanstack/react-query";
 
+import { TRANSACTIONS_QUERY_KEY } from "@/entities/budget";
 import { client } from "@/shared/api";
-
-import { TRANSACTIONS_QUERY_KEY } from "./budget-cache";
 
 const EARLIEST_BANK_DATE = new Date(0);
 
@@ -10,18 +9,15 @@ const EARLIEST_BANK_DATE = new Date(0);
 const INITIAL_PAGE_PARAM = undefined as string | undefined;
 
 export const latestTransactionsQueryOptions = ({
-  accountId,
   pageSize,
 }: {
-  accountId?: string;
   pageSize: number;
 }) =>
   // oxlint-disable-next-line sort-keys -- TanStack infers the page type from `queryFn`, so a later `getNextPageParam` reads its `lastPage`; alphabetical order puts it first, where the page is `unknown`.
   infiniteQueryOptions({
-    queryKey: [...TRANSACTIONS_QUERY_KEY, "latest", { accountId, pageSize }],
+    queryKey: [...TRANSACTIONS_QUERY_KEY, "latest", { pageSize }],
     queryFn: ({ pageParam }) =>
       client.budget.getTransactions({
-        accountId,
         cursor: pageParam,
         from: EARLIEST_BANK_DATE,
         limit: pageSize,

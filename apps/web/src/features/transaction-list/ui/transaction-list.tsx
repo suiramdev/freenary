@@ -5,12 +5,15 @@ import { useId } from "react";
 import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
+import {
+  useHoverIntent,
+  ListFilterBar,
+  ListSortToggle,
+} from "@/shared/ui/list-controls";
 
-import { useHoverIntent } from "../lib/use-hover-intent";
-import type { TimeRange } from "../model/period";
-import type { SortMode, TransactionDirection } from "../model/search";
+import type { SortMode, TransactionDirection } from "../model/list-search";
+import type { TransactionGrouping } from "../model/transaction-groups";
 import { FilterTokenSearch } from "./filter-token-search";
-import { ListFilterBar, ListSortToggle } from "./list-controls";
 import { SavedFiltersMenu } from "./saved-filters-menu";
 import { TransactionRows } from "./transaction-rows";
 
@@ -19,12 +22,18 @@ const DIRECTIONS = [
   "incoming",
 ] as const satisfies readonly TransactionDirection[];
 
+const PERIOD_EMPTY_DESCRIPTIONS = {
+  incoming: m.budget_transactions_empty_incoming,
+  outgoing: m.budget_transactions_empty_outgoing,
+} as const satisfies Record<TransactionDirection, () => string>;
+
 const SORT_OPTIONS = [
   { label: m.budget_sort_date, value: "date" },
   { label: m.budget_sort_amount, value: "amount" },
 ] as const satisfies readonly { label: () => string; value: SortMode }[];
 
 export const TransactionList = ({
+  accountId,
   transactions,
   currency,
   totals,
@@ -49,8 +58,11 @@ export const TransactionList = ({
   onRetry,
   isStale,
   onTransactionClick,
-  range,
+  grouping,
+  emptyDescriptions = PERIOD_EMPTY_DESCRIPTIONS,
 }: {
+  accountId?: string;
+  emptyDescriptions?: Record<TransactionDirection, () => string>;
   transactions: Transaction[];
   currency: string;
   totals: { incoming: number; outgoing: number };
@@ -78,7 +90,7 @@ export const TransactionList = ({
   onRetry: () => void;
   isStale: boolean;
   onTransactionClick: (tx: Transaction) => void;
-  range: TimeRange;
+  grouping: TransactionGrouping;
 }) => {
   const directionIntent = useHoverIntent(onDirectionIntent);
   const tabsId = useId();
@@ -108,6 +120,7 @@ export const TransactionList = ({
     <div className="flex flex-1 flex-col gap-3">
       <ListFilterBar>
         <FilterTokenSearch
+          accountId={accountId}
           currency={currency}
           direction={direction}
           filters={filters}
@@ -171,7 +184,8 @@ export const TransactionList = ({
               isIncoming={candidate === "incoming"}
               isStale={isStale}
               onTransactionClick={onTransactionClick}
-              range={range}
+              grouping={grouping}
+              emptyDescription={emptyDescriptions[candidate]()}
             />
           </TabsPanel>
         ))}

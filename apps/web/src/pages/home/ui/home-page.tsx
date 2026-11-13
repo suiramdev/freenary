@@ -1,11 +1,11 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
-import { latestTransactionsQueryOptions } from "@/entities/budget";
 import { useSyncAccounts } from "@/features/account-sync";
 import { m } from "@/paraglide/messages.js";
 import { orpc } from "@/shared/api";
 import { NoBankAccount } from "@/shared/ui/no-bank-account";
 
+import { latestTransactionsQueryOptions } from "../api/latest-transactions-query";
 import { dashboardMonths, RECENT_TRANSACTIONS_SHOWN } from "../model/dashboard";
 import { firstPageWidgetQuery, widgetQuery } from "../model/widget-query";
 import { AccountStrip } from "./account-strip";
