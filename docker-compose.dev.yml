@@ -38,9 +38,6 @@ x-app-env: &app-env
   BETTER_AUTH_URL: http://${SERVER_HOST:-server.freenary.localhost}
   CORS_ORIGIN: http://${WEB_HOST:-web.freenary.localhost}
   AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
-  # `scripts/dev.ts` sets `mock` when no bank provider is configured; empty
-  # leaves the schema default and the setup screen in charge.
-  BANKING_PROVIDER: ${BANKING_PROVIDER:-}
   NODE_ENV: development
 
 # Joined by every service the browser reaches. `devproxy` is the network of the

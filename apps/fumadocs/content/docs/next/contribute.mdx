@@ -42,7 +42,7 @@ To work on emailed codes, start with `bun run dev:mail` instead. It adds a Mailp
 
 ### Bank data without credentials
 
-When `.env` sets none of `BANKING_PROVIDER`, `POWENS_CLIENT_ID` and `ENABLE_BANKING_APP_ID`, `bun run dev:up` starts the server with `BANKING_PROVIDER=mock`, and prints `bank    mock provider, generated data`. The environment then owns `BANKING_PROVIDER`, so the setup screen can't pick another bank provider, and one saved there before is ignored. To use a real provider, set one of the three in `.env`.
+The first account you create lands on the setup screen, and its **Bank** step asks you to pick one bank provider before you can go on. Outside production it offers **Mock bank (development only)** beside Powens and Enable Banking. The step opens on Powens; switch to the mock bank to get bank data with no credentials. `bun run dev:up` sets no bank provider: set `BANKING_PROVIDER` in `.env` only when you want the environment to choose it instead of the setup screen.
 
 The mock provider lists three made-up banks for every country. Connecting one opens a consent page on the API server: **Approve** returns to Freenary with a new connection, and **Decline** returns to Freenary as a refused consent. Each connection gets a checking account and a Livret A, and some also get a PEA or a life-insurance contract.
 
@@ -62,7 +62,7 @@ bun run dev
 
 The server listens on port 3000, the web app on 3001 and the documentation site on 4000.
 
-To use the mock bank provider on this path, add `BANKING_PROVIDER=mock` to `apps/server/.env`.
+The setup screen offers the mock bank provider on this path too.
 
 ## Checks
 
