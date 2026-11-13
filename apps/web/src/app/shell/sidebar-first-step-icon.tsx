@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { createContext, useContext } from "react";
 
 import type { ChartColorVar } from "@/shared/lib/chart-colors";
+import { HostAnimatedKubaiIcon } from "@/shared/lib/kubai-icon";
 
 interface FirstStepIconState {
   color: ChartColorVar;
@@ -33,7 +34,7 @@ export const SidebarFirstStepIcon = ({
     return null;
   }
 
-  const { color, done, icon: StepIcon } = state;
+  const { color, done, icon: stepIcon } = state;
   const icon = done ? (
     <RiCheckboxCircleFill
       className={cn(className, "text-primary")}
@@ -41,7 +42,12 @@ export const SidebarFirstStepIcon = ({
       strokeWidth={strokeWidth}
     />
   ) : (
-    <StepIcon className={className} color={color} size={size} />
+    <HostAnimatedKubaiIcon
+      className={className}
+      color={color}
+      icon={stepIcon}
+      size={size}
+    />
   );
 
   if (prefersReducedMotion) {
