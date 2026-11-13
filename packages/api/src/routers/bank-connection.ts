@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import prisma from "@freenary/db";
 import { env } from "@freenary/env/server";
 import { ORPCError } from "@orpc/server";
-import { Effect, Option } from "effect";
+import { Data, Effect, Option } from "effect";
 import { z } from "zod";
 
 import { protectedProcedure } from "../index";
@@ -26,6 +26,11 @@ import {
 } from "../lib/country-code";
 import { getDefaultProvider, getProvider } from "../providers/registry";
 import type { BankingProvider, ProviderInstitution } from "../providers/types";
+import { startAccountSync } from "./budget";
+
+class FirstSyncNotStarted extends Data.TaggedError("FirstSyncNotStarted")<{
+  readonly cause: unknown;
+}> {}
 
 const providerById = Option.liftThrowable(getProvider);
 
@@ -283,6 +288,23 @@ export const bankConnectionRouter = {
         return created;
       });
 
+      const syncStartedAt = await Effect.runPromise(
+        Effect.tryPromise({
+          catch: (cause) => new FirstSyncNotStarted({ cause }),
+          try: () =>
+            startAccountSync(userId, {
+              connectionId: connection.id,
+              force: false,
+            }),
+        }).pipe(
+          Effect.catchTag("FirstSyncNotStarted", (failure) =>
+            Effect.logWarning("First bank sync not started", failure).pipe(
+              Effect.as(null)
+            )
+          )
+        )
+      );
+
       return {
         accounts: completed.accounts.map((a) => ({
           iban: a.iban,
@@ -293,6 +315,7 @@ export const bankConnectionRouter = {
         institutionName: bankName,
         returnTo: connectionState.returnTo,
         sessionId: completed.providerSessionId,
+        syncStartedAt,
       };
     }),
 

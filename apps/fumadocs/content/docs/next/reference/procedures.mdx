@@ -139,7 +139,9 @@ A caller with no session gets a `guest` answer, not a 401.
 
 **Input**: `params` is the raw callback query and must hold a `state` key. It takes at most 20 keys, each key at most 100 characters and each value at most 4096. `providerId` is `powens`, `enable-banking` or, outside production, `mock`.
 
-**Output**: `{ accounts, connectionId, institutionName, returnTo, sessionId }`. `accounts` lists `{ iban?, name?, uid }` as the provider returned them. `returnTo` is `onboarding` or `settings`, as signed into the state. `sessionId` is the provider's session id.
+**Output**: `{ accounts, connectionId, institutionName, returnTo, sessionId, syncStartedAt }`. `accounts` lists `{ iban?, name?, uid }` as the provider returned them. `returnTo` is `onboarding` or `settings`, as signed into the state. `sessionId` is the provider's session id.
+
+The procedure starts the new connection's first sync before it returns, as `budget.syncAccounts` with this `connectionId` would. `syncStartedAt` is the date to pass to `budget.getSyncOutcome`, or `null` when none started, usually because another sync was already running.
 
 **Errors**
 
