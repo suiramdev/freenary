@@ -1,13 +1,14 @@
-import { FlutedBackdrop } from "./fluted-backdrop";
+import { PINK_GRADIENT } from "./pink-gradient";
 import { ShowcaseCards } from "./showcase-cards";
 
 export const WizardShowcase = () => (
   <aside
     aria-hidden="true"
-    className="bg-muted relative hidden overflow-hidden lg:block"
+    className="relative hidden overflow-hidden lg:block"
     inert
+    style={{ backgroundImage: PINK_GRADIENT }}
   >
-    <FlutedBackdrop />
+    <div className="absolute inset-0 dark:bg-black/45" />
     <ShowcaseCards />
   </aside>
 );

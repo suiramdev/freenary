@@ -108,7 +108,6 @@
         "@orpc/client": "catalog:",
         "@orpc/server": "catalog:",
         "@orpc/tanstack-query": "^1.14.12",
-        "@paper-design/shaders-react": "0.0.82",
         "@radix-ui/react-use-controllable-state": "^1.2.6",
         "@remixicon/react": "^4.9.0",
         "@tailwindcss/vite": "^4.3.3",
@@ -835,10 +834,6 @@
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.85.0", "", { "os": "win32", "cpu": "x64" }, "sha512-pBebIPUpKKhWrhSMWhy8TdAZBewiXnfxmaAGxhzxM1068GagqFaTwgKlU6e+UyJ2sPR+VoHouhXuGJkQjsrDvA=="],
 
     "@oxlint/plugins": ["@oxlint/plugins@1.85.0", "", {}, "sha512-qqHqML3ME3cxGgFvWJG8wwMnJc9ol5SMdtqkq0k8r7l0USmC+HRXYjzDacME4Dqkx4yqrUsBhj0JYvji8fHxJQ=="],
-
-    "@paper-design/shaders": ["@paper-design/shaders@0.0.82", "", {}, "sha512-eCxYQrrCxRVc4KG8sLSQecsq8Ymstbaq/FqZjq/fhOa6UiR1ZZfdMO5IJpHmwL0GYmfzvZVQ4l8ZOLux0uLVdg=="],
-
-    "@paper-design/shaders-react": ["@paper-design/shaders-react@0.0.82", "", { "dependencies": { "@paper-design/shaders": "0.0.82" }, "peerDependencies": { "@types/react": "^18 || ^19", "react": "^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-DSPvsCgqagN23sYJP4vB9UpKj0IM6Aq9DOulI8c6ByHdDD6mIKRCNN6tqHK1FDdzCEQNz0dstlRtcdImAWcqqQ=="],
 
     "@peculiar/asn1-android": ["@peculiar/asn1-android@2.9.4", "", { "dependencies": { "@peculiar/asn1-schema": "^2.9.4", "asn1js": "^3.0.10", "tslib": "^2.8.1" } }, "sha512-SYHm4SoWSI0nRCoos6jpGusIqhPH9bbGBqv7ohlZ+H6BunrDzzQPk2ePgDuEUzV82OdvbLgtW4twUDwhU9P3YQ=="],
 

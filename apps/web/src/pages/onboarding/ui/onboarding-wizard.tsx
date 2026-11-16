@@ -53,6 +53,7 @@ export const OnboardingWizard = ({
   <WizardShell
     direction={direction}
     isPending={isPending}
+    layout="centered"
     skeleton={<OnboardingWizardSkeleton />}
     stepKey={String(step)}
     stepper={
