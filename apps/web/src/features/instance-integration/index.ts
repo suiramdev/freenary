@@ -7,6 +7,7 @@ export {
   variantLabel,
 } from "./model/labels";
 export type { SaveOutcome } from "./model/outcome";
+export { initialChoiceOf } from "./model/variant-choice";
 export { useInstanceIntegration } from "./model/use-instance-integration";
 export { EnvironmentSummary } from "./ui/environment-summary";
 export { ProviderStep } from "./ui/provider-step";

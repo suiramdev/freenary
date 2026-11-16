@@ -10,13 +10,16 @@ import { toast } from "sonner";
 
 import {
   EnvironmentSummary,
+  initialChoiceOf,
   ProviderStep,
   restartDocsUrl,
 } from "@/features/instance-integration";
-import type { SaveOutcome } from "@/features/instance-integration";
+import type {
+  SaveOutcome,
+  SetupIntegrationDescriptor,
+} from "@/features/instance-integration";
 import { m } from "@/paraglide/messages.js";
-import { WizardShell } from "@/shared/ui/wizard-shell";
-import { WizardStepper } from "@/shared/ui/wizard-stepper";
+import { WizardShell, WizardStepper } from "@/shared/ui/wizard";
 
 import { completionFailureMessage, stepLabel } from "../model/labels";
 import { FINISH_STEP, setupIntegrationsOf } from "../model/setup-steps";
@@ -26,11 +29,21 @@ import { FinishStep } from "./finish-step";
 import { SetupWizardSkeleton } from "./setup-wizard-skeleton";
 
 const SKIP_VARIANT = "disabled";
+const ENVIRONMENT_OWNER = "environment";
+const VERIFIED = "verified";
+
+const choiceOf = (
+  integration: SetupIntegrationDescriptor,
+  choices: Record<string, string>
+): string =>
+  integration.configuredBy === ENVIRONMENT_OWNER
+    ? integration.selectedVariantId
+    : (choices[integration.id] ?? initialChoiceOf(integration));
 
 export const SetupPage = () => {
   const setup = useSetup();
   const [outcomes, setOutcomes] = useState<Record<string, SaveOutcome>>({});
-
+  const [choices, setChoices] = useState<Record<string, string>>({});
   const described = setup.configuration.data;
   const integrations = described?.integrations ?? [];
   const fault = described?.fault ?? null;
@@ -47,6 +60,11 @@ export const SetupPage = () => {
   const activeIntegration = integrations.find(
     (integration) => integration.id === setup.stepId
   );
+
+  const activeChoice =
+    activeIntegration === undefined
+      ? null
+      : choiceOf(activeIntegration, choices);
 
   const body = () => {
     if (setup.restartPhase === "reconnecting") {
@@ -131,14 +149,17 @@ export const SetupPage = () => {
     const recordOutcome = (outcome: SaveOutcome) =>
       setOutcomes((held) => ({ ...held, [integrationId]: outcome }));
 
-    const clearOutcome = () =>
+    const clearOutcome = () => {
       setOutcomes((held) =>
         Object.fromEntries(
           Object.entries(held).filter(([id]) => id !== integrationId)
         )
       );
+    };
 
-    if (activeIntegration.configuredBy === "environment") {
+    const recordTest = recordOutcome;
+
+    if (activeIntegration.configuredBy === ENVIRONMENT_OWNER) {
       return (
         <EnvironmentSummary
           descriptor={activeIntegration}
@@ -148,7 +169,7 @@ export const SetupPage = () => {
           onCheck={(variantId) =>
             setup.check.mutate(
               { integrationId, values: {}, variantId },
-              { onSuccess: recordOutcome }
+              { onSuccess: recordTest }
             )
           }
           onNext={setup.handleNext}
@@ -176,9 +197,9 @@ export const SetupPage = () => {
         { integrationId, values, variantId },
         {
           onSuccess: (outcome) => {
-            if (outcome.outcome !== "verified") {
-              recordOutcome(outcome);
+            recordOutcome(outcome);
 
+            if (outcome.outcome !== VERIFIED) {
               return;
             }
 
@@ -195,10 +216,21 @@ export const SetupPage = () => {
 
     return (
       <ProviderStep
+        chosen={activeChoice ?? undefined}
         descriptor={activeIntegration}
         isBusy={setup.check.isPending || setup.save.isPending}
         isFirstStep={setup.stepIndex === 0}
         onBack={setup.handleBack}
+        onCheck={(variantId, values) =>
+          setup.check.mutate(
+            { integrationId, values, variantId },
+            { onSuccess: recordTest }
+          )
+        }
+        onChoose={(variantId) => {
+          clearOutcome();
+          setChoices((held) => ({ ...held, [integrationId]: variantId }));
+        }}
         onEdit={clearOutcome}
         onSave={(variantId, values, checkFirst) =>
           checkFirst

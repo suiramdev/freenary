@@ -1488,5 +1488,6 @@
   "ui_toggle_sidebar": "Afficher ou masquer la barre latérale",
   "update_banner_dismiss": "Masquer l’avis pour la v{version}",
   "update_banner_new_tab": "(s’ouvre dans un nouvel onglet)",
-  "update_banner_title": "Freenary v{version} est disponible"
+  "update_banner_title": "Freenary v{version} est disponible",
+  "wizard_step_done": "{step} (terminé)"
 }

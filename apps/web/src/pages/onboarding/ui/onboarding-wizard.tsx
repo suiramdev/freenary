@@ -2,8 +2,7 @@ import { Button } from "@freenary/ui/components/button";
 
 import type { BankInstitution, BankLinking } from "@/features/bank-connection";
 import { m } from "@/paraglide/messages.js";
-import { WizardShell } from "@/shared/ui/wizard-shell";
-import { WizardStepper } from "@/shared/ui/wizard-stepper";
+import { WizardShell, WizardStepper } from "@/shared/ui/wizard";
 
 import { BankConnectionStep } from "./bank-connection-step";
 import { CountrySelectionStep } from "./country-selection-step";
