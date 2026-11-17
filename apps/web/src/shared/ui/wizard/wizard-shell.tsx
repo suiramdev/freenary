@@ -1,4 +1,5 @@
 import { BrandAvatar } from "@freenary/ui/components/brand-avatar";
+import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
 import { spring } from "@freenary/ui/lib/springs";
 import { SURFACE_BG } from "@freenary/ui/lib/surface-classes";
 import { SurfaceProvider } from "@freenary/ui/lib/surface-context";
@@ -37,6 +38,7 @@ const stepVariants = {
 };
 
 interface WizardShellProps {
+  avatarState?: BrandAvatarState;
   children: ReactNode;
   direction: 1 | -1;
   isPending: boolean;
@@ -47,6 +49,7 @@ interface WizardShellProps {
 }
 
 export const WizardShell = ({
+  avatarState = "idle",
   children,
   direction,
   isPending,
@@ -64,7 +67,10 @@ export const WizardShell = ({
   const column = (
     <div className="flex min-h-svh min-w-0 flex-col px-5 sm:min-h-0 sm:px-8">
       <header className="mx-auto flex min-h-16 w-full max-w-md flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6">
-        <BrandAvatar size={AGENT_PX} />
+        <BrandAvatar
+          size={AGENT_PX}
+          state={isPending ? "loading" : avatarState}
+        />
         {isPending ? null : stepper}
       </header>
 

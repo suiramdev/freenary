@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   EnvironmentSummary,
   initialChoiceOf,
+  isFailedOutcome,
   ProviderStep,
   restartDocsUrl,
 } from "@/features/instance-integration";
@@ -18,6 +19,7 @@ import type { SaveOutcome } from "@/features/instance-integration";
 import { m } from "@/paraglide/messages.js";
 import { WizardShell, WizardStepper } from "@/shared/ui/wizard";
 
+import { setupAvatarState } from "../model/avatar-state";
 import { completionFailureMessage, stepLabel } from "../model/labels";
 import { FINISH_STEP, setupIntegrationsOf } from "../model/setup-steps";
 import { useSetup } from "../model/use-setup";
@@ -201,6 +203,7 @@ export const SetupPage = () => {
         chosen={choices[integrationId] ?? initialChoiceOf(activeIntegration)}
         descriptor={activeIntegration}
         isBusy={setup.check.isPending || setup.save.isPending}
+        isConfiguring={setup.isConfiguring}
         isFirstStep={setup.stepIndex === 0}
         onBack={setup.handleBack}
         onCheck={(variantId, values) =>
@@ -217,6 +220,9 @@ export const SetupPage = () => {
               : { ...held, [integrationId]: variantId }
           );
         }}
+        onConfiguringChange={(next) =>
+          next ? setup.handleConfigure() : setup.handleLeaveConfigure()
+        }
         onEdit={clearOutcome}
         onSave={(variantId, values, checkFirst) =>
           checkFirst
@@ -237,12 +243,26 @@ export const SetupPage = () => {
     );
   };
 
+  const integrationPhase = setup.isConfiguring ? "credentials" : "choose";
+  const phaseKey =
+    setup.restartPhase === "idle" ? integrationPhase : setup.restartPhase;
+
   return (
     <WizardShell
+      avatarState={setupAvatarState({
+        hasCompletionFailure: setup.completionFailure !== null,
+        hasFailedOutcome: isFailedOutcome(outcomes[setup.stepId]),
+        hasOutcome: outcomes[setup.stepId] !== undefined,
+        isBusy:
+          setup.check.isPending ||
+          setup.save.isPending ||
+          setup.complete.isPending,
+        restartPhase: setup.restartPhase,
+      })}
       direction={setup.direction}
       isPending={setup.isPending}
       skeleton={<SetupWizardSkeleton />}
-      stepKey={setup.stepId}
+      stepKey={`${setup.stepId}:${phaseKey}`}
       stepper={setup.isOperator && !setup.loadFailed ? stepper : null}
       toolbar={
         <Button onClick={setup.handleSignOut} type="button" variant="ghost">

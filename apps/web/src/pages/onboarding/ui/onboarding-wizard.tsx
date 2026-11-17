@@ -4,6 +4,7 @@ import type { BankInstitution, BankLinking } from "@/features/bank-connection";
 import { m } from "@/paraglide/messages.js";
 import { WizardShell, WizardStepper } from "@/shared/ui/wizard";
 
+import { onboardingAvatarState } from "../model/avatar-state";
 import { BankConnectionStep } from "./bank-connection-step";
 import { CountrySelectionStep } from "./country-selection-step";
 import { OnboardingWizardSkeleton } from "./onboarding-wizard-skeleton";
@@ -51,6 +52,7 @@ export const OnboardingWizard = ({
   unavailableCountries,
 }: OnboardingWizardProps) => (
   <WizardShell
+    avatarState={onboardingAvatarState({ connectedCount, isCompleting, step })}
     direction={direction}
     isPending={isPending}
     skeleton={<OnboardingWizardSkeleton />}
