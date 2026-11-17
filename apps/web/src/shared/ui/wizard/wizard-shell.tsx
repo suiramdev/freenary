@@ -6,18 +6,15 @@ import { cn } from "@freenary/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
-import { m } from "@/paraglide/messages.js";
-
 import { LocaleSwitcher } from "../locale-switcher";
 import { PinkBackdrop } from "../pink-backdrop";
 import { ThemeSwitcher } from "../theme-switcher";
-import { WizardShowcase } from "./wizard-showcase";
 
 const STEP_SHIFT_PX = 16;
 const NO_STEP_SHIFT_PX = 0;
 const STEP_CROSSFADE_MASK_BLUR = "blur(4px)";
 const NO_BLUR = "blur(0px)";
-const BRAND_MARK_PX = 28;
+const AGENT_PX = 40;
 
 interface StepMotion {
   direction: 1 | -1;
@@ -39,13 +36,10 @@ const stepVariants = {
   }),
 };
 
-type WizardLayout = "centered" | "split";
-
 interface WizardShellProps {
   children: ReactNode;
   direction: 1 | -1;
   isPending: boolean;
-  layout?: WizardLayout;
   skeleton: ReactNode;
   stepKey: string;
   stepper: ReactNode;
@@ -56,7 +50,6 @@ export const WizardShell = ({
   children,
   direction,
   isPending,
-  layout = "split",
   skeleton,
   stepKey,
   stepper,
@@ -68,22 +61,10 @@ export const WizardShell = ({
     shift: prefersReducedMotion ? NO_STEP_SHIFT_PX : STEP_SHIFT_PX,
   };
 
-  const isCentered = layout === "centered";
-
   const column = (
-    <div
-      className={cn(
-        "flex min-w-0 flex-col px-5",
-        isCentered ? "min-h-svh sm:min-h-0 sm:px-8" : "sm:px-10"
-      )}
-    >
+    <div className="flex min-h-svh min-w-0 flex-col px-5 sm:min-h-0 sm:px-8">
       <header className="mx-auto flex min-h-16 w-full max-w-md flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6">
-        <span className="flex items-center gap-2">
-          <BrandAvatar frozen size={BRAND_MARK_PX} state="logo" />
-          <span className="font-heading text-sm font-semibold tracking-tight">
-            {m.shell_brand_name()}
-          </span>
-        </span>
+        <BrandAvatar size={AGENT_PX} />
         {isPending ? null : stepper}
       </header>
 
@@ -138,38 +119,21 @@ export const WizardShell = ({
     </div>
   );
 
-  if (isCentered) {
-    return (
-      <SurfaceProvider value={1}>
-        <main
-          className="relative grid min-h-svh place-items-center sm:p-6"
-          data-wizard-headline
-        >
-          <PinkBackdrop />
-          <div
-            className={cn(
-              SURFACE_BG[1],
-              "relative w-full sm:max-w-xl sm:rounded-2xl sm:shadow-2xl"
-            )}
-          >
-            {column}
-          </div>
-        </main>
-      </SurfaceProvider>
-    );
-  }
-
   return (
     <SurfaceProvider value={1}>
       <main
-        className={cn(
-          SURFACE_BG[1],
-          "grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]"
-        )}
+        className="relative grid min-h-svh place-items-center sm:p-6"
         data-wizard-headline
       >
-        {column}
-        <WizardShowcase />
+        <PinkBackdrop />
+        <div
+          className={cn(
+            SURFACE_BG[1],
+            "relative w-full sm:max-w-xl sm:rounded-2xl sm:shadow-2xl"
+          )}
+        >
+          {column}
+        </div>
       </main>
     </SurfaceProvider>
   );
