@@ -1,4 +1,4 @@
-import { PINK_GRADIENT } from "./pink-gradient";
+import { PINK_GRADIENT } from "../pink-gradient";
 import { ShowcaseCards } from "./showcase-cards";
 
 export const WizardShowcase = () => (

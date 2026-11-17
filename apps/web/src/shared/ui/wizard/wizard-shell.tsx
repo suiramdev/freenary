@@ -9,8 +9,8 @@ import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 
 import { LocaleSwitcher } from "../locale-switcher";
+import { PINK_GRADIENT } from "../pink-gradient";
 import { ThemeSwitcher } from "../theme-switcher";
-import { PINK_GRADIENT } from "./pink-gradient";
 import { WizardShowcase } from "./wizard-showcase";
 
 const STEP_SHIFT_PX = 16;
