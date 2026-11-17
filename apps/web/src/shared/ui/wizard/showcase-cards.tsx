@@ -11,6 +11,7 @@ import { Elevated } from "@freenary/ui/lib/elevated";
 import { cn } from "@freenary/ui/lib/utils";
 import { RiArrowUpLine } from "@remixicon/react";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
@@ -72,50 +73,60 @@ const BalanceCard = () => (
   </SampleCard>
 );
 
-const SpentCard = () => (
-  <SampleCard className="w-[26rem]" title={m.home_spent_title()}>
-    <div className="flex flex-col gap-1">
-      <Headline>{formatCurrency(SAMPLE_SPENT_MINOR, SAMPLE_CURRENCY)}</Headline>
-      <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <RiArrowUpLine aria-hidden="true" className="size-4 shrink-0" />
-        {m.home_spent_more({
-          amount: formatCurrency(
-            SAMPLE_SPENT_DIFFERENCE_MINOR,
-            SAMPLE_CURRENCY
-          ),
-        })}
-      </p>
-    </div>
-    <StaticChartPreviewProvider>
-      <LineChart
-        animationDuration={NO_ANIMATION_MS}
-        aspectRatio="auto"
-        className="h-28"
-        data={paceRows(new Date())}
-        margin={CHART_MARGIN}
-      >
-        <Grid horizontal />
-        <Line
-          animate={false}
-          dashFromIndex={0}
-          dataKey="previousMinor"
-          showHighlight={false}
-          stroke={CHART_COLOR_VARS.grey}
-          strokeWidth={1.5}
-        />
-        <Line
-          animate={false}
-          dataKey="currentMinor"
-          showHighlight={false}
-          stroke={CHART_COLOR_VARS.blue}
-        />
-      </LineChart>
-    </StaticChartPreviewProvider>
-  </SampleCard>
-);
+const SpentCard = () => {
+  const rows = useMemo(() => paceRows(new Date()), []);
+
+  return (
+    <SampleCard className="w-[26rem]" title={m.home_spent_title()}>
+      <div className="flex flex-col gap-1">
+        <Headline>
+          {formatCurrency(SAMPLE_SPENT_MINOR, SAMPLE_CURRENCY)}
+        </Headline>
+        <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+          <RiArrowUpLine aria-hidden="true" className="size-4 shrink-0" />
+          {m.home_spent_more({
+            amount: formatCurrency(
+              SAMPLE_SPENT_DIFFERENCE_MINOR,
+              SAMPLE_CURRENCY
+            ),
+          })}
+        </p>
+      </div>
+      <StaticChartPreviewProvider>
+        <LineChart
+          animationDuration={NO_ANIMATION_MS}
+          aspectRatio="auto"
+          className="h-28"
+          data={rows}
+          margin={CHART_MARGIN}
+        >
+          <Grid horizontal />
+          <Line
+            animate={false}
+            dashFromIndex={0}
+            dataKey="previousMinor"
+            showHighlight={false}
+            stroke={CHART_COLOR_VARS.grey}
+            strokeWidth={1.5}
+          />
+          <Line
+            animate={false}
+            dataKey="currentMinor"
+            showHighlight={false}
+            stroke={CHART_COLOR_VARS.blue}
+          />
+        </LineChart>
+      </StaticChartPreviewProvider>
+    </SampleCard>
+  );
+};
 
 const CategoriesCard = () => {
-  const percent = new Intl.NumberFormat(getLocale(), SHARE_FORMAT);
+  const locale = getLocale();
+  const percent = useMemo(
+    () => new Intl.NumberFormat(locale, SHARE_FORMAT),
+    [locale]
+  );
 
   return (
     <SampleCard className="w-80" title={m.home_categories_title()}>

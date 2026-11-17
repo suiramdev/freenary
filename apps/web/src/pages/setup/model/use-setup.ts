@@ -12,7 +12,6 @@ import { orpc } from "@/shared/api";
 import { authClient } from "@/shared/auth";
 
 import { FINISH_STEP, setupStepsOf } from "./setup-steps";
-import { useStepCelebration } from "./use-step-celebration";
 
 export const useSetup = () => {
   const queryClient = useQueryClient();
@@ -40,7 +39,6 @@ export const useSetup = () => {
 
   const [chosenStep, setChosenStep] = useState<string | null>(null);
   const [direction, setDirection] = useState<1 | -1>(1);
-  const { celebrate, celebrated } = useStepCelebration();
 
   const status = useQuery(orpc.instance.status.queryOptions());
   const isOperator = status.data?.isOperator ?? false;
@@ -65,7 +63,6 @@ export const useSetup = () => {
 
   const goTo = (next: string, heading: 1 | -1) => {
     instanceIntegration.complete.reset();
-    celebrate(heading === 1 ? stepId : null);
     setDirection(heading);
     setChosenStep(next);
   };
@@ -100,7 +97,6 @@ export const useSetup = () => {
   };
 
   return {
-    celebrated,
     check: instanceIntegration.check,
     complete: instanceIntegration.complete,
     completionFailure,

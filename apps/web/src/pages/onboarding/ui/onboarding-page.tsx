@@ -24,13 +24,11 @@ const OnboardingContent = () => {
     orpc.bankConnection.listConnections.queryOptions()
   );
 
-  const connections = connectionsQuery.data?.connections ?? [];
-
   return (
     <OnboardingWizard
       bankLinking={bankLinking}
       banks={banksQuery.data?.banks ?? []}
-      connectedCount={connections.length}
+      connectedCount={connectionsQuery.data?.connections.length ?? 0}
       direction={wizard.direction}
       isBanksError={banksQuery.isError}
       isBanksPending={banksQuery.isPending || banksQuery.isPlaceholderData}

@@ -1,14 +1,17 @@
-import { PINK_GRADIENT } from "../pink-gradient";
+import { memo } from "react";
+
+import { PinkBackdrop } from "../pink-backdrop";
 import { ShowcaseCards } from "./showcase-cards";
 
-export const WizardShowcase = () => (
+const ShowcasePanel = () => (
   <aside
     aria-hidden="true"
     className="relative hidden overflow-hidden lg:block"
     inert
-    style={{ backgroundImage: PINK_GRADIENT }}
   >
-    <div className="absolute inset-0 dark:bg-black/45" />
+    <PinkBackdrop />
     <ShowcaseCards />
   </aside>
 );
+
+export const WizardShowcase = memo(ShowcasePanel);

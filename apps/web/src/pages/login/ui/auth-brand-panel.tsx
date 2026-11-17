@@ -1,7 +1,7 @@
 import { motion, useReducedMotion } from "motion/react";
 
 import { m } from "@/paraglide/messages.js";
-import { PINK_GRADIENT } from "@/shared/ui/pink-gradient";
+import { PinkBackdrop } from "@/shared/ui/pink-backdrop";
 
 const PITCH_LINES = [
   { id: "connect", text: m.auth_pitch_connect },
@@ -31,14 +31,8 @@ export const AuthBrandPanel = () => {
   const reduceMotion = useReducedMotion() ?? false;
 
   return (
-    <div
-      className="relative hidden overflow-hidden lg:flex lg:flex-col"
-      style={{ backgroundImage: PINK_GRADIENT }}
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 dark:bg-black/45"
-      />
+    <div className="relative hidden overflow-hidden lg:flex lg:flex-col">
+      <PinkBackdrop />
       <div className="relative flex flex-1 items-center p-12 xl:p-16">
         <h2 className="font-heading text-4xl leading-tight font-semibold tracking-tight xl:text-5xl">
           {PITCH_LINES.map((line, order) => (

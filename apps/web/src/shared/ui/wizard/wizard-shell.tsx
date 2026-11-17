@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 
 import { LocaleSwitcher } from "../locale-switcher";
-import { PINK_GRADIENT } from "../pink-gradient";
+import { PinkBackdrop } from "../pink-backdrop";
 import { ThemeSwitcher } from "../theme-switcher";
 import { WizardShowcase } from "./wizard-showcase";
 
@@ -144,12 +144,8 @@ export const WizardShell = ({
         <main
           className="relative grid min-h-svh place-items-center sm:p-6"
           data-wizard-headline
-          style={{ backgroundImage: PINK_GRADIENT }}
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 dark:bg-black/45"
-          />
+          <PinkBackdrop />
           <div
             className={cn(
               SURFACE_BG[1],
