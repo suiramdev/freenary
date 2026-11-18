@@ -168,6 +168,7 @@ const cashFlowQuery = ({ labelExpr, truncExpr }: CashFlowGrain) =>
   WHERE bc."userId" = $1
     AND t."date" >= $2
     AND t."date" <= $3
+    AND NOT t."isInternalTransfer"
   GROUP BY ${truncExpr}, ${labelExpr}
   ORDER BY ${truncExpr} ASC`;
 
@@ -275,6 +276,16 @@ const aggregateOutgoing = <T extends { amount: number; date: Date }, K>(
   return aggregateMonthly(monthly, activeMonths, aggregation);
 };
 
+export const countedTransactionsWhere = (
+  userId: string,
+  from: Date,
+  to: Date
+): Prisma.TransactionWhereInput => ({
+  account: { connection: { userId } },
+  date: { gte: from, lte: to },
+  isInternalTransfer: false,
+});
+
 const outgoingRows = (
   userId: string,
   from: Date,
@@ -288,11 +299,7 @@ const outgoingRows = (
       merchantKey: true,
       resolvedCategory: true,
     },
-    where: {
-      account: { connection: { userId } },
-      amount: { lt: 0 },
-      date: { gte: from, lte: to },
-    },
+    where: { ...countedTransactionsWhere(userId, from, to), amount: { lt: 0 } },
   });
 
 const outgoingByCategory = (
@@ -352,11 +359,11 @@ const directionTotals = async (where: Prisma.TransactionWhereInput) => {
   const [incoming, outgoing] = await Promise.all([
     prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { ...where, amount: { gt: 0 } },
+      where: { ...where, amount: { gt: 0 }, isInternalTransfer: false },
     }),
     prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { ...where, amount: { lt: 0 } },
+      where: { ...where, amount: { lt: 0 }, isInternalTransfer: false },
     }),
   ]);
 
@@ -401,10 +408,7 @@ const periodRows = (
       merchantKey: true,
       resolvedCategory: true,
     },
-    where: {
-      account: { connection: { userId } },
-      date: { gte: from, lte: to },
-    },
+    where: countedTransactionsWhere(userId, from, to),
   });
 
 const spendingBreakdownOf = (byCategory: Map<SpendingCategory, number>) => ({
