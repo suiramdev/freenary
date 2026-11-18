@@ -125,6 +125,7 @@ export const ChatList = ({ chats, dashboards, today }: ChatListProps) => {
                   aria-current={current ? "page" : undefined}
                   className={cn(rowClass, current && "bg-accent")}
                   params={{ conversationId: chat.id }}
+                  title={chat.title ?? undefined}
                   to="/ask/$conversationId"
                 >
                   <RowContent
@@ -157,6 +158,7 @@ export const ChatList = ({ chats, dashboards, today }: ChatListProps) => {
               <Link
                 className={rowClass}
                 params={{ dashboardId: dashboard.id }}
+                title={dashboard.title}
                 to="/dashboards/$dashboardId"
               >
                 <RowContent

@@ -6,7 +6,7 @@ import {
 interface RangeToggleProps {
   label: string;
   onChange: (months: number) => void;
-  options: readonly { label: string; months: number }[];
+  options: readonly { label: string; months: number; name: string }[];
   value: number;
 }
 
@@ -31,7 +31,11 @@ export const RangeToggle = ({
     variant="outline"
   >
     {options.map((option) => (
-      <ToggleGroupItem key={option.months} value={String(option.months)}>
+      <ToggleGroupItem
+        aria-label={option.name}
+        key={option.months}
+        value={String(option.months)}
+      >
         {option.label}
       </ToggleGroupItem>
     ))}

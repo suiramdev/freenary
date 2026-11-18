@@ -1614,6 +1614,16 @@
       }
     }
   ],
+  "widget_range_months_name": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mois",
+        "countPlural=other": "{count} mois"
+      }
+    }
+  ],
   "widget_spending_by_week_title": "Dépenses par semaine",
   "widget_spending_chart_label": "Dépenses de chaque semaine, par catégorie",
   "widget_spending_empty": "Aucune dépense sur ces semaines.",

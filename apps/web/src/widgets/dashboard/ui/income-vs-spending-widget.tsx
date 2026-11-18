@@ -141,6 +141,7 @@ export const IncomeVsSpendingWidget = ({
     .map((count) => ({
       label: m.widget_range_months({ count }),
       months: count,
+      name: m.widget_range_months_name({ count }),
     }));
 
   return (
