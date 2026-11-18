@@ -1,7 +1,6 @@
+import { isToolUIPart } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-
-import { isToolPart } from "./execution";
 
 export interface SavedDashboard {
   created: boolean;
@@ -22,7 +21,7 @@ export const savedDashboardsOf = (
 ): SavedDashboard[] =>
   parts.flatMap((part) => {
     if (
-      !isToolPart(part) ||
+      !isToolUIPart(part) ||
       part.type !== SAVE_DASHBOARD_PART ||
       part.state !== "output-available"
     ) {

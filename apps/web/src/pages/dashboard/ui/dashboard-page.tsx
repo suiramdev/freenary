@@ -14,9 +14,12 @@ import {
 } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { dashboardQueryOptions } from "@/entities/dashboard";
+import {
+  dashboardQueryOptions,
+  useDashboardUpdates,
+} from "@/entities/dashboard";
 import { useSyncAccounts } from "@/features/account-sync";
 import { useStartChat } from "@/features/assistant-chat";
 import { m } from "@/paraglide/messages.js";
@@ -24,6 +27,8 @@ import { getLocale } from "@/paraglide/runtime.js";
 import { orpc } from "@/shared/api";
 import { startOfDay } from "@/shared/lib/calendar-day";
 import { remixIcon } from "@/shared/lib/remix-icon";
+import { AiUpdateScope } from "@/shared/ui/ai-update-scope";
+import type { AiUpdateScopeHandle } from "@/shared/ui/ai-update-scope";
 import { MissingItem } from "@/shared/ui/missing-item";
 import { SyncButton } from "@/shared/ui/sync-button";
 import { DashboardGrid } from "@/widgets/dashboard";
@@ -71,6 +76,13 @@ export const DashboardPage = () => {
   const overview = useQuery(orpc.portfolio.getOverview.queryOptions());
   const { isSyncing, sync } = useSyncAccounts();
   const { startChat } = useStartChat();
+  const updateScope = useRef<AiUpdateScopeHandle>(null);
+
+  useDashboardUpdates(({ dashboardIds, refresh }) => {
+    if (dashboardIds.includes(dashboardId)) {
+      updateScope.current?.play({ change: refresh });
+    }
+  });
 
   const invalidateDashboards = () =>
     queryClient.invalidateQueries({ queryKey: orpc.dashboards.key() });
@@ -182,7 +194,9 @@ export const DashboardPage = () => {
           />
         </div>
       </header>
-      <DashboardGrid onAsk={startChat} today={today} widgets={widgets} />
+      <AiUpdateScope ref={updateScope}>
+        <DashboardGrid onAsk={startChat} today={today} widgets={widgets} />
+      </AiUpdateScope>
       <div className="flex-1" />
       {status.data ? (
         <ChangeDashboardBar

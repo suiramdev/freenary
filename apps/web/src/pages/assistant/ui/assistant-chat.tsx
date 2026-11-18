@@ -197,6 +197,7 @@ export const AssistantChat = ({
                 message.id === liveMessageId ? avatarState : undefined
               }
               key={message.id}
+              latest={isLastAnswer}
               live={live}
               message={message}
               onMakeDashboard={settled ? makeDashboard : undefined}

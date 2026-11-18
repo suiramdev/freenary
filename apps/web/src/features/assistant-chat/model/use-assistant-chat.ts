@@ -5,6 +5,10 @@ import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useMemo } from "react";
 
+import {
+  publishDashboardUpdate,
+  savedDashboardsOf,
+} from "@/entities/dashboard";
 import { getLocale } from "@/paraglide/runtime.js";
 import { client, orpc } from "@/shared/api";
 import { getServerUrl } from "@/shared/config";
@@ -114,9 +118,20 @@ export const useAssistantChat = ({
     messages: initialMessages,
     onError,
     onFinish: ({ isAbort, message }) => {
+      const saved = isAbort ? [] : savedDashboardsOf(message.parts);
+
       if (!isAbort) {
         void queryClient.invalidateQueries({ queryKey: orpc.assistant.key() });
-        void queryClient.invalidateQueries({ queryKey: orpc.dashboards.key() });
+      }
+
+      if (saved.length > 0) {
+        publishDashboardUpdate({
+          dashboardIds: saved.map((dashboard) => dashboard.dashboardId),
+          refresh: () =>
+            queryClient.invalidateQueries({
+              queryKey: orpc.dashboards.key(),
+            }),
+        });
       }
 
       onFinish?.({ isAbort, message });

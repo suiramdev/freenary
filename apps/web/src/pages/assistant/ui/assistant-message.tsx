@@ -12,16 +12,18 @@ import {
 import { Link } from "@tanstack/react-router";
 import type { UIMessage } from "ai";
 import type { ReactNode } from "react";
-import { memo } from "react";
+import { memo, useRef } from "react";
 
+import { savedDashboardsOf, useDashboardUpdates } from "@/entities/dashboard";
+import type { SavedDashboard } from "@/entities/dashboard";
 import { m } from "@/paraglide/messages.js";
 import { remixIcon } from "@/shared/lib/remix-icon";
+import { AiUpdateScope } from "@/shared/ui/ai-update-scope";
+import type { AiUpdateScopeHandle } from "@/shared/ui/ai-update-scope";
 
 import type { AnswerSegment } from "../model/answer-segments";
 import { activityOf, traceOf } from "../model/execution";
 import type { ChatStatus } from "../model/execution";
-import { savedDashboardsOf } from "../model/saved-dashboards";
-import type { SavedDashboard } from "../model/saved-dashboards";
 import { useExecutionTimings } from "../model/use-execution-timings";
 import { AssistantActivity } from "./assistant-activity";
 import { AssistantAvatar } from "./assistant-avatar";
@@ -36,6 +38,7 @@ interface AssistantMessageProps {
   status: ChatStatus;
   retrying: boolean;
   startedAt?: number;
+  latest?: boolean;
   onMakeDashboard?: () => void;
   onRetry?: (messageId: string) => void;
 }
@@ -119,6 +122,37 @@ const SavedDashboardLink = ({ dashboard }: { dashboard: SavedDashboard }) => (
   </Link>
 );
 
+const SavedDashboardList = ({ dashboards }: { dashboards: SavedDashboard[] }) =>
+  dashboards.map((dashboard) => (
+    <SavedDashboardLink dashboard={dashboard} key={dashboard.dashboardId} />
+  ));
+
+const AnnouncedDashboardList = ({
+  dashboards,
+}: {
+  dashboards: SavedDashboard[];
+}) => {
+  const scope = useRef<AiUpdateScopeHandle>(null);
+
+  useDashboardUpdates(({ dashboardIds }) => {
+    if (
+      dashboards.some((dashboard) =>
+        dashboardIds.includes(dashboard.dashboardId)
+      )
+    ) {
+      scope.current?.play({});
+    }
+  });
+
+  return (
+    <AiUpdateScope ref={scope} size="element">
+      <div className="flex flex-col gap-2">
+        <SavedDashboardList dashboards={dashboards} />
+      </div>
+    </AiUpdateScope>
+  );
+};
+
 const UserMessage = ({ message }: { message: UIMessage }) => {
   const size = useSize();
   const text = message.parts
@@ -141,6 +175,7 @@ const UserMessage = ({ message }: { message: UIMessage }) => {
 
 const AnswerMessage = ({
   avatarState,
+  latest = false,
   live,
   message,
   onMakeDashboard,
@@ -180,12 +215,11 @@ const AnswerMessage = ({
           />
         )}
         <AnswerSegments prefix={message.id} segments={answer} />
-        {savedDashboards.map((dashboard) => (
-          <SavedDashboardLink
-            dashboard={dashboard}
-            key={dashboard.dashboardId}
-          />
-        ))}
+        {latest && savedDashboards.length > 0 ? (
+          <AnnouncedDashboardList dashboards={savedDashboards} />
+        ) : (
+          <SavedDashboardList dashboards={savedDashboards} />
+        )}
         {live && (
           <AssistantActivity
             activity={activityOf(trace, status)}

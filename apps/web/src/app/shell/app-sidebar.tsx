@@ -16,11 +16,17 @@ import { RiSearchLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 import { LayoutDashboard, LayoutDashboardPlus } from "kubai-icons-react";
+import { useRef } from "react";
 
-import { dashboardsQueryOptions } from "@/entities/dashboard";
+import {
+  dashboardsQueryOptions,
+  useDashboardUpdates,
+} from "@/entities/dashboard";
 import { m } from "@/paraglide/messages.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { kubaiIcon } from "@/shared/lib/kubai-icon";
+import { AiUpdateScope } from "@/shared/ui/ai-update-scope";
+import type { AiUpdateScopeHandle } from "@/shared/ui/ai-update-scope";
 
 import { setCommandMenuOpen } from "./command-menu-state";
 import { isCurrentNav, NAV_ITEMS } from "./nav-items";
@@ -63,6 +69,11 @@ const SearchTrigger = () => (
 
 const DashboardsGroup = ({ pathname }: { pathname: string }) => {
   const dashboards = useQuery(dashboardsQueryOptions());
+  const updateScope = useRef<AiUpdateScopeHandle>(null);
+
+  useDashboardUpdates(({ refresh }) => {
+    updateScope.current?.play({ change: refresh });
+  });
 
   return (
     <SidebarGroup>
@@ -70,41 +81,46 @@ const DashboardsGroup = ({ pathname }: { pathname: string }) => {
         {m.nav_dashboards()}
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu>
-          {dashboards.isPending &&
-            Array.from({ length: DASHBOARD_SKELETON_ROWS }, (_, index) => (
-              <SidebarMenuItem key={index}>
-                <SidebarMenuSkeleton showIcon />
+        <AiUpdateScope ref={updateScope} size="element">
+          <SidebarMenu>
+            {dashboards.isPending &&
+              Array.from({ length: DASHBOARD_SKELETON_ROWS }, (_, index) => (
+                <SidebarMenuItem key={index}>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              ))}
+            {dashboards.data?.dashboards.map((dashboard) => (
+              <SidebarMenuItem key={dashboard.id}>
+                <SidebarMenuButton
+                  icon={DashboardIcon}
+                  isActive={pathname === `/dashboards/${dashboard.id}`}
+                  render={
+                    <Link
+                      params={{ dashboardId: dashboard.id }}
+                      title={dashboard.title}
+                      to="/dashboards/$dashboardId"
+                    />
+                  }
+                >
+                  {dashboard.title}
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-          {dashboards.data?.dashboards.map((dashboard) => (
-            <SidebarMenuItem key={dashboard.id}>
+            <SidebarMenuItem>
               <SidebarMenuButton
-                icon={DashboardIcon}
-                isActive={pathname === `/dashboards/${dashboard.id}`}
+                icon={NewDashboardIcon}
                 render={
                   <Link
-                    params={{ dashboardId: dashboard.id }}
-                    title={dashboard.title}
-                    to="/dashboards/$dashboardId"
+                    search={{ draft: m.dashboards_new_prompt() }}
+                    to="/ask"
                   />
                 }
               >
-                {dashboard.title}
+                {m.nav_new_dashboard()}
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ))}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              icon={NewDashboardIcon}
-              render={
-                <Link search={{ draft: m.dashboards_new_prompt() }} to="/ask" />
-              }
-            >
-              {m.nav_new_dashboard()}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+          </SidebarMenu>
+        </AiUpdateScope>
       </SidebarGroupContent>
     </SidebarGroup>
   );
