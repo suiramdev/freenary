@@ -1,4 +1,10 @@
-import { Home, Receipt, Repeat, Settings } from "kubai-icons-react";
+import {
+  Home,
+  MessagesSparkle,
+  Receipt,
+  Repeat,
+  Settings,
+} from "kubai-icons-react";
 import type { KubaiIconComponent } from "kubai-icons-react";
 
 import { m } from "@/paraglide/messages.js";
@@ -22,6 +28,13 @@ export const NAV_ITEMS = [
     label: m.nav_home,
     routeId: "/_auth/",
     to: "/",
+  },
+  {
+    color: CHART_COLOR_VARS.pink,
+    icon: MessagesSparkle,
+    label: m.nav_ask,
+    routeId: "/_auth/ask",
+    to: "/ask",
   },
   {
     color: CHART_COLOR_VARS.green,
@@ -48,7 +61,18 @@ export const NAV_ITEMS = [
 
 const ACCOUNT_ROUTE_ID = "/_auth/accounts/$accountId";
 
+export const CONVERSATION_ROUTE_ID = "/_auth/ask/$conversationId";
+
 export const DASHBOARD_ROUTE_ID = "/_auth/dashboards/$dashboardId";
+
+const ASK_ROUTE_IDS = new Set([
+  "/_auth/ask",
+  "/_auth/ask/",
+  CONVERSATION_ROUTE_ID,
+]);
+
+export const isFullWidthRoute = (routeId: string | undefined): boolean =>
+  routeId !== undefined && ASK_ROUTE_IDS.has(routeId);
 
 export const isCurrentNav = (pathname: string, to: string): boolean =>
   to === "/"
@@ -61,6 +85,10 @@ export const navTrailOf = (
 ): string[] => {
   if (routeId === ACCOUNT_ROUTE_ID) {
     return [m.nav_home(), m.nav_bank_account()];
+  }
+
+  if (routeId === CONVERSATION_ROUTE_ID) {
+    return [m.nav_ask(), pageTitle ?? m.ask_untitled_chat()];
   }
 
   if (routeId === DASHBOARD_ROUTE_ID) {

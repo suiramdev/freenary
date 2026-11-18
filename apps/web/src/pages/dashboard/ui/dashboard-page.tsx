@@ -6,13 +6,19 @@ import {
 } from "@freenary/ui/components/dropdown";
 import { MenuItem } from "@freenary/ui/components/menu-item";
 import { Skeleton } from "@freenary/ui/components/skeleton";
-import { RiDeleteBinLine, RiEdit2Line, RiMoreLine } from "@remixicon/react";
+import {
+  RiChat3Line,
+  RiDeleteBinLine,
+  RiEdit2Line,
+  RiMoreLine,
+} from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { dashboardQueryOptions } from "@/entities/dashboard";
 import { useSyncAccounts } from "@/features/account-sync";
+import { useStartChat } from "@/features/assistant-chat";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { orpc } from "@/shared/api";
@@ -22,6 +28,7 @@ import { MissingItem } from "@/shared/ui/missing-item";
 import { SyncButton } from "@/shared/ui/sync-button";
 import { DashboardGrid } from "@/widgets/dashboard";
 
+import { ChangeDashboardBar } from "./change-dashboard-bar";
 import { DeleteDashboardDialog } from "./delete-dashboard-dialog";
 import { RenameDashboardDialog } from "./rename-dashboard-dialog";
 
@@ -60,8 +67,10 @@ export const DashboardPage = () => {
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const dashboard = useQuery(dashboardQueryOptions(dashboardId));
+  const status = useQuery(orpc.assistant.getStatus.queryOptions());
   const overview = useQuery(orpc.portfolio.getOverview.queryOptions());
   const { isSyncing, sync } = useSyncAccounts();
+  const { startChat } = useStartChat();
 
   const invalidateDashboards = () =>
     queryClient.invalidateQueries({ queryKey: orpc.dashboards.key() });
@@ -101,7 +110,7 @@ export const DashboardPage = () => {
     );
   }
 
-  const { title, widgets } = dashboard.data;
+  const { conversation, title, widgets } = dashboard.data;
   const balancesAt = overview.data?.netWorth.balancesAt;
 
   return (
@@ -140,6 +149,19 @@ export const DashboardPage = () => {
               </DropdownContent>
             </DropdownMenu>
           </div>
+          {conversation ? (
+            <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+              <RiChat3Line aria-hidden="true" className="size-4 shrink-0" />
+              {m.dashboard_from_chat()}
+              <Link
+                className="text-foreground truncate underline underline-offset-4"
+                params={{ conversationId: conversation.id }}
+                to="/ask/$conversationId"
+              >
+                {conversation.title ?? m.ask_untitled_chat()}
+              </Link>
+            </p>
+          ) : null}
         </div>
         <div className="text-muted-foreground flex items-center gap-1 text-xs">
           {balancesAt ? (
@@ -160,7 +182,16 @@ export const DashboardPage = () => {
           />
         </div>
       </header>
-      <DashboardGrid today={today} widgets={widgets} />
+      <DashboardGrid onAsk={startChat} today={today} widgets={widgets} />
+      <div className="flex-1" />
+      {status.data ? (
+        <ChangeDashboardBar
+          conversationId={conversation?.id ?? null}
+          dashboardId={dashboardId}
+          key={dashboardId}
+          serverModel={status.data.serverModel}
+        />
+      ) : null}
       <RenameDashboardDialog
         onOpenChange={setRenaming}
         onRename={(next) => rename.mutate({ dashboardId, title: next })}

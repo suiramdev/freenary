@@ -13,7 +13,7 @@ import {
 } from "@freenary/ui/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard } from "kubai-icons-react";
+import { LayoutDashboard, LayoutDashboardPlus } from "kubai-icons-react";
 
 import { dashboardsQueryOptions } from "@/entities/dashboard";
 import { m } from "@/paraglide/messages.js";
@@ -29,6 +29,8 @@ import { SidebarUserMenu } from "./sidebar-user-menu";
 const DASHBOARD_SKELETON_ROWS = 3;
 
 const DashboardIcon = kubaiIcon(LayoutDashboard, CHART_COLOR_VARS.grey);
+
+const NewDashboardIcon = kubaiIcon(LayoutDashboardPlus, CHART_COLOR_VARS.pink);
 
 const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => (
   <SidebarMenuItem>
@@ -75,6 +77,16 @@ const DashboardsGroup = ({ pathname }: { pathname: string }) => {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              icon={NewDashboardIcon}
+              render={
+                <Link search={{ draft: m.dashboards_new_prompt() }} to="/ask" />
+              }
+            >
+              {m.nav_new_dashboard()}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
