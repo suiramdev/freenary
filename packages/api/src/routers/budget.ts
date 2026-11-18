@@ -73,6 +73,7 @@ import {
 } from "../lib/transaction-filters";
 import { transactionPage } from "../lib/transaction-page";
 import { userCurrency } from "../lib/user-currency";
+import { spendingWeeksStart, weeklySpending } from "../lib/weekly-spending";
 import { getProvider } from "../providers/registry";
 import { savedFilterProcedures } from "./saved-filters";
 
@@ -1290,6 +1291,38 @@ export const budgetRouter = {
       ]);
 
       return { ...spendingBreakdownOf(categoryAmounts), currency };
+    }),
+
+  getSpendingByWeek: protectedProcedure
+    .input(
+      z.object({
+        to: z.coerce.date(),
+        weeks: z.number().int().min(1).max(26),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const [rows, currency] = await Promise.all([
+        outgoingRows(
+          userId,
+          spendingWeeksStart(input.to, input.weeks),
+          input.to
+        ),
+        userCurrency(userId),
+      ]);
+
+      return {
+        currency,
+        weeks: weeklySpending(
+          rows.map((row) => ({
+            amount: row.amount,
+            category: effectiveCategory(row),
+            date: row.date,
+          })),
+          input.to,
+          input.weeks
+        ),
+      };
     }),
 
   getSyncOutcome: protectedProcedure
