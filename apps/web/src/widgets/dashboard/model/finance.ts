@@ -54,10 +54,7 @@ const DAY_OF_MONTH_END = 10;
 
 const UNSORTED: SpendingCategory = "uncategorised";
 
-export const RECENT_TRANSACTIONS_SHOWN = 6;
-export const UPCOMING_WINDOW_DAYS = 14;
 export const UPCOMING_ROWS_SHOWN = 5;
-export const TOP_CATEGORIES_SHOWN = 4;
 
 const daysInMonth = (year: number, month: number): number =>
   new Date(Date.UTC(year, month + 1, LAST_DAY_OF_PREVIOUS_MONTH)).getUTCDate();
@@ -204,3 +201,85 @@ export const unsortedSpendMinor = (
   categories
     .filter((category) => category.category === UNSORTED)
     .reduce((total, category) => total + Math.max(category.amount, 0), 0);
+
+export interface SpendingWeekInput {
+  categories: { amountMinor: number; category: SpendingCategory }[];
+  start: string;
+  totalMinor: number;
+}
+
+export interface StackedWeek {
+  amounts: Partial<Record<SpendingCategory, number>>;
+  otherMinor: number;
+  start: string;
+  totalMinor: number;
+}
+
+export interface StackedWeeks {
+  categories: SpendingCategory[];
+  weeks: StackedWeek[];
+}
+
+export const STACKED_CATEGORIES_SHOWN = 4;
+
+export const stackedWeeks = (
+  weeks: SpendingWeekInput[],
+  shown: number
+): StackedWeeks => {
+  const totals = new Map<SpendingCategory, number>();
+
+  for (const week of weeks) {
+    for (const { amountMinor, category } of week.categories) {
+      if (category !== UNSORTED) {
+        totals.set(category, (totals.get(category) ?? 0) + amountMinor);
+      }
+    }
+  }
+
+  const categories = [...totals.entries()]
+    .toSorted((a, b) => b[1] - a[1])
+    .slice(0, shown)
+    .map(([category]) => category);
+
+  const stacked = new Set(categories);
+
+  return {
+    categories,
+    weeks: weeks.map((week) => {
+      const amounts: Partial<Record<SpendingCategory, number>> = {};
+      let otherMinor = 0;
+
+      for (const { amountMinor, category } of week.categories) {
+        if (stacked.has(category)) {
+          amounts[category] = amountMinor;
+        } else {
+          otherMinor += amountMinor;
+        }
+      }
+
+      return {
+        amounts,
+        otherMinor,
+        start: week.start,
+        totalMinor: week.totalMinor,
+      };
+    }),
+  };
+};
+
+export const lastMonths = (today: Date, months: number): MonthRange => ({
+  from: monthRange(today.getFullYear(), today.getMonth() - months + 1).from,
+  to: monthRange(today.getFullYear(), today.getMonth()).to,
+});
+
+export const daysLeftInMonth = (today: Date): number =>
+  daysInMonth(today.getFullYear(), today.getMonth()) - today.getDate();
+
+export interface BudgetLine {
+  actual: number;
+  category: SpendingCategory;
+  planned: number;
+}
+
+export const plannedLines = (lines: BudgetLine[]): BudgetLine[] =>
+  lines.filter((line) => line.planned > 0);

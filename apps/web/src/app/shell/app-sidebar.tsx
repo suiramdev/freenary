@@ -9,10 +9,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
 } from "@freenary/ui/components/sidebar";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
+import { LayoutDashboard } from "kubai-icons-react";
 
+import { dashboardsQueryOptions } from "@/entities/dashboard";
 import { m } from "@/paraglide/messages.js";
+import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { kubaiIcon } from "@/shared/lib/kubai-icon";
 
 import { isCurrentNav, NAV_ITEMS } from "./nav-items";
@@ -20,6 +25,10 @@ import type { NavEntry } from "./nav-items";
 import { SidebarBrand } from "./sidebar-brand";
 import { SidebarFirstSteps } from "./sidebar-first-steps";
 import { SidebarUserMenu } from "./sidebar-user-menu";
+
+const DASHBOARD_SKELETON_ROWS = 3;
+
+const DashboardIcon = kubaiIcon(LayoutDashboard, CHART_COLOR_VARS.grey);
 
 const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => (
   <SidebarMenuItem>
@@ -32,6 +41,45 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => (
     </SidebarMenuButton>
   </SidebarMenuItem>
 );
+
+const DashboardsGroup = ({ pathname }: { pathname: string }) => {
+  const dashboards = useQuery(dashboardsQueryOptions());
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-muted-foreground">
+        {m.nav_dashboards()}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {dashboards.isPending &&
+            Array.from({ length: DASHBOARD_SKELETON_ROWS }, (_, index) => (
+              <SidebarMenuItem key={index}>
+                <SidebarMenuSkeleton showIcon />
+              </SidebarMenuItem>
+            ))}
+          {dashboards.data?.dashboards.map((dashboard) => (
+            <SidebarMenuItem key={dashboard.id}>
+              <SidebarMenuButton
+                icon={DashboardIcon}
+                isActive={pathname === `/dashboards/${dashboard.id}`}
+                render={
+                  <Link
+                    params={{ dashboardId: dashboard.id }}
+                    title={dashboard.title}
+                    to="/dashboards/$dashboardId"
+                  />
+                }
+              >
+                {dashboard.title}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+};
 
 const RAIL_BELOW_THE_BANNER =
   "top-[var(--update-banner-height,0px)] h-[calc(100svh-var(--update-banner-height,0px))]";
@@ -51,9 +99,6 @@ export const AppSidebar = () => {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">
-            {m.nav_group_application()}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) => (
@@ -62,6 +107,7 @@ export const AppSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <DashboardsGroup pathname={pathname} />
       </SidebarContent>
 
       <SidebarFooter>

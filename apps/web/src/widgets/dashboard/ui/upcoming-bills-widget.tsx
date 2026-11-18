@@ -7,12 +7,8 @@ import type { RecurringData, UpcomingPayment } from "@/entities/recurring";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
-import {
-  commitmentsDue,
-  UPCOMING_ROWS_SHOWN,
-  UPCOMING_WINDOW_DAYS,
-} from "../model/dashboard";
-import type { WidgetQuery } from "../model/widget-query";
+import { commitmentsDue, UPCOMING_ROWS_SHOWN } from "../model/finance";
+import { useRecurring } from "../model/queries";
 import {
   WidgetAction,
   WidgetCard,
@@ -76,20 +72,18 @@ const PaymentRow = ({ payment }: { payment: UpcomingPayment }) => (
 );
 
 const UpcomingBody = ({
+  days,
   recurring,
   today,
 }: {
+  days: number;
   recurring: RecurringData;
   today: Date;
 }) => {
-  const payments = commitmentsDue(recurring, today, UPCOMING_WINDOW_DAYS);
+  const payments = commitmentsDue(recurring, today, days);
 
   if (payments.length === 0) {
-    return (
-      <WidgetEmpty>
-        {m.home_upcoming_empty({ days: UPCOMING_WINDOW_DAYS })}
-      </WidgetEmpty>
-    );
+    return <WidgetEmpty>{m.home_upcoming_empty({ days })}</WidgetEmpty>;
   }
 
   const inCurrency = payments.filter(
@@ -108,7 +102,7 @@ const UpcomingBody = ({
           {m.home_upcoming_summary({
             amount: formatCurrency(totalMinor, recurring.currency),
             count: inCurrency.length,
-            days: UPCOMING_WINDOW_DAYS,
+            days,
           })}
         </p>
       ) : null}
@@ -128,29 +122,38 @@ const UpcomingBody = ({
   );
 };
 
-export const UpcomingPaymentsCard = ({
-  query,
+export const UpcomingBillsWidget = ({
+  days,
+  title,
   today,
 }: {
-  query: WidgetQuery<RecurringData>;
+  days: number;
+  title?: string;
   today: Date;
-}) => (
-  <WidgetCard
-    action={
-      <WidgetAction>
-        <Link to="/budget/recurring">{m.nav_budget_recurring()}</Link>
-      </WidgetAction>
-    }
-    title={m.home_upcoming_title()}
-  >
-    {query.isPending ? <UpcomingSkeleton /> : null}
-    {query.isError ? (
-      <WidgetError
-        isRetrying={query.isRetrying}
-        message={m.home_upcoming_error()}
-        onRetry={query.handleRetry}
-      />
-    ) : null}
-    {query.data ? <UpcomingBody recurring={query.data} today={today} /> : null}
-  </WidgetCard>
-);
+}) => {
+  const query = useRecurring();
+
+  return (
+    <WidgetCard
+      action={
+        <WidgetAction>
+          <Link to="/budget/recurring">{m.nav_budget_recurring()}</Link>
+        </WidgetAction>
+      }
+      headingLevel="h3"
+      title={title ?? m.home_upcoming_title()}
+    >
+      {query.isPending ? <UpcomingSkeleton /> : null}
+      {query.isError ? (
+        <WidgetError
+          isRetrying={query.isRetrying}
+          message={m.home_upcoming_error()}
+          onRetry={query.handleRetry}
+        />
+      ) : null}
+      {query.data ? (
+        <UpcomingBody days={days} recurring={query.data} today={today} />
+      ) : null}
+    </WidgetCard>
+  );
+};

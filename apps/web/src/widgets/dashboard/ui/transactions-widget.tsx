@@ -1,16 +1,15 @@
+import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import { Skeleton } from "@freenary/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import type { Transaction } from "@/entities/budget";
 import {
   TransactionDetailDrawer,
   TransactionItem,
 } from "@/features/transaction-details";
 import { m } from "@/paraglide/messages.js";
 
-import { RECENT_TRANSACTIONS_SHOWN } from "../model/dashboard";
-import type { WidgetQuery } from "../model/widget-query";
+import { transactionFiltersOf, useWidgetTransactions } from "../model/queries";
 import {
   WidgetAction,
   WidgetCard,
@@ -19,31 +18,34 @@ import {
   WidgetLoading,
 } from "./widget-card";
 
-const RecentSkeleton = () => (
-  <WidgetLoading label={m.home_recent_loading()}>
-    {Array.from({ length: RECENT_TRANSACTIONS_SHOWN }, (_, index) => (
-      <div className="flex items-center gap-3" key={index}>
-        <Skeleton className="size-9 shrink-0 rounded-full" />
-        <div className="flex flex-1 flex-col gap-1">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3.5 w-24" />
-        </div>
-        <Skeleton className="h-4 w-16" />
-      </div>
-    ))}
-  </WidgetLoading>
-);
-
-export const RecentTransactionsCard = ({
-  query,
-  today,
-}: {
-  query: WidgetQuery<Transaction[]>;
+interface TransactionsWidgetProps {
+  categories?: SpendingCategory[];
+  count: number;
+  months: number;
+  search?: string;
+  title?: string;
   today: Date;
-}) => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+}
 
-  const transactions = query.data ?? [];
+const SKELETON_ROWS = 4;
+
+export const TransactionsWidget = ({
+  categories,
+  count,
+  months,
+  search,
+  title,
+  today,
+}: TransactionsWidgetProps) => {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const query = useWidgetTransactions(today, {
+    categories,
+    count,
+    months,
+    search,
+  });
+
+  const transactions = query.data?.transactions ?? [];
   const selected =
     transactions.find((transaction) => transaction.id === selectedId) ?? null;
 
@@ -51,12 +53,31 @@ export const RecentTransactionsCard = ({
     <WidgetCard
       action={
         <WidgetAction>
-          <Link to="/budget/transactions">{m.home_recent_all()}</Link>
+          <Link
+            search={{ filters: transactionFiltersOf(categories), q: search }}
+            to="/budget/transactions"
+          >
+            {m.home_recent_all()}
+          </Link>
         </WidgetAction>
       }
-      title={m.home_recent_title()}
+      headingLevel="h3"
+      title={title ?? m.home_recent_title()}
     >
-      {query.isPending ? <RecentSkeleton /> : null}
+      {query.isPending ? (
+        <WidgetLoading label={m.home_recent_loading()}>
+          {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+            <div className="flex items-center gap-3" key={index}>
+              <Skeleton className="size-9 shrink-0 rounded-full" />
+              <div className="flex flex-1 flex-col gap-1">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3.5 w-24" />
+              </div>
+              <Skeleton className="h-4 w-16" />
+            </div>
+          ))}
+        </WidgetLoading>
+      ) : null}
       {query.isError ? (
         <WidgetError
           isRetrying={query.isRetrying}
@@ -65,7 +86,7 @@ export const RecentTransactionsCard = ({
         />
       ) : null}
       {query.data && transactions.length === 0 ? (
-        <WidgetEmpty>{m.home_recent_empty()}</WidgetEmpty>
+        <WidgetEmpty>{m.widget_transactions_empty()}</WidgetEmpty>
       ) : null}
       {transactions.length > 0 ? (
         <ul className="flex flex-col">

@@ -48,17 +48,30 @@ export const NAV_ITEMS = [
 
 const ACCOUNT_ROUTE_ID = "/_auth/accounts/$accountId";
 
+export const DASHBOARD_ROUTE_ID = "/_auth/dashboards/$dashboardId";
+
 export const isCurrentNav = (pathname: string, to: string): boolean =>
   to === "/"
     ? pathname === to
     : pathname === to || pathname.startsWith(`${to}/`);
 
-export const navTrailOf = (routeId: string | undefined): string[] => {
+export const navTrailOf = (
+  routeId: string | undefined,
+  pageTitle: string | undefined
+): string[] => {
   if (routeId === ACCOUNT_ROUTE_ID) {
     return [m.nav_home(), m.nav_bank_account()];
   }
 
-  const item = NAV_ITEMS.find((entry) => entry.routeId === routeId);
+  if (routeId === DASHBOARD_ROUTE_ID) {
+    return pageTitle === undefined
+      ? [m.nav_dashboards()]
+      : [m.nav_dashboards(), pageTitle];
+  }
+
+  const item = NAV_ITEMS.find(
+    (entry) => entry.routeId === routeId || `${entry.routeId}/` === routeId
+  );
 
   return [item ? item.label() : m.nav_home()];
 };

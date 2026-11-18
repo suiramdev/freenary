@@ -117,3 +117,23 @@ export const HeadlineAmount = ({
     {children}
   </p>
 );
+
+export const WidgetHint = ({ children }: { children: ReactNode }) => (
+  <span className="text-muted-foreground text-xs">{children}</span>
+);
+
+export type CaptionTone = "negative" | "neutral" | "positive";
+
+const CAPTION_TONES = {
+  negative: "text-destructive",
+  neutral: "text-muted-foreground",
+  positive: "text-success",
+} satisfies Record<CaptionTone, string>;
+
+export const WidgetCaption = ({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: CaptionTone;
+}) => <p className={cn("text-sm", CAPTION_TONES[tone])}>{children}</p>;

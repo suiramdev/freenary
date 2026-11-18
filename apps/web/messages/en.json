@@ -775,6 +775,24 @@
   "category_transport_travel": "Transport & travel",
   "category_uncategorised": "Uncategorised",
   "chart_total": "Total",
+  "dashboard_actions": "Dashboard actions",
+  "dashboard_delete": "Delete…",
+  "dashboard_delete_confirm": "Delete dashboard",
+  "dashboard_delete_description": "The dashboard goes away for good. The chat it came from stays in Ask.",
+  "dashboard_delete_title": "Delete “{title}”?",
+  "dashboard_loading": "Loading the dashboard",
+  "dashboard_missing_description": "It may have been deleted. Ask Piggy to build it again.",
+  "dashboard_missing_home": "Back to Home",
+  "dashboard_missing_title": "This dashboard no longer exists",
+  "dashboard_refresh": "Refresh from your banks",
+  "dashboard_rename": "Rename",
+  "dashboard_rename_confirm": "Save",
+  "dashboard_rename_label": "Name",
+  "dashboard_rename_required": "Give the dashboard a name.",
+  "dashboard_rename_title": "Rename dashboard",
+  "dashboard_rename_too_long": "Keep it under {max} characters.",
+  "dashboard_updated": "Updated {time}",
+  "dashboards_loading": "Loading your dashboards",
   "first_steps_budgeting_profile": "Set up your budget",
   "first_steps_connect_bank": "Connect your bank",
   "first_steps_progress": "{done}/{total}",
@@ -798,19 +816,12 @@
   "home_accounts_meta": "{institution} · {type}",
   "home_accounts_no_balance": "No balance reported",
   "home_accounts_title": "Accounts",
-  "home_asset_class_cash": "Cash",
-  "home_asset_class_investments": "Investments",
-  "home_asset_class_other": "Other",
-  "home_asset_class_property": "Property",
-  "home_asset_class_savings": "Savings",
-  "home_available_description": "Left in your current accounts once the bills due by {date} are paid.",
-  "home_available_empty": "Your banks have not reported a current-account balance yet.",
+  "home_accounts_total": "{amount} in total",
+  "home_add_account": "Add an account",
+  "home_add_account_description": "Link a bank",
   "home_available_error": "Could not load what you have available to spend.",
-  "home_available_loading": "Loading what you have available to spend",
-  "home_available_short": "Your current accounts do not cover the bills due by {date}.",
   "home_available_title": "Available to spend",
   "home_balance_error": "Could not load your balance.",
-  "home_balance_loading": "Loading your balance",
   "home_balance_title": "Current accounts",
   "home_balance_updated": "Updated {date}",
   "home_categories_empty": "Nothing spent this month yet.",
@@ -819,64 +830,24 @@
   "home_categories_title": "Top categories this month",
   "home_categories_unsorted": "{amount} not sorted into a category yet.",
   "home_categories_unsorted_review": "Review unsorted transactions",
-  "home_insights_description": "Your net worth, your spending pace and your investments.",
-  "home_insights_title": "In detail",
-  "home_investments_empty": "No investment account connected. Connect a brokerage account or a life insurance contract to follow it here.",
-  "home_investments_error": "Could not load your investments.",
-  "home_investments_gain_down": "{amount} ({ratio}) unrealised loss",
-  "home_investments_gain_up": "{amount} ({ratio}) unrealised gain",
-  "home_investments_loading": "Loading your investments",
-  "home_investments_title": "Investments",
-  "home_investments_top": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "Your holding",
-        "countPlural=other": "Largest of your {count} holdings"
-      }
-    }
-  ],
-  "home_link_connections": "Bank connections",
   "home_net_worth_assets_and_debts": "{assets} in assets, {debts} in debts",
-  "home_net_worth_balances_at": "Balances as of {date}",
   "home_net_worth_empty": "Your banks have not reported a balance yet. It appears after the next sync.",
   "home_net_worth_error": "Could not load your net worth.",
-  "home_net_worth_excluded": [
-    {
-      "declarations": [
-        "input count",
-        "input currency",
-        "local countPlural = count: plural"
-      ],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} account is not counted: it has no balance or is not in {currency}.",
-        "countPlural=other": "{count} accounts are not counted: they have no balance or are not in {currency}."
-      }
-    }
-  ],
   "home_net_worth_loading": "Loading your net worth",
   "home_net_worth_title": "Net worth",
   "home_no_account_description": "Connect a bank account to see your net worth, what you have left to spend and where your money goes.",
   "home_no_account_title": "Connect a bank account",
-  "home_pace_empty": "The comparison starts on the second day of the month.",
-  "home_pace_title": "Spending pace",
+  "home_overview_hint": "So far in {month}, across all your accounts",
+  "home_overview_title": "Overview",
   "home_recent_all": "All transactions",
-  "home_recent_empty": "No transactions yet. They appear after your bank's next sync.",
   "home_recent_error": "Could not load your latest transactions.",
   "home_recent_loading": "Loading your latest transactions",
   "home_recent_title": "Recent transactions",
   "home_retry": "Retry",
-  "home_spent_chart_label": "Spending so far this month, day by day, against the same days last month",
   "home_spent_error": "Could not load this month's spending.",
-  "home_spent_last_month_series": "Last month",
-  "home_spent_last_month_total": "Last month, {amount} in total",
   "home_spent_less": "{amount} less than by this day last month",
-  "home_spent_loading": "Loading this month's spending",
   "home_spent_more": "{amount} more than by this day last month",
   "home_spent_same": "Same as by this day last month",
-  "home_spent_this_month_series": "This month",
   "home_spent_title": "Spent this month",
   "home_upcoming_empty": "No bill falls due in the next {days} days.",
   "home_upcoming_error": "Could not load your upcoming payments.",
@@ -912,7 +883,7 @@
   "nav_bank_account": "Bank account",
   "nav_budget_recurring": "Recurring",
   "nav_budget_transactions": "Transactions",
-  "nav_group_application": "Application",
+  "nav_dashboards": "Dashboards",
   "nav_home": "Home",
   "nav_settings": "Settings",
   "nav_tab_bar_label": "Main",
@@ -1486,5 +1457,128 @@
   "update_banner_dismiss": "Dismiss the notice for v{version}",
   "update_banner_new_tab": "(opens in a new tab)",
   "update_banner_title": "Freenary v{version} is available",
+  "widget_accounts_empty": "No bank account connected yet.",
+  "widget_ask_category": "Why did I spend {amount} on {category} this month?",
+  "widget_budget_amounts": "{spent} / {planned}",
+  "widget_budget_days_left": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} day left",
+        "countPlural=other": "{count} days left"
+      }
+    }
+  ],
+  "widget_budget_over": ", {amount} over budget",
+  "widget_budgets_empty": "No budget set yet.",
+  "widget_budgets_error": "Could not load your budgets.",
+  "widget_budgets_loading": "Loading your budgets",
+  "widget_budgets_set_up": "Set up your budget",
+  "widget_budgets_title": "Budgets",
+  "widget_income_chart_label": "Money in and money out, month by month",
+  "widget_income_empty": "No money moved in these months.",
+  "widget_income_error": "Could not load your income and spending.",
+  "widget_income_loading": "Loading your income and spending",
+  "widget_income_overspent": "{amount} more out than in",
+  "widget_income_saved": "Saved {amount}",
+  "widget_income_title": "Income vs spending",
+  "widget_last_weeks": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Last {count} week",
+        "countPlural=other": "Last {count} weeks"
+      }
+    }
+  ],
+  "widget_money_in": "In",
+  "widget_money_out": "Out",
+  "widget_net_worth_chart_label": "Net worth at the end of each month",
+  "widget_net_worth_down": [
+    {
+      "declarations": [
+        "input amount",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "−{amount} over {count} month",
+        "countPlural=other": "−{amount} over {count} months"
+      }
+    }
+  ],
+  "widget_net_worth_note": "Rebuilt from your transactions. Investments count at their latest value.",
+  "widget_net_worth_series": "Net worth",
+  "widget_net_worth_up": [
+    {
+      "declarations": [
+        "input amount",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "+{amount} over {count} month",
+        "countPlural=other": "+{amount} over {count} months"
+      }
+    }
+  ],
+  "widget_range_label": "Period",
+  "widget_range_months": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count}M",
+        "countPlural=other": "{count}M"
+      }
+    }
+  ],
+  "widget_spending_by_week_title": "Spending by week",
+  "widget_spending_chart_label": "Spending each week, split by category",
+  "widget_spending_empty": "Nothing spent in these weeks.",
+  "widget_spending_error": "Could not load your weekly spending.",
+  "widget_spending_loading": "Loading your weekly spending",
+  "widget_spending_other": "Other",
+  "widget_spending_week_total": "Total",
+  "widget_stat_available_caption": [
+    {
+      "declarations": [
+        "input date",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "After {count} bill due by {date}",
+        "countPlural=other": "After {count} bills due by {date}"
+      }
+    }
+  ],
+  "widget_stat_income_caption": "{amount} came in last month",
+  "widget_stat_income_error": "Could not load this month's income.",
+  "widget_stat_income_title": "Income this month",
+  "widget_stat_loading": "Loading {label}",
+  "widget_stat_net_worth_caption": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Across {count} account",
+        "countPlural=other": "Across {count} accounts"
+      }
+    }
+  ],
+  "widget_stat_saved_error": "Could not load what you saved this month.",
+  "widget_stat_saved_no_income": "Nothing came in this month yet",
+  "widget_stat_saved_share": "{share} of what came in",
+  "widget_stat_saved_short": "{amount} more went out than came in",
+  "widget_stat_saved_title": "Saved this month",
+  "widget_stat_unavailable": "Your banks have not reported this yet.",
+  "widget_top_categories_hint": "Pick one to ask why",
+  "widget_transactions_empty": "No matching transactions in this period.",
   "wizard_step_done": "{step} (done)"
 }

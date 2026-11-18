@@ -5,10 +5,13 @@ import type { RecurringData, RecurringItem } from "@/entities/recurring";
 import {
   availableToSpend,
   dashboardMonths,
+  daysLeftInMonth,
+  lastMonths,
   spendingPace,
+  stackedWeeks,
   topCategories,
   unsortedSpendMinor,
-} from "./dashboard";
+} from "./finance";
 
 const item = (overrides: Partial<RecurringItem> = {}): RecurringItem => ({
   amountSpread: 0,
@@ -185,5 +188,61 @@ describe("unsortedSpendMinor", () => {
     expect(unsortedSpendMinor([{ amount: 1000, category: "groceries" }])).toBe(
       0
     );
+  });
+});
+
+describe("stackedWeeks", () => {
+  it("stacks the largest categories of the whole range and folds the rest", () => {
+    const stacked = stackedWeeks(
+      [
+        {
+          categories: [
+            { amountMinor: 5000, category: "groceries" },
+            { amountMinor: 900, category: "health" },
+            { amountMinor: 300, category: "uncategorised" },
+          ],
+          start: "2026-11-09",
+          totalMinor: 6200,
+        },
+        {
+          categories: [{ amountMinor: 4000, category: "restaurants" }],
+          start: "2026-11-16",
+          totalMinor: 4000,
+        },
+      ],
+      2
+    );
+
+    expect(stacked.categories).toEqual(["groceries", "restaurants"]);
+    expect(stacked.weeks).toEqual([
+      {
+        amounts: { groceries: 5000 },
+        otherMinor: 1200,
+        start: "2026-11-09",
+        totalMinor: 6200,
+      },
+      {
+        amounts: { restaurants: 4000 },
+        otherMinor: 0,
+        start: "2026-11-16",
+        totalMinor: 4000,
+      },
+    ]);
+  });
+});
+
+describe("lastMonths", () => {
+  it("spans from the first day of the earliest month to the end of this one", () => {
+    const range = lastMonths(new Date(2026, 10, 18), 3);
+
+    expect(range.from.toISOString()).toBe("2026-09-01T00:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2026-11-30T23:59:59.999Z");
+  });
+});
+
+describe("daysLeftInMonth", () => {
+  it("counts the days after today until the month ends", () => {
+    expect(daysLeftInMonth(new Date(2026, 10, 17))).toBe(13);
+    expect(daysLeftInMonth(new Date(2026, 1, 28))).toBe(0);
   });
 });

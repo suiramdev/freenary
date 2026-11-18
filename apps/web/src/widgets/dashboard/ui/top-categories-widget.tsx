@@ -13,18 +13,15 @@ import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
 
-import {
-  TOP_CATEGORIES_SHOWN,
-  topCategories,
-  unsortedSpendMinor,
-} from "../model/dashboard";
-import type { CategoryShare } from "../model/dashboard";
-import type { WidgetQuery } from "../model/widget-query";
+import { topCategories, unsortedSpendMinor } from "../model/finance";
+import type { CategoryShare } from "../model/finance";
+import { useMonthBreakdown } from "../model/queries";
 import {
   WidgetAction,
   WidgetCard,
   WidgetEmpty,
   WidgetError,
+  WidgetHint,
   WidgetLoading,
 } from "./widget-card";
 
@@ -55,7 +52,7 @@ const TopCategoriesSkeleton = () => (
   </WidgetLoading>
 );
 
-const CategoryRow = ({
+const CategoryRowContent = ({
   currency,
   percent,
   row,
@@ -64,7 +61,7 @@ const CategoryRow = ({
   percent: Intl.NumberFormat;
   row: CategoryShare;
 }) => (
-  <li className="flex items-center gap-3">
+  <>
     <CategoryIcon
       {...predefinedCategoryAppearance(row.category)}
       className="size-8 [&_svg]:size-4"
@@ -93,8 +90,47 @@ const CategoryRow = ({
         </span>
       </div>
     </div>
-  </li>
+  </>
 );
+
+const CategoryRow = ({
+  currency,
+  onAsk,
+  percent,
+  row,
+}: {
+  currency: string;
+  onAsk?: (question: string) => void;
+  percent: Intl.NumberFormat;
+  row: CategoryShare;
+}) => {
+  const content = (
+    <CategoryRowContent currency={currency} percent={percent} row={row} />
+  );
+
+  return (
+    <li>
+      {onAsk ? (
+        <button
+          className="hover:bg-muted focus-visible:ring-ring/50 -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-1.5 text-start transition-colors duration-100 outline-none focus-visible:ring-[3px]"
+          onClick={() =>
+            onAsk(
+              m.widget_ask_category({
+                amount: formatCurrency(row.amountMinor, currency),
+                category: categoryLabel(row.category),
+              })
+            )
+          }
+          type="button"
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="flex items-center gap-3">{content}</div>
+      )}
+    </li>
+  );
+};
 
 const UNSORTED_FILTER = [
   { field: "category", operator: "is", values: ["uncategorised"] },
@@ -123,8 +159,16 @@ const UnsortedNote = ({
   </p>
 );
 
-const TopCategoriesBody = ({ breakdown }: { breakdown: Breakdown }) => {
-  const rows = topCategories(breakdown.categories, TOP_CATEGORIES_SHOWN);
+const TopCategoriesBody = ({
+  breakdown,
+  count,
+  onAsk,
+}: {
+  breakdown: Breakdown;
+  count: number;
+  onAsk?: (question: string) => void;
+}) => {
+  const rows = topCategories(breakdown.categories, count);
   const unsortedMinor = unsortedSpendMinor(breakdown.categories);
 
   if (rows.length === 0 && unsortedMinor === 0) {
@@ -141,6 +185,7 @@ const TopCategoriesBody = ({ breakdown }: { breakdown: Breakdown }) => {
             <CategoryRow
               currency={breakdown.currency}
               key={row.category}
+              onAsk={onAsk}
               percent={percent}
               row={row}
             />
@@ -157,27 +202,44 @@ const TopCategoriesBody = ({ breakdown }: { breakdown: Breakdown }) => {
   );
 };
 
-export const TopCategoriesCard = ({
-  query,
+export const TopCategoriesWidget = ({
+  count,
+  onAsk,
+  title,
+  today,
 }: {
-  query: WidgetQuery<Breakdown>;
-}) => (
-  <WidgetCard
-    action={
-      <WidgetAction>
-        <Link to="/budget/transactions">{m.nav_budget_transactions()}</Link>
-      </WidgetAction>
-    }
-    title={m.home_categories_title()}
-  >
-    {query.isPending ? <TopCategoriesSkeleton /> : null}
-    {query.isError ? (
-      <WidgetError
-        isRetrying={query.isRetrying}
-        message={m.home_categories_error()}
-        onRetry={query.handleRetry}
-      />
-    ) : null}
-    {query.data ? <TopCategoriesBody breakdown={query.data} /> : null}
-  </WidgetCard>
-);
+  count: number;
+  onAsk?: (question: string) => void;
+  title?: string;
+  today: Date;
+}) => {
+  const query = useMonthBreakdown(today);
+
+  return (
+    <WidgetCard
+      action={
+        onAsk ? (
+          <WidgetHint>{m.widget_top_categories_hint()}</WidgetHint>
+        ) : (
+          <WidgetAction>
+            <Link to="/budget/transactions">{m.nav_budget_transactions()}</Link>
+          </WidgetAction>
+        )
+      }
+      headingLevel="h3"
+      title={title ?? m.home_categories_title()}
+    >
+      {query.isPending ? <TopCategoriesSkeleton /> : null}
+      {query.isError ? (
+        <WidgetError
+          isRetrying={query.isRetrying}
+          message={m.home_categories_error()}
+          onRetry={query.handleRetry}
+        />
+      ) : null}
+      {query.data ? (
+        <TopCategoriesBody breakdown={query.data} count={count} onAsk={onAsk} />
+      ) : null}
+    </WidgetCard>
+  );
+};
