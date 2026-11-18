@@ -38,7 +38,7 @@ export const ChangeDashboardBar = ({
           className="bg-popover text-popover-foreground pointer-events-auto flex items-start gap-3 rounded-xl border p-3 text-sm shadow-lg"
         >
           <BrandAvatar className="size-6 shrink-0" frozen state="happy" />
-          <p className="min-w-0 flex-1 text-pretty whitespace-pre-line">
+          <p className="line-clamp-4 min-w-0 flex-1 text-pretty whitespace-pre-line">
             {reply}
           </p>
           <div className="flex shrink-0 items-center gap-1">
