@@ -1035,18 +1035,23 @@ export const budgetRouter = {
     .input(
       z.object({
         from: z.coerce.date(),
+        grain: z.enum(["day", "week", "month"]).optional(),
         to: z.coerce.date(),
       })
     )
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const { from, to } = input;
+      const { from, grain, to } = input;
 
       const spanDays = Math.ceil(
         (to.getTime() - from.getTime()) / MILLISECONDS_PER_DAY
       );
 
-      const sql = cashFlowQuery(cashFlowGrainFor(spanDays));
+      const sql = cashFlowQuery(
+        grain === undefined
+          ? cashFlowGrainFor(spanDays)
+          : CASH_FLOW_GRAINS[grain]
+      );
 
       const [periods, currency] = await Promise.all([
         prisma.$queryRawUnsafe<
