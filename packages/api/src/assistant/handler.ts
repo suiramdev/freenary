@@ -12,9 +12,9 @@ import { isJsonRequest } from "../lib/json-request";
 import { consumeRateLimit } from "../lib/rate-limit";
 import { appRouter } from "../routers/index";
 import {
-  activeConversation,
   appendTurn,
   conversationMessages,
+  ownedConversation,
 } from "./conversation";
 import { assistantSystemPrompt } from "./prompt";
 import { assistantModel } from "./provider";
@@ -50,6 +50,7 @@ const questionSchema = z.looseObject({
 });
 
 const chatRequestSchema = z.object({
+  id: z.string().max(64),
   locale: z.string().regex(LOCALE).optional(),
   messageId: z.string().optional(),
   messages: z.array(z.looseObject({ role: z.string() })).default([]),
@@ -160,9 +161,13 @@ export const handleAssistantChat = async ({
   });
 
   const [conversation, accounts] = await Promise.all([
-    activeConversation(session.user.id),
+    ownedConversation(session.user.id, body.id),
     api.budget.getAccounts(),
   ]);
+
+  if (!conversation) {
+    return new Response("not_found", { status: 404 });
+  }
 
   const stored = await conversationMessages(conversation.id);
 

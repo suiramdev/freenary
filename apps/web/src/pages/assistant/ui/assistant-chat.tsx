@@ -4,8 +4,8 @@ import { MAX_QUESTION_CHARS } from "@freenary/api/assistant/turn";
 import { Button } from "@freenary/ui/components/button";
 import { InputMessage } from "@freenary/ui/components/input-message";
 import type { BrandAvatarState } from "@freenary/ui/lib/brand-avatar/states";
-import { RiAddLine, RiRefreshLine } from "@remixicon/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { RiRefreshLine } from "@remixicon/react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import {
@@ -239,12 +239,6 @@ export const AssistantChat = ({
 
   useEffect(() => () => window.clearTimeout(acknowledgeTimer.current), []);
 
-  const newConversation = useMutation(
-    orpc.assistant.startNewConversation.mutationOptions({
-      onSuccess: refreshStoredConversation,
-    })
-  );
-
   const lastMessage = messages.at(-1);
   const toolRunning =
     lastMessage?.parts.some(
@@ -352,27 +346,16 @@ export const AssistantChat = ({
       <InputMessage
         disabled={!(conversationKnown && ready)}
         leftSlot={
-          <>
-            {!isPending && (
-              <AssistantModelSelector
-                disabled={streaming}
-                loadingProgress={loadProgressOf(browserModel, selected)}
-                onSelect={rememberModel}
-                selected={selected}
-                serverModel={serverModel}
-                webGpu={webGpu}
-              />
-            )}
-            <Button
-              disabled={newConversation.isPending}
-              leadingIcon={remixIcon(RiAddLine)}
-              onClick={() => newConversation.mutate({})}
-              size="compact"
-              variant="ghost"
-            >
-              {m.assistant_new_conversation()}
-            </Button>
-          </>
+          !isPending && (
+            <AssistantModelSelector
+              disabled={streaming}
+              loadingProgress={loadProgressOf(browserModel, selected)}
+              onSelect={rememberModel}
+              selected={selected}
+              serverModel={serverModel}
+              webGpu={webGpu}
+            />
+          )
         }
         onSend={(text) => {
           if (streaming) {

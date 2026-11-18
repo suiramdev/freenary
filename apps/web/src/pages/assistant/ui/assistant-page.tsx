@@ -6,11 +6,17 @@ import { authClient } from "@/shared/auth";
 
 import { AssistantChat } from "./assistant-chat";
 
-export const AssistantPage = () => {
+export const AssistantPage = ({
+  conversationId,
+}: {
+  conversationId: string;
+}) => {
   const { data: session } = authClient.useSession();
   const { data: conversation, isPending } = useQuery(
-    orpc.assistant.getConversation.queryOptions()
+    orpc.assistant.getConversation.queryOptions({ input: { conversationId } })
   );
+
+  const { data: status } = useQuery(orpc.assistant.getStatus.queryOptions());
 
   /* SAFETY: `parts` is the JSON the assistant's own stream wrote, so the stored
      shape is `UIMessage["parts"]` by construction; the API cannot type a JSON
@@ -22,7 +28,7 @@ export const AssistantPage = () => {
       conversationId={conversation?.conversationId}
       initialMessages={initialMessages}
       isPending={isPending}
-      serverModel={conversation?.serverModel ?? null}
+      serverModel={status?.serverModel ?? null}
       userName={session?.user.name ?? ""}
     />
   );
