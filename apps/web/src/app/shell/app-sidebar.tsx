@@ -1,3 +1,4 @@
+import { CommandMenuShortcut } from "@freenary/ui/components/command-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -11,6 +12,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from "@freenary/ui/components/sidebar";
+import { RiSearchLine } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 import { LayoutDashboard, LayoutDashboardPlus } from "kubai-icons-react";
@@ -20,6 +22,7 @@ import { m } from "@/paraglide/messages.js";
 import { CHART_COLOR_VARS } from "@/shared/lib/chart-colors";
 import { kubaiIcon } from "@/shared/lib/kubai-icon";
 
+import { setCommandMenuOpen } from "./command-menu-state";
 import { isCurrentNav, NAV_ITEMS } from "./nav-items";
 import type { NavEntry } from "./nav-items";
 import { SidebarBrand } from "./sidebar-brand";
@@ -42,6 +45,20 @@ const NavRow = ({ item, pathname }: { item: NavEntry; pathname: string }) => (
       {item.label()}
     </SidebarMenuButton>
   </SidebarMenuItem>
+);
+
+const SearchTrigger = () => (
+  <button
+    className="border-input bg-background text-muted-foreground hover:bg-accent focus-visible:ring-ring/50 flex h-8 w-full items-center gap-2 rounded-md border ps-2.5 pe-1.5 text-sm outline-none focus-visible:ring-[3px]"
+    onClick={() => setCommandMenuOpen(true)}
+    type="button"
+  >
+    <RiSearchLine aria-hidden="true" className="size-4 shrink-0" />
+    <span className="min-w-0 flex-1 truncate text-start">
+      {m.command_menu_trigger()}
+    </span>
+    <CommandMenuShortcut keys="mod+k" />
+  </button>
 );
 
 const DashboardsGroup = ({ pathname }: { pathname: string }) => {
@@ -105,8 +122,9 @@ export const AppSidebar = () => {
       collapsible="offcanvas"
       variant="floating"
     >
-      <SidebarHeader>
+      <SidebarHeader className="gap-2">
         <SidebarBrand />
+        <SearchTrigger />
       </SidebarHeader>
 
       <SidebarContent>

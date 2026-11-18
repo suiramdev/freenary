@@ -20,6 +20,7 @@ import { AuthGate } from "@/features/auth-gate";
 
 import { AppSidebar } from "./app-sidebar";
 import { BOTTOM_TAB_BAR_CLEARANCE, BottomTabBar } from "./bottom-tab-bar";
+import { AppCommandMenu } from "./command-menu";
 import { isFullWidthRoute } from "./nav-items";
 import { SyncProgressToast } from "./sync-progress-toast";
 import { UpdateBanner } from "./update-banner";
@@ -86,6 +87,7 @@ export const AuthLayout = () => {
           </SidebarInset>
           <BottomTabBar />
         </SidebarProvider>
+        <AppCommandMenu />
       </div>
     </TooltipProvider>
   );
