@@ -1,12 +1,12 @@
 ---
 title: Ask
-description: Chat with Piggy about your accounts, spending and budget, pick the model that answers, and search everything from one menu.
+description: Chat with the assistant about your accounts, spending and budget, pick the model that answers, and search everything from one menu.
 icon: MessagesSquare
 ---
 
-**Ask** is where you chat with Piggy, the pink piggy bank that answers questions about your accounts, your spending and your budget. Piggy reads your data to answer, can draw a chart, and can build you a [dashboard](/docs/use/dashboards). Open **Ask** from the sidebar, or from the bar at the bottom of the screen on a phone.
+**Ask** is where you chat with the assistant that answers questions about your accounts, your spending and your budget. The assistant reads your data to answer, can draw a chart, and can build you a [dashboard](/docs/use/dashboards). Open **Ask** from the sidebar, or from the bar at the bottom of the screen on a phone.
 
-Piggy needs a model. The operator sets one up for the whole instance in Settings, under **Connections**; see [AI models](/docs/run/models#assistant). Without it, you can still run a model in your own browser.
+The assistant needs a model. The operator sets one up for the whole instance in Settings, under **Connections**; see [AI models](/docs/run/models#assistant). Without it, you can still run a model in your own browser.
 
 ## Start a chat
 
@@ -16,7 +16,7 @@ You can also start a chat from anywhere else:
 
 - On [Home](/docs/use/home), type in the field under the greeting.
 - On Home or a dashboard, press a category under **Top categories this month** to ask why you spent that much on it.
-- Press `Ask Piggy: “…”` in the [command menu](#search-or-ask).
+- Press `Ask: “…”` in the [command menu](#search-or-ask).
 
 Each chat has its own address, `/ask/<id>`. Open it again later and type a follow-up to carry on where you left off.
 
@@ -24,16 +24,16 @@ Each chat has its own address, `/ask/<id>`. Open it again later and type a follo
 
 The model button beside the field lists the models you can pick:
 
-- **On your instance**: the model the operator set up, shown by its name. Your questions and the data Piggy reads go to that model's endpoint. [Security](/docs/reference/security#data) lists what it receives.
+- **On your instance**: the model the operator set up, shown by its name. Your questions and the data the assistant reads go to that model's endpoint. [Security](/docs/reference/security#data) lists what it receives.
 - **On this device**: a model that runs in your browser on your graphics card. It downloads once from Hugging Face, and your questions are never sent to an outside model provider. It needs a browser with WebGPU, such as a current Chrome, Edge or Safari, and the list shows how much graphics memory each model needs.
 
 Your browser remembers the model you picked. With no instance model and no pick yet, Freenary asks you to choose one before you can send a question.
 
 ## Read an answer
 
-While Piggy works, a trace above the answer shows each lookup it runs on your data. Expand it to see what Piggy read. Piggy only states figures it got from a lookup.
+While the assistant works, a trace above the answer shows each lookup it runs on your data. Expand it to see what the assistant read. The assistant only states figures it got from a lookup.
 
-Under a finished answer, `Copy` copies its text, and `Retry`, on the latest answer, asks again. When an answer holds a chart, `Make it a dashboard` asks Piggy to save it as a dashboard you can come back to. A dashboard Piggy saves shows as a card under the answer, marked `New dashboard` or `Dashboard updated`; press `Open` to see it.
+Under a finished answer, `Copy` copies its text, and `Retry`, on the latest answer, asks again. When an answer holds a chart, `Make it a dashboard` asks the assistant to save it as a dashboard you can come back to. A dashboard the assistant saves shows as a card under the answer, marked `New dashboard` or `Dashboard updated`; press `Open` to see it.
 
 ## Your chats
 
@@ -49,12 +49,12 @@ The command menu searches your data and starts chats from any screen. Press ⌘K
 
 Type a few letters and the menu lists, in groups:
 
-- `Ask Piggy: “…”`, which opens a new chat in **Ask** with what you typed.
+- `Ask: “…”`, which opens a new chat in **Ask** with what you typed.
 - Your latest transactions that match, by company or bank label.
 - Your accounts, categories, recurring payments, dashboards and chats.
 - The pages of the app and the sections of Settings.
 
-Press ← and → to switch between tabs, such as `Transactions` or `Dashboards`, and ↑ and ↓ to move through the list. Enter opens the row you picked. When nothing matches, Enter asks Piggy instead. Shift+Enter opens **Transactions** with every transaction that matches what you typed.
+Press ← and → to switch between tabs, such as `Transactions` or `Dashboards`, and ↑ and ↓ to move through the list. Enter opens the row you picked. When nothing matches, Enter asks the assistant instead. Shift+Enter opens **Transactions** with every transaction that matches what you typed.
 
 <Cards>
   <Card
@@ -65,6 +65,6 @@ Press ← and → to switch between tabs, such as `Transactions` or `Dashboards`
   <Card
     title="AI models"
     href="/docs/run/models"
-    description="How the operator sets up the model Piggy uses."
+    description="How the operator sets up the model the assistant uses."
   />
 </Cards>
