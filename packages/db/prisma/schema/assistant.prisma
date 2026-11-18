@@ -9,6 +9,7 @@ model Conversation {
   createdAt  DateTime              @default(now())
   updatedAt  DateTime              @updatedAt
   messages   ConversationMessage[]
+  dashboards Dashboard[]
 
   @@index([userId, updatedAt])
   @@map("conversation")

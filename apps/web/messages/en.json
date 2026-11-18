@@ -84,6 +84,7 @@
       }
     }
   ],
+  "assistant_result_dashboard": "Dashboard saved",
   "assistant_result_figures": "Two figures: fixed and variable",
   "assistant_result_periods": [
     {
@@ -147,6 +148,8 @@
   "assistant_tool_budget_vs_actual_purpose": "Your budgeting profile against the real figures, per category",
   "assistant_tool_cash_flow": "Reading your cash flow",
   "assistant_tool_cash_flow_purpose": "Money in and money out over time",
+  "assistant_tool_dashboard": "Building your dashboard",
+  "assistant_tool_dashboard_purpose": "Saves a dashboard of live widgets you can open from the sidebar",
   "assistant_tool_error": "Error",
   "assistant_tool_fixed_vs_variable": "Splitting fixed and variable spending",
   "assistant_tool_fixed_vs_variable_purpose": "Which part of your outgoings repeats, and which part does not",

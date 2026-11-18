@@ -1,6 +1,7 @@
 import {
   assistantSystemPrompt,
   localDay,
+  promptDashboards,
 } from "@freenary/api/assistant/prompt";
 import { assistantTools } from "@freenary/api/assistant/tools";
 import {
@@ -24,6 +25,7 @@ import { fitHistory, messageChars, promptBudgetChars } from "./history";
 
 export interface BrowserChatTransportOptions {
   client: typeof apiClient;
+  dashboardId: string | undefined;
   locale: () => string;
 }
 
@@ -68,6 +70,7 @@ const errorCode = (error: Error): string => {
 
 export const createBrowserChatTransport = ({
   client,
+  dashboardId,
   locale,
 }: BrowserChatTransportOptions): ChatTransport<UIMessage> => ({
   reconnectToStream: () => Promise.resolve(null),
@@ -103,12 +106,17 @@ export const createBrowserChatTransport = ({
       throw new Error("question_too_long");
     }
 
-    const accounts = await client.budget.getAccounts();
-    const tools = assistantTools(client);
+    const [accounts, dashboards] = await Promise.all([
+      client.budget.getAccounts(),
+      promptDashboards(client, dashboardId),
+    ]);
+
+    const tools = assistantTools(client, { conversationId: chatId });
     const instructions = assistantSystemPrompt(
       accounts,
       locale(),
-      localDay(new Date())
+      localDay(new Date()),
+      dashboards
     );
 
     const replayable = messages.slice(0, -1).map((message) => ({

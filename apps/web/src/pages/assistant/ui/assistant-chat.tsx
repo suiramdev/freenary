@@ -204,7 +204,11 @@ export const AssistantChat = ({
             body: () => ({ locale: getLocale(), today: localDay(new Date()) }),
             credentials: "include",
           })
-        : createBrowserChatTransport({ client, locale: getLocale }),
+        : createBrowserChatTransport({
+            client,
+            dashboardId: undefined,
+            locale: getLocale,
+          }),
     [selected]
   );
 

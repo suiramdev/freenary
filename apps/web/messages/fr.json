@@ -84,6 +84,7 @@
       }
     }
   ],
+  "assistant_result_dashboard": "Tableau de bord enregistré",
   "assistant_result_figures": "Deux chiffres : fixe et variable",
   "assistant_result_periods": [
     {
@@ -147,6 +148,8 @@
   "assistant_tool_budget_vs_actual_purpose": "Votre profil budgétaire face aux chiffres réels, par catégorie",
   "assistant_tool_cash_flow": "Lecture de vos flux de trésorerie",
   "assistant_tool_cash_flow_purpose": "Les entrées et les sorties d’argent au fil du temps",
+  "assistant_tool_dashboard": "Création de votre tableau de bord",
+  "assistant_tool_dashboard_purpose": "Enregistre un tableau de bord de widgets à jour, à ouvrir depuis la barre latérale",
   "assistant_tool_error": "Erreur",
   "assistant_tool_fixed_vs_variable": "Répartition entre dépenses fixes et variables",
   "assistant_tool_fixed_vs_variable_purpose": "La part de vos sorties qui se répète, et celle qui ne se répète pas",
