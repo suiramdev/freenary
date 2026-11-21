@@ -936,6 +936,22 @@ const isStale = async ({ file, contents }: Rendered): Promise<boolean> => {
   return current !== contents;
 };
 
+const DIFFERENCE_CONTEXT_LINES = 3;
+
+const firstDifference = (committed: string, generated: string): string => {
+  const before = committed.split("\n");
+  const after = generated.split("\n");
+  const line = after.findIndex((text, index) => text !== before[index]);
+  const at = line === -1 ? Math.min(before.length, after.length) : line;
+  const window = (lines: string[]) =>
+    lines
+      .slice(at, at + DIFFERENCE_CONTEXT_LINES)
+      .map((text) => `\n    ${text}`)
+      .join("");
+
+  return `\n  first difference at line ${at + 1}\n  committed:${window(before)}\n  generated:${window(after)}`;
+};
+
 const main = async (): Promise<number> => {
   const checkOnly = process.argv.includes("--check");
   const api = await loadApi();
@@ -964,8 +980,14 @@ const main = async (): Promise<number> => {
   const stale = rendered.filter((_output, index) => staleness[index]);
 
   if (checkOnly) {
-    for (const { file } of stale) {
-      fail(`${file}: stale. Run \`${GENERATE_COMMAND}\`.`);
+    const committed = await Promise.all(
+      stale.map(({ file }) => Bun.file(file).text())
+    );
+
+    for (const [index, { contents, file }] of stale.entries()) {
+      fail(
+        `${file}: stale. Run \`${GENERATE_COMMAND}\`.${firstDifference(committed[index] ?? "", contents)}`
+      );
     }
   }
 
