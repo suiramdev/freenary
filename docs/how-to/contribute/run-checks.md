@@ -8,7 +8,7 @@ This page helps you run, on your machine, every check the `CI` workflow (`.githu
 ## Before you start
 
 - A clone of the repository with your shell in its root folder, as in [Run from source](run-from-source.md).
-- Bun 1.3.14 and Docker with Compose.
+- Bun 1.4.2 and Docker with Compose.
 
 ## Steps
 

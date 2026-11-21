@@ -9,7 +9,7 @@ This page lists the rules the repository's configuration files enforce on the co
 
 | Tool       | Version        | Declared in                         |
 | ---------- | -------------- | ----------------------------------- |
-| Bun        | `1.3.14`       | `packageManager` in `package.json`  |
+| Bun        | `1.4.2`        | `packageManager` in `package.json`  |
 | TypeScript | `^6.0.3`       | workspace catalog in `package.json` |
 | Ultracite  | `7.10.6`       | `devDependencies` in `package.json` |
 | Oxlint     | `1.85.0`       | `devDependencies` in `package.json` |

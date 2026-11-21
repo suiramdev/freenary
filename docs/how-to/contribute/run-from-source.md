@@ -8,7 +8,7 @@ This page helps you run Freenary from your working tree, so your edits show up i
 ## Before you start
 
 - A clone of `https://github.com/suiramdev/freenary`, with your shell in its root folder.
-- Bun 1.3.14, the version in the `packageManager` field of `package.json`.
+- Bun 1.4.2, the version in the `packageManager` field of `package.json`.
 - Docker with Compose.
 - For the Docker path: [Kiri](https://docs.runkiri.com/domains/), a Docker engine that routes hostnames to containers. You can use your own router instead (see step 4).
 

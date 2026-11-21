@@ -18,20 +18,18 @@ This page connects Freenary to Powens, the bank provider that links members' ban
 1. Open the setup screen. It opens on its own after the first sign-in, on the **Bank** step. On an instance that is already set up, open **Settings** › **Connections** instead, find **Bank provider** under **Services**, and select **Set up** or **Change**.
 2. Select **Powens** (marked **Recommended**), then select **Continue**.
 3. On **Step 1 of 4**, create a free account in the Powens console, then a domain, and enter the domain name in **Powens domain**, for example `acme-sandbox`. Enter the name alone, without `https://`. Select **Next**.
-4. On **Step 2 of 4**, select **Copy** next to **Redirect URL**. In the Powens console, under **Client Applications**, add a client with this redirect URL, then turn on the banks you want. Select **Next**.
+4. On **Step 2 of 4**, select **Copy** next to **Redirect URL**. In the Powens console, open your domain, select **Applications**, then **Add an application**. Enter a **Name**, paste the URL into **Redirect URIs**, select **Save**, then **Exit**. To turn banks on, select **Connectors** and select **Activate** next to each bank. Select **Next** in Freenary. [Connect your first bank](../tutorials/connect-your-first-bank.md#3-enter-the-powens-details) shows each console screen.
 
    ![Connect Powens, Step 2 of 4: the Redirect URL with a Copy button](../images/04-powens-redirect-url.png)
 
-   > **TODO (unverified):** where **Client Applications** sits in the Powens console, and how you turn banks on there.
-
-5. On **Step 3 of 4**, paste the client ID of the client you just added into **Client ID**. Select **Next**.
-6. On **Step 4 of 4**, paste the client secret of the same client into **Client secret**.
+5. On **Step 3 of 4**, paste the **Client ID** of the application you just added into **Client ID**. Select **Next**.
+6. On **Step 4 of 4**, paste the **Client secret** of the same application (select **Show** in the console to see it) into **Client secret**.
 7. Select **Save and continue** on the setup screen, or **Save** in **Settings**. Freenary first tests the credentials, then saves them.
 8. Apply the change. On the setup screen, go on to the **Done** step and select **Finish setup**. In **Settings**, select **Apply now** in the **Restart to apply your changes** notice. The page shows **Applying your settings…** while the server restarts.
 
 ### In `.env`
 
-1. In the Powens console, add a client whose redirect URL is your web address followed by `/callback/powens`, for example `http://localhost:3001/callback/powens`. Freenary builds this URL from `CORS_ORIGIN`, which `docker-compose.yml` sets to `http://localhost:3001` when `.env` leaves it out.
+1. In the Powens console, under **Applications**, add an application whose redirect URI is your web address followed by `/callback/powens`, for example `http://localhost:3001/callback/powens`. Freenary builds this URL from `CORS_ORIGIN`, which `docker-compose.yml` sets to `http://localhost:3001` when `.env` leaves it out.
 2. Add the three Powens values to `.env`:
 
    ```dotenv
@@ -52,7 +50,7 @@ This page connects Freenary to Powens, the bank provider that links members' ban
 
 1. Open **Settings** › **Connections**. Under **Services**, the **Bank provider** row reads **Configured · Powens** when you saved the values in the app, or **Set by your server · Powens** when they come from `.env`.
 2. For values from `.env`, select **View**, then **Test connection**. The test logs in to Powens with the credentials, creates a throwaway Powens user and deletes it again. A working setup shows **Powens is ready**.
-3. Connect a bank as described in [Connect your first bank](../tutorials/connect-your-first-bank.md). On a Powens sandbox domain, use the test bank **Connecteur de test** with the password `1234`.
+3. Connect a bank as described in [Connect your first bank](../tutorials/connect-your-first-bank.md). On a Powens sandbox domain, use the test bank **Connecteur de test**; its sign-in page accepts any credentials.
 
 ## If something goes wrong
 

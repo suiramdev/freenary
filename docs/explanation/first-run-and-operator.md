@@ -37,6 +37,8 @@ While `completedAt` is empty, the instance reports `needs-setup` and the web app
 
 After setup, each member goes through their own onboarding at `/onboarding` before they reach the app: **Tax residency** (the countries whose banks they can link) and **Bank connection**. **Finish** refuses to complete without a connected bank: **Connect a bank before you finish.**
 
+Until a member finishes onboarding, every page of the app sends them back to `/onboarding` (`apps/web/src/app/routes/_auth/route.tsx`). That includes **Settings**, and the update notice, which the app shows in the layout of those pages (`apps/web/src/app/shell/auth-layout.tsx`). The operator is no exception: after **Finish setup**, the operator connects a bank before reaching **Settings** to set up email, the assistant or categorisation.
+
 If the instance has no bank provider, onboarding shows **Ask your instance’s operator to set up a banking provider, then reload this page.**
 
 ## Related

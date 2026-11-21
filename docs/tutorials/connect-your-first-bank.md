@@ -16,9 +16,9 @@ Freenary does not talk to banks itself. It uses a **bank provider**, a service t
 ## 1. Create a Powens sandbox
 
 1. Open [the Powens console registration page](https://console.powens.com/auth/register) and create a free account.
-2. In the console, create a **domain**. A domain is your own space at Powens, with a name such as `acme-sandbox`. Write the name down.
+2. In the console, create a **domain** with **Add domain**. A domain is your own space at Powens. The console lists it by its short name with a **Sandbox** badge; its full address is `<name>.biapi.pro`, for example `acme-sandbox.biapi.pro`. Write down the part before `.biapi.pro`, for example `acme-sandbox`.
 
-> **TODO (unverified):** the exact menus of the Powens console for creating an account and a domain. Freenary's code only links the registration page.
+> **TODO (unverified):** the sign-up form and the **Add domain** dialog. This tutorial was run with an account and a sandbox domain that already existed.
 
 ## 2. Choose Powens on the setup screen
 
@@ -35,14 +35,27 @@ The page now shows **Connect Powens** and **Step 1 of 4**.
 1. **Step 1 of 4, Powens domain.** Enter the domain name from part 1, for example `acme-sandbox`. Type the name only, without `https://`. Select **Next**.
 2. **Step 2 of 4, Redirect URL.** The page shows your instance's address followed by `/callback/powens`, for example `http://localhost:3001/callback/powens`. Select **Copy**.
 
-   In the Powens console, under **Client Applications**, add a client and paste this URL as its redirect URL. Then turn on the banks you want to use. Powens sends you back to this URL after you connect a bank. Select **Next** in Freenary.
-
    ![Connect Powens, Step 2 of 4: the Redirect URL http://localhost:3001/callback/powens with a Copy button](../images/04-powens-redirect-url.png)
 
-   > **TODO (unverified):** where **Client Applications** is in the Powens console, and how to turn on banks, including the test bank **Connecteur de test**.
+   Powens sends you back to this URL after you connect a bank. Register it in the Powens console:
 
-3. **Step 3 of 4, Client ID.** Copy the client ID of the client you just added, and paste it. Select **Next**.
-4. **Step 4 of 4, Client secret.** Copy the client secret of the same client, and paste it.
+   1. Open your domain, then select **Applications** in the left menu, under **DOMAIN**.
+   2. Select **Add an application**. On **NEW CLIENT APPLICATION**, enter a **Name**, which Powens shows to people who connect a bank, and paste the URL into **Redirect URIs**. Select **Save**, then **Exit**.
+
+      ![The Powens console form NEW CLIENT APPLICATION with the Name and Redirect URIs fields filled in](../images/10-powens-console-new-application.png)
+
+   3. **Client applications** now lists the application with its **Client ID**, **Client secret** (select **Show** to see it) and **Redirect URIs**. Keep this page open for the next two steps.
+
+      ![The new application in the Powens console, with its Client ID, a hidden Client secret and the redirect URI](../images/11-powens-console-application.png)
+
+   4. Select **Connectors** in the left menu, and type `Connecteur de test` in **Filter connectors by name or UUID**. **Connecteur de test** must read **Activated**. If it reads **Activate**, select it. Turn on any other bank the same way.
+
+      ![The Powens Connectors page filtered on Connecteur de test, which reads Activated](../images/12-powens-console-connectors.png)
+
+   Then select **Next** in Freenary.
+
+3. **Step 3 of 4, Client ID.** Copy the **Client ID** of the application you just added, and paste it. Select **Next**.
+4. **Step 4 of 4, Client secret.** Select **Show** next to **Client secret** in the console, copy it, and paste it.
 5. Select **Save and continue**.
 
 Freenary tests the details with Powens before it saves them. If the test passes, the setup screen moves to **Categories**. If you see **Powens refused these credentials. Check them and try again.**, check that the client ID and the client secret come from the same client. [Configure Powens](../how-to/configure-powens.md#if-something-goes-wrong) lists the other messages.
@@ -73,28 +86,40 @@ The page shows **Applying your settings…** and **This page reconnects on its o
 
 Every member, including you, now sets up their own account.
 
-1. **What’s your tax residency?** Add the country that the test bank belongs to, then select **Continue**. The countries you pick decide which banks you can link.
+1. **What’s your tax residency?** Add **France**, the country of **Connecteur de test**, then select **Continue**. The countries you pick decide which banks you can link.
 
    ![The onboarding step What’s your tax residency? with an Add a country… field](../images/09-onboarding-tax-residency.png)
 
-   > **TODO (unverified):** which country lists **Connecteur de test** in a Powens sandbox. It is expected to be France.
+2. **Connect your bank.** Find **Connecteur de test** in the list, or type it in **Search banks…**, then select **Connect** next to it.
+3. The browser opens the Powens connection page, which names your Powens application. Select **Accept**.
 
-2. **Connect your bank.** Search for `Connecteur de test` in **Search banks…**, then select **Connect** next to it.
-3. The browser opens the Powens page for that bank. Sign in to the test bank with the password `1234`, as the setup screen said on **Step 4 of 4**.
+   ![The Powens page saying that your application partners with Powens to connect your accounts, with an Accept button](../images/13-powens-webview-consent.png)
 
-   > **TODO (unverified):** the Powens sign-in page for the test bank (fields and buttons).
+4. On **Please select your space**, select **Particuliers**. On the next page, select **Open**.
+5. The test bank's sign-in page opens. It says **Enter any credentials, it's a fake bank anyway**. Enter any **Username or email** and **Password**, for example `demo` and `1234`, and select **Log in**.
 
-4. Powens sends you back to Freenary. A notice says **Connected 1 account** (or **Connected 2 accounts**, and so on), and you return to **Connect your bank**.
-5. Select **Finish (1)**. The number counts your connected banks.
+   ![The Powens test bank sign-in page, Demo Bank, with Username or email and Password fields](../images/14-powens-demo-bank-login.png)
 
-The app shows **You’re all set!**.
+6. On **Enter the code received on your fake phone**, enter any code, for example `123456`, and select **Next**. Then select **Allow**.
+7. On **Select the accounts to use**, keep **Select all** checked and select **Connect**. On **You're almost done**, select **Finish**.
+
+   ![The Powens page Select the accounts to use, with three test accounts checked and a Connect button](../images/15-powens-select-accounts.png)
+
+8. Powens sends you back to Freenary. A notice says **Connected 3 accounts**, and **Connecteur de test** now reads **3 accounts · Not synced yet**.
+
+   ![Connect your bank in Freenary: Connecteur de test with 3 accounts, the Finish (1) button and the notice Connected 3 accounts](../images/16-onboarding-bank-connected.png)
+
+9. Select **Finish (1)**. The number counts your connected banks.
 
 ## 7. Check that it works
 
-1. The home page lists the test bank's accounts.
-2. Open an account. Its transactions appear. Right after the connection, the account can read **No transactions on this account yet. They appear after the bank's next sync.** Wait a moment and reload.
+1. The home page lists the test bank's accounts under **Accounts**, such as **Compte chèque**, each marked **Connecteur de test**, with their balances.
 
-> **TODO (unverified):** the whole of part 6 and part 7 was not run against a real Powens sandbox. The texts come from the app's English message file.
+   ![The Freenary home page with three Connecteur de test accounts and their balances](../images/17-home.png)
+
+2. Open **Settings**, then **Connections**. Under **Bank accounts**, **Connecteur de test** reads **3 accounts · Synced** with the date. Under **Services**, **Bank provider** reads **Configured · Powens**.
+
+   ![Settings, Connections: the Connecteur de test bank with 3 accounts, and the Bank provider row reading Configured · Powens](../images/18-settings-connections.png)
 
 ## You're done
 
