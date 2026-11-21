@@ -36,7 +36,8 @@
     "build": "turbo run build",
     "build:data": "turbo run build:data -F @freenary/api --",
     "check-types": "turbo run check-types && tsc --noEmit -p scripts",
-    "docs:check": "turbo run docs:check",
+    "docs:check": "bun scripts/docs-check.ts",
+    "docs:generate": "bun scripts/docs-reference.ts",
     "env:sync": "bun scripts/env-sync.ts",
     "env:check": "bun scripts/env-sync.ts --check",
     "check:fsd": "turbo run lint:fsd",
@@ -70,7 +71,11 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@freenary/api": "workspace:*",
     "@freenary/config": "workspace:*",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
     "@shadcn/lint": "^0.1.1",
     "@types/bun": "catalog:",
     "lefthook": "2.1.10",

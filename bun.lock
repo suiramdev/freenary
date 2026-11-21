@@ -11,7 +11,11 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@freenary/api": "workspace:*",
         "@freenary/config": "workspace:*",
+        "@orpc/openapi": "catalog:",
+        "@orpc/server": "catalog:",
+        "@orpc/zod": "catalog:",
         "@shadcn/lint": "^0.1.1",
         "@types/bun": "catalog:",
         "lefthook": "2.1.10",
@@ -27,6 +31,7 @@
       "name": "fumadocs",
       "dependencies": {
         "@ai-sdk/react": "^4.0.65",
+        "@freenary/ui": "workspace:*",
         "@openrouter/ai-sdk-provider": "^3.0.0",
         "@tanstack/react-router": "1.170.27",
         "@tanstack/react-router-devtools": "1.167.1",

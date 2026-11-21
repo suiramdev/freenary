@@ -10,11 +10,6 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 # image serves any deployment; VITE_SERVER_URL is the localhost fallback.
 ENV NODE_ENV=production
 
-# The release tag reaches the browser through the build: one image is one
-# version, and the account menu links to the documentation for it.
-ARG FREENARY_VERSION=""
-ENV VITE_FREENARY_VERSION=$FREENARY_VERSION
-
 RUN cd apps/web && bun run build
 ENV DATABASE_URL=
 
