@@ -1,4 +1,4 @@
-<h1><img src=".github/assets/agent.gif" alt="The Freenary agent, a pink piggy-bank head, cycling through its expressions" width="48" height="48" align="absmiddle"> Freenary</h1>
+<h1><img src=".github/assets/agent.gif" alt="The Freenary agent, a pink piggy-bank head, tossing coins with sparkles all around" width="48" height="48" align="absmiddle"> Freenary</h1>
 
 Freenary is an open-source personal finance app that you host yourself. It connects to your banks through a bank provider (Powens or Enable Banking), imports your accounts and transactions, puts them into categories, and shows a budget. An optional assistant answers questions about your money. Your data stays in your own PostgreSQL database.
 
