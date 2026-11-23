@@ -11,13 +11,13 @@ import {
   categorySuggestionsQueryOptions,
 } from "../api/category-suggestion-queries";
 
-export const SUGGESTION_DEBOUNCE_MS = 300;
+const SUGGESTION_DEBOUNCE_MS = 300;
 
 const MIN_SUGGESTION_QUERY_LENGTH = 2;
 
 const NO_SUGGESTIONS: readonly SpendingCategory[] = [];
 
-export interface CategorySuggestions {
+interface CategorySuggestions {
   categories: readonly SpendingCategory[];
   isSearching: boolean;
 }
@@ -38,12 +38,14 @@ export const useCategorySuggestions = ({
     enabled: open,
   });
 
-  const typed = query.trim();
+  const typed = query.trim().toLowerCase();
   const debounced = useDebouncedValue(typed, SUGGESTION_DEBOUNCE_MS);
   const asks =
     open &&
     status.data?.enabled === true &&
     typed.length >= MIN_SUGGESTION_QUERY_LENGTH;
+
+  const settled = debounced === typed;
 
   const suggestions = useQuery({
     ...categorySuggestionsQueryOptions({
@@ -51,7 +53,7 @@ export const useCategorySuggestions = ({
       direction,
       query: debounced,
     }),
-    enabled: asks && debounced === typed,
+    enabled: asks && settled,
   });
 
   if (!asks) {
@@ -59,10 +61,9 @@ export const useCategorySuggestions = ({
   }
 
   return {
-    categories:
-      debounced === typed
-        ? (suggestions.data?.categories ?? NO_SUGGESTIONS)
-        : NO_SUGGESTIONS,
-    isSearching: debounced !== typed || suggestions.isFetching,
+    categories: settled
+      ? (suggestions.data?.categories ?? NO_SUGGESTIONS)
+      : NO_SUGGESTIONS,
+    isSearching: !settled || suggestions.isFetching,
   };
 };

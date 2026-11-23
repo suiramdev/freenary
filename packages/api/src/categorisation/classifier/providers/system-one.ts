@@ -137,10 +137,8 @@ const readAnswers = Effect.fnUntraced(function* readAnswers(
   );
 });
 
-const readPrediction = Effect.fnUntraced(function* readPrediction(
-  settings: SystemOneSettings,
-  answered: SystemOneResponse,
-  direction: ClassificationInput["direction"]
+const categoryAnswerOf = Effect.fnUntraced(function* categoryAnswerOf(
+  answered: SystemOneResponse
 ) {
   const answer = answered.answers[CATEGORY_QUESTION_ID];
 
@@ -150,6 +148,32 @@ const readPrediction = Effect.fnUntraced(function* readPrediction(
     });
   }
 
+  return answer;
+});
+
+const runAnswered = <A>(
+  settings: SystemOneSettings,
+  transport: ClassifierTransport,
+  input: ClassificationInput,
+  read: (
+    answered: SystemOneResponse
+  ) => Effect.Effect<A, SystemOneClassificationFailed>
+): Promise<A> =>
+  Effect.runPromise(
+    readAnswers(settings, transport, input).pipe(
+      Effect.flatMap(read),
+      Effect.mapError(
+        (failure: SystemOneClassificationFailed) => new Error(failure.message)
+      )
+    )
+  );
+
+const readPrediction = Effect.fnUntraced(function* readPrediction(
+  settings: SystemOneSettings,
+  answered: SystemOneResponse,
+  direction: ClassificationInput["direction"]
+) {
+  const answer = yield* categoryAnswerOf(answered);
   const category = answer.choice;
 
   if (!isOfferedCategory(category, direction)) {
@@ -190,15 +214,8 @@ const classifyWith = (
   transport: ClassifierTransport,
   input: ClassificationInput
 ): Promise<ClassificationPrediction | null> =>
-  Effect.runPromise(
-    readAnswers(settings, transport, input).pipe(
-      Effect.flatMap((answered) =>
-        readPrediction(settings, answered, input.direction)
-      ),
-      Effect.mapError(
-        (failure: SystemOneClassificationFailed) => new Error(failure.message)
-      )
-    )
+  runAnswered(settings, transport, input, (answered) =>
+    readPrediction(settings, answered, input.direction)
   );
 
 const SUGGESTION_FLOOR = 0.05;
@@ -208,14 +225,7 @@ const rankSuggestions = Effect.fnUntraced(function* rankSuggestions(
   direction: ClassificationInput["direction"],
   limit: number
 ) {
-  const answer = answered.answers[CATEGORY_QUESTION_ID];
-
-  if (!answer) {
-    return yield* new SystemOneClassificationFailed({
-      reason: { detail: "no category answer", kind: "undecodable" },
-    });
-  }
-
+  const answer = yield* categoryAnswerOf(answered);
   const scores = new Map<SpendingCategory, number>();
   const candidates: [string, number][] = [
     [answer.choice, answer.certainty ?? answer.confidence],
@@ -244,15 +254,8 @@ export const suggestSystemOneCategories = (
   input: ClassificationInput,
   limit: number
 ): Promise<SpendingCategory[]> =>
-  Effect.runPromise(
-    readAnswers(settings, transport, input).pipe(
-      Effect.flatMap((answered) =>
-        rankSuggestions(answered, input.direction, limit)
-      ),
-      Effect.mapError(
-        (failure: SystemOneClassificationFailed) => new Error(failure.message)
-      )
-    )
+  runAnswered(settings, transport, input, (answered) =>
+    rankSuggestions(answered, input.direction, limit)
   );
 
 export const createSystemOneClassifier = (

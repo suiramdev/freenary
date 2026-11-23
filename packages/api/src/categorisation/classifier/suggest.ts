@@ -10,6 +10,7 @@ import { Option } from "effect";
 
 import type { SpendingCategory } from "../../lib/taxonomy";
 import { normaliseDescriptor } from "../normalise/normalise-descriptor";
+import { CATEGORISATION_INTEGRATION } from "./probe";
 import { suggestSystemOneCategories } from "./providers/system-one";
 import { primarySlotOf } from "./registry";
 import type {
@@ -18,7 +19,6 @@ import type {
   TransactionDirection,
 } from "./types";
 
-const CATEGORISATION_INTEGRATION = "categorisation";
 const JEV_VARIANT = "jev";
 const SUGGESTION_LIMIT = 3;
 
@@ -32,7 +32,7 @@ export interface CategorySuggester {
   suggest: (request: SuggestionRequest) => Promise<SpendingCategory[]>;
 }
 
-export const isJevConfigured = (
+const isJevConfigured = (
   held: HeldValue,
   remembered: (variantKey: string) => string | undefined
 ): boolean =>
@@ -52,7 +52,7 @@ export const isJevConfigured = (
       ),
   });
 
-export const suggestionInputOf = ({
+const suggestionInputOf = ({
   currency,
   direction,
   query,

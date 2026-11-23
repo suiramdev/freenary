@@ -4,7 +4,7 @@ import { settings } from "@freenary/instance-config";
 import type { ServerSettings } from "@freenary/instance-config/candidate";
 import { Option } from "effect";
 
-import { createJevSuggester, suggestionInputOf } from "./suggest";
+import { createJevSuggester } from "./suggest";
 import type { ClassifierTransport } from "./types";
 
 const jev: ServerSettings = {
@@ -34,7 +34,12 @@ const nothingRemembered = (variantKey: string) => noStoredSettings[variantKey];
 
 interface RecordedCall {
   body: {
-    state: { direction: string; merchantKey: string | null };
+    state: {
+      currency: string;
+      direction: string;
+      merchantKey: string | null;
+      normalisedDescriptor: string;
+    };
   };
   url: string;
 }
@@ -101,6 +106,29 @@ describe("createJevSuggester", () => {
     expect(suggested).toEqual(["groceries", "shopping"]);
     expect(calls[0]?.url).toBe("https://api.typesafe.ai/v1/systemone");
     expect(calls[0]?.body.state.merchantKey).toBe("carrefour market");
+  });
+
+  it("sends the typed text normalised into the merchant fields", async () => {
+    const calls: RecordedCall[] = [];
+    const suggester = Option.getOrThrow(
+      suggesterFor(
+        jev,
+        answering({ choice: "restaurants", confidence: 0.9 }, calls)
+      )
+    );
+
+    await suggester.suggest({
+      currency: "EUR",
+      direction: "debit",
+      query: "Café Lumière",
+    });
+
+    expect(calls[0]?.body.state).toMatchObject({
+      currency: "EUR",
+      direction: "debit",
+      merchantKey: "cafe lumiere",
+      normalisedDescriptor: "cafe lumiere",
+    });
   });
 
   it("keeps the top three", async () => {
@@ -174,22 +202,5 @@ describe("createJevSuggester", () => {
     });
 
     await expect(suggested).rejects.toThrow("429");
-  });
-});
-
-describe("suggestionInputOf", () => {
-  it("normalises the typed text into the merchant fields", () => {
-    expect(
-      suggestionInputOf({
-        currency: "EUR",
-        direction: "debit",
-        query: "Café Lumière",
-      })
-    ).toMatchObject({
-      currency: "EUR",
-      direction: "debit",
-      merchantKey: "cafe lumiere",
-      normalisedDescriptor: "cafe lumiere",
-    });
   });
 });

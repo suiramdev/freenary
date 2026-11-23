@@ -28,7 +28,6 @@ import {
   categoryPickerRows,
   withMatchRows,
 } from "../model/category-picker-rows";
-import type { CategoryPickerRow } from "../model/category-picker-rows";
 import { categoryLabel } from "../model/taxonomy-labels";
 import { useCategorySuggestions } from "../model/use-category-suggestions";
 import { categoryMenuIcon } from "./category-menu-icon";
@@ -106,7 +105,7 @@ export const SpendingCategoryPicker = ({
   };
 
   const filter = (item: CommandMenuItemData, typed: string) => {
-    const row: CategoryPickerRow | undefined = rowsByValue.get(item.value);
+    const row = rowsByValue.get(item.value);
 
     return row !== undefined && categoryPickerRowMatches(row, typed);
   };
