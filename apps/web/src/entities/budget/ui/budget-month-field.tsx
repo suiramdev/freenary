@@ -11,10 +11,6 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@freenary/ui/components/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@freenary/ui/components/toggle-group";
 import { useMemo } from "react";
 
 import { m } from "@/paraglide/messages.js";
@@ -36,6 +32,8 @@ const ANCHOR_LABELS = {
   LAST_DAY: m.budget_month_anchor_last_day,
   LAST_WORKING_DAY: m.budget_month_anchor_last_working_day,
 } satisfies Record<BudgetMonthAnchor, () => string>;
+
+const ANCHOR_TRIGGER_WIDTH = "w-52";
 
 const COUNTRY_TRIGGER_WIDTH = "w-52";
 
@@ -92,10 +90,9 @@ export const BudgetMonthField = ({
   value,
 }: BudgetMonthFieldProps) => (
   <div className="flex flex-col gap-3">
-    <ToggleGroup
-      aria-label={m.budget_month_anchor_label()}
+    <Select
       disabled={disabled}
-      onValueChange={([next]) => {
+      onValueChange={(next: string) => {
         const anchor = BUDGET_MONTH_ANCHORS.find(
           (candidate) => candidate === next
         );
@@ -104,14 +101,23 @@ export const BudgetMonthField = ({
           onChange({ ...value, anchor });
         }
       }}
-      value={[value.anchor]}
+      value={value.anchor}
     >
-      {BUDGET_MONTH_ANCHORS.map((anchor) => (
-        <ToggleGroupItem key={anchor} value={anchor}>
-          {ANCHOR_LABELS[anchor]()}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+      <SelectTrigger
+        aria-label={m.budget_month_anchor_label()}
+        className={ANCHOR_TRIGGER_WIDTH}
+        placeholder={m.budget_month_anchor_label()}
+      />
+      <SelectContent>
+        <SelectGroup>
+          {BUDGET_MONTH_ANCHORS.map((anchor, position) => (
+            <SelectItem index={position} key={anchor} value={anchor}>
+              {ANCHOR_LABELS[anchor]()}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
     {value.anchor === "DAY_OF_MONTH" ? (
       <BudgetMonthStartInput
         disabled={disabled}
