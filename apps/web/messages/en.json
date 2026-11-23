@@ -990,7 +990,6 @@
   "notifications_group_read": "Read",
   "notifications_group_unread": "Unread",
   "notifications_loading": "Loading notifications",
-  "notifications_mark_all_read": "Mark all as read",
   "notifications_retry": "Retry",
   "notifications_title": "Notifications",
   "notifications_to_check_body": "Categorised automatically with low confidence.",

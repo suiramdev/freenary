@@ -31,25 +31,21 @@ const without = (
 
 const asRead = (
   list: NotificationList | undefined,
-  ids: ReadonlySet<string> | "all"
+  ids: ReadonlySet<string>
 ): NotificationList | undefined =>
   list && {
     notifications: list.notifications.map((notification) =>
-      ids === "all" || ids.has(notification.id)
+      ids.has(notification.id)
         ? { ...notification, isRead: true }
         : notification
     ),
-    unreadCount:
-      ids === "all"
-        ? 0
-        : Math.max(
-            0,
-            list.unreadCount -
-              list.notifications.filter(
-                (notification) =>
-                  ids.has(notification.id) && !notification.isRead
-              ).length
-          ),
+    unreadCount: Math.max(
+      0,
+      list.unreadCount -
+        list.notifications.filter(
+          (notification) => ids.has(notification.id) && !notification.isRead
+        ).length
+    ),
   };
 
 export const useNotifications = () => {
@@ -124,11 +120,9 @@ export const useNotifications = () => {
   const markAllRead = useMutation({
     meta: { errorShownInline: true },
     mutationFn: () => client.notifications.markAllRead(),
-    onError: () => toast.error(m.notifications_update_error()),
-    onMutate: () => {
-      patch((list) => asRead(list, "all"));
+    onSuccess: () => {
+      patch((list) => list && { ...list, unreadCount: 0 });
     },
-    onSettled: refresh,
   });
 
   return {
@@ -138,6 +132,7 @@ export const useNotifications = () => {
     markRead: markRead.mutate,
     notifications: query.data?.notifications ?? [],
     query,
+    refresh,
     unreadCount: query.data?.unreadCount ?? 0,
   };
 };

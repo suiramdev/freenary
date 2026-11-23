@@ -203,12 +203,24 @@ export const NotificationCenter = ({
   const hasUnread = center.unreadCount > 0;
   const hasAny = center.notifications.length > 0;
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+
+    if (open && hasUnread) {
+      center.markAllRead();
+    }
+
+    if (!open) {
+      void center.refresh();
+    }
+  };
+
   const handleOpen = (notification: NotificationEntry) => {
     if (!notification.isRead) {
       center.markRead(notification);
     }
 
-    setIsOpen(false);
+    handleOpenChange(false);
     onOpen(notification);
   };
 
@@ -221,7 +233,7 @@ export const NotificationCenter = ({
 
   return (
     <SidebarMenuItem>
-      <Popover onOpenChange={setIsOpen} open={isOpen}>
+      <Popover onOpenChange={handleOpenChange} open={isOpen}>
         <PopoverTrigger
           render={
             <SidebarMenuButton
@@ -250,15 +262,6 @@ export const NotificationCenter = ({
             <PopoverTitle className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
               {m.notifications_title()}
             </PopoverTitle>
-            {hasUnread ? (
-              <Button
-                onClick={() => center.markAllRead()}
-                size="compact"
-                variant="ghost"
-              >
-                {m.notifications_mark_all_read()}
-              </Button>
-            ) : null}
             {hasAny ? (
               <Button
                 onClick={() => {
