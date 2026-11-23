@@ -1023,7 +1023,7 @@
   "onboarding_bank_description": "Connect at least one bank account to import your transactions and balances.",
   "onboarding_bank_title": "Connect your bank",
   "onboarding_bank_unavailable_ask_operator": "Ask your instance’s operator to set up a banking provider, then reload this page.",
-  "onboarding_budget_month_description": "Pick the day your salary usually arrives. Freenary groups your income and spending into months that start on that day, so a salary paid on the 28th counts in the month it pays for. You can change it later in Settings.",
+  "onboarding_budget_month_description": "Pick the day your salary usually arrives, so it counts in the month it pays for.",
   "onboarding_budget_month_title": "When does your month start?",
   "onboarding_completed_toast": "You’re all set!",
   "onboarding_continue": "Continue",

@@ -1032,7 +1032,7 @@
   "onboarding_bank_description": "Connectez au moins un compte bancaire pour importer vos transactions et vos soldes.",
   "onboarding_bank_title": "Connectez votre banque",
   "onboarding_bank_unavailable_ask_operator": "Demandez à l’opérateur de votre instance de configurer un fournisseur bancaire, puis rechargez cette page.",
-  "onboarding_budget_month_description": "Choisissez le jour où votre salaire arrive d’habitude. Freenary regroupe vos revenus et vos dépenses en mois qui commencent ce jour-là : un salaire versé le 28 compte dans le mois qu’il finance. Vous pourrez le modifier plus tard dans les Paramètres.",
+  "onboarding_budget_month_description": "Choisissez le jour où votre salaire arrive d’habitude, pour qu’il compte dans le mois qu’il finance.",
   "onboarding_budget_month_title": "Quand commence votre mois ?",
   "onboarding_completed_toast": "Tout est prêt !",
   "onboarding_continue": "Continuer",
