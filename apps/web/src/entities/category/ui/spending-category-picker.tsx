@@ -3,23 +3,29 @@ import type {
   SpendingCategory,
   TransactionDirection,
 } from "@freenary/api/lib/taxonomy";
+import { Button } from "@freenary/ui/components/button";
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@freenary/ui/components/combobox";
-import { DropdownLabel } from "@freenary/ui/components/dropdown";
-import { useMemo, useState } from "react";
+  CommandMenu,
+  CommandMenuEmpty,
+  CommandMenuInput,
+  CommandMenuItem,
+  CommandMenuList,
+} from "@freenary/ui/components/command-menu";
+import type { CommandMenuItemData } from "@freenary/ui/components/command-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@freenary/ui/components/popover";
+import { RiCheckLine, RiExpandUpDownLine } from "@remixicon/react";
+import { useMemo, useRef, useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
+import { remixIcon } from "@/shared/lib/remix-icon";
 
 import {
   categoryPickerRowMatches,
   categoryPickerRows,
-  pickedCategory,
   withMatchRows,
 } from "../model/category-picker-rows";
 import type { CategoryPickerRow } from "../model/category-picker-rows";
@@ -35,6 +41,8 @@ interface SpendingCategoryPickerProps {
   value: SpendingCategory;
 }
 
+const EXPAND_ICON = remixIcon(RiExpandUpDownLine);
+
 export const SpendingCategoryPicker = ({
   className,
   currency,
@@ -44,84 +52,132 @@ export const SpendingCategoryPicker = ({
 }: SpendingCategoryPickerProps) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const typed = query.trim() === categoryLabel(value) ? "" : query;
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const suggestions = useCategorySuggestions({
     currency,
     direction,
     open,
-    query: typed,
+    query,
   });
 
   const rows = useMemo(() => categoryPickerRows(direction), [direction]);
-  const items = useMemo(
+  const shown = useMemo(
     () => withMatchRows(rows, suggestions.categories),
     [rows, suggestions.categories]
   );
 
+  const rowsByValue = useMemo(
+    () => new Map(shown.map((row) => [row.value, row])),
+    [shown]
+  );
+
+  const items = useMemo<CommandMenuItemData[]>(() => {
+    const matchesLabel = m.budget_category_matches_label();
+
+    return shown.map((row) => ({
+      group: row.isMatch ? matchesLabel : row.group,
+      icon: categoryMenuIcon(predefinedCategoryAppearance(row.category)),
+      label: row.label,
+      value: row.value,
+    }));
+  }, [shown]);
+
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+
+    if (next) {
+      setQuery("");
+    }
+  };
+
+  const pick = (item: CommandMenuItemData) => {
+    const row = rowsByValue.get(item.value);
+
+    if (row === undefined) {
+      return;
+    }
+
+    setOpen(false);
+
+    if (row.category !== value) {
+      onValueChange(row.category);
+    }
+  };
+
+  const filter = (item: CommandMenuItemData, typed: string) => {
+    const row: CategoryPickerRow | undefined = rowsByValue.get(item.value);
+
+    return row !== undefined && categoryPickerRowMatches(row, typed);
+  };
+
   return (
-    <Combobox
-      filter={categoryPickerRowMatches}
-      items={items}
-      onOpenChange={setOpen}
-      onQueryChange={setQuery}
-      onValueChange={(next) => {
-        const category = pickedCategory(items, next);
-
-        if (category !== undefined) {
-          onValueChange(category);
+    <Popover onOpenChange={changeOpen} open={open}>
+      <PopoverTrigger
+        render={
+          <Button
+            aria-label={m.budget_category_picker_trigger({
+              category: categoryLabel(value),
+            })}
+            className={className}
+            leadingIcon={categoryMenuIcon(predefinedCategoryAppearance(value))}
+            trailingIcon={EXPAND_ICON}
+            variant="secondary"
+          />
         }
-      }}
-      value={value}
-    >
-      <ComboboxInput
-        className={className}
-        icon={categoryMenuIcon(predefinedCategoryAppearance(value))}
-        placeholder={m.budget_category_search_placeholder()}
-      />
-      <ComboboxContent align="start">
-        <ComboboxEmpty>
-          {suggestions.isSearching
-            ? m.budget_category_matches_searching()
-            : m.budget_category_search_empty()}
-        </ComboboxEmpty>
-        <ComboboxList>
-          {(item) => {
-            // SAFETY: every row comes from `items`, built by categoryPickerRows.
-            const row = item as CategoryPickerRow;
+      >
+        <span className="block max-w-48 truncate">{categoryLabel(value)}</span>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        aria-label={m.budget_category_picker_title()}
+        className="max-h-[min(380px,var(--available-height))] w-64 gap-0 overflow-hidden p-0"
+        initialFocus={searchRef}
+      >
+        <CommandMenu
+          filter={filter}
+          items={items}
+          onQueryChange={setQuery}
+          onSelect={pick}
+          query={query}
+        >
+          <CommandMenuInput
+            aria-label={m.budget_category_picker_title()}
+            ref={searchRef}
+            placeholder={m.budget_category_search_placeholder()}
+          />
+          <CommandMenuList
+            renderItem={(item) => {
+              const row = rowsByValue.get(item.value);
+              const isCurrent =
+                row?.isMatch === false && row.category === value;
 
-            return (
-              <>
-                {row.startsMatches ? (
-                  <DropdownLabel aria-hidden className="mt-1">
-                    {m.budget_category_matches_label()}
-                  </DropdownLabel>
-                ) : null}
-                <ComboboxItem
-                  icon={categoryMenuIcon(
-                    predefinedCategoryAppearance(row.category)
-                  )}
-                  value={row.value}
+              return (
+                <CommandMenuItem
+                  aria-current={isCurrent || undefined}
+                  value={item.value}
                 >
-                  <span className="flex w-full items-baseline justify-between gap-3">
-                    <span className="truncate">
-                      {row.label}
-                      {row.isMatch ? (
-                        <span className="sr-only">
-                          {m.budget_category_match_sr_suffix()}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-muted-foreground shrink-0 text-[11px]">
-                      {row.group}
-                    </span>
+                  <span className="-my-1 min-w-0 flex-1 truncate py-1 [text-box:trim-both_cap_alphabetic]">
+                    {item.label}
                   </span>
-                </ComboboxItem>
-              </>
-            );
-          }}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+                  {isCurrent ? (
+                    <RiCheckLine
+                      aria-hidden
+                      className="text-foreground size-3.5 shrink-0"
+                    />
+                  ) : null}
+                </CommandMenuItem>
+              );
+            }}
+          >
+            <CommandMenuEmpty>
+              {suggestions.isSearching
+                ? m.budget_category_matches_searching()
+                : m.budget_category_search_empty()}
+            </CommandMenuEmpty>
+          </CommandMenuList>
+        </CommandMenu>
+      </PopoverContent>
+    </Popover>
   );
 };

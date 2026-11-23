@@ -16,26 +16,25 @@ const MATCH_PREFIX = "match:";
 export interface CategoryPickerRow extends CategoryRow {
   category: SpendingCategory;
   isMatch: boolean;
-  startsMatches: boolean;
 }
 
 const rowOf = (
   category: SpendingCategory,
   value: string,
-  match: { isMatch: boolean; startsMatches: boolean }
+  isMatch: boolean
 ): CategoryPickerRow => ({
   category,
   group: categoryGroupLabel(CATEGORY_GROUP_OF[category]),
+  isMatch,
   label: categoryLabel(category),
   value,
-  ...match,
 });
 
 export const categoryPickerRows = (
   direction: TransactionDirection
 ): CategoryPickerRow[] =>
   categoriesForDirection(direction).map((category) =>
-    rowOf(category, category, { isMatch: false, startsMatches: false })
+    rowOf(category, category, false)
   );
 
 export const withMatchRows = (
@@ -52,11 +51,8 @@ export const withMatchRows = (
 
   return [
     ...rows,
-    ...offered.map((category, index) =>
-      rowOf(category, `${MATCH_PREFIX}${category}`, {
-        isMatch: true,
-        startsMatches: index === 0,
-      })
+    ...offered.map((category) =>
+      rowOf(category, `${MATCH_PREFIX}${category}`, true)
     ),
   ];
 };
@@ -65,9 +61,3 @@ export const categoryPickerRowMatches = (
   row: CategoryPickerRow,
   query: string
 ): boolean => row.isMatch || categoryRowMatches(row, query);
-
-export const pickedCategory = (
-  rows: readonly CategoryPickerRow[],
-  value: string
-): SpendingCategory | undefined =>
-  rows.find((row) => row.value === value)?.category;

@@ -5,7 +5,6 @@ import { categoriesForDirection } from "@freenary/api/lib/taxonomy";
 import {
   categoryPickerRowMatches,
   categoryPickerRows,
-  pickedCategory,
   withMatchRows,
 } from "./category-picker-rows";
 
@@ -36,17 +35,15 @@ describe("withMatchRows", () => {
     }
   });
 
-  it("appends the matches after the categories, flagging the first", () => {
+  it("appends the matches after the categories", () => {
     const matches = withMatchRows(outgoing, ["groceries", "shopping"]).slice(
       outgoing.length
     );
 
-    expect(matches.map((row) => row.category)).toEqual([
-      "groceries",
-      "shopping",
+    expect(matches.map((row) => [row.value, row.isMatch])).toEqual([
+      ["match:groceries", true],
+      ["match:shopping", true],
     ]);
-
-    expect(matches.map((row) => row.startsMatches)).toEqual([true, false]);
   });
 
   it("drops matches the direction cannot take", () => {
@@ -63,13 +60,5 @@ describe("withMatchRows", () => {
     );
 
     expect(kept.map((row) => row.value)).toEqual(["match:groceries"]);
-  });
-
-  it("selects the same category from its row or its match", () => {
-    const rows = withMatchRows(outgoing, ["groceries"]);
-
-    expect(pickedCategory(rows, "groceries")).toBe("groceries");
-    expect(pickedCategory(rows, "match:groceries")).toBe("groceries");
-    expect(pickedCategory(rows, "")).toBeUndefined();
   });
 });
