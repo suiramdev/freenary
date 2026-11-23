@@ -1,6 +1,6 @@
 import { Skeleton } from "@freenary/ui/components/skeleton";
 
-import { BudgetMonthExample, BudgetMonthStartSelect } from "@/entities/budget";
+import { BudgetMonthExample, BudgetMonthStartInput } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 
 import { useBudgetMonthSetting } from "../model/use-budget-month-setting";
@@ -16,7 +16,7 @@ const BudgetMonthAction = ({
 }: ReturnType<typeof useBudgetMonthSetting>) => {
   if (startDay !== undefined) {
     return (
-      <BudgetMonthStartSelect
+      <BudgetMonthStartInput
         disabled={isSaving}
         onValueChange={save}
         value={startDay}

@@ -14,11 +14,6 @@ export const DEFAULT_BUDGET_MONTH_START_DAY = 1;
 
 export const MAX_BUDGET_MONTH_START_DAY = 28;
 
-export const BUDGET_MONTH_START_DAYS = Array.from(
-  { length: MAX_BUDGET_MONTH_START_DAY },
-  (_, index) => index + 1
-);
-
 export const budgetMonthStartDaySchema = z
   .number()
   .int()

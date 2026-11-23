@@ -2,7 +2,7 @@ import { Button } from "@freenary/ui/components/button";
 import { useIcon } from "@freenary/ui/lib/icon-context";
 import { RiArrowRightLine } from "@remixicon/react";
 
-import { BudgetMonthExample, BudgetMonthStartSelect } from "@/entities/budget";
+import { BudgetMonthExample, BudgetMonthStartInput } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { remixIcon } from "@/shared/lib/remix-icon";
 import { WizardStepHeader } from "@/shared/ui/wizard";
@@ -29,7 +29,7 @@ export const BudgetMonthStep = ({
         title={m.onboarding_budget_month_title()}
       />
       <div className="flex flex-col gap-2">
-        <BudgetMonthStartSelect
+        <BudgetMonthStartInput
           onValueChange={onStartDayChange}
           value={startDay}
         />

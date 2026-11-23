@@ -90,7 +90,7 @@ Every member, including you, now sets up their own account.
 
    ![The onboarding step What’s your tax residency? with an Add a country… field](../images/09-onboarding-tax-residency.png)
 
-2. **When does your month start?** Pick the day your salary usually arrives, for example **Day 28**, or keep **The 1st (calendar month)**. The line under the list shows the dates of the current budget month. Select **Continue**. You can change it later in **Settings** › **Budget**; [How budget months work](../explanation/budget-months.md) explains what it changes.
+2. **When does your month start?** Enter the day your salary usually arrives, from 1 to 28, for example `28`, or keep `1` for calendar months. The line under the field shows the dates of the current budget month. Select **Continue**. You can change it later in **Settings** › **Budget**; [How budget months work](../explanation/budget-months.md) explains what it changes.
 3. **Connect your bank.** Find **Connecteur de test** in the list, or type it in **Search banks…**, then select **Connect** next to it.
 4. The browser opens the Powens connection page, which names your Powens application. Select **Accept**.
 

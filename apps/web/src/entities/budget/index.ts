@@ -12,7 +12,7 @@ export { formatBudgetMonthSpan } from "./model/budget-month-label";
 export { type Transaction, transactionTitle } from "./model/transaction";
 export {
   BudgetMonthExample,
-  BudgetMonthStartSelect,
-} from "./ui/budget-month-start-select";
+  BudgetMonthStartInput,
+} from "./ui/budget-month-start-input";
 export { CATEGORY_MEDIA_BOX } from "./ui/category-media-box";
 export { TransactionAmount } from "./ui/transaction-amount";
