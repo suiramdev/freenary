@@ -1,3 +1,7 @@
+import {
+  budgetMonthOfBankDate,
+  budgetMonthOfDay,
+} from "@freenary/api/lib/budget-month";
 import { useCallback, useMemo } from "react";
 
 import type { PeriodInput } from "../api/budget-queries";
@@ -14,8 +18,25 @@ export interface BudgetPeriodPatch {
 
 const CALENDAR_YEAR_END_MONTH = 11;
 
-const startOfMonth = (date: Date) =>
-  new Date(date.getUTCFullYear(), date.getUTCMonth(), 1);
+const budgetMonthStartOf = (date: Date, startDay: number) => {
+  const { month, year } = budgetMonthOfBankDate(date, startDay);
+
+  return new Date(year, month, 1);
+};
+
+const currentBudgetMonthStart = (startDay: number) => {
+  const today = new Date();
+  const { month, year } = budgetMonthOfDay(
+    {
+      date: today.getDate(),
+      month: today.getMonth(),
+      year: today.getFullYear(),
+    },
+    startDay
+  );
+
+  return new Date(year, month, 1);
+};
 
 export const useBudgetPeriod = ({
   aggregation = BUDGET_SEARCH_DEFAULTS.agg,
@@ -23,6 +44,7 @@ export const useBudgetPeriod = ({
   month,
   onChange,
   range = BUDGET_SEARCH_DEFAULTS.range,
+  startDay,
   year,
 }: {
   aggregation?: AggregationMode;
@@ -30,22 +52,24 @@ export const useBudgetPeriod = ({
   month?: number;
   onChange: (patch: BudgetPeriodPatch) => void;
   range?: TimeRange;
+  startDay: number;
   year?: number;
 }) => {
   const lastDataDate = dateBounds?.last;
   const lastMonth = useMemo(
-    () => (lastDataDate ? startOfMonth(lastDataDate) : undefined),
-    [lastDataDate]
+    () =>
+      lastDataDate ? budgetMonthStartOf(lastDataDate, startDay) : undefined,
+    [lastDataDate, startDay]
   );
 
   const anchor = useMemo(() => {
-    const fallback = lastMonth ?? new Date();
+    const fallback = lastMonth ?? currentBudgetMonthStart(startDay);
 
     return {
       month: month ?? fallback.getMonth(),
       year: year ?? fallback.getFullYear(),
     };
-  }, [lastMonth, month, year]);
+  }, [lastMonth, month, startDay, year]);
 
   const rangePatch = useCallback(
     (next: TimeRange): BudgetPeriodPatch => {
@@ -87,10 +111,11 @@ export const useBudgetPeriod = ({
       ...computeDateRange(
         patch.year ?? anchor.year,
         patch.month ?? anchor.month,
-        patch.range ?? range
+        patch.range ?? range,
+        startDay
       ),
     }),
-    [aggregation, anchor, range]
+    [aggregation, anchor, range, startDay]
   );
 
   const setAggregation = useCallback(
@@ -105,13 +130,16 @@ export const useBudgetPeriod = ({
   );
 
   const { from, to } = useMemo(
-    () => computeDateRange(anchor.year, anchor.month, range),
-    [anchor, range]
+    () => computeDateRange(anchor.year, anchor.month, range, startDay),
+    [anchor, range, startDay]
   );
 
   return {
     aggregation,
-    firstMonth: dateBounds?.first ? startOfMonth(dateBounds.first) : undefined,
+    anchor,
+    firstMonth: dateBounds?.first
+      ? budgetMonthStartOf(dateBounds.first, startDay)
+      : undefined,
     from,
     lastMonth,
     previewMonth: (nextYear: number, nextMonth: number) =>

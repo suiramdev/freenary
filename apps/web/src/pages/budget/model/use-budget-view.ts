@@ -14,11 +14,12 @@ import type { BudgetPeriodPatch } from "./use-budget-period";
 
 interface BudgetViewOptions {
   dateBounds?: { first: Date | null; last: Date | null };
+  startDay: number;
 }
 
 const route = getRouteApi("/_auth/budget/transactions");
 
-export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
+export const useBudgetView = ({ dateBounds, startDay }: BudgetViewOptions) => {
   const search = route.useSearch();
   const navigate = route.useNavigate();
 
@@ -50,6 +51,7 @@ export const useBudgetView = ({ dateBounds }: BudgetViewOptions) => {
     month: search.month,
     onChange: handlePeriodChange,
     range: search.range,
+    startDay,
     year: search.year,
   });
 

@@ -1,3 +1,4 @@
+import { DEFAULT_BUDGET_MONTH_START_DAY } from "@freenary/api/lib/budget-month";
 import { ORPCError } from "@orpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -13,6 +14,7 @@ import {
   loadOnboardingState,
   persistOnboardingState,
 } from "./onboarding-state";
+import { ONBOARDING_STEPS, resumedStep } from "./steps";
 
 type CompletionOutcome = "completed" | "failed" | "needs-bank";
 
@@ -25,10 +27,16 @@ export const useOnboardingWizard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { refetch: refetchSession } = authClient.useSession();
-  const [step, setStep] = useState(() => (loadOnboardingState() ? 1 : 0));
+  const [step, setStep] = useState(() => resumedStep(loadOnboardingState()));
   const [direction, setDirection] = useState<1 | -1>(1);
   const [taxCountries, setTaxCountries] = useState<string[]>(
     () => loadOnboardingState()?.taxCountries ?? []
+  );
+
+  const [budgetMonthStartDay, setBudgetMonthStartDay] = useState<number>(
+    () =>
+      loadOnboardingState()?.budgetMonthStartDay ??
+      DEFAULT_BUDGET_MONTH_START_DAY
   );
 
   const [isCompleting, setIsCompleting] = useState(false);
@@ -40,7 +48,7 @@ export const useOnboardingWizard = () => {
 
     setIsCompleting(true);
     const outcome = await client.onboarding
-      .completeOnboarding({ taxCountries })
+      .completeOnboarding({ budgetMonthStartDay, taxCountries })
       .then((): CompletionOutcome => "completed")
       .catch(outcomeOfFailure);
 
@@ -65,9 +73,13 @@ export const useOnboardingWizard = () => {
     setIsCompleting(false);
   };
 
+  const goTo = (next: number) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  };
+
   const handleBack = () => {
-    setDirection(-1);
-    setStep(0);
+    goTo(Math.max(ONBOARDING_STEPS.country, step - 1));
   };
 
   const handleCountriesChange = (codes: string[]) => {
@@ -79,8 +91,15 @@ export const useOnboardingWizard = () => {
       persistOnboardingState({ taxCountries });
     }
 
-    setDirection(1);
-    setStep(1);
+    goTo(ONBOARDING_STEPS.budgetMonth);
+  };
+
+  const handleBudgetMonthContinue = () => {
+    if (taxCountries.length > 0) {
+      persistOnboardingState({ budgetMonthStartDay, taxCountries });
+    }
+
+    goTo(ONBOARDING_STEPS.bank);
   };
 
   const handleFinish = () => {
@@ -101,8 +120,11 @@ export const useOnboardingWizard = () => {
   };
 
   return {
+    budgetMonthStartDay,
     direction,
     handleBack,
+    handleBudgetMonthChange: setBudgetMonthStartDay,
+    handleBudgetMonthContinue,
     handleCountriesChange,
     handleCountryContinue,
     handleFinish,

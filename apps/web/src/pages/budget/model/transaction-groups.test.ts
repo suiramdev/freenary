@@ -30,11 +30,13 @@ it("counts a bank date of the 1st in its own month west of UTC", () => {
     MARTINIQUE_OFFSET_MINUTES
   );
 
-  const { from, to } = computeDateRange(2026, OCTOBER, "1M");
+  const { from, to } = computeDateRange(2026, OCTOBER, "1M", 1);
   const bankDate = new Date(FIRST_OF_OCTOBER);
 
   expect(bankDate >= from && bankDate <= to).toBe(true);
-  expect(formatPeriodLabel(from, to, "1M", "en")).toBe("October 2026");
+  expect(formatPeriodLabel({ month: OCTOBER, year: 2026 }, "1M", "en")).toBe(
+    "October 2026"
+  );
 });
 
 it("groups a bank date of the 1st under the 1st west of UTC", () => {

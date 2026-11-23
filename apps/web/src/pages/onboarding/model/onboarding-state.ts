@@ -1,9 +1,11 @@
+import { budgetMonthStartDaySchema } from "@freenary/api/lib/budget-month";
 import { Option } from "effect";
 import { z } from "zod";
 
 import { isServer } from "@/shared/lib/is-server";
 
 const onboardingStateSchema = z.object({
+  budgetMonthStartDay: budgetMonthStartDaySchema.optional(),
   taxCountries: z.array(z.string()).min(1),
 });
 

@@ -15,6 +15,7 @@
     "./lib/aggregation": "./src/lib/aggregation.ts",
     "./lib/api-key-refusal": "./src/lib/api-key-refusal.ts",
     "./lib/bank-provider-user": "./src/lib/bank-provider-user.ts",
+    "./lib/budget-month": "./src/lib/budget-month.ts",
     "./lib/budget-profile": "./src/lib/budget-profile.ts",
     "./lib/categories": "./src/lib/categories.ts",
     "./lib/json-request": "./src/lib/json-request.ts",

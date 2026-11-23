@@ -1,3 +1,5 @@
+import { isCalendarBudgetMonth } from "@freenary/api/lib/budget-month";
+import type { BudgetMonth } from "@freenary/api/lib/budget-month";
 import { Button } from "@freenary/ui/components/button";
 import { Calendar } from "@freenary/ui/components/calendar";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
@@ -24,6 +26,7 @@ import {
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
 import { useRef, useState } from "react";
 
+import { formatBudgetMonthSpan } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 
@@ -31,7 +34,6 @@ import { useHoverIntent } from "../lib/use-hover-intent";
 import {
   AGGREGATION_MODES,
   aggregationLabel,
-  computeDateRange,
   formatMonthYear,
   formatPeriodLabel,
   isMultiMonth,
@@ -54,12 +56,15 @@ const PeriodLabelHoldingTheWidestMonthOfTheYear = ({
   range: TimeRange;
 }) => {
   const locale = getLocale();
-  const span = computeDateRange(anchorYear, anchorMonth, range);
 
   return (
     <span className="grid justify-items-center">
       <span className="col-start-1 row-start-1">
-        {formatPeriodLabel(span.from, span.to, range, locale)}
+        {formatPeriodLabel(
+          { month: anchorMonth, year: anchorYear },
+          range,
+          locale
+        )}
       </span>
       {Array.from({ length: MONTHS_IN_A_YEAR }, (_, month) => (
         <span
@@ -178,8 +183,11 @@ const PeriodYearPicker = ({
 
 export const PeriodNavigator = ({
   aggregation,
+  anchor,
+  from,
   to,
   range,
+  startDay,
   firstMonth,
   lastMonth,
   onAggregationChange,
@@ -189,8 +197,11 @@ export const PeriodNavigator = ({
   onMonthIntent,
 }: {
   aggregation: AggregationMode;
+  anchor: BudgetMonth;
+  from: Date;
   to: Date;
   range: TimeRange;
+  startDay: number;
   firstMonth?: Date;
   lastMonth?: Date;
   onAggregationChange: (mode: AggregationMode) => void;
@@ -201,8 +212,8 @@ export const PeriodNavigator = ({
 }) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
 
-  const anchorMonth = to.getUTCMonth();
-  const anchorYear = to.getUTCFullYear();
+  const anchorMonth = anchor.month;
+  const anchorYear = anchor.year;
   const lastDayOfAnchorMonth = new Date(anchorYear, anchorMonth + 1, 0);
   const lastDataDay = lastMonth
     ? new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0)
@@ -291,6 +302,11 @@ export const PeriodNavigator = ({
         >
           <RiArrowRightSLine />
         </Button>
+        {isCalendarBudgetMonth(startDay) ? null : (
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {formatBudgetMonthSpan({ from, to }, getLocale())}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         {isMultiMonth(range) && (

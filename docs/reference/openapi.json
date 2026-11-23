@@ -2893,6 +2893,11 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "budgetMonthStartDay": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 28
+                  },
                   "taxCountries": {
                     "type": "array",
                     "minItems": 1,
@@ -3149,6 +3154,28 @@
         }
       }
     },
+    "/settings/getBudgetMonth": {
+      "post": {
+        "operationId": "settings.getBudgetMonth",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {},
+                    {
+                      "not": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/getBudgetProfile": {
       "post": {
         "operationId": "settings.getBudgetProfile",
@@ -3212,6 +3239,46 @@
                   }
                 },
                 "required": ["direction", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {},
+                    {
+                      "not": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/saveBudgetMonth": {
+      "post": {
+        "operationId": "settings.saveBudgetMonth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startDay": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 28
+                  }
+                },
+                "required": ["startDay"]
               }
             }
           }

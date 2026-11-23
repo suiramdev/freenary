@@ -9,6 +9,10 @@ model User {
   /// A person can be resident in several, and the bank picker lists the
   /// institutions of every one of them.
   taxCountries          String[]
+  /// Day of the month, 1 to 28, on which the user's budget month starts.
+  /// 1 keeps calendar months; a later day follows a payday, so income paid
+  /// on the 28th counts in the month it funds.
+  budgetMonthStartDay   Int                @default(1)
   onboardingCompletedAt DateTime?
   role                  UserRole           @default(MEMBER)
   createdAt             DateTime           @default(now())
