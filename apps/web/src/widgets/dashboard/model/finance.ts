@@ -4,7 +4,10 @@ import {
   budgetMonthsRange,
   shiftBudgetMonth,
 } from "@freenary/api/lib/budget-month";
-import type { BudgetMonth } from "@freenary/api/lib/budget-month";
+import type {
+  BudgetMonth,
+  BudgetMonthRule,
+} from "@freenary/api/lib/budget-month";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 
 import { upcomingPayments } from "@/entities/recurring";
@@ -61,14 +64,14 @@ const UNSORTED: SpendingCategory = "uncategorised";
 
 export const UPCOMING_ROWS_SHOWN = 5;
 
-const budgetMonthOfToday = (today: Date, startDay: number): BudgetMonth =>
+const budgetMonthOfToday = (today: Date, rule: BudgetMonthRule): BudgetMonth =>
   budgetMonthOfDay(
     {
       date: today.getDate(),
       month: today.getMonth(),
       year: today.getFullYear(),
     },
-    startDay
+    rule
   );
 
 const daysIn = ({ from, to }: MonthRange): number =>
@@ -80,12 +83,12 @@ const utcDayOf = (today: Date): number =>
 const localLastDayOf = ({ to }: MonthRange): Date =>
   new Date(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
 
-export const dashboardMonths = (today: Date, startDay: number) => {
-  const current = budgetMonthOfToday(today, startDay);
+export const dashboardMonths = (today: Date, rule: BudgetMonthRule) => {
+  const current = budgetMonthOfToday(today, rule);
 
   return {
-    current: budgetMonthRange(current, startDay),
-    previous: budgetMonthRange(shiftBudgetMonth(current, -1), startDay),
+    current: budgetMonthRange(current, rule),
+    previous: budgetMonthRange(shiftBudgetMonth(current, -1), rule),
   };
 };
 
@@ -121,9 +124,9 @@ export const spendingPace = (
   current: CashFlowPeriod[],
   previous: CashFlowPeriod[],
   today: Date,
-  startDay: number
+  rule: BudgetMonthRule
 ): SpendingPace => {
-  const months = dashboardMonths(today, startDay);
+  const months = dashboardMonths(today, rule);
   const previousDays = daysIn(months.previous);
   const currentTotals = runningTotals(current, months.current);
   const previousTotals = runningTotals(previous, months.previous);
@@ -163,7 +166,7 @@ export const commitmentsDue = (
 export const availableToSpend = (
   recurring: RecurringData,
   today: Date,
-  startDay: number
+  rule: BudgetMonthRule
 ): AvailableToSpend | null => {
   const balanceMinor = recurring.availableBalanceMinor;
 
@@ -171,7 +174,7 @@ export const availableToSpend = (
     return null;
   }
 
-  const monthEnd = localLastDayOf(dashboardMonths(today, startDay).current);
+  const monthEnd = localLastDayOf(dashboardMonths(today, rule).current);
   const bills = commitmentsDue(
     recurring,
     today,
@@ -288,12 +291,12 @@ export const stackedWeeks = (
 export const lastMonths = (
   today: Date,
   months: number,
-  startDay: number
+  rule: BudgetMonthRule
 ): MonthRange =>
-  budgetMonthsRange(budgetMonthOfToday(today, startDay), months, startDay);
+  budgetMonthsRange(budgetMonthOfToday(today, rule), months, rule);
 
-export const daysLeftInMonth = (today: Date, startDay: number): number =>
-  dayDelta(today, localLastDayOf(dashboardMonths(today, startDay).current));
+export const daysLeftInMonth = (today: Date, rule: BudgetMonthRule): number =>
+  dayDelta(today, localLastDayOf(dashboardMonths(today, rule).current));
 
 export interface BudgetLine {
   actual: number;

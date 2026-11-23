@@ -2,6 +2,7 @@ import { budgetMonthRange } from "@freenary/api/lib/budget-month";
 import type {
   BudgetMonth,
   BudgetMonthRange,
+  BudgetMonthRule,
 } from "@freenary/api/lib/budget-month";
 
 const SPAN_FORMAT: Intl.DateTimeFormatOptions = {
@@ -30,10 +31,10 @@ export const formatBudgetMonthSpan = (
 
 export const budgetMonthExample = (
   month: BudgetMonth,
-  startDay: number,
+  rule: BudgetMonthRule,
   locale: string
 ) => {
-  const range = budgetMonthRange(month, startDay);
+  const range = budgetMonthRange(month, rule);
   const format = (date: Date) => date.toLocaleDateString(locale, SPAN_FORMAT);
 
   return {

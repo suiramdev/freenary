@@ -30,7 +30,7 @@ import {
 } from "../model/filter-tokens";
 import type { SortMode, TransactionDirection } from "../model/search";
 import { useBudgetCurrency } from "../model/use-budget-currency";
-import { useBudgetMonthStartDay } from "../model/use-budget-month-start-day";
+import { useBudgetMonthRule } from "../model/use-budget-month-rule";
 import { useBudgetView } from "../model/use-budget-view";
 import { useSyncProgress } from "../model/use-sync-progress";
 import { BudgetCharts } from "./budget-charts";
@@ -53,7 +53,7 @@ const overviewSections = (overview: PeriodOverview | undefined) => ({
 export const TransactionsPage = () => {
   const accountsQuery = useQuery(orpc.budget.getAccounts.queryOptions());
   const currency = useBudgetCurrency();
-  const startDay = useBudgetMonthStartDay();
+  const rule = useBudgetMonthRule();
   const {
     applyPatch,
     companion,
@@ -71,7 +71,7 @@ export const TransactionsPage = () => {
           last: accountsQuery.data.lastTransactionDate,
         }
       : undefined,
-    startDay,
+    rule,
   });
 
   const {
@@ -228,7 +228,7 @@ export const TransactionsPage = () => {
         from={from}
         to={to}
         range={range}
-        startDay={startDay}
+        rule={rule}
         firstMonth={firstMonth}
         lastMonth={lastMonth}
         onAggregationChange={handleAggregationChange}

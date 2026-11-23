@@ -14,8 +14,11 @@ describe("resumedStep", () => {
   });
 
   it("returns to the bank step after a bank redirect", () => {
-    expect(resumedStep({ budgetMonthStartDay: 28, taxCountries: ["FR"] })).toBe(
-      ONBOARDING_STEPS.bank
-    );
+    expect(
+      resumedStep({
+        budgetMonth: { anchor: "LAST_WORKING_DAY", country: "FR", startDay: 1 },
+        taxCountries: ["FR"],
+      })
+    ).toBe(ONBOARDING_STEPS.bank);
   });
 });

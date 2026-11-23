@@ -1,24 +1,25 @@
+import type { BudgetMonthSetting } from "@freenary/api/lib/budget-month";
 import { Button } from "@freenary/ui/components/button";
 import { useIcon } from "@freenary/ui/lib/icon-context";
 import { RiArrowRightLine } from "@remixicon/react";
 
-import { BudgetMonthExample, BudgetMonthStartInput } from "@/entities/budget";
+import { BudgetMonthField } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { remixIcon } from "@/shared/lib/remix-icon";
 import { WizardStepHeader } from "@/shared/ui/wizard";
 
 interface BudgetMonthStepProps {
   onBack: () => void;
+  onChange: (setting: BudgetMonthSetting) => void;
   onContinue: () => void;
-  onStartDayChange: (startDay: number) => void;
-  startDay: number;
+  value: BudgetMonthSetting;
 }
 
 export const BudgetMonthStep = ({
   onBack,
+  onChange,
   onContinue,
-  onStartDayChange,
-  startDay,
+  value,
 }: BudgetMonthStepProps) => {
   const ArrowLeftIcon = useIcon("arrow-left");
 
@@ -28,13 +29,7 @@ export const BudgetMonthStep = ({
         description={m.onboarding_budget_month_description()}
         title={m.onboarding_budget_month_title()}
       />
-      <div className="flex flex-col gap-2">
-        <BudgetMonthStartInput
-          onValueChange={onStartDayChange}
-          value={startDay}
-        />
-        <BudgetMonthExample startDay={startDay} />
-      </div>
+      <BudgetMonthField onChange={onChange} value={value} />
       <div className="flex items-center justify-between gap-3">
         <Button
           leadingIcon={ArrowLeftIcon}

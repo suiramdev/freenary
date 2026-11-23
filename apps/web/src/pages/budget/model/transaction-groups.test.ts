@@ -1,5 +1,7 @@
 import { afterAll, afterEach, expect, it, setSystemTime } from "bun:test";
 
+import { CALENDAR_BUDGET_MONTH } from "@freenary/api/lib/budget-month";
+
 import { m } from "@/paraglide/messages.js";
 
 import { computeDateRange, formatPeriodLabel } from "./period";
@@ -30,7 +32,13 @@ it("counts a bank date of the 1st in its own month west of UTC", () => {
     MARTINIQUE_OFFSET_MINUTES
   );
 
-  const { from, to } = computeDateRange(2026, OCTOBER, "1M", 1);
+  const { from, to } = computeDateRange(
+    2026,
+    OCTOBER,
+    "1M",
+    CALENDAR_BUDGET_MONTH
+  );
+
   const bankDate = new Date(FIRST_OF_OCTOBER);
 
   expect(bankDate >= from && bankDate <= to).toBe(true);

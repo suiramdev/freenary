@@ -1,5 +1,8 @@
 import { isCalendarBudgetMonth } from "@freenary/api/lib/budget-month";
-import type { BudgetMonth } from "@freenary/api/lib/budget-month";
+import type {
+  BudgetMonth,
+  BudgetMonthRule,
+} from "@freenary/api/lib/budget-month";
 import { Button } from "@freenary/ui/components/button";
 import { Calendar } from "@freenary/ui/components/calendar";
 import { FluidHoverHighlight } from "@freenary/ui/components/fluid-hover-highlight";
@@ -187,7 +190,7 @@ export const PeriodNavigator = ({
   from,
   to,
   range,
-  startDay,
+  rule,
   firstMonth,
   lastMonth,
   onAggregationChange,
@@ -201,7 +204,7 @@ export const PeriodNavigator = ({
   from: Date;
   to: Date;
   range: TimeRange;
-  startDay: number;
+  rule: BudgetMonthRule;
   firstMonth?: Date;
   lastMonth?: Date;
   onAggregationChange: (mode: AggregationMode) => void;
@@ -302,7 +305,7 @@ export const PeriodNavigator = ({
         >
           <RiArrowRightSLine />
         </Button>
-        {isCalendarBudgetMonth(startDay) ? null : (
+        {isCalendarBudgetMonth(rule) ? null : (
           <span className="text-muted-foreground text-xs tabular-nums">
             {formatBudgetMonthSpan({ from, to }, getLocale())}
           </span>

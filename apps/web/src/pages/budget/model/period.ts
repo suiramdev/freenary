@@ -3,7 +3,10 @@ import {
   budgetMonthsRange,
   shiftBudgetMonth,
 } from "@freenary/api/lib/budget-month";
-import type { BudgetMonth } from "@freenary/api/lib/budget-month";
+import type {
+  BudgetMonth,
+  BudgetMonthRule,
+} from "@freenary/api/lib/budget-month";
 
 import { m } from "@/paraglide/messages.js";
 import type { Locale } from "@/paraglide/runtime.js";
@@ -84,5 +87,5 @@ export const computeDateRange = (
   year: number,
   month: number,
   range: TimeRange,
-  startDay: number
-) => budgetMonthsRange({ month, year }, rangeMonths(range), startDay);
+  rule: BudgetMonthRule
+) => budgetMonthsRange({ month, year }, rangeMonths(range), rule);

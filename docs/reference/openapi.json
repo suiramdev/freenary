@@ -2893,10 +2893,35 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "budgetMonthStartDay": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 28
+                  "budgetMonth": {
+                    "type": "object",
+                    "properties": {
+                      "anchor": {
+                        "enum": [
+                          "DAY_OF_MONTH",
+                          "LAST_DAY",
+                          "LAST_WORKING_DAY"
+                        ],
+                        "type": "string"
+                      },
+                      "country": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "startDay": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 28
+                      }
+                    },
+                    "required": ["anchor", "country", "startDay"]
                   },
                   "taxCountries": {
                     "type": "array",
@@ -3272,13 +3297,28 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "anchor": {
+                    "enum": ["DAY_OF_MONTH", "LAST_DAY", "LAST_WORKING_DAY"],
+                    "type": "string"
+                  },
+                  "country": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "startDay": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 28
                   }
                 },
-                "required": ["startDay"]
+                "required": ["anchor", "country", "startDay"]
               }
             }
           }

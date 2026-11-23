@@ -26,7 +26,7 @@ const OnboardingContent = () => {
     <OnboardingWizard
       bankLinking={bankLinking}
       banks={banksQuery.data?.banks ?? []}
-      budgetMonthStartDay={wizard.budgetMonthStartDay}
+      budgetMonth={wizard.budgetMonth}
       connectedCount={connectionsQuery.data?.connections.length ?? 0}
       direction={wizard.direction}
       isBanksError={banksQuery.isError}

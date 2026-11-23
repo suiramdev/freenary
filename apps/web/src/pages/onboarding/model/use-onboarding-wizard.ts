@@ -1,4 +1,8 @@
-import { DEFAULT_BUDGET_MONTH_START_DAY } from "@freenary/api/lib/budget-month";
+import {
+  DEFAULT_BUDGET_MONTH_ANCHOR,
+  DEFAULT_BUDGET_MONTH_START_DAY,
+} from "@freenary/api/lib/budget-month";
+import type { BudgetMonthSetting } from "@freenary/api/lib/budget-month";
 import { ORPCError } from "@orpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -33,10 +37,13 @@ export const useOnboardingWizard = () => {
     () => loadOnboardingState()?.taxCountries ?? []
   );
 
-  const [budgetMonthStartDay, setBudgetMonthStartDay] = useState<number>(
+  const [budgetMonth, setBudgetMonth] = useState<BudgetMonthSetting>(
     () =>
-      loadOnboardingState()?.budgetMonthStartDay ??
-      DEFAULT_BUDGET_MONTH_START_DAY
+      loadOnboardingState()?.budgetMonth ?? {
+        anchor: DEFAULT_BUDGET_MONTH_ANCHOR,
+        country: loadOnboardingState()?.taxCountries[0] ?? null,
+        startDay: DEFAULT_BUDGET_MONTH_START_DAY,
+      }
   );
 
   const [isCompleting, setIsCompleting] = useState(false);
@@ -48,7 +55,7 @@ export const useOnboardingWizard = () => {
 
     setIsCompleting(true);
     const outcome = await client.onboarding
-      .completeOnboarding({ budgetMonthStartDay, taxCountries })
+      .completeOnboarding({ budgetMonth, taxCountries })
       .then((): CompletionOutcome => "completed")
       .catch(outcomeOfFailure);
 
@@ -91,12 +98,19 @@ export const useOnboardingWizard = () => {
       persistOnboardingState({ taxCountries });
     }
 
+    if (
+      budgetMonth.country === null ||
+      !taxCountries.includes(budgetMonth.country)
+    ) {
+      setBudgetMonth({ ...budgetMonth, country: taxCountries[0] ?? null });
+    }
+
     goTo(ONBOARDING_STEPS.budgetMonth);
   };
 
   const handleBudgetMonthContinue = () => {
     if (taxCountries.length > 0) {
-      persistOnboardingState({ budgetMonthStartDay, taxCountries });
+      persistOnboardingState({ budgetMonth, taxCountries });
     }
 
     goTo(ONBOARDING_STEPS.bank);
@@ -120,10 +134,10 @@ export const useOnboardingWizard = () => {
   };
 
   return {
-    budgetMonthStartDay,
+    budgetMonth,
     direction,
     handleBack,
-    handleBudgetMonthChange: setBudgetMonthStartDay,
+    handleBudgetMonthChange: setBudgetMonth,
     handleBudgetMonthContinue,
     handleCountriesChange,
     handleCountryContinue,

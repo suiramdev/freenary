@@ -141,12 +141,12 @@ const StatCard = ({ errorMessage, label, query }: StatCardProps) => {
 };
 
 const SpentStat = ({ label, today }: { label: string; today: Date }) => {
-  const { current, previous, startDay } = useMonthCashFlows(today);
+  const { current, previous, rule } = useMonthCashFlows(today);
 
   const query = mapQuery(
     bothQueries(current, previous),
     ([now, before]): StatValue => {
-      const pace = spendingPace(now.periods, before.periods, today, startDay);
+      const pace = spendingPace(now.periods, before.periods, today, rule);
       const difference = pace.currentToDateMinor - pace.previousToDateMinor;
       const amount = formatCurrency(Math.abs(difference), now.currency);
       const caption =
@@ -231,10 +231,10 @@ const SavedStat = ({ label, today }: { label: string; today: Date }) => {
 };
 
 const AvailableStat = ({ label, today }: { label: string; today: Date }) => {
-  const { isKnown, startDay } = useBudgetMonth();
+  const { isKnown, rule } = useBudgetMonth();
   const recurringQuery = untilBudgetMonthKnown(useRecurring(), isKnown);
   const query = mapQuery(recurringQuery, (recurring): StatValue | null => {
-    const available = availableToSpend(recurring, today, startDay);
+    const available = availableToSpend(recurring, today, rule);
 
     if (available === null) {
       return null;

@@ -11,7 +11,7 @@ export const resumedStep = (state: OnboardingState | null): number => {
     return ONBOARDING_STEPS.country;
   }
 
-  return state.budgetMonthStartDay === undefined
+  return state.budgetMonth === undefined
     ? ONBOARDING_STEPS.budgetMonth
     : ONBOARDING_STEPS.bank;
 };

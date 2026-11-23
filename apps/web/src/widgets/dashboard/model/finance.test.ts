@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { BudgetMonthRule } from "@freenary/api/lib/budget-month";
+
 import type { RecurringData, RecurringItem } from "@/entities/recurring";
 
 import {
@@ -13,9 +15,9 @@ import {
   unsortedSpendMinor,
 } from "./finance";
 
-const CALENDAR_MONTH = 1;
+const CALENDAR_MONTH: BudgetMonthRule = { anchor: "DAY_OF_MONTH", startDay: 1 };
 
-const PAYDAY = 28;
+const PAYDAY: BudgetMonthRule = { anchor: "DAY_OF_MONTH", startDay: 28 };
 
 const item = (overrides: Partial<RecurringItem> = {}): RecurringItem => ({
   amountSpread: 0,
@@ -292,5 +294,17 @@ describe("daysLeftInMonth", () => {
   it("counts until the day before the next payday", () => {
     expect(daysLeftInMonth(new Date(2026, 10, 28), PAYDAY)).toBe(29);
     expect(daysLeftInMonth(new Date(2026, 10, 27), PAYDAY)).toBe(0);
+  });
+});
+
+describe("dashboardMonths on the last working day", () => {
+  it("starts the month on the Friday before a month-end weekend", () => {
+    const { current } = dashboardMonths(new Date(2026, 4, 29), {
+      anchor: "LAST_WORKING_DAY",
+      country: "FR",
+    });
+
+    expect(current.from.toISOString()).toBe("2026-05-29T00:00:00.000Z");
+    expect(current.to.toISOString()).toBe("2026-06-29T23:59:59.999Z");
   });
 });

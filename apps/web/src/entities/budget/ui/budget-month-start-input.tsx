@@ -1,9 +1,11 @@
 import {
   budgetMonthOfDay,
+  budgetMonthRuleOf,
   budgetMonthStartDaySchema,
   DEFAULT_BUDGET_MONTH_START_DAY,
   MAX_BUDGET_MONTH_START_DAY,
 } from "@freenary/api/lib/budget-month";
+import type { BudgetMonthSetting } from "@freenary/api/lib/budget-month";
 import {
   InputGroup,
   InputGroupAddon,
@@ -86,21 +88,26 @@ export const BudgetMonthStartInput = ({
   );
 };
 
-export const BudgetMonthExample = ({ startDay }: { startDay: number }) => {
+export const BudgetMonthExample = ({
+  setting,
+}: {
+  setting: BudgetMonthSetting;
+}) => {
   const today = new Date();
+  const rule = budgetMonthRuleOf(setting);
   const month = budgetMonthOfDay(
     {
       date: today.getDate(),
       month: today.getMonth(),
       year: today.getFullYear(),
     },
-    startDay
+    rule
   );
 
   return (
     <p className="text-muted-foreground text-xs">
       {m.budget_month_start_example(
-        budgetMonthExample(month, startDay, getLocale())
+        budgetMonthExample(month, rule, getLocale())
       )}
     </p>
   );

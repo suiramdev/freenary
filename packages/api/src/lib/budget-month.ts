@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { lastWorkingDayOfMonth } from "./public-holidays";
+
 export interface BudgetMonth {
   month: number;
   year: number;
@@ -10,9 +12,33 @@ export interface BudgetMonthRange {
   to: Date;
 }
 
+export const BUDGET_MONTH_ANCHORS = [
+  "DAY_OF_MONTH",
+  "LAST_DAY",
+  "LAST_WORKING_DAY",
+] as const;
+
+export type BudgetMonthAnchor = (typeof BUDGET_MONTH_ANCHORS)[number];
+
+export type BudgetMonthRule =
+  | { anchor: "DAY_OF_MONTH"; startDay: number }
+  | { anchor: "LAST_DAY" }
+  | { anchor: "LAST_WORKING_DAY"; country: string | null };
+
+export interface BudgetMonthSetting {
+  anchor: BudgetMonthAnchor;
+  country: string | null;
+  startDay: number;
+}
+
 export const DEFAULT_BUDGET_MONTH_START_DAY = 1;
 
 export const MAX_BUDGET_MONTH_START_DAY = 28;
+
+export const CALENDAR_BUDGET_MONTH: BudgetMonthRule = {
+  anchor: "DAY_OF_MONTH",
+  startDay: DEFAULT_BUDGET_MONTH_START_DAY,
+};
 
 export const budgetMonthStartDaySchema = z
   .number()
@@ -20,12 +46,25 @@ export const budgetMonthStartDaySchema = z
   .min(DEFAULT_BUDGET_MONTH_START_DAY)
   .max(MAX_BUDGET_MONTH_START_DAY);
 
+export const budgetMonthAnchorSchema = z.enum(BUDGET_MONTH_ANCHORS);
+
+export const DEFAULT_BUDGET_MONTH_ANCHOR: BudgetMonthAnchor =
+  "LAST_WORKING_DAY";
+
+export const holidayCountrySchema = z
+  .string()
+  .regex(/^[A-Z]{2}$/u)
+  .nullable();
+
+export const budgetMonthSettingInput = z.object({
+  anchor: budgetMonthAnchorSchema,
+  country: holidayCountrySchema,
+  startDay: budgetMonthStartDaySchema,
+});
+
 const LAST_START_DAY_INSIDE_ITS_MONTH = 15;
 
 const MONTHS_IN_A_YEAR = 12;
-
-const startsInThePreviousMonth = (startDay: number): boolean =>
-  startDay > LAST_START_DAY_INSIDE_ITS_MONTH;
 
 const normalised = (year: number, month: number): BudgetMonth => {
   const absolute = year * MONTHS_IN_A_YEAR + month;
@@ -37,47 +76,86 @@ const normalised = (year: number, month: number): BudgetMonth => {
   };
 };
 
+export const budgetMonthRuleOf = ({
+  anchor,
+  country,
+  startDay,
+}: BudgetMonthSetting): BudgetMonthRule => {
+  if (anchor === "LAST_DAY") {
+    return { anchor };
+  }
+
+  if (anchor === "LAST_WORKING_DAY") {
+    return { anchor, country };
+  }
+
+  return { anchor, startDay };
+};
+
 export const shiftBudgetMonth = (
   { month, year }: BudgetMonth,
   months: number
 ): BudgetMonth => normalised(year, month + months);
 
-export const budgetMonthRange = (
+export const budgetMonthStart = (
   { month, year }: BudgetMonth,
-  startDay: number
-): BudgetMonthRange => {
-  const startMonth = startsInThePreviousMonth(startDay) ? month - 1 : month;
+  rule: BudgetMonthRule
+): Date => {
+  if (rule.anchor === "LAST_DAY") {
+    return new Date(Date.UTC(year, month, 0));
+  }
 
-  return {
-    from: new Date(Date.UTC(year, startMonth, startDay)),
-    to: new Date(Date.UTC(year, startMonth + 1, startDay) - 1),
-  };
+  if (rule.anchor === "LAST_WORKING_DAY") {
+    const previous = normalised(year, month - 1);
+
+    return lastWorkingDayOfMonth(previous.year, previous.month, rule.country);
+  }
+
+  const startMonth =
+    rule.startDay > LAST_START_DAY_INSIDE_ITS_MONTH ? month - 1 : month;
+
+  return new Date(Date.UTC(year, startMonth, rule.startDay));
 };
+
+export const budgetMonthRange = (
+  month: BudgetMonth,
+  rule: BudgetMonthRule
+): BudgetMonthRange => ({
+  from: budgetMonthStart(month, rule),
+  to: new Date(
+    budgetMonthStart(shiftBudgetMonth(month, 1), rule).getTime() - 1
+  ),
+});
 
 export const budgetMonthsRange = (
   last: BudgetMonth,
   count: number,
-  startDay: number
+  rule: BudgetMonthRule
 ): BudgetMonthRange => ({
-  from: budgetMonthRange(shiftBudgetMonth(last, 1 - count), startDay).from,
-  to: budgetMonthRange(last, startDay).to,
+  from: budgetMonthRange(shiftBudgetMonth(last, 1 - count), rule).from,
+  to: budgetMonthRange(last, rule).to,
 });
 
 export const budgetMonthOfDay = (
   day: { date: number; month: number; year: number },
-  startDay: number
+  rule: BudgetMonthRule
 ): BudgetMonth => {
-  const startedIn = day.date >= startDay ? day.month : day.month - 1;
+  const instant = Date.UTC(day.year, day.month, day.date);
+  const calendar = normalised(day.year, day.month);
+  const next = shiftBudgetMonth(calendar, 1);
 
-  return normalised(
-    day.year,
-    startsInThePreviousMonth(startDay) ? startedIn + 1 : startedIn
-  );
+  if (instant >= budgetMonthStart(next, rule).getTime()) {
+    return next;
+  }
+
+  return instant >= budgetMonthStart(calendar, rule).getTime()
+    ? calendar
+    : shiftBudgetMonth(calendar, -1);
 };
 
 export const budgetMonthOfBankDate = (
   date: Date,
-  startDay: number
+  rule: BudgetMonthRule
 ): BudgetMonth =>
   budgetMonthOfDay(
     {
@@ -85,7 +163,7 @@ export const budgetMonthOfBankDate = (
       month: date.getUTCMonth(),
       year: date.getUTCFullYear(),
     },
-    startDay
+    rule
   );
 
 export const budgetMonthKey = ({ month, year }: BudgetMonth): string =>
@@ -94,11 +172,11 @@ export const budgetMonthKey = ({ month, year }: BudgetMonth): string =>
 export const budgetMonthKeysBetween = (
   from: Date,
   to: Date,
-  startDay: number
+  rule: BudgetMonthRule
 ): string[] => {
   const keys: string[] = [];
-  const last = budgetMonthOfBankDate(to, startDay);
-  let cursor = budgetMonthOfBankDate(from, startDay);
+  const last = budgetMonthOfBankDate(to, rule);
+  let cursor = budgetMonthOfBankDate(from, rule);
 
   while (
     cursor.year < last.year ||
@@ -111,12 +189,6 @@ export const budgetMonthKeysBetween = (
   return keys;
 };
 
-export const isCalendarBudgetMonth = (startDay: number): boolean =>
-  startDay === DEFAULT_BUDGET_MONTH_START_DAY;
-
-export const budgetMonthBucketShift = (
-  startDay: number
-): { days: number; months: number } => ({
-  days: startDay - 1,
-  months: startsInThePreviousMonth(startDay) ? 1 : 0,
-});
+export const isCalendarBudgetMonth = (rule: BudgetMonthRule): boolean =>
+  rule.anchor === "DAY_OF_MONTH" &&
+  rule.startDay === DEFAULT_BUDGET_MONTH_START_DAY;

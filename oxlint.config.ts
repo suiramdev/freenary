@@ -57,6 +57,7 @@ export default defineConfig({
                   "!@freenary/api/lib/budget-profile",
                   "!@freenary/api/lib/categories",
                   "!@freenary/api/lib/money",
+                  "!@freenary/api/lib/public-holidays",
                   "!@freenary/api/lib/taxonomy",
                   "!@freenary/api/lib/transaction-filters",
                 ],

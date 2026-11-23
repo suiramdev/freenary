@@ -1,12 +1,29 @@
 import prisma from "@freenary/db";
 
-export const userBudgetMonthStartDay = async (
+import { budgetMonthRuleOf } from "./budget-month";
+import type { BudgetMonthRule, BudgetMonthSetting } from "./budget-month";
+
+export const userBudgetMonthSetting = async (
   userId: string
-): Promise<number> => {
+): Promise<BudgetMonthSetting> => {
   const user = await prisma.user.findUniqueOrThrow({
-    select: { budgetMonthStartDay: true },
+    select: {
+      budgetMonthAnchor: true,
+      budgetMonthHolidayCountry: true,
+      budgetMonthStartDay: true,
+      taxCountries: true,
+    },
     where: { id: userId },
   });
 
-  return user.budgetMonthStartDay;
+  return {
+    anchor: user.budgetMonthAnchor,
+    country: user.budgetMonthHolidayCountry ?? user.taxCountries[0] ?? null,
+    startDay: user.budgetMonthStartDay,
+  };
 };
+
+export const userBudgetMonthRule = async (
+  userId: string
+): Promise<BudgetMonthRule> =>
+  budgetMonthRuleOf(await userBudgetMonthSetting(userId));

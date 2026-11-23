@@ -45,11 +45,11 @@ import {
   syncConnection,
 } from "../lib/bank-sync";
 import {
-  budgetMonthBucketShift,
   budgetMonthKey,
   budgetMonthKeysBetween,
   budgetMonthOfBankDate,
 } from "../lib/budget-month";
+import type { BudgetMonthRule } from "../lib/budget-month";
 import type { PlannedLine } from "../lib/budget-planned";
 import {
   monthSpan,
@@ -82,7 +82,7 @@ import {
   transactionFiltersSchema,
 } from "../lib/transaction-filters";
 import { transactionPage } from "../lib/transaction-page";
-import { userBudgetMonthStartDay } from "../lib/user-budget-month";
+import { userBudgetMonthRule } from "../lib/user-budget-month";
 import { userCurrency } from "../lib/user-currency";
 import { spendingWeeksStart, weeklySpending } from "../lib/weekly-spending";
 import {
@@ -142,28 +142,43 @@ const WEEKLY_GRAIN_MAX_DAYS = 93;
 
 type CashFlowGrainName = "day" | "month" | "week";
 
-const budgetMonthTruncExpr = (startDay: number): string => {
-  const shift = budgetMonthBucketShift(startDay);
-
-  return `(date_trunc('month', t."date" - make_interval(days => ${shift.days})) + make_interval(months => ${shift.months}))`;
-};
-
-const cashFlowGrains = (
-  startDay: number
-): Record<CashFlowGrainName, CashFlowGrain> => ({
+const CASH_FLOW_GRAINS = {
   day: {
     labelExpr: `to_char(t."date", 'YYYY-MM-DD')`,
     truncExpr: `date_trunc('day', t."date")`,
-  },
-  month: {
-    labelExpr: `to_char(${budgetMonthTruncExpr(startDay)}, 'YYYY-MM')`,
-    truncExpr: budgetMonthTruncExpr(startDay),
   },
   week: {
     labelExpr: `to_char(date_trunc('week', t."date"), 'YYYY-MM-DD')`,
     truncExpr: `date_trunc('week', t."date")`,
   },
-});
+} as const satisfies Record<Exclude<CashFlowGrainName, "month">, CashFlowGrain>;
+
+interface CashFlowRow {
+  incoming: number;
+  label: string;
+  outgoing: number;
+}
+
+const foldIntoBudgetMonths = (
+  days: CashFlowRow[],
+  rule: BudgetMonthRule
+): CashFlowRow[] => {
+  const months = new Map<string, CashFlowRow>();
+
+  for (const day of days) {
+    const label = budgetMonthKey(
+      budgetMonthOfBankDate(new Date(`${day.label}T00:00:00.000Z`), rule)
+    );
+
+    const month = months.get(label) ?? { incoming: 0, label, outgoing: 0 };
+
+    month.incoming += day.incoming;
+    month.outgoing += day.outgoing;
+    months.set(label, month);
+  }
+
+  return [...months.values()];
+};
 
 const AMOUNT_SIGN_PREDICATE = {
   incoming: 'AND t."amount" > 0',
@@ -210,12 +225,12 @@ const periodInput = z.object({
 interface BucketedPeriod {
   aggregation: AggregationMode;
   from: Date;
-  startDay: number;
+  rule: BudgetMonthRule;
   to: Date;
 }
 
-const budgetMonthBucketKey = (date: Date, startDay: number) =>
-  budgetMonthKey(budgetMonthOfBankDate(date, startDay));
+const budgetMonthBucketKey = (date: Date, rule: BudgetMonthRule) =>
+  budgetMonthKey(budgetMonthOfBankDate(date, rule));
 
 const median = (values: number[]): number => {
   const sorted = values.toSorted((a, b) => a - b);
@@ -259,7 +274,7 @@ const aggregateMonthly = <K>(
 const aggregateOutgoing = <T extends { amount: number; date: Date }, K>(
   transactions: T[],
   keyOf: (tx: T) => K,
-  { aggregation, from, startDay, to }: BucketedPeriod
+  { aggregation, from, rule, to }: BucketedPeriod
 ): Map<K, number> => {
   if (aggregation === "total") {
     const totals = new Map<K, number>();
@@ -277,7 +292,7 @@ const aggregateOutgoing = <T extends { amount: number; date: Date }, K>(
 
   for (const tx of transactions) {
     const key = keyOf(tx);
-    const month = budgetMonthBucketKey(tx.date, startDay);
+    const month = budgetMonthBucketKey(tx.date, rule);
     monthsWithTransactions.add(month);
     let series = monthly.get(key);
 
@@ -289,8 +304,8 @@ const aggregateOutgoing = <T extends { amount: number; date: Date }, K>(
     series.set(month, (series.get(month) ?? 0) + Math.abs(tx.amount));
   }
 
-  const activeMonths = budgetMonthKeysBetween(from, to, startDay).filter(
-    (month) => monthsWithTransactions.has(month)
+  const activeMonths = budgetMonthKeysBetween(from, to, rule).filter((month) =>
+    monthsWithTransactions.has(month)
   );
 
   return aggregateMonthly(monthly, activeMonths, aggregation);
@@ -356,14 +371,14 @@ const recurringShareByCategory = (
 
 const userOutgoingByCategory = async (
   userId: string,
-  period: Omit<BucketedPeriod, "startDay">
+  period: Omit<BucketedPeriod, "rule">
 ): Promise<Map<SpendingCategory, number>> => {
-  const [rows, startDay] = await Promise.all([
+  const [rows, rule] = await Promise.all([
     outgoingRows(userId, period.from, period.to),
-    userBudgetMonthStartDay(userId),
+    userBudgetMonthRule(userId),
   ]);
 
-  return outgoingByCategory(rows, { ...period, startDay });
+  return outgoingByCategory(rows, { ...period, rule });
 };
 
 const directionTotals = async (where: Prisma.TransactionWhereInput) => {
@@ -900,7 +915,7 @@ export const startAccountSync = async (
 
 const sankeyOf = (
   transactions: PeriodRow[],
-  { aggregation, from, startDay, to }: BucketedPeriod
+  { aggregation, from, rule, to }: BucketedPeriod
 ) => {
   let incomeSources: Map<string | null, number>;
   let expenseCategories: Map<SpendingCategory, number>;
@@ -928,7 +943,7 @@ const sankeyOf = (
     const monthlyExpense = new Map<SpendingCategory, Map<string, number>>();
 
     for (const tx of transactions) {
-      const month = budgetMonthBucketKey(tx.date, startDay);
+      const month = budgetMonthBucketKey(tx.date, rule);
       monthsWithTransactions.add(month);
 
       if (tx.amount > 0) {
@@ -955,7 +970,7 @@ const sankeyOf = (
       }
     }
 
-    const activeMonths = budgetMonthKeysBetween(from, to, startDay).filter(
+    const activeMonths = budgetMonthKeysBetween(from, to, rule).filter(
       (month) => monthsWithTransactions.has(month)
     );
 
@@ -1095,25 +1110,31 @@ export const budgetRouter = {
         (to.getTime() - from.getTime()) / MILLISECONDS_PER_DAY
       );
 
-      const startDay = await userBudgetMonthStartDay(userId);
+      const resolvedGrain = grain ?? cashFlowGrainFor(spanDays);
       const sql = cashFlowQuery(
-        cashFlowGrains(startDay)[grain ?? cashFlowGrainFor(spanDays)]
+        CASH_FLOW_GRAINS[resolvedGrain === "month" ? "day" : resolvedGrain]
       );
 
-      const [periods, currency] = await Promise.all([
+      const [rows, currency, rule] = await Promise.all([
         prisma.$queryRawUnsafe<
           { incoming: bigint; label: string; outgoing: bigint }[]
         >(sql, userId, from, to),
         userCurrency(userId),
+        userBudgetMonthRule(userId),
       ]);
+
+      const periods = rows.map((row) => ({
+        incoming: Number(row.incoming),
+        label: row.label,
+        outgoing: Number(row.outgoing),
+      }));
 
       return {
         currency,
-        periods: periods.map((p) => ({
-          incoming: Number(p.incoming),
-          label: p.label,
-          outgoing: Number(p.outgoing),
-        })),
+        periods:
+          resolvedGrain === "month"
+            ? foldIntoBudgetMonths(periods, rule)
+            : periods,
       };
     }),
 
@@ -1123,17 +1144,17 @@ export const budgetRouter = {
       const userId = context.session.user.id;
       const { aggregation, from, to } = input;
 
-      const [rows, recurring, currency, startDay] = await Promise.all([
+      const [rows, recurring, currency, rule] = await Promise.all([
         outgoingRows(userId, from, to),
         detectRecurringExpenses(userId, cadenceWindow(from, to)),
         userCurrency(userId),
-        userBudgetMonthStartDay(userId),
+        userBudgetMonthRule(userId),
       ]);
 
       return {
         ...fixedVsVariableOf(
           rows,
-          outgoingByCategory(rows, { aggregation, from, startDay, to }),
+          outgoingByCategory(rows, { aggregation, from, rule, to }),
           recurring
         ),
         currency,
@@ -1196,15 +1217,15 @@ export const budgetRouter = {
       const userId = context.session.user.id;
       const { aggregation, from, to } = input;
 
-      const [rows, lines, recurring, currency, startDay] = await Promise.all([
+      const [rows, lines, recurring, currency, rule] = await Promise.all([
         periodRows(userId, from, to),
         budgetLinesOf(userId),
         detectRecurringExpenses(userId, cadenceWindow(from, to)),
         userCurrency(userId),
-        userBudgetMonthStartDay(userId),
+        userBudgetMonthRule(userId),
       ]);
 
-      const period = { aggregation, from, startDay, to };
+      const period = { aggregation, from, rule, to };
       const outgoing = rows.filter((row) => row.amount < 0);
       const byCategory = outgoingByCategory(outgoing, period);
 
@@ -1325,13 +1346,13 @@ export const budgetRouter = {
     .input(periodInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-      const [rows, currency, startDay] = await Promise.all([
+      const [rows, currency, rule] = await Promise.all([
         periodRows(userId, input.from, input.to),
         userCurrency(userId),
-        userBudgetMonthStartDay(userId),
+        userBudgetMonthRule(userId),
       ]);
 
-      return { ...sankeyOf(rows, { ...input, startDay }), currency };
+      return { ...sankeyOf(rows, { ...input, rule }), currency };
     }),
 
   getSpendingBreakdown: protectedProcedure

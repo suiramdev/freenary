@@ -1,4 +1,8 @@
-import { DEFAULT_BUDGET_MONTH_START_DAY } from "@freenary/api/lib/budget-month";
+import {
+  budgetMonthRuleOf,
+  CALENDAR_BUDGET_MONTH,
+} from "@freenary/api/lib/budget-month";
+import type { BudgetMonthRule } from "@freenary/api/lib/budget-month";
 import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/api";
@@ -6,12 +10,12 @@ import { orpc } from "@/shared/api";
 export const budgetMonthQueryOptions = () =>
   orpc.settings.getBudgetMonth.queryOptions();
 
-export const useBudgetMonthStartDay = (): number | undefined => {
+export const useBudgetMonthRule = (): BudgetMonthRule | undefined => {
   const query = useQuery(budgetMonthQueryOptions());
 
   if (query.data) {
-    return query.data.startDay;
+    return budgetMonthRuleOf(query.data);
   }
 
-  return query.isError ? DEFAULT_BUDGET_MONTH_START_DAY : undefined;
+  return query.isError ? CALENDAR_BUDGET_MONTH : undefined;
 };

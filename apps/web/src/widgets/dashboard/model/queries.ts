@@ -1,12 +1,9 @@
-import { DEFAULT_BUDGET_MONTH_START_DAY } from "@freenary/api/lib/budget-month";
+import { CALENDAR_BUDGET_MONTH } from "@freenary/api/lib/budget-month";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 import type { TransactionFilter } from "@freenary/api/lib/transaction-filters";
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  TRANSACTIONS_QUERY_KEY,
-  useBudgetMonthStartDay,
-} from "@/entities/budget";
+import { TRANSACTIONS_QUERY_KEY, useBudgetMonthRule } from "@/entities/budget";
 import { client, orpc } from "@/shared/api";
 
 import { dashboardMonths, lastMonths } from "./finance";
@@ -27,11 +24,11 @@ export const endOfDay = (today: Date): Date =>
   );
 
 export const useBudgetMonth = () => {
-  const startDay = useBudgetMonthStartDay();
+  const rule = useBudgetMonthRule();
 
   return {
-    isKnown: startDay !== undefined,
-    startDay: startDay ?? DEFAULT_BUDGET_MONTH_START_DAY,
+    isKnown: rule !== undefined,
+    rule: rule ?? CALENDAR_BUDGET_MONTH,
   };
 };
 
@@ -48,8 +45,8 @@ export const useRecurring = () =>
   widgetQuery(useQuery(orpc.budget.getRecurring.queryOptions()));
 
 export const useMonthCashFlows = (today: Date) => {
-  const { isKnown, startDay } = useBudgetMonth();
-  const { current, previous } = dashboardMonths(today, startDay);
+  const { isKnown, rule } = useBudgetMonth();
+  const { current, previous } = dashboardMonths(today, rule);
 
   return {
     current: widgetQuery(
@@ -68,32 +65,32 @@ export const useMonthCashFlows = (today: Date) => {
         })
       )
     ),
-    startDay,
+    rule,
   };
 };
 
 export const useMonthlyCashFlow = (today: Date, months: number) => {
-  const { isKnown, startDay } = useBudgetMonth();
+  const { isKnown, rule } = useBudgetMonth();
 
   return widgetQuery(
     useQuery(
       orpc.budget.getCashFlow.queryOptions({
         enabled: isKnown,
-        input: { ...lastMonths(today, months, startDay), grain: "month" },
+        input: { ...lastMonths(today, months, rule), grain: "month" },
       })
     )
   );
 };
 
 export const useMonthBreakdown = (today: Date) => {
-  const { isKnown, startDay } = useBudgetMonth();
+  const { isKnown, rule } = useBudgetMonth();
 
   return widgetQuery(
     useQuery(
       orpc.budget.getSpendingBreakdown.queryOptions({
         enabled: isKnown,
         input: {
-          ...dashboardMonths(today, startDay).current,
+          ...dashboardMonths(today, rule).current,
           aggregation: "total",
         },
       })
@@ -102,7 +99,7 @@ export const useMonthBreakdown = (today: Date) => {
 };
 
 export const useMonthBudget = (today: Date) => {
-  const { isKnown, startDay } = useBudgetMonth();
+  const { isKnown, rule } = useBudgetMonth();
 
   return {
     query: widgetQuery(
@@ -110,13 +107,13 @@ export const useMonthBudget = (today: Date) => {
         orpc.budget.getBudgetVsActual.queryOptions({
           enabled: isKnown,
           input: {
-            ...dashboardMonths(today, startDay).current,
+            ...dashboardMonths(today, rule).current,
             aggregation: "total",
           },
         })
       )
     ),
-    startDay,
+    rule,
   };
 };
 
@@ -156,7 +153,7 @@ export const useWidgetTransactions = (
   today: Date,
   { categories, count, months, search }: TransactionsWidgetFilter
 ) => {
-  const { isKnown, startDay } = useBudgetMonth();
+  const { isKnown, rule } = useBudgetMonth();
 
   return widgetQuery(
     useQuery({
@@ -164,7 +161,7 @@ export const useWidgetTransactions = (
       queryFn: () =>
         client.budget.getTransactions({
           filters: transactionFiltersOf(categories),
-          from: lastMonths(today, months, startDay).from,
+          from: lastMonths(today, months, rule).from,
           limit: count,
           search,
           sort: "date",
@@ -177,8 +174,8 @@ export const useWidgetTransactions = (
           categories,
           count,
           months,
+          rule,
           search,
-          startDay,
           today: today.toISOString(),
         },
       ],

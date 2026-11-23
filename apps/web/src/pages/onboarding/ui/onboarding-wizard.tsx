@@ -1,3 +1,4 @@
+import type { BudgetMonthSetting } from "@freenary/api/lib/budget-month";
 import { Button } from "@freenary/ui/components/button";
 
 import type { BankInstitution, BankLinking } from "@/features/bank-connection";
@@ -14,7 +15,7 @@ import { OnboardingWizardSkeleton } from "./onboarding-wizard-skeleton";
 interface OnboardingWizardProps {
   bankLinking: BankLinking;
   banks: BankInstitution[];
-  budgetMonthStartDay: number;
+  budgetMonth: BudgetMonthSetting;
   connectedCount: number;
   direction: 1 | -1;
   isBanksError: boolean;
@@ -22,7 +23,7 @@ interface OnboardingWizardProps {
   isCompleting: boolean;
   isPending: boolean;
   onBack: () => void;
-  onBudgetMonthChange: (startDay: number) => void;
+  onBudgetMonthChange: (setting: BudgetMonthSetting) => void;
   onBudgetMonthContinue: () => void;
   onCountriesChange: (countries: string[]) => void;
   onCountryContinue: () => void;
@@ -41,7 +42,7 @@ const STEP_LABEL_FNS = [
 export const OnboardingWizard = ({
   bankLinking,
   banks,
-  budgetMonthStartDay,
+  budgetMonth,
   connectedCount,
   direction,
   isBanksError,
@@ -74,8 +75,8 @@ export const OnboardingWizard = ({
         <BudgetMonthStep
           onBack={onBack}
           onContinue={onBudgetMonthContinue}
-          onStartDayChange={onBudgetMonthChange}
-          startDay={budgetMonthStartDay}
+          onChange={onBudgetMonthChange}
+          value={budgetMonth}
         />
       );
     }
