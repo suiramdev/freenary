@@ -4,7 +4,11 @@ import {
   DEFAULT_BUDGET_MONTH_START_DAY,
   MAX_BUDGET_MONTH_START_DAY,
 } from "@freenary/api/lib/budget-month";
-import { Input } from "@freenary/ui/components/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@freenary/ui/components/input-addons";
 import { useId, useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
@@ -18,7 +22,7 @@ interface BudgetMonthStartInputProps {
   value: number;
 }
 
-const INPUT_WIDTH = "w-20 tabular-nums";
+const GROUP_WIDTH = "w-24";
 
 const parsedStartDay = (draft: string): number | null => {
   const parsed = budgetMonthStartDaySchema.safeParse(Number(draft));
@@ -31,7 +35,7 @@ export const BudgetMonthStartInput = ({
   onValueChange,
   value,
 }: BudgetMonthStartInputProps) => {
-  const hintId = useId();
+  const errorId = useId();
   const [editing, setEditing] = useState<string | null>(null);
   const draft = editing ?? String(value);
 
@@ -48,38 +52,36 @@ export const BudgetMonthStartInput = ({
 
   return (
     <div className="flex flex-col gap-1">
-      <Input
-        aria-describedby={hintId}
-        aria-invalid={isInvalid}
-        aria-label={m.budget_month_start_label()}
-        className={INPUT_WIDTH}
-        disabled={disabled}
-        inputMode="numeric"
-        max={MAX_BUDGET_MONTH_START_DAY}
-        min={DEFAULT_BUDGET_MONTH_START_DAY}
-        onBlur={commit}
-        onChange={(event) => setEditing(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            commit();
-          }
-        }}
-        step={1}
-        type="number"
-        value={draft}
-      />
-      <p
-        className={
-          isInvalid
-            ? "text-destructive text-xs"
-            : "text-muted-foreground text-xs"
-        }
-        id={hintId}
-      >
-        {isInvalid
-          ? m.budget_month_start_invalid()
-          : m.budget_month_start_hint()}
-      </p>
+      <InputGroup className={GROUP_WIDTH}>
+        <InputGroupInput
+          aria-describedby={isInvalid ? errorId : undefined}
+          aria-invalid={isInvalid}
+          aria-label={m.budget_month_start_label()}
+          className="tabular-nums"
+          disabled={disabled}
+          inputMode="numeric"
+          max={MAX_BUDGET_MONTH_START_DAY}
+          min={DEFAULT_BUDGET_MONTH_START_DAY}
+          onBlur={commit}
+          onChange={(event) => setEditing(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              commit();
+            }
+          }}
+          step={1}
+          type="number"
+          value={draft}
+        />
+        <InputGroupAddon align="inline-end">
+          {m.budget_month_start_unit()}
+        </InputGroupAddon>
+      </InputGroup>
+      {isInvalid ? (
+        <p className="text-destructive text-xs" id={errorId}>
+          {m.budget_month_start_invalid()}
+        </p>
+      ) : null}
     </div>
   );
 };
