@@ -2,6 +2,7 @@ import type { AppRouter } from "@freenary/api/routers/index";
 import type { InferRouterOutputs } from "@orpc/server";
 
 import { m } from "@/paraglide/messages.js";
+import { formatCurrency } from "@/shared/lib/format-currency";
 
 export type PortfolioAccount =
   InferRouterOutputs<AppRouter>["portfolio"]["getOverview"]["accounts"][number];
@@ -31,3 +32,31 @@ export const ACCOUNT_TYPE_LABELS = {
 
 export const accountName = (account: PortfolioAccount): string =>
   account.name ?? ACCOUNT_TYPE_LABELS[account.type]();
+
+export const BALANCE_SEPARATOR = " · ";
+
+export const heldBalancesOf = (
+  account: PortfolioAccount
+): { balanceMinor: number; currency: string }[] => {
+  if (account.balances.length > 0) {
+    return account.balances;
+  }
+
+  return account.balanceMinor === null || account.currency === null
+    ? []
+    : [{ balanceMinor: account.balanceMinor, currency: account.currency }];
+};
+
+export const formatAccountBalances = (
+  account: PortfolioAccount
+): string | null => {
+  const held = heldBalancesOf(account);
+
+  return held.length === 0
+    ? null
+    : held
+        .map((balance) =>
+          formatCurrency(balance.balanceMinor, balance.currency)
+        )
+        .join(BALANCE_SEPARATOR);
+};

@@ -200,7 +200,7 @@ export const BankAccountPage = () => {
     <div className="flex flex-1 flex-col gap-8 p-4">
       <AccountHeader account={account} />
       <AccountTransactions
-        currency={account.currency ?? overview.data.currency}
+        currency={overview.data.currency}
         key={account.id}
         list={list}
         view={view}

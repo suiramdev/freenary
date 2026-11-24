@@ -6,6 +6,7 @@ import { AccountBalance, accountName } from "@/entities/account";
 import type { PortfolioAccount } from "@/entities/account";
 import { m } from "@/paraglide/messages.js";
 import { formatCurrency } from "@/shared/lib/format-currency";
+import { UnconvertedNote } from "@/shared/ui/unconverted-note";
 
 import { useOverview } from "../model/queries";
 import { WidgetError } from "./widget-card";
@@ -33,6 +34,7 @@ const AccountTile = ({ account }: { account: PortfolioAccount }) => (
       <AccountBalance
         account={account}
         className="mt-auto text-base font-semibold"
+        stacked
       />
     </Link>
   </li>
@@ -103,6 +105,11 @@ export const AccountStrip = () => {
           ))}
           <ManageBanksTile />
         </ul>
+      ) : null}
+      {query.data && netWorth !== null && netWorth !== undefined ? (
+        <UnconvertedNote
+          counts={{ accounts: query.data.netWorth.unconvertedAccountCount }}
+        />
       ) : null}
     </section>
   );
