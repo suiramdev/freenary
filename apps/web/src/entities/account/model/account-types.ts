@@ -33,30 +33,100 @@ export const ACCOUNT_TYPE_LABELS = {
 export const accountName = (account: PortfolioAccount): string =>
   account.name ?? ACCOUNT_TYPE_LABELS[account.type]();
 
-export const BALANCE_SEPARATOR = " · ";
+export interface HeldBalance {
+  balanceMinor: number;
+  convertedBalanceMinor: number | null;
+  currency: string;
+}
 
-export const heldBalancesOf = (
-  account: PortfolioAccount
-): { balanceMinor: number; currency: string }[] => {
+export const heldBalancesOf = (account: PortfolioAccount): HeldBalance[] => {
   if (account.balances.length > 0) {
     return account.balances;
   }
 
   return account.balanceMinor === null || account.currency === null
     ? []
-    : [{ balanceMinor: account.balanceMinor, currency: account.currency }];
+    : [
+        {
+          balanceMinor: account.balanceMinor,
+          convertedBalanceMinor: null,
+          currency: account.currency,
+        },
+      ];
+};
+
+export type AccountHeadline =
+  | { kind: "none" }
+  | { amount: string; kind: "single" }
+  | {
+      amount: string;
+      currencyCount: number;
+      isEstimate: boolean;
+      kind: "several";
+    };
+
+export const accountHeadlineOf = (
+  account: PortfolioAccount,
+  reportingCurrency: string
+): AccountHeadline => {
+  const held = heldBalancesOf(account);
+  const [only] = held;
+
+  if (!only) {
+    return { kind: "none" };
+  }
+
+  if (held.length === 1) {
+    return {
+      amount: formatCurrency(only.balanceMinor, only.currency),
+      kind: "single",
+    };
+  }
+
+  let totalMinor = 0;
+  let isComplete = true;
+
+  for (const balance of held) {
+    if (balance.convertedBalanceMinor === null) {
+      isComplete = false;
+    } else {
+      totalMinor += balance.convertedBalanceMinor;
+    }
+  }
+
+  return isComplete
+    ? {
+        amount: formatCurrency(totalMinor, reportingCurrency),
+        currencyCount: held.length,
+        isEstimate: held.some(
+          (balance) => balance.currency !== reportingCurrency
+        ),
+        kind: "several",
+      }
+    : {
+        amount: formatCurrency(only.balanceMinor, only.currency),
+        currencyCount: held.length,
+        isEstimate: false,
+        kind: "several",
+      };
 };
 
 export const formatAccountBalances = (
-  account: PortfolioAccount
+  account: PortfolioAccount,
+  reportingCurrency: string
 ): string | null => {
-  const held = heldBalancesOf(account);
+  const headline = accountHeadlineOf(account, reportingCurrency);
 
-  return held.length === 0
-    ? null
-    : held
-        .map((balance) =>
-          formatCurrency(balance.balanceMinor, balance.currency)
-        )
-        .join(BALANCE_SEPARATOR);
+  if (headline.kind === "none") {
+    return null;
+  }
+
+  if (headline.kind === "single") {
+    return headline.amount;
+  }
+
+  return m.account_balance_several({
+    amount: headline.isEstimate ? `≈ ${headline.amount}` : headline.amount,
+    count: headline.currencyCount,
+  });
 };

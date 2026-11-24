@@ -191,7 +191,9 @@ export const useCommandMenuItems = (query: string, open: boolean) => {
           ]
         : []),
       ...(overview.data?.accounts ?? []).map((account) => ({
-        amount: formatAccountBalances(account) ?? undefined,
+        amount:
+          formatAccountBalances(account, overview.data?.currency ?? "EUR") ??
+          undefined,
         description: account.institutionName ?? undefined,
         group: m.command_menu_group_accounts(),
         icon: ACCOUNT_ICON,

@@ -1,5 +1,32 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "account_balance_estimate": "Converted at today's rate",
+  "account_balance_several": [
+    {
+      "declarations": [
+        "input count",
+        "input amount",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{amount} · {count} currency",
+        "countPlural=other": "{amount} · {count} currencies"
+      }
+    }
+  ],
+  "account_balances_no_rate": "No exchange rate yet",
+  "account_balances_title": "Balance per currency",
+  "account_currency_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} currency",
+        "countPlural=other": "{count} currencies"
+      }
+    }
+  ],
   "account_documentation": "Documentation",
   "account_menu_loading": "Loading account",
   "account_menu_update_available": "Update available: v{version}",

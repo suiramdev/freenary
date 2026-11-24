@@ -1,5 +1,32 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "account_balance_estimate": "Converti au taux du jour",
+  "account_balance_several": [
+    {
+      "declarations": [
+        "input count",
+        "input amount",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{amount} · {count} devise",
+        "countPlural=other": "{amount} · {count} devises"
+      }
+    }
+  ],
+  "account_balances_no_rate": "Pas encore de taux de change",
+  "account_balances_title": "Solde par devise",
+  "account_currency_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} devise",
+        "countPlural=other": "{count} devises"
+      }
+    }
+  ],
   "account_documentation": "Documentation",
   "account_menu_loading": "Chargement du compte",
   "account_menu_update_available": "Mise à jour disponible : v{version}",
