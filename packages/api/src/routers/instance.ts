@@ -20,6 +20,8 @@ import {
   isSecretField,
   isShownInSetup,
   markSetupComplete,
+  claimForFirstSession,
+  claimWithSetupToken,
   readSetupState,
   readStoredSettings,
   recogniseVariant,
@@ -63,6 +65,7 @@ import { updateCheck } from "../instance/update-check";
 import { bankConnectionCount } from "./bank-connection-count";
 
 const RESTART_GRACE_MS = 250;
+const SETUP_TOKEN_MAX_LENGTH = 256;
 
 const readCurrentSettings = (): Promise<StoredSettings> =>
   Effect.runPromise(readStoredSettings(settings.BETTER_AUTH_SECRET));
@@ -348,6 +351,25 @@ export const instanceRouter = {
       return { outcome: "verified" as const };
     }),
 
+  claim: protectedProcedure
+    .input(z.object({ token: z.string().max(SETUP_TOKEN_MAX_LENGTH) }))
+    .handler(async ({ context, input }) => {
+      const userId = context.session.user.id;
+      const expectedToken = settings.SETUP_TOKEN;
+
+      if (expectedToken === undefined) {
+        const taken = await Effect.runPromise(claimForFirstSession(userId));
+
+        return { outcome: taken ? "claimed" : "already-claimed" } as const;
+      }
+
+      return {
+        outcome: await Effect.runPromise(
+          claimWithSetupToken(expectedToken, userId, input.token)
+        ),
+      };
+    }),
+
   complete: operatorProcedure.handler(async () => {
     const stored = await readCurrentSettings();
     const missing = missingForSetup(
@@ -420,11 +442,14 @@ export const instanceRouter = {
     }),
 
   status: publicProcedure.handler(async ({ context }) => {
-    const state = await Effect.runPromise(readSetupState());
+    const { claimed, completed } = await Effect.runPromise(readSetupState());
     const userId = context.session?.user.id;
-    const operator = userId === undefined ? false : await isOperator(userId);
 
-    return { ...state, isOperator: operator };
+    if (userId === undefined) {
+      return { claimed: null, completed, isOperator: false };
+    }
+
+    return { claimed, completed, isOperator: await isOperator(userId) };
   }),
 
   update: protectedProcedure.handler(async ({ context }) =>

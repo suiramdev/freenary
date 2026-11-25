@@ -13,6 +13,10 @@ Every account has a role stored in the `user` table: an ordinary member, or `OPE
 
 The instance's setup state is one row in the `instance_setup` table, with two dates: `claimedAt` and `completedAt` (`packages/instance-config/src/claim.ts`).
 
+How an account claims it depends on `SETUP_TOKEN`.
+
+**Without `SETUP_TOKEN`:**
+
 1. While `claimedAt` is empty, the server prints this line at every start:
 
    ```text
@@ -22,14 +26,30 @@ The instance's setup state is one row in the `instance_setup` table, with two da
 2. Each time a sign-in session is created, the auth layer (`packages/auth/src/index.ts`) tries to claim the instance for that account. Inside one database transaction, it sets `claimedAt` only if it is still empty, and then gives that account the `OPERATOR` role.
 3. Once `claimedAt` is set, later sessions do nothing to it. There is no second operator, and the claim does not depend on which sign-in method the account used.
 
-In practice, creating an account signs you in, so the person who creates the first account becomes the operator. Anyone who can reach the address before that can take the role, which is why the tutorials create the account right after the first start.
+In practice, creating an account signs you in, so the person who creates the first account becomes the operator. Anyone who can reach the address before that can take the role. The root `docker-compose.yml` publishes the web app on `127.0.0.1:3001`, so by default only the machine that runs Docker can.
+
+**With `SETUP_TOKEN`:**
+
+1. While `claimedAt` is empty, the server prints:
+
+   ```text
+   This instance has no operator yet. Sign in at <CORS_ORIGIN> and enter SETUP_TOKEN on the setup screen to become the operator.
+   ```
+
+2. A session no longer claims anything. A signed-in account on the setup screen sees **Claim this instance**, and **Become the operator** calls `instance.claim` with the token it enters (`packages/instance-config/src/claim.ts`). A wrong token shows **That token is not right. Copy it again from the .env file.**
+3. The right token claims the instance in the same transaction as above. After that, the token does nothing.
+
+Set `SETUP_TOKEN` before you make the web app reachable from other machines: with `WEB_PORT=3001`, a reverse proxy, or a public tunnel. See [Other devices cannot open Freenary](../how-to/troubleshoot.md#other-devices-cannot-open-freenary).
+
+`instance.status` tells a visitor who is not signed in nothing about the claim: it answers `claimed: null`.
 
 ## The setup screen
 
 While `completedAt` is empty, the instance reports `needs-setup` and the web app sends every signed-in visitor to `/setup` (`apps/web/src/app/routes/_auth/route.tsx`).
 
 - The **operator** sees the steps. Which steps appear comes from `packages/instance-config/src/integrations.ts`: the bank provider is required (**Bank**), categorisation can be skipped (**Categories**), and **Done** reviews the choices. Email and the assistant are not part of setup; the operator sets them later in **Settings**.
-- **Any other member** sees **Only the operator can set up this instance** and **The first account on this instance is its operator. Ask the operator to change the configuration.**
+- **A signed-in account on an unclaimed instance**, which happens only with `SETUP_TOKEN` set, sees **Claim this instance**.
+- **Any other member** sees **Only the operator can set up this instance** and **Another account already runs this instance. Ask its operator to change the configuration.**
 
 **Finish setup** refuses to complete without a bank provider (**Set up a bank provider on the Bank step before you finish.**). When it succeeds, it sets `completedAt`, and the server restarts so it loads the saved settings. See [Where settings come from](settings-sources.md).
 

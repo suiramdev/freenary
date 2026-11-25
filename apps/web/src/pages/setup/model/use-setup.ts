@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -43,6 +43,25 @@ export const useSetup = () => {
 
   const status = useQuery(orpc.instance.status.queryOptions());
   const isOperator = status.data?.isOperator ?? false;
+  const isUnclaimed = status.data?.claimed === false;
+
+  const claim = useMutation(
+    orpc.instance.claim.mutationOptions({
+      onSuccess: async ({ outcome }) => {
+        if (outcome !== "refused") {
+          await status.refetch();
+        }
+      },
+    })
+  );
+
+  const claimError = () => {
+    if (claim.isError) {
+      return m.setup_claim_failed();
+    }
+
+    return claim.data?.outcome === "refused" ? m.setup_claim_refused() : null;
+  };
 
   const configuration = useQuery(
     orpc.instance.describe.queryOptions({
@@ -110,6 +129,8 @@ export const useSetup = () => {
 
   return {
     check: instanceIntegration.check,
+    claim,
+    claimError: claimError(),
     complete: instanceIntegration.complete,
     completionFailure,
     configuration,
@@ -122,6 +143,7 @@ export const useSetup = () => {
     isConfiguring: configuringStep === stepId,
     isOperator,
     isPending: status.isPending || (isOperator && configuration.isPending),
+    isUnclaimed,
     loadFailed,
     reconnect: instanceIntegration.reconnect,
     restartPhase,
