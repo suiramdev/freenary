@@ -43,7 +43,7 @@ In practice, creating an account signs you in, so the person who creates the fir
 
 Without `SETUP_TOKEN`, whoever reaches the address first can take the role. With it, the role needs a value that lives in `.env`, so a web app reachable from other machines (through `WEB_PORT=3001`, a reverse proxy or a public tunnel) does not hand the role to a stranger. [Other devices cannot open Freenary](../how-to/troubleshoot.md#other-devices-cannot-open-freenary) shows the two settings.
 
-`instance.status` tells a visitor who is not signed in nothing about the claim: it answers `claimed: null`.
+`instance.status` tells a visitor who is not signed in nothing about the claim: it answers `claimed: null` and `setupTokenRequired: null`.
 
 ## The setup screen
 
