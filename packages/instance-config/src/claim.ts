@@ -1,8 +1,6 @@
 import prisma from "@freenary/db";
 import { Data, Effect } from "effect";
 
-import { isSetupToken } from "./setup-token";
-
 const SETUP_ROW_ID = "singleton";
 const OPERATOR_ROLE = "OPERATOR";
 
@@ -43,8 +41,16 @@ export const readSetupState = Effect.fn("instanceConfig.readSetupState")(
   }
 );
 
-const takeOperatorRole = (userId: string) =>
-  Effect.tryPromise({
+export const claimForFirstSession = Effect.fn(
+  "instanceConfig.claimForFirstSession"
+)(function* claimForFirstSession(userId: string) {
+  const { claimed } = yield* readSetupState();
+
+  if (claimed) {
+    return false;
+  }
+
+  return yield* Effect.tryPromise({
     catch: unavailable("claimed"),
     try: () =>
       prisma.$transaction(async (tx) => {
@@ -70,41 +76,6 @@ const takeOperatorRole = (userId: string) =>
         return true;
       }),
   });
-
-export const claimForFirstSession = Effect.fn(
-  "instanceConfig.claimForFirstSession"
-)(function* claimForFirstSession(userId: string) {
-  const { claimed } = yield* readSetupState();
-
-  if (claimed) {
-    return false;
-  }
-
-  return yield* takeOperatorRole(userId);
-});
-
-export type ClaimOutcome = "already-claimed" | "claimed" | "refused";
-
-export const claimWithSetupToken = Effect.fn(
-  "instanceConfig.claimWithSetupToken"
-)(function* claimWithSetupToken(
-  expectedToken: string,
-  userId: string,
-  candidate: string
-) {
-  const { claimed } = yield* readSetupState();
-
-  if (claimed) {
-    return "already-claimed" satisfies ClaimOutcome;
-  }
-
-  if (!isSetupToken(expectedToken, candidate)) {
-    return "refused" satisfies ClaimOutcome;
-  }
-
-  const taken = yield* takeOperatorRole(userId);
-
-  return (taken ? "claimed" : "already-claimed") satisfies ClaimOutcome;
 });
 
 export const markSetupComplete = Effect.fn("instanceConfig.markSetupComplete")(

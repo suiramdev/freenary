@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +45,7 @@ export const useSetup = () => {
   const status = useQuery(orpc.instance.status.queryOptions());
   const isOperator = status.data?.isOperator ?? false;
   const isUnclaimed = status.data?.claimed === false;
+  const setupTokenRequired = status.data?.setupTokenRequired === true;
 
   const claim = useMutation(
     orpc.instance.claim.mutationOptions({
@@ -56,6 +58,13 @@ export const useSetup = () => {
   );
 
   const claimError = () => {
+    if (
+      claim.error instanceof ORPCError &&
+      claim.error.code === "TOO_MANY_REQUESTS"
+    ) {
+      return m.setup_claim_rate_limited();
+    }
+
     if (claim.isError) {
       return m.setup_claim_failed();
     }
@@ -149,6 +158,7 @@ export const useSetup = () => {
     restartPhase,
     retryLoad,
     save: instanceIntegration.save,
+    setupTokenRequired,
     stepId,
     stepIndex,
     steps,

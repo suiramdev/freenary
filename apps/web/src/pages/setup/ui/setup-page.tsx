@@ -104,6 +104,7 @@ export const SetupPage = () => {
           error={setup.claimError}
           isClaiming={setup.claim.isPending}
           onClaim={(token) => setup.claim.mutate({ token })}
+          tokenRequired={setup.setupTokenRequired}
         />
       );
     }

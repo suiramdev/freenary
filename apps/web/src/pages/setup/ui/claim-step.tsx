@@ -16,9 +16,15 @@ interface ClaimStepProps {
   error: string | null;
   isClaiming: boolean;
   onClaim: (token: string) => void;
+  tokenRequired: boolean;
 }
 
-export const ClaimStep = ({ error, isClaiming, onClaim }: ClaimStepProps) => {
+export const ClaimStep = ({
+  error,
+  isClaiming,
+  onClaim,
+  tokenRequired,
+}: ClaimStepProps) => {
   const [token, setToken] = useState("");
   const inputId = useId();
   const helpId = useId();
@@ -33,27 +39,39 @@ export const ClaimStep = ({ error, isClaiming, onClaim }: ClaimStepProps) => {
   return (
     <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
       <WizardStepHeader
-        description={m.setup_claim_description()}
+        description={
+          tokenRequired
+            ? m.setup_claim_description()
+            : m.setup_claim_open_description()
+        }
         title={m.setup_claim_title()}
       />
 
-      <Field data-invalid={isInvalid || undefined}>
-        <FieldLabel htmlFor={inputId}>{m.setup_claim_token_label()}</FieldLabel>
-        <FieldDescription className="text-sm" id={helpId}>
-          {m.setup_claim_token_help()}
-        </FieldDescription>
-        <Input
-          aria-describedby={isInvalid ? `${helpId} ${errorId}` : helpId}
-          aria-invalid={isInvalid || undefined}
-          autoComplete="off"
-          id={inputId}
-          onChange={(event) => setToken(event.target.value)}
-          required
-          spellCheck={false}
-          value={token}
-        />
-        {isInvalid ? <FieldError id={errorId}>{error}</FieldError> : null}
-      </Field>
+      {tokenRequired ? (
+        <Field data-invalid={isInvalid || undefined}>
+          <FieldLabel htmlFor={inputId}>
+            {m.setup_claim_token_label()}
+          </FieldLabel>
+          <FieldDescription className="text-sm" id={helpId}>
+            {m.setup_claim_token_help()}
+          </FieldDescription>
+          <Input
+            aria-describedby={isInvalid ? `${helpId} ${errorId}` : helpId}
+            aria-invalid={isInvalid || undefined}
+            autoComplete="off"
+            id={inputId}
+            onChange={(event) => setToken(event.target.value)}
+            required
+            spellCheck={false}
+            value={token}
+          />
+          {isInvalid ? <FieldError id={errorId}>{error}</FieldError> : null}
+        </Field>
+      ) : null}
+
+      {!tokenRequired && isInvalid ? (
+        <FieldError id={errorId}>{error}</FieldError>
+      ) : null}
 
       <div className="flex justify-end">
         <Button loading={isClaiming} type="submit">

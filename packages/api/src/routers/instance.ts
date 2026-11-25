@@ -9,6 +9,7 @@ import type {
   StoredSettings,
 } from "@freenary/instance-config";
 import {
+  claimForFirstSession,
   environmentOwns,
   findIntegration,
   findVariant,
@@ -20,8 +21,6 @@ import {
   isSecretField,
   isShownInSetup,
   markSetupComplete,
-  claimForFirstSession,
-  claimWithSetupToken,
   readSetupState,
   readStoredSettings,
   recogniseVariant,
@@ -45,6 +44,7 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "../index";
+import { admitsClaim, visibleSetupStatus } from "../instance/claim";
 import { maskEnvironmentValue } from "../instance/mask";
 import {
   candidateOf,
@@ -62,10 +62,12 @@ import {
   missingForSetup,
 } from "../instance/setup";
 import { updateCheck } from "../instance/update-check";
+import { callerBucket, consumeRateLimit } from "../lib/rate-limit";
 import { bankConnectionCount } from "./bank-connection-count";
 
 const RESTART_GRACE_MS = 250;
 const SETUP_TOKEN_MAX_LENGTH = 256;
+const SETUP_CLAIM_RATE_LIMIT = { max: 5, window: 900 };
 
 const readCurrentSettings = (): Promise<StoredSettings> =>
   Effect.runPromise(readStoredSettings(settings.BETTER_AUTH_SECRET));
@@ -354,19 +356,21 @@ export const instanceRouter = {
   claim: protectedProcedure
     .input(z.object({ token: z.string().max(SETUP_TOKEN_MAX_LENGTH) }))
     .handler(async ({ context, input }) => {
-      const userId = context.session.user.id;
-      const expectedToken = settings.SETUP_TOKEN;
+      await consumeRateLimit(
+        `instance-claim:${callerBucket(context.headers)}`,
+        SETUP_CLAIM_RATE_LIMIT
+      );
 
-      if (expectedToken === undefined) {
-        const taken = await Effect.runPromise(claimForFirstSession(userId));
-
-        return { outcome: taken ? "claimed" : "already-claimed" } as const;
+      if (!admitsClaim(settings.SETUP_TOKEN, input.token)) {
+        return { outcome: "refused" as const };
       }
 
+      const taken = await Effect.runPromise(
+        claimForFirstSession(context.session.user.id)
+      );
+
       return {
-        outcome: await Effect.runPromise(
-          claimWithSetupToken(expectedToken, userId, input.token)
-        ),
+        outcome: taken ? ("claimed" as const) : ("already-claimed" as const),
       };
     }),
 
@@ -442,14 +446,16 @@ export const instanceRouter = {
     }),
 
   status: publicProcedure.handler(async ({ context }) => {
-    const { claimed, completed } = await Effect.runPromise(readSetupState());
+    const state = await Effect.runPromise(readSetupState());
     const userId = context.session?.user.id;
+    const viewer =
+      userId === undefined ? null : { isOperator: await isOperator(userId) };
 
-    if (userId === undefined) {
-      return { claimed: null, completed, isOperator: false };
-    }
-
-    return { claimed, completed, isOperator: await isOperator(userId) };
+    return visibleSetupStatus(
+      state,
+      viewer,
+      settings.SETUP_TOKEN !== undefined
+    );
   }),
 
   update: protectedProcedure.handler(async ({ context }) =>

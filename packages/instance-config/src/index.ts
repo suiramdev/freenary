@@ -5,10 +5,9 @@ export type {
   StoredSettings,
 } from "./candidate";
 export { environmentOwns, validateSettings } from "./candidate";
-export type { ClaimOutcome, SetupState } from "./claim";
+export type { SetupState } from "./claim";
 export {
   claimForFirstSession,
-  claimWithSetupToken,
   InstanceSetupUnavailable,
   markSetupComplete,
   readSetupState,

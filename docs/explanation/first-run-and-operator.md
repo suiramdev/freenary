@@ -36,10 +36,12 @@ In practice, creating an account signs you in, so the person who creates the fir
    This instance has no operator yet. Sign in at <CORS_ORIGIN> and enter SETUP_TOKEN on the setup screen to become the operator.
    ```
 
-2. A session no longer claims anything. A signed-in account on the setup screen sees **Claim this instance**, and **Become the operator** calls `instance.claim` with the token it enters (`packages/instance-config/src/claim.ts`). A wrong token shows **That token is not right. Copy it again from the .env file.**
+2. A session no longer claims anything. A signed-in account on the setup screen sees **Claim this instance** with a **Setup token** field, and **Become the operator** calls `instance.claim` with what it enters (`packages/api/src/routers/instance.ts`). A wrong token shows **That token is not right. Copy it again from the .env file.**
 3. The right token claims the instance in the same transaction as above. After that, the token does nothing.
 
-Set `SETUP_TOKEN` before you make the web app reachable from other machines: with `WEB_PORT=3001`, a reverse proxy, or a public tunnel. See [Other devices cannot open Freenary](../how-to/troubleshoot.md#other-devices-cannot-open-freenary).
+`instance.claim` accepts five tries per caller address in 15 minutes. The sixth shows **Too many tries. Wait 15 minutes, then try again.**
+
+Without `SETUP_TOKEN`, whoever reaches the address first can take the role. With it, the role needs a value that lives in `.env`, so a web app reachable from other machines (through `WEB_PORT=3001`, a reverse proxy or a public tunnel) does not hand the role to a stranger. [Other devices cannot open Freenary](../how-to/troubleshoot.md#other-devices-cannot-open-freenary) shows the two settings.
 
 `instance.status` tells a visitor who is not signed in nothing about the claim: it answers `claimed: null`.
 
@@ -48,7 +50,7 @@ Set `SETUP_TOKEN` before you make the web app reachable from other machines: wit
 While `completedAt` is empty, the instance reports `needs-setup` and the web app sends every signed-in visitor to `/setup` (`apps/web/src/app/routes/_auth/route.tsx`).
 
 - The **operator** sees the steps. Which steps appear comes from `packages/instance-config/src/integrations.ts`: the bank provider is required (**Bank**), categorisation can be skipped (**Categories**), and **Done** reviews the choices. Email and the assistant are not part of setup; the operator sets them later in **Settings**.
-- **A signed-in account on an unclaimed instance**, which happens only with `SETUP_TOKEN` set, sees **Claim this instance**.
+- **A signed-in account on an unclaimed instance** sees **Claim this instance**. With `SETUP_TOKEN` set, that is every account until one enters the token. Without it, it happens only when the claim at sign-in failed: the step then shows **This instance has no operator yet. Become its operator to set it up.** and no token field.
 - **Any other member** sees **Only the operator can set up this instance** and **Another account already runs this instance. Ask its operator to change the configuration.**
 
 **Finish setup** refuses to complete without a bank provider (**Set up a bank provider on the Bank step before you finish.**). When it succeeds, it sets `completedAt`, and the server restarts so it loads the saved settings. See [Where settings come from](settings-sources.md).
