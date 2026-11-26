@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 
 import { categoryParentOptions } from "../model/category-parent-options";
+import { budgetableCategories } from "../model/category-sections";
 import type { EditorLine } from "../model/use-budget-profile-editor";
 import { BudgetLineRow } from "./budget-line-row";
 import { BudgetMonthSection } from "./budget-month-section";
@@ -103,7 +104,7 @@ export const BudgetingSection = ({
             >
               {lines.map((line) => (
                 <BudgetLineRow
-                  categories={categories}
+                  categories={budgetableCategories(categories)}
                   currency={currency}
                   error={errors.get(line.id)}
                   key={line.id}

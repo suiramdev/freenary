@@ -13,10 +13,13 @@ export {
 } from "./api/sync-accounts";
 export { formatBudgetMonthSpan } from "./model/budget-month-label";
 export {
+  countsInListTotals,
   exchangeRateOf,
+  isExcluded,
   type OriginalAmount,
   originalAmountOf,
   type Transaction,
+  type TransactionExclusion,
   transactionTitle,
 } from "./model/transaction";
 export { BudgetMonthField } from "./ui/budget-month-field";

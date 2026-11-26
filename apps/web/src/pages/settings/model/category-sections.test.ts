@@ -4,6 +4,7 @@ import { predefinedCategoryGroups } from "@freenary/api/lib/categories";
 import type { CategoryEntry } from "@freenary/api/lib/categories";
 
 import {
+  budgetableCategories,
   editedOf,
   toCategorySections,
   toCustomCategoryTree,
@@ -69,8 +70,8 @@ describe("toCategorySections", () => {
   it("puts every predefined category under its own group heading", () => {
     const sections = toCategorySections(listCategories([]), "");
 
-    expect(sections).toHaveLength(3);
-    expect(keysOf(sections)).toHaveLength(27);
+    expect(sections).toHaveLength(4);
+    expect(keysOf(sections)).toHaveLength(28);
 
     for (const section of sections) {
       const { heading } = section;
@@ -254,5 +255,17 @@ describe("editedOf", () => {
 
     expect(subcategory.parentKey).toBe("custom:abc");
     expect(subcategory.id).toBe("s1");
+  });
+});
+
+describe("budgetableCategories", () => {
+  it("leaves out the transfers group, which no figure counts", () => {
+    const keys = budgetableCategories(listCategories([])).map(
+      (entry) => entry.key
+    );
+
+    expect(keys).not.toContain("transfers");
+    expect(keys).not.toContain("internal-transfer");
+    expect(keys).toContain("savings");
   });
 });

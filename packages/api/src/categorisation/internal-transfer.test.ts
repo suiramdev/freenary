@@ -6,14 +6,19 @@ import {
   generateTransactions,
 } from "../providers/mock/generate";
 import {
+  accountsByIbanOf,
   exchangeFeeOf,
   matchInternalTransfers,
+  ownAccountLegs,
+  ownerNamesConfirmedBy,
   pairedLegs,
   transferCandidateOf,
   transferCandidatesWhere,
   transferLegUpdates,
+  withOwnerSignal,
 } from "./internal-transfer";
 import type { TransferCandidate, TransferPair } from "./internal-transfer";
+import { ownCounterpartiesOf } from "./own-counterparty";
 
 describe("matchInternalTransfers", () => {
   it("returns 0 for non-existent user", async () => {
@@ -55,7 +60,7 @@ describe("transferLegUpdates", () => {
 
     const { flagged, saved } = transferLegUpdates(pairs, accountTypes);
 
-    expect(flagged.toSorted()).toEqual(
+    expect(flagged.get("internal-transfer")?.toSorted()).toEqual(
       ["livret-in", "pea-in", "to-livret", "to-pea"].toSorted()
     );
 
@@ -77,7 +82,7 @@ describe("transferLegUpdates", () => {
 
     const { flagged, saved } = transferLegUpdates(pairs, accountTypes);
 
-    expect(flagged).toHaveLength(4);
+    expect(flagged.get("internal-transfer")).toHaveLength(4);
     expect(saved.size).toBe(0);
   });
 });
@@ -330,13 +335,13 @@ describe("pairedLegs on the mock bank", () => {
 });
 
 describe("transferCandidatesWhere", () => {
-  it("leaves out the transactions categorised by hand and the ones already paired", () => {
+  it("leaves out the transactions the member decided and the ones already paired", () => {
     expect(
       transferCandidatesWhere(["checking"], new Date("2026-05-02T00:00:00Z"))
     ).toEqual({
       accountId: { in: ["checking"] },
       categoryOverride: false,
-      date: { gte: new Date("2026-05-01T00:00:00Z") },
+      date: { gte: new Date("2026-04-28T00:00:00Z") },
       isInternalTransfer: false,
     });
   });
@@ -503,5 +508,260 @@ describe("transferLegUpdates fees", () => {
     );
 
     expect(fees).toEqual(new Map([["eur-out", 182]]));
+  });
+});
+
+const DAY_MS = 24 * HOUR_MS;
+const REVOLUT_IBAN = "LT601010012345678901";
+
+const accountsByIban = accountsByIbanOf([
+  { iban: CHECKING_IBAN, id: "checking" },
+  { iban: LIVRET_IBAN, id: "livret" },
+]);
+
+const accountTypeOf = new Map([
+  ["checking", "CHECKING"],
+  ["livret", "LIVRET_A"],
+]);
+
+const memberOwn = ownCounterpartiesOf({
+  memberName: "Marius Nouchet",
+  overriddenMerchantKeys: [],
+  stored: [],
+});
+
+const named = (
+  id: string,
+  accountId: string,
+  amount: number,
+  name: string | null,
+  overrides: Partial<TransferCandidate> = {}
+): TransferCandidate =>
+  foreignLeg(id, accountId, amount, "EUR", {
+    accountIban: accountId === "checking" ? CHECKING_IBAN : LIVRET_IBAN,
+    channel: "transfer",
+    counterpartyNameKey: name,
+    ...overrides,
+  });
+
+describe("pairedLegs between two banks", () => {
+  it("pairs legs an IBAN confirms up to four days apart", () => {
+    expect(
+      pairIds(
+        pairedLegs([
+          named("out", "checking", -2000, null),
+          named("in", "livret", 2000, null, {
+            counterpartyIban: CHECKING_IBAN,
+            date: new Date(MAY_SECOND.getTime() + 3 * DAY_MS),
+          }),
+        ])
+      )
+    ).toEqual([["out", "in"]]);
+  });
+
+  it("keeps a day for legs nothing confirms", () => {
+    expect(
+      pairedLegs([
+        foreignLeg("out", "checking", -2000, "EUR"),
+        foreignLeg("in", "livret", 2000, "EUR", {
+          date: new Date(MAY_SECOND.getTime() + 3 * DAY_MS),
+        }),
+      ])
+    ).toEqual([]);
+  });
+
+  it("pairs two accounts with IBANs when the legs name the member instead", () => {
+    const legs = withOwnerSignal(
+      [
+        named("out", "checking", -2000, "MARIUS NOUCHET"),
+        named("in", "livret", 2000, null, {
+          date: new Date(MAY_SECOND.getTime() + DAY_MS),
+        }),
+      ],
+      memberOwn
+    );
+
+    expect(pairIds(pairedLegs(legs))).toEqual([["out", "in"]]);
+  });
+
+  it("refuses them when a leg names someone else", () => {
+    const legs = withOwnerSignal(
+      [
+        named("out", "checking", -2000, "MARIUS NOUCHET"),
+        named("in", "livret", 2000, "DUPONT JEAN"),
+      ],
+      memberOwn
+    );
+
+    expect(pairedLegs(legs)).toEqual([]);
+  });
+});
+
+const detect = (legs: TransferCandidate[]) => {
+  const candidates = withOwnerSignal(legs, memberOwn);
+  const pairs = pairedLegs(candidates);
+  const paired = new Set(
+    pairs.flatMap(({ incoming, outgoing }) => [incoming.id, outgoing.id])
+  );
+
+  return transferLegUpdates(
+    pairs,
+    accountTypeOf,
+    ownAccountLegs(candidates, paired, accountsByIban, memberOwn)
+  );
+};
+
+describe("ownAccountLegs", () => {
+  it("files a move into a linked savings account before its other leg arrives", () => {
+    const { flagged, saved } = detect([
+      named("to-livret", "checking", -5000, "LIVRET A", {
+        counterpartyIban: LIVRET_IBAN,
+      }),
+    ]);
+
+    expect(flagged).toEqual(new Map([["internal-transfer", ["to-livret"]]]));
+    expect(saved).toEqual(new Map([["savings", ["to-livret"]]]));
+  });
+
+  it("leaves money sent to or received from the member's other bank out of every figure", () => {
+    const { flagged, saved } = detect([
+      named("to-revolut", "checking", -7000, "MARIUS NOUCHET", {
+        counterpartyIban: REVOLUT_IBAN,
+      }),
+      named("from-revolut", "checking", 3000, "MARIUS NOUCHET"),
+    ]);
+
+    expect(flagged).toEqual(
+      new Map([["own-counterparty", ["to-revolut", "from-revolut"]]])
+    );
+
+    expect(saved.size).toBe(0);
+  });
+
+  it("leaves a transfer to someone else and a card payment alone", () => {
+    const { flagged } = detect([
+      named("to-friend", "checking", -7000, "DUPONT JEAN"),
+      named("card", "checking", -1200, "MARIUS NOUCHET", { channel: "card" }),
+    ]);
+
+    expect(flagged.size).toBe(0);
+  });
+
+  it("follows the counterparties the member declared", () => {
+    const declared = ownCounterpartiesOf({
+      memberName: null,
+      overriddenMerchantKeys: [],
+      stored: [{ isOwn: true, key: REVOLUT_IBAN, kind: "iban" }],
+    });
+
+    const legs = withOwnerSignal(
+      [
+        named("top-up", "checking", -2000, null, {
+          counterpartyIban: REVOLUT_IBAN,
+        }),
+      ],
+      declared
+    );
+
+    expect(
+      ownAccountLegs(legs, new Set(), accountsByIban, declared).map(
+        ({ leg: detected }) => detected.id
+      )
+    ).toEqual(["top-up"]);
+  });
+});
+
+describe("ownerNamesConfirmedBy", () => {
+  it("learns the names a bank gives the member from transfers an IBAN confirms", () => {
+    const confirmedOut = named("out", "checking", -2000, "M NOUCHET MARIUS", {
+      counterpartyIban: LIVRET_IBAN,
+    });
+
+    const unconfirmedIn = named("in", "livret", 2000, "MARIUS NOUCHET");
+    const guessed = named("guess", "checking", -900, "DUPONT JEAN");
+
+    expect(
+      ownerNamesConfirmedBy(
+        [confirmedOut, unconfirmedIn, guessed],
+        [
+          {
+            evidence: "confirmed",
+            incoming: unconfirmedIn,
+            outgoing: confirmedOut,
+          },
+          {
+            evidence: "unknown",
+            incoming: named("x", "livret", 900, "AMAZON PAYMENTS"),
+            outgoing: guessed,
+          },
+        ],
+        accountsByIban
+      )
+    ).toEqual(new Set(["M NOUCHET MARIUS", "MARIUS NOUCHET"]));
+  });
+});
+
+describe("own accounts on the mock bank", () => {
+  const today = new Date("2026-03-31T10:00:00Z");
+  const session = "mock_2026-03-01_0f8b6c1e-2d4a-4b7e-9c3f-5a6b7c8d9e0f";
+  const accounts = generateAccounts(session, today);
+  const linked = accountsByIbanOf(
+    accounts.map(({ iban, providerAccountId }) => ({
+      iban: iban ?? null,
+      id: providerAccountId,
+    }))
+  );
+
+  const unsigned = accounts.flatMap(({ iban, providerAccountId }) =>
+    generateTransactions(
+      providerAccountId,
+      "2026-01-01",
+      "2026-03-31",
+      today
+    ).map((tx) =>
+      transferCandidateOf(
+        {
+          accountId: providerAccountId,
+          amount: tx.amountMinor,
+          channel: "transfer",
+          counterpartyName:
+            tx.amountMinor < 0 ? tx.creditorName : tx.debtorName,
+          creditorAccountIban: tx.creditorIban ?? null,
+          currency: tx.currency,
+          date: new Date(tx.bookingDate),
+          debtorAccountIban: tx.debtorIban ?? null,
+          id: tx.providerTransactionId,
+        },
+        iban
+      )
+    )
+  );
+
+  it("learns the holder from the Livret A transfer and finds the transfers to their other bank", () => {
+    const own = ownCounterpartiesOf({
+      memberName: null,
+      overriddenMerchantKeys: [],
+      stored: [...ownerNamesConfirmedBy(unsigned, [], linked)].map((key) => ({
+        isOwn: true,
+        key,
+        kind: "name",
+      })),
+    });
+
+    const candidates = withOwnerSignal(unsigned, own);
+    const pairs = pairedLegs(candidates);
+    const paired = new Set(
+      pairs.flatMap(({ incoming, outgoing }) => [incoming.id, outgoing.id])
+    );
+
+    const elsewhere = ownAccountLegs(candidates, paired, linked, own).filter(
+      ({ otherAccountId }) => otherAccountId === null
+    );
+
+    expect(
+      elsewhere.map(({ leg: detected }) =>
+        detected.date.toISOString().slice(0, 10)
+      )
+    ).toEqual(["2026-01-18", "2026-02-18", "2026-03-18"]);
   });
 });
