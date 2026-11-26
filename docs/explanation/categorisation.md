@@ -29,9 +29,12 @@ Amounts and dates can match by chance, so Freenary also compares IBANs, ignoring
 
 - When a transaction names an IBAN, the two pair only if at least one names the IBAN of the other account, and none names a different one. Such a pair is confirmed, and its legs can be booked up to 4 days apart, as a transfer to another bank often arrives a day or more later.
 - When neither names an IBAN but both accounts have a different one, they pair only if at least one leg names the member, as [below](#the-names-of-the-member) explains, and no leg names someone else. These legs can also be up to 4 days apart.
+- When nothing names the member either, they still pair if the money reached an account only its holder pays into: a savings account, a life insurance, a PEA, a compte-titres, crowdlending or real estate, and the outgoing leg is a transfer, not a card payment or a direct debit. These legs can also be up to 4 days apart. A retirement plan or an employee savings plan does not count here, as an employer pays into it too.
 - When neither names an IBAN and the accounts share an IBAN, as with an account that holds two currencies, or at least one account has none, the amount, the currency and the date decide. These legs are booked at most 24 hours apart.
 
-Confirmed pairs are made first, then pairs a name confirms, then the others.
+Confirmed pairs are made first, then pairs a name confirms, then pairs into an account only its holder pays into, then the others.
+
+A transaction marked on its own by its counterparty, as below, stays a candidate: when the other leg arrives on a linked account in a later sync, the two pair, and the transaction takes the category of the account the money reached.
 
 ### One transaction on its own
 

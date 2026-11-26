@@ -8,6 +8,7 @@ import {
 import {
   accountsByIbanOf,
   exchangeFeeOf,
+  isFundedByHolder,
   matchInternalTransfers,
   ownAccountLegs,
   ownerNamesConfirmedBy,
@@ -335,14 +336,17 @@ describe("pairedLegs on the mock bank", () => {
 });
 
 describe("transferCandidatesWhere", () => {
-  it("leaves out the transactions the member decided and the ones already paired", () => {
+  it("leaves out the transactions the member decided and the ones already paired, but keeps the ones marked by their counterparty alone", () => {
     expect(
       transferCandidatesWhere(["checking"], new Date("2026-05-02T00:00:00Z"))
     ).toEqual({
+      OR: [
+        { isInternalTransfer: false },
+        { isInternalTransfer: true, resolutionStage: "own-counterparty" },
+      ],
       accountId: { in: ["checking"] },
       categoryOverride: false,
       date: { gte: new Date("2026-04-28T00:00:00Z") },
-      isInternalTransfer: false,
     });
   });
 });
@@ -763,5 +767,116 @@ describe("own accounts on the mock bank", () => {
         detected.date.toISOString().slice(0, 10)
       )
     ).toEqual(["2026-01-18", "2026-02-18", "2026-03-18"]);
+  });
+});
+
+const PEA_IBAN = "FR7630004000039876543210987";
+const PER_IBAN = "FR7630004000031122334455667";
+
+const linkedLeg = (
+  id: string,
+  accountId: "checking" | "livret" | "pea" | "per",
+  amount: number,
+  overrides: Partial<TransferCandidate> = {}
+): TransferCandidate =>
+  foreignLeg(id, accountId, amount, "EUR", {
+    accountIban: {
+      checking: CHECKING_IBAN,
+      livret: LIVRET_IBAN,
+      pea: PEA_IBAN,
+      per: PER_IBAN,
+    }[accountId],
+    channel: "transfer",
+    fundedByHolder: accountId === "livret" || accountId === "pea",
+    ...overrides,
+  });
+
+const savedBy = (legs: TransferCandidate[]) =>
+  transferLegUpdates(
+    pairedLegs(legs),
+    new Map([
+      ["checking", "CHECKING"],
+      ["livret", "LIVRET_A"],
+      ["pea", "PEA"],
+      ["per", "RETIREMENT"],
+    ])
+  ).saved;
+
+describe("isFundedByHolder", () => {
+  it("knows the accounts only their holder can pay into", () => {
+    expect(isFundedByHolder("LIVRET_A")).toBe(true);
+    expect(isFundedByHolder("LDDS")).toBe(true);
+    expect(isFundedByHolder("LIFE_INSURANCE")).toBe(true);
+    expect(isFundedByHolder("PEA")).toBe(true);
+    expect(isFundedByHolder("BROKERAGE")).toBe(true);
+  });
+
+  it("leaves out current accounts and the retirement plans an employer pays into", () => {
+    expect(isFundedByHolder("CHECKING")).toBe(false);
+    expect(isFundedByHolder("RETIREMENT")).toBe(false);
+    expect(isFundedByHolder("EMPLOYEE_SAVINGS")).toBe(false);
+  });
+});
+
+describe("transfers into a linked savings account whose bank names nothing", () => {
+  it("files a move into a Livret A or a PEA by the account the money reached", () => {
+    expect(
+      savedBy([
+        linkedLeg("to-livret", "checking", -20_000),
+        linkedLeg("livret-in", "livret", 20_000, {
+          date: new Date(MAY_SECOND.getTime() + DAY_MS),
+        }),
+        linkedLeg("to-pea", "checking", -50_000),
+        linkedLeg("pea-in", "pea", 50_000, {
+          date: new Date(MAY_SECOND.getTime() + 3 * DAY_MS),
+        }),
+      ])
+    ).toEqual(
+      new Map([
+        ["savings", ["to-livret"]],
+        ["securities", ["to-pea"]],
+      ])
+    );
+  });
+
+  it("does not pair a card payment with a deposit of the same amount", () => {
+    expect(
+      pairedLegs([
+        linkedLeg("card", "checking", -20_000, { channel: "card" }),
+        linkedLeg("livret-in", "livret", 20_000),
+      ])
+    ).toEqual([]);
+  });
+
+  it("needs an IBAN or a name for a retirement plan, which an employer can pay into", () => {
+    expect(
+      pairedLegs([
+        linkedLeg("out", "checking", -20_000),
+        linkedLeg("per-in", "per", 20_000),
+      ])
+    ).toEqual([]);
+  });
+
+  it("keeps out legs more than four days apart", () => {
+    expect(
+      pairedLegs([
+        linkedLeg("out", "checking", -20_000),
+        linkedLeg("livret-in", "livret", 20_000, {
+          date: new Date(MAY_SECOND.getTime() + 5 * DAY_MS),
+        }),
+      ])
+    ).toEqual([]);
+  });
+
+  it("prefers a pair an IBAN confirms", () => {
+    const pairs = pairedLegs([
+      linkedLeg("guess", "checking", -20_000),
+      linkedLeg("named", "checking", -20_000, {
+        counterpartyIban: LIVRET_IBAN,
+      }),
+      linkedLeg("livret-in", "livret", 20_000),
+    ]);
+
+    expect(pairIds(pairs)).toEqual([["named", "livret-in"]]);
   });
 });
