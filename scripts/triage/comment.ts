@@ -12,6 +12,12 @@ const SECTION_TITLE_BY_OWNER = {
 
 const SECTION_ORDER: readonly GapOwner[] = ["author", "maintainer", "waiting"];
 
+const RERUN_HINT = {
+  issue:
+    "Setting the issue type, or the Impact or Priority field, runs triage again; a maintainer setting Priority closes this list.",
+  "pull-request": "Editing the description runs triage again.",
+} as const satisfies Record<SubjectKind, string>;
+
 const SUBJECT_NAME = {
   issue: "issue",
   "pull-request": "pull request",
@@ -44,7 +50,7 @@ export const renderGapComment = (
     ...sections,
     gaps.some((gap) => gap.owner === "author")
       ? "Edit the description or reply here, and triage runs again."
-      : "Adding a `type:`, `impact:` or `priority:` label runs triage again; a maintainer setting a `priority:` label closes this list.",
+      : RERUN_HINT[kind],
   ].join("\n");
 };
 

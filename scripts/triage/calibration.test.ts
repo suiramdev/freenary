@@ -8,7 +8,7 @@ import {
 } from "./calibration";
 
 describe("samplesFor", () => {
-  it("compares each answer with the labels a maintainer kept, naming a legacy noul apart", () => {
+  it("compares each answer with the fields and labels a maintainer kept, naming a legacy noul apart", () => {
     const samples = samplesFor(
       {
         good_first_issue: { noul: 0.1, type: "noul" },
@@ -16,7 +16,9 @@ describe("samplesFor", () => {
         type: { choice: "feature", confidence: 0.6, type: "choice" },
       },
       {
-        labels: ["type: maintenance", "impact: low"],
+        fields: { impact: "Low" },
+        issueType: "Task",
+        labels: [],
       }
     );
 
@@ -54,7 +56,7 @@ describe("samplesFor", () => {
           type: "choice",
         },
       },
-      { labels: ["type: bug", "impact: high"] }
+      { fields: { impact: "High" }, issueType: "Bug", labels: [] }
     );
 
     expect(samples).toEqual([
@@ -113,7 +115,7 @@ describe("samplesFor", () => {
           type: "choice",
         },
       },
-      { labels: ["type: bug", "impact: high"] }
+      { fields: { impact: "High" }, issueType: "Bug", labels: [] }
     );
 
     expect(samples).toEqual([
@@ -205,8 +207,10 @@ describe("measureAgreement", () => {
 describe("blindSamples", () => {
   it("skips a run whose input already carried the answer", () => {
     const item = {
-      labels: ["type: bug", "impact: low"],
-    };
+      fields: { impact: "Low" },
+      issueType: "Bug",
+      labels: [],
+    } as const;
 
     const samples = blindSamples(
       [
@@ -223,7 +227,9 @@ describe("blindSamples", () => {
             impact: { confidence: 0.9, score: 0, type: "score" },
             type: { choice: "bug", confidence: 0.9, type: "choice" },
           },
-          existingLabels: ["type: bug", "impact: low", "priority: low"],
+          existingFields: { impact: "Low", priority: "Low" },
+          existingLabels: [],
+          existingType: "bug",
           recordedAt: "2026-10-02T00:00:00Z",
         },
       ],
@@ -234,5 +240,54 @@ describe("blindSamples", () => {
       { confidence: 0.7, kind: "label", matches: false, question: "type" },
       { confidence: 0.7, kind: "label", matches: false, question: "impact" },
     ]);
+  });
+
+  it("reads an impact carried as a label in a record from before the fields", () => {
+    const samples = blindSamples(
+      [
+        {
+          answers: { impact: { confidence: 0.9, score: 0, type: "score" } },
+          existingLabels: ["impact: low"],
+          recordedAt: "2026-10-02T00:00:00Z",
+        },
+      ],
+      { fields: { impact: "Low" }, labels: [] }
+    );
+
+    expect(samples).toEqual([]);
+  });
+});
+
+describe("issue types in calibration", () => {
+  const answers = {
+    type: { choice: "documentation", confidence: 0.8, type: "choice" },
+  } as const;
+
+  it("compares the type with the issue type and the documentation label", () => {
+    expect(
+      samplesFor(answers, { issueType: "Task", labels: ["documentation"] })
+    ).toEqual([
+      { confidence: 0.8, kind: "label", matches: true, question: "type" },
+    ]);
+
+    expect(samplesFor(answers, { issueType: "Task", labels: [] })).toEqual([
+      { confidence: 0.8, kind: "label", matches: false, question: "type" },
+    ]);
+  });
+
+  it("skips a run whose input already carried an issue type", () => {
+    expect(
+      blindSamples(
+        [
+          {
+            answers,
+            existingLabels: [],
+            existingType: "maintenance",
+            recordedAt: "2026-10-01T00:00:00Z",
+          },
+        ],
+        { issueType: "Task", labels: ["documentation"] }
+      )
+    ).toEqual([]);
   });
 });

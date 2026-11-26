@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import { COMMENT_MARKER, planCommentAction, renderGapComment } from "./comment";
-import { planLabels, resolveTypeLabel } from "./plan";
+import { planLabels, resolveType } from "./plan";
 import type { PlanInput } from "./plan";
 import { buildQuestions } from "./questions";
 import {
@@ -37,12 +37,16 @@ const planFor = (overrides: Partial<PlanInput>) =>
     checklist: "request",
     docsExpected: false,
     duplicateCandidates: [9, 14],
+    existingFields: {},
     existingLabels: [],
+    existingType: undefined,
     kind: "issue",
+    refusedFields: {},
     refusedLabels: [],
+    refusedTypes: [],
     ruleGaps: [],
     workflowGoodFirstIssue: false,
-    workflowPriorities: [],
+    workflowPriority: false,
     ...overrides,
   });
 
@@ -96,7 +100,7 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.labels).toContain("type: feature");
+    expect(plan.type).toBe("feature");
     expect(plan.status).toBe("ready");
     expect(plan.gaps).toEqual([]);
   });
@@ -115,12 +119,10 @@ describe("issue readiness", () => {
       },
     });
 
-    expect(plan.labels).toContain("impact: low");
-
-    expect(plan.labels).toContain("priority: low");
+    expect(plan.fields).toEqual({ impact: "Low", priority: "Low" });
 
     expect(plan.notes).toContain(
-      "impact: impact: low (score 0.55, 0.50; next impact: medium 0.45)"
+      "impact: Low (score 0.55, 0.50; next Medium 0.45)"
     );
 
     expect(plan.status).toBe("ready");
@@ -316,11 +318,11 @@ describe("docsExpected", () => {
 
 describe("checklists", () => {
   it("maps types to checklists", () => {
-    expect(checklistFor("type: bug")).toBe("bug");
-    expect(checklistFor("type: feature")).toBe("request");
-    expect(checklistFor("type: documentation")).toBe("documentation");
-    expect(checklistFor("type: maintenance")).toBe("maintenance");
-    expect(checklistFor("type: question")).toBeUndefined();
+    expect(checklistFor("bug")).toBe("bug");
+    expect(checklistFor("feature")).toBe("request");
+    expect(checklistFor("documentation")).toBe("documentation");
+    expect(checklistFor("maintenance")).toBe("maintenance");
+    expect(checklistFor(resolveType({}, undefined, []))).toBeUndefined();
   });
 
   it("keeps both rounds within sixteen questions", () => {
@@ -447,19 +449,20 @@ describe("planCommentAction", () => {
   });
 });
 
-describe("refused labels", () => {
-  it("never adds back a label a maintainer removed", () => {
+describe("refused values", () => {
+  it("never sets back a value or type a maintainer removed", () => {
     const plan = planFor({
       answers: {
         ...settled,
         ...requestMet,
         security: { noul: 0.95, type: "noul" },
       },
-      refusedLabels: ["priority: high", "type: feature"],
+      refusedFields: { priority: ["High"] },
+      refusedTypes: ["feature"],
     });
 
-    expect(plan.labels).not.toContain("priority: high");
-    expect(plan.labels).not.toContain("type: feature");
+    expect(plan.fields.priority).toBeUndefined();
+    expect(plan.type).toBeUndefined();
   });
 });
 
@@ -476,7 +479,7 @@ describe("refused labels and readiness", () => {
           type: "choice",
         },
       },
-      refusedLabels: ["type: feature"],
+      refusedTypes: ["feature"],
     });
 
     expect(plan.labels.some((label) => label.startsWith("type:"))).toBe(false);
@@ -484,25 +487,23 @@ describe("refused labels and readiness", () => {
   });
 });
 
-describe("resolveTypeLabel", () => {
+describe("resolveType", () => {
   it("ignores a model type a maintainer removed", () => {
     const answers: Answers = {
       type: { choice: "bug", confidence: 0.9, type: "choice" },
     };
 
-    expect(checklistFor(resolveTypeLabel(answers, [], []))).toBe("bug");
+    expect(checklistFor(resolveType(answers, undefined, []))).toBe("bug");
     expect(
-      checklistFor(resolveTypeLabel(answers, [], ["type: bug"]))
+      checklistFor(resolveType(answers, undefined, ["bug"]))
     ).toBeUndefined();
 
-    expect(resolveTypeLabel(answers, ["type: feature"], ["type: bug"])).toBe(
-      "type: feature"
-    );
+    expect(resolveType(answers, "feature", ["bug"])).toBe("feature");
   });
 });
 
 describe("refused picks and comment wording", () => {
-  it("tells a maintainer-only comment that a label reruns triage", () => {
+  it("tells a maintainer-only comment that a field reruns triage", () => {
     const comment = renderGapComment("issue", [
       {
         owner: "maintainer",
@@ -510,9 +511,7 @@ describe("refused picks and comment wording", () => {
       },
     ]);
 
-    expect(comment).toContain(
-      "a maintainer setting a `priority:` label closes this list"
-    );
+    expect(comment).toContain("a maintainer setting Priority closes this list");
 
     expect(comment).not.toContain("reply here");
   });

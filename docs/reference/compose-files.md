@@ -142,7 +142,7 @@ The development stack: PostgreSQL, the database migrations, the API server, the 
 
 - Image: `postgres:18-alpine`
 - Published ports: none
-- Exposed, not published: `${POSTGRES_PORT:-5432}`
+- Exposed, not published: `5432`
 - Healthcheck: `pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-freenary}`
 - Volumes: `pgdata:/var/lib/postgresql`
 - Environment it sets: `POSTGRES_DB`, `POSTGRES_PASSWORD`, `POSTGRES_USER`
@@ -180,7 +180,7 @@ The development stack: PostgreSQL, the database migrations, the API server, the 
 - Build: build `.docker/dockerfile.dev` in context `.`
 - Command: `bun run dev -- --host 0.0.0.0`
 - Published ports: none
-- Environment it sets: `DEV_PUBLIC_URL`, `DOCS_PORT`
+- Environment it sets: `DEV_PUBLIC_URL`
 - Restart: `unless-stopped`
 
 ### Required variables
@@ -196,11 +196,9 @@ A variable that is unset or empty takes this value.
 | `AUTH_COOKIE_DOMAIN`  | empty                                   |
 | `BETTER_AUTH_SECRET`  | `dev_secret_change_me_at_least_32chars` |
 | `DOCS_HOST`           | `docs.freenary.kiri.localhost`          |
-| `DOCS_PORT`           | `4000`                                  |
 | `FREENARY_DEV_SCHEME` | `https`                                 |
 | `POSTGRES_DB`         | `freenary`                              |
 | `POSTGRES_PASSWORD`   | `password`                              |
-| `POSTGRES_PORT`       | `5432`                                  |
 | `POSTGRES_USER`       | `postgres`                              |
 | `SERVER_HOST`         | `server.freenary.kiri.localhost`        |
 | `SERVER_URL`          | `http://server:3000`                    |
