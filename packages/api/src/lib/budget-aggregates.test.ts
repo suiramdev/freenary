@@ -29,7 +29,7 @@ const storedRow = (
 });
 
 describe("countedTransactionsWhere", () => {
-  it("keeps every currency and counts what countedInFiguresWhere counts", () => {
+  it("keeps every currency of the cash-flow accounts in the period, counted in figures", () => {
     const from = new Date("2026-10-01T00:00:00.000Z");
     const to = new Date("2026-10-31T23:59:59.999Z");
 

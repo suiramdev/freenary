@@ -2,6 +2,10 @@ import prisma from "@freenary/db";
 import type { TransactionClient } from "@freenary/db";
 
 import { INTERNAL_TRANSFER_CATEGORY } from "../lib/taxonomy";
+import type { ResolutionStage } from "./types";
+
+export const OWN_COUNTERPARTY_STAGE =
+  "own-counterparty" satisfies ResolutionStage;
 
 export const OWN_COUNTERPARTY_KINDS = ["iban", "merchant", "name"] as const;
 
@@ -47,7 +51,10 @@ const TITLES = new Set([
   "SRA",
 ]);
 
-const NAMED_CHANNELS = new Set(["transfer", "unknown"]);
+export const TRANSFER_CHANNELS: ReadonlySet<string> = new Set([
+  "transfer",
+  "unknown",
+]);
 
 const MIN_OWNER_NAME_WORDS = 2;
 
@@ -77,7 +84,7 @@ export const namesOwnerOf = (
   const name = facts.counterpartyNameKey ?? null;
   const channel = facts.channel ?? "unknown";
 
-  if (name === null || !NAMED_CHANNELS.has(channel)) {
+  if (name === null || !TRANSFER_CHANNELS.has(channel)) {
     return null;
   }
 
@@ -147,7 +154,7 @@ export const counterpartyKeysOf = ({
   return keys;
 };
 
-interface StoredCounterparty {
+interface StoredOwnCounterparty {
   isOwn: boolean;
   key: string;
   kind: string;
@@ -160,7 +167,7 @@ export const ownCounterpartiesOf = ({
 }: {
   memberName: string | null;
   overriddenMerchantKeys: readonly string[];
-  stored: readonly StoredCounterparty[];
+  stored: readonly StoredOwnCounterparty[];
 }): OwnCounterparties => {
   const keysWhere = (kind: OwnCounterpartyKind, isOwn: boolean) =>
     new Set(

@@ -1,3 +1,4 @@
+import type { ExclusionScope } from "@freenary/api/lib/exclusion-scope";
 import { INTERNAL_TRANSFER_CATEGORY } from "@freenary/api/lib/taxonomy";
 import { Button } from "@freenary/ui/components/button";
 import {
@@ -17,11 +18,11 @@ import { Switch } from "@freenary/ui/components/switch";
 import { RiMore2Fill } from "@remixicon/react";
 import { useId } from "react";
 
+import { isExcluded } from "@/entities/budget";
 import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 
 import { useTransactionExclusion } from "../model/use-transaction-exclusion";
-import type { ExclusionScope } from "../model/use-transaction-exclusion";
 
 interface ExclusionAction {
   isExcluded: boolean;
@@ -124,10 +125,7 @@ export const TransactionExclusionRow = ({
       <ItemActions>
         <Switch
           aria-labelledby={labelId}
-          checked={
-            transaction.exclusion !== null &&
-            transaction.exclusion !== undefined
-          }
+          checked={isExcluded(transaction)}
           disabled={isByMerchant}
           onCheckedChange={(next) =>
             exclusion.mutate({ isExcluded: next, scope: "transaction" })

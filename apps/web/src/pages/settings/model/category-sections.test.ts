@@ -68,10 +68,13 @@ const shapeOf = (categories: CategoryEntry[]) =>
 
 describe("toCategorySections", () => {
   it("puts every predefined category under its own group heading", () => {
+    const groups = predefinedCategoryGroups();
     const sections = toCategorySections(listCategories([]), "");
 
-    expect(sections).toHaveLength(4);
-    expect(keysOf(sections)).toHaveLength(28);
+    expect(sections).toHaveLength(groups.length);
+    expect(keysOf(sections)).toEqual(
+      groups.flatMap(({ categories }) => categories.map(({ key }) => key))
+    );
 
     for (const section of sections) {
       const { heading } = section;

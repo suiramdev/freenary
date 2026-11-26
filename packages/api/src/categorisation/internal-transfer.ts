@@ -16,11 +16,13 @@ import {
   isOwnerNameKey,
   loadOwnCounterparties,
   namesOwnerOf,
+  OWN_COUNTERPARTY_STAGE,
   ownerNameKeyOf,
   rememberOwnerNames,
+  TRANSFER_CHANNELS,
 } from "./own-counterparty";
 import type { OwnCounterparties } from "./own-counterparty";
-import type { Iso4217Currency } from "./types";
+import type { Iso4217Currency, ResolutionStage } from "./types";
 
 export interface TransferCandidate {
   accountIban?: string | null;
@@ -61,7 +63,10 @@ export interface OwnAccountLeg {
   otherAccountId: string | null;
 }
 
-export type TransferStage = "internal-transfer" | "own-counterparty";
+export type TransferStage = Extract<
+  ResolutionStage,
+  "internal-transfer" | "own-counterparty"
+>;
 
 export interface TransferLegUpdates {
   fees: Map<string, number>;
@@ -131,8 +136,6 @@ const nameEvidenceOf = (
 
   return named.has(true) && !named.has(false) ? "named" : "refuted";
 };
-
-const TRANSFER_CHANNELS = new Set(["transfer", "unknown"]);
 
 const movesIntoHolderAccount = (
   outgoing: TransferCandidate,
@@ -479,7 +482,7 @@ export const transferLegUpdates = (
 
   for (const { leg, otherAccountId } of singles) {
     flag(
-      otherAccountId === null ? "own-counterparty" : "internal-transfer",
+      otherAccountId === null ? OWN_COUNTERPARTY_STAGE : "internal-transfer",
       leg.id
     );
 
@@ -500,7 +503,7 @@ export const transferCandidatesWhere = (
 ): Prisma.TransactionWhereInput => ({
   OR: [
     { isInternalTransfer: false },
-    { isInternalTransfer: true, resolutionStage: "own-counterparty" },
+    { isInternalTransfer: true, resolutionStage: OWN_COUNTERPARTY_STAGE },
   ],
   accountId: { in: accountIds },
   categoryOverride: false,
@@ -536,33 +539,71 @@ const withLearnedNames = (
   ownerNames: new Set([...own.ownerNames, ...names]),
 });
 
-const transferUpdates = ({ fees, flagged, saved }: TransferLegUpdates) => {
+const FLAGGED_LEG = {
+  category: null,
+  isInternalTransfer: true,
+  resolutionConfidence: 1,
+} as const satisfies Prisma.TransactionUpdateManyMutationInput;
+
+interface StoredLegState {
+  category: string | null;
+  isInternalTransfer: boolean;
+  resolutionConfidence: number | null;
+  resolutionStage: string | null;
+  resolvedCategory: string | null;
+}
+
+const transferUpdates = (
+  { fees, flagged, saved }: TransferLegUpdates,
+  stateOf: ReadonlyMap<string, StoredLegState>
+) => {
   const savedIds = new Set([...saved.values()].flat());
 
+  const needsUpdate =
+    (resolutionStage: TransferStage, resolvedCategory: string) =>
+    (id: string) => {
+      const state = stateOf.get(id);
+
+      return !(
+        state &&
+        state.category === FLAGGED_LEG.category &&
+        state.isInternalTransfer === FLAGGED_LEG.isInternalTransfer &&
+        state.resolutionConfidence === FLAGGED_LEG.resolutionConfidence &&
+        state.resolutionStage === resolutionStage &&
+        state.resolvedCategory === resolvedCategory
+      );
+    };
+
+  const flagUpdates = [...flagged].map(([stage, ids]) => ({
+    flaggedLeg: {
+      ...FLAGGED_LEG,
+      resolutionStage: stage,
+      resolvedCategory: INTERNAL_TRANSFER_CATEGORY,
+    },
+    ids: ids
+      .filter((id) => !savedIds.has(id))
+      .filter(needsUpdate(stage, INTERNAL_TRANSFER_CATEGORY)),
+  }));
+
+  const saveUpdates = [...saved].map(([category, ids]) => ({
+    flaggedLeg: {
+      ...FLAGGED_LEG,
+      resolutionStage: "internal-transfer" satisfies TransferStage,
+      resolvedCategory: category,
+    },
+    ids: ids.filter(needsUpdate("internal-transfer", category)),
+  }));
+
   return [
-    ...[...flagged].map(([stage, ids]) =>
-      prisma.transaction.updateMany({
-        data: {
-          category: null,
-          isInternalTransfer: true,
-          resolutionConfidence: 1,
-          resolutionStage: stage,
-          resolvedCategory: INTERNAL_TRANSFER_CATEGORY,
-        },
-        where: { id: { in: ids.filter((id) => !savedIds.has(id)) } },
-      })
-    ),
-    ...[...saved].map(([category, ids]) =>
-      prisma.transaction.updateMany({
-        data: {
-          category: null,
-          isInternalTransfer: true,
-          resolutionConfidence: 1,
-          resolutionStage: "internal-transfer",
-          resolvedCategory: category,
-        },
-        where: { id: { in: ids } },
-      })
+    ...[...flagUpdates, ...saveUpdates].flatMap(({ flaggedLeg, ids }) =>
+      ids.length === 0
+        ? []
+        : [
+            prisma.transaction.updateMany({
+              data: flaggedLeg,
+              where: { id: { in: ids } },
+            }),
+          ]
     ),
     ...[...fees].map(([id, exchangeFeeMinor]) =>
       prisma.transaction.update({
@@ -602,6 +643,7 @@ const matchInternal = async (
       select: {
         accountId: true,
         amount: true,
+        category: true,
         channel: true,
         counterpartyName: true,
         creditorAccountIban: true,
@@ -609,9 +651,13 @@ const matchInternal = async (
         date: true,
         debtorAccountIban: true,
         id: true,
+        isInternalTransfer: true,
         merchantKey: true,
         originalAmount: true,
         originalCurrency: true,
+        resolutionConfidence: true,
+        resolutionStage: true,
+        resolvedCategory: true,
       },
       where: transferCandidatesWhere([...ibanOf.keys()], bookedSince),
     }),
@@ -630,10 +676,8 @@ const matchInternal = async (
     return 0;
   }
 
-  const own = withLearnedNames(
-    stored,
-    ownerNamesConfirmedBy(unsigned, [], accountsByIban)
-  );
+  const linkedOwnerNames = ownerNamesConfirmedBy(unsigned, [], accountsByIban);
+  const own = withLearnedNames(stored, linkedOwnerNames);
 
   const candidates = withOwnerSignal(unsigned, own);
 
@@ -657,13 +701,15 @@ const matchInternal = async (
   );
 
   if (updates.flagged.size > 0) {
-    await prisma.$transaction(transferUpdates(updates));
+    await prisma.$transaction(
+      transferUpdates(updates, new Map(legs.map((leg) => [leg.id, leg])))
+    );
   }
 
-  await rememberOwnerNames(
-    userId,
-    ownerNamesConfirmedBy(candidates, pairs, accountsByIban)
-  );
+  await rememberOwnerNames(userId, [
+    ...linkedOwnerNames,
+    ...ownerNamesConfirmedBy([], pairs, accountsByIban),
+  ]);
 
   return [...updates.flagged.values()].flat().length;
 };

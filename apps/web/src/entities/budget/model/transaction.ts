@@ -1,3 +1,4 @@
+import type { TransactionExclusion } from "@freenary/api/lib/exclusion-scope";
 import { fromMinor } from "@freenary/api/lib/money";
 import { INTERNAL_TRANSFER_CATEGORY } from "@freenary/api/lib/taxonomy";
 import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
@@ -21,8 +22,6 @@ export interface Transaction {
   hasMerchant?: boolean;
   isInternalTransfer?: boolean;
 }
-
-export type TransactionExclusion = "MERCHANT" | "TRANSACTION";
 
 export const isExcluded = (transaction: Transaction): boolean =>
   transaction.exclusion !== null && transaction.exclusion !== undefined;

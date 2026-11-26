@@ -55,6 +55,7 @@ export const BudgetingSection = ({
 
   const PlusIcon = useIcon("plus");
   const { control } = useSize();
+  const budgetable = budgetableCategories(categories);
 
   if (loadError) {
     return (
@@ -104,7 +105,7 @@ export const BudgetingSection = ({
             >
               {lines.map((line) => (
                 <BudgetLineRow
-                  categories={budgetableCategories(categories)}
+                  categories={budgetable}
                   currency={currency}
                   error={errors.get(line.id)}
                   key={line.id}

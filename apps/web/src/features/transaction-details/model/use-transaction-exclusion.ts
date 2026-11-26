@@ -1,3 +1,8 @@
+import { EXCLUSION_OF_SCOPE } from "@freenary/api/lib/exclusion-scope";
+import type {
+  ExclusionScope,
+  TransactionExclusion,
+} from "@freenary/api/lib/exclusion-scope";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -5,24 +10,20 @@ import {
   invalidateBudgetData,
   TRANSACTIONS_QUERY_KEY,
 } from "@/entities/budget";
-import type { Transaction, TransactionExclusion } from "@/entities/budget";
+import type { Transaction } from "@/entities/budget";
 import { m } from "@/paraglide/messages.js";
 import { client } from "@/shared/api";
-
-export type ExclusionScope = "merchant" | "transaction";
 
 interface ExclusionChange {
   isExcluded: boolean;
   scope: ExclusionScope;
 }
 
-const EXCLUSION_OF_SCOPE = {
-  merchant: "MERCHANT",
-  transaction: "TRANSACTION",
-} as const satisfies Record<ExclusionScope, TransactionExclusion>;
-
 export const useTransactionExclusion = (transaction: Transaction) => {
   const queryClient = useQueryClient();
+
+  const holdsTransaction = (page: { transactions: Transaction[] }) =>
+    page.transactions.some((tx) => tx.id === transaction.id);
 
   const patchExclusion = (exclusion: TransactionExclusion | null) => {
     queryClient.setQueriesData<{
@@ -33,14 +34,22 @@ export const useTransactionExclusion = (transaction: Transaction) => {
         return old;
       }
 
+      if (!old.pages.some(holdsTransaction)) {
+        return old;
+      }
+
       return {
         ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          transactions: page.transactions.map((tx) =>
-            tx.id === transaction.id ? { ...tx, exclusion } : tx
-          ),
-        })),
+        pages: old.pages.map((page) =>
+          holdsTransaction(page)
+            ? {
+                ...page,
+                transactions: page.transactions.map((tx) =>
+                  tx.id === transaction.id ? { ...tx, exclusion } : tx
+                ),
+              }
+            : page
+        ),
       };
     });
   };

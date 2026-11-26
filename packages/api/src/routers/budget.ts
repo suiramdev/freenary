@@ -75,11 +75,16 @@ const exclusionOrNotFound = <T>(outcome: T | null): T => {
   return outcome;
 };
 
+const exclusionInput = z.object({
+  excluded: z.boolean(),
+  transactionId: z.string(),
+});
+
 export const budgetRouter = {
   ...categorySuggestionProcedures,
   ...savedFilterProcedures,
   excludeMerchant: protectedProcedure
-    .input(z.object({ excluded: z.boolean(), transactionId: z.string() }))
+    .input(exclusionInput)
     .handler(async ({ context, input }) =>
       exclusionOrNotFound(
         await excludeMerchant(
@@ -91,7 +96,7 @@ export const budgetRouter = {
     ),
 
   excludeTransaction: protectedProcedure
-    .input(z.object({ excluded: z.boolean(), transactionId: z.string() }))
+    .input(exclusionInput)
     .handler(async ({ context, input }) =>
       exclusionOrNotFound(
         await excludeTransaction(

@@ -4,34 +4,15 @@ import { SAVING_CATEGORIES } from "./account-types";
 import { INTERNAL_TRANSFER_CATEGORY } from "./taxonomy";
 import type { SpendingCategory } from "./taxonomy";
 import { effectiveCategory } from "./transaction-category";
-
-const isEffectively = (
-  categories: readonly string[]
-): Prisma.TransactionWhereInput => ({
-  OR: [
-    { category: { in: [...categories] } },
-    { category: null, resolvedCategory: { in: [...categories] } },
-  ],
-});
-
-const isNotEffectively = (category: string): Prisma.TransactionWhereInput => ({
-  OR: [
-    { AND: [{ category: { not: null } }, { category: { not: category } }] },
-    { category: null, resolvedCategory: null },
-    {
-      AND: [
-        { category: null },
-        { resolvedCategory: { not: null } },
-        { resolvedCategory: { not: category } },
-      ],
-    },
-  ],
-});
+import {
+  categoryIsNoneOf,
+  categoryIsOneOf,
+} from "./transaction-filter-conditions";
 
 export const countedWholeWhere: Prisma.TransactionWhereInput = {
   AND: [
     { exclusion: null, isInternalTransfer: false },
-    isNotEffectively(INTERNAL_TRANSFER_CATEGORY),
+    categoryIsNoneOf([INTERNAL_TRANSFER_CATEGORY]),
   ],
 };
 
@@ -42,7 +23,10 @@ export const countedInFiguresWhere: Prisma.TransactionWhereInput = {
       OR: [
         countedWholeWhere,
         {
-          AND: [{ isInternalTransfer: true }, isEffectively(SAVING_CATEGORIES)],
+          AND: [
+            { isInternalTransfer: true },
+            categoryIsOneOf(SAVING_CATEGORIES),
+          ],
         },
         { exchangeFeeMinor: { gt: 0 }, isInternalTransfer: true },
       ],

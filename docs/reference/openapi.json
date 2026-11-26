@@ -829,6 +829,28 @@
                           "type": "object",
                           "properties": {
                             "field": {
+                              "const": "exclusion"
+                            },
+                            "operator": {
+                              "enum": ["is", "isNot", "isAnyOf"],
+                              "type": "string"
+                            },
+                            "values": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "items": {
+                                "enum": ["merchant", "transaction"],
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": ["field", "operator", "values"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "field": {
                               "const": "amount"
                             },
                             "operator": {
@@ -1620,6 +1642,28 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64
+                              }
+                            }
+                          },
+                          "required": ["field", "operator", "values"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "field": {
+                              "const": "exclusion"
+                            },
+                            "operator": {
+                              "enum": ["is", "isNot", "isAnyOf"],
+                              "type": "string"
+                            },
+                            "values": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "items": {
+                                "enum": ["merchant", "transaction"],
+                                "type": "string"
                               }
                             }
                           },

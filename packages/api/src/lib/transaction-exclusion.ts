@@ -1,27 +1,20 @@
 import prisma from "@freenary/db";
 
-export type TransactionExclusion = "MERCHANT" | "TRANSACTION";
-
-export type ExclusionScope = "merchant" | "transaction";
+import { EXCLUSION_OF_SCOPE } from "./exclusion-scope";
+import type { ExclusionScope, TransactionExclusion } from "./exclusion-scope";
 
 export const exclusionAfter = (
   current: TransactionExclusion | null,
   scope: ExclusionScope,
   isExcluded: boolean
 ): TransactionExclusion | null => {
-  if (scope === "merchant") {
-    if (isExcluded) {
-      return current ?? "MERCHANT";
-    }
-
-    return current === "MERCHANT" ? null : current;
-  }
+  const exclusion = EXCLUSION_OF_SCOPE[scope];
 
   if (isExcluded) {
-    return current ?? "TRANSACTION";
+    return current ?? exclusion;
   }
 
-  return current === "TRANSACTION" ? null : current;
+  return current === exclusion ? null : current;
 };
 
 interface ExclusionOutcome {
@@ -129,15 +122,23 @@ export const applyMerchantExclusions = async (userId: string) => {
   const keys = excluded.map(({ merchantKey }) => merchantKey);
   const ownTransactions = { account: { connection: { userId } } };
 
+  const clearReleased = prisma.transaction.updateMany({
+    data: { exclusion: null },
+    where: {
+      ...ownTransactions,
+      OR: [{ merchantKey: null }, { merchantKey: { notIn: keys } }],
+      exclusion: "MERCHANT",
+    },
+  });
+
+  if (keys.length === 0) {
+    await clearReleased;
+
+    return;
+  }
+
   await prisma.$transaction([
-    prisma.transaction.updateMany({
-      data: { exclusion: null },
-      where: {
-        ...ownTransactions,
-        OR: [{ merchantKey: null }, { merchantKey: { notIn: keys } }],
-        exclusion: "MERCHANT",
-      },
-    }),
+    clearReleased,
     prisma.transaction.updateMany({
       data: { exclusion: "MERCHANT" },
       where: {

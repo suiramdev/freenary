@@ -19,7 +19,6 @@ export {
   type OriginalAmount,
   originalAmountOf,
   type Transaction,
-  type TransactionExclusion,
   transactionTitle,
 } from "./model/transaction";
 export { BudgetMonthField } from "./ui/budget-month-field";

@@ -6,6 +6,7 @@ import { effectiveCategory } from "../lib/transaction-category";
 import {
   counterpartyKeysOf,
   forgetDeclaredCounterparties,
+  OWN_COUNTERPARTY_STAGE,
   recordCounterpartyDecision,
 } from "./own-counterparty";
 import type { CounterpartyKey } from "./own-counterparty";
@@ -58,6 +59,14 @@ const RELEASED_LEG = {
   resolvedCategory: null,
 } as const satisfies Prisma.TransactionUpdateManyMutationInput;
 
+const inferredLegsOf = (userId: string) =>
+  ({
+    account: { connection: { userId } },
+    categoryOverride: false,
+    isInternalTransfer: true,
+    resolutionStage: OWN_COUNTERPARTY_STAGE,
+  }) satisfies Prisma.TransactionWhereInput;
+
 const releaseCounterpartyLegs = async (
   db: TransactionClient,
   userId: string,
@@ -69,12 +78,7 @@ const releaseCounterpartyLegs = async (
 
   const flagged = await db.transaction.findMany({
     select: { ...COUNTERPARTY_SELECT, id: true },
-    where: {
-      account: { connection: { userId } },
-      categoryOverride: false,
-      isInternalTransfer: true,
-      resolutionStage: "own-counterparty",
-    },
+    where: inferredLegsOf(userId),
   });
 
   const released = flagged.flatMap((tx) =>
@@ -102,12 +106,9 @@ export const releaseInferredSiblings = (
   db.transaction.updateMany({
     data: RELEASED_LEG,
     where: {
-      account: { connection: { userId } },
-      categoryOverride: false,
+      ...inferredLegsOf(userId),
       id: { not: transactionId },
-      isInternalTransfer: true,
       merchantKey,
-      resolutionStage: "own-counterparty",
     },
   });
 
