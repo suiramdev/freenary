@@ -4,10 +4,10 @@
   "tasks": {
     "build": {
       "outputs": [".output/**", "src/paraglide/**", "src/routeTree.gen.ts"]
-        },
-        "codegen": {
-                "outputs": ["src/paraglide/**", "src/routeTree.gen.ts"]
-        },
+    },
+    "codegen": {
+      "outputs": ["src/paraglide/**", "src/routeTree.gen.ts"]
+    },
     "check-types": {
       "dependsOn": ["^check-types", "codegen"]
     }

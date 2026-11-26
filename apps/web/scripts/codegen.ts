@@ -29,6 +29,26 @@ if (paraglide.status !== 0) {
   process.exit(paraglide.status ?? 1);
 }
 
-const config = await getConfig({ routesDirectory: "app/routes" });
+const START_REGISTER = [
+  "import type { getRouter } from './app/router/router.tsx'",
+  "import type { createStart } from '@tanstack/react-start'",
+  "declare module '@tanstack/react-start' {",
+  "  interface Register {",
+  "    ssr: true",
+  "    router: Awaited<ReturnType<typeof getRouter>>",
+  "  }",
+  "}",
+].join("\n");
+
+const config = await getConfig(
+  {
+    routeTreeFileFooter: [START_REGISTER],
+    routesDirectory: "src/app/routes",
+    target: "react",
+  },
+  APP_DIR
+);
+
 const generator = new Generator({ config, root: APP_DIR });
+
 await generator.run();
