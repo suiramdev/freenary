@@ -132,7 +132,7 @@ export const SavedFiltersMenu = ({
             <li className="flex items-center gap-0.5" key={saved.id}>
               <button
                 aria-current={isApplied ? "true" : undefined}
-                className="hover:bg-hover flex min-w-0 flex-1 flex-col items-start rounded-md px-2 py-1 text-left leading-snug outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+                className="hover:bg-hover flex min-w-0 flex-1 flex-col items-start rounded-md px-2 py-1 text-left leading-snug outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]"
                 onClick={() => applySaved(saved)}
                 type="button"
               >
