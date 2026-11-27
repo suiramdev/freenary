@@ -14,7 +14,7 @@ import {
 
 const NewTabLink = ({ href, label }: { href: string; label: string }) => (
   <a
-    className="inline-flex min-h-6 items-center gap-1 rounded-sm font-medium underline underline-offset-4 outline-none hover:decoration-2"
+    className="inline-flex min-h-6 items-center gap-1 rounded-sm font-medium underline underline-offset-4 hover:decoration-2"
     href={href}
     rel="noopener noreferrer"
     target="_blank"
