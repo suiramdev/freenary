@@ -101,7 +101,7 @@ const startConnection = (request: StartConnectionRequest) => {
 
   consent.searchParams.set("institution", request.institutionId);
   consent.searchParams.set("redirect_uri", request.redirectUrl);
-  consent.searchParams.set("state", request.state);
+  consent.searchParams.set("state", request.state); if (request.locale) { consent.searchParams.set("locale", request.locale); }
 
   return Promise.resolve({ url: consent.toString() });
 };
