@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { exchangeRateOf, originalAmountOf } from "./transaction";
+import { exchangeRateOf, isRefunded, originalAmountOf } from "./transaction";
 import type { Transaction } from "./transaction";
 
 const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
@@ -52,5 +52,23 @@ describe("a purchase made in another currency", () => {
 
   it("has no rate for an original amount of zero", () => {
     expect(exchangeRateOf(transaction({ originalAmount: 0 }))).toBeNull();
+  });
+});
+
+describe("a refunded transaction", () => {
+  it("is a credit on an expense category", () => {
+    expect(isRefunded(transaction({ amount: 9213 }))).toBe(true);
+  });
+
+  it("is a credit in the refunds category", () => {
+    expect(isRefunded(transaction({ amount: 9213, category: "refunds" }))).toBe(true);
+  });
+
+  it("is not a debit", () => {
+    expect(isRefunded(transaction())).toBe(false);
+  });
+
+  it("is not a credit on an income category", () => {
+    expect(isRefunded(transaction({ amount: 9213, category: "salary" }))).toBe(false);
   });
 });

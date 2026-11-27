@@ -16,6 +16,7 @@ export {
   countsInListTotals,
   exchangeRateOf,
   isExcluded,
+  isRefunded,
   type OriginalAmount,
   originalAmountOf,
   type Transaction,

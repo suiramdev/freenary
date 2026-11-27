@@ -931,6 +931,8 @@
   "budget_transaction_original": "{label}, à l’origine {amount}",
   "budget_transaction_paid": "{title}, payé {amount}",
   "budget_transaction_received": "{title}, reçu {amount}",
+  "budget_transaction_refunded": "Remboursée",
+  "budget_transaction_refunded_label": "{label}. Remboursée.",
   "budget_transactions_empty_incoming": "Aucune entrée d’argent sur cette période.",
   "budget_transactions_empty_outgoing": "Aucune sortie d’argent sur cette période.",
   "budget_transactions_empty_title": "Aucune transaction",
