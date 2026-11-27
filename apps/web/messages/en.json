@@ -922,6 +922,8 @@
   "budget_transaction_original": "{label}, originally {amount}",
   "budget_transaction_paid": "{title}, paid {amount}",
   "budget_transaction_received": "{title}, received {amount}",
+  "budget_transaction_refunded": "Refunded",
+  "budget_transaction_refunded_label": "{label}. Refunded.",
   "budget_transactions_empty_incoming": "No incoming transactions found for this period.",
   "budget_transactions_empty_outgoing": "No outgoing transactions found for this period.",
   "budget_transactions_empty_title": "No transactions",
