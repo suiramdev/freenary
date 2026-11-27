@@ -120,6 +120,7 @@ const VARIANT_LABELS = {
 const VARIANT_DESCRIPTIONS = {
   "assistant:openai-compatible":
     m.setup_variant_assistant_openai_compatible_description,
+  "banking:enable-banking": m.setup_variant_enable_banking_description,
   "banking:powens": m.setup_variant_powens_description,
   "categorisation:disabled": m.setup_variant_categorisation_skip_description,
   "categorisation:jev": m.setup_variant_jev_tradeoffs,
