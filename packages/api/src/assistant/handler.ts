@@ -198,6 +198,7 @@ export const handleAssistantChat = async ({
   );
 
   const originalMessages = [...history, question];
+  const boundedMessages = boundHistoryForModel(originalMessages);
 
   const ai = createAILogger(log);
 
@@ -209,7 +210,8 @@ export const handleAssistantChat = async ({
       body.today ?? new Date().toISOString().slice(0, 10),
       dashboards
     ),
-    messages: await convertToModelMessages(originalMessages),
+    messages: await convertToModelMessages(boundedMessages),
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     model: ai.wrap(model),
     stopWhen: stepCountIs(MAX_STEPS),
     toolChoice: "auto",
@@ -234,4 +236,67 @@ export const handleAssistantChat = async ({
     },
     originalMessages,
   });
+};
+
+export const MAX_HISTORY_TURNS = 10;
+export const MAX_TOOL_OUTPUT_CHARS = 2000;
+export const MAX_CONTEXT_CHARS = 60000;
+export const MAX_OUTPUT_TOKENS = 4096;
+
+type ContextPart = UIMessage["parts"][number];
+
+const partChars = (part: ContextPart): number => {
+  if ("text" in part && typeof part.text === "string") {
+    return part.text.length;
+  }
+  if ("output" in part && typeof part.output === "string") {
+    return part.output.length;
+  }
+  if ("output" in part && part.output !== undefined) {
+    return JSON.stringify(part.output)?.length ?? 0;
+  }
+  return 0;
+};
+
+const pruneToolOutput = (part: ContextPart): ContextPart => {
+  if (!("output" in part) || part.output === undefined) {
+    return part;
+  }
+  if (typeof part.output === "string") {
+    return part.output.length <= MAX_TOOL_OUTPUT_CHARS
+      ? part
+      : ({
+          ...part,
+          output: part.output.slice(0, MAX_TOOL_OUTPUT_CHARS),
+        }) as ContextPart;
+  }
+  const serialized = JSON.stringify(part.output);
+  return serialized === undefined || serialized.length <= MAX_TOOL_OUTPUT_CHARS
+    ? part
+    : ({ ...part, output: serialized.slice(0, MAX_TOOL_OUTPUT_CHARS) }) as ContextPart;
+};
+
+export const boundHistoryForModel = (
+  messages: readonly UIMessage[],
+): UIMessage[] => {
+  const windowed: UIMessage[] = messages
+    .slice(-MAX_HISTORY_TURNS * 2)
+    .map((message) => ({
+      ...message,
+      parts: message.parts.map(pruneToolOutput),
+    }));
+  const bounded: UIMessage[] = [];
+  let chars = 0;
+  for (const message of [...windowed].reverse()) {
+    const messageChars = message.parts.reduce(
+      (sum, part) => sum + partChars(part),
+      0,
+    );
+    if (bounded.length > 0 && chars + messageChars > MAX_CONTEXT_CHARS) {
+      break;
+    }
+    bounded.unshift(message);
+    chars += messageChars;
+  }
+  return bounded;
 };
