@@ -10,7 +10,7 @@ import { contentOf } from "../model/notification-content";
 import type { NotificationEntry } from "../model/notification-groups";
 
 const ROW_FOCUS =
-  "outline-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-[color:var(--focus-ring,#6B97FF)]";
+  "outline-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-[color:var(--focus-ring,#4A78F0)]";
 
 const TypeIcon = ({
   className,
