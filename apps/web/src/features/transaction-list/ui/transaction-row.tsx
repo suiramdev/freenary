@@ -8,7 +8,7 @@ import {
 import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
 import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
-import { Undo2 } from "kubai-icons-react";
+import { Undo } from "kubai-icons-react";
 import { useCallback, useRef } from "react";
 
 import {
@@ -119,7 +119,7 @@ export const TransactionRow = ({
         <span className="flex items-center gap-1">
           {refunded ? (
             <span title={m.budget_transaction_refunded()}>
-              <Undo2 aria-hidden="true" className="size-3.5 text-muted-foreground" />
+              <Undo aria-hidden="true" className="size-3.5 text-muted-foreground" />
             </span>
           ) : null}
           <TransactionAmount
