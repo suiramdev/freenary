@@ -108,11 +108,11 @@ const consentPage = (
 body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f3f4f6;color:#111827}
 main{max-width:26rem;padding:2rem;border-radius:1rem;background:#fff;box-shadow:0 1px 3px #0002}
 h1{font-size:1.25rem;margin:0 0 .5rem}
-p{color:#57534e;line-height:1.5;margin:0}
+p{color:#57534e;line-height:1.5}
 nav{display:flex;gap:.75rem;margin-top:1.5rem}
-a{flex:1;text-align:center;padding:.5rem 1rem;border-radius:.5rem;text-decoration:none}
+a{flex:1;text-align:center;padding:.6rem 1rem;border-radius:.5rem;text-decoration:none;font-weight:600}
 .approve{background:#1c1917;color:#fff}
-.decline{border:1px solid #d6d3d1;color:#111827}
+.decline{border:1px solid #d6d3d1;color:#1c1917}
 </style>
 </head>
 <body>
