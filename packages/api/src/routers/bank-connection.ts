@@ -187,6 +187,7 @@ interface ConsentRequest {
   readonly provider: BankingProvider;
   readonly returnTo: BankConnectionReturnTarget;
   readonly userId: string;
+  readonly locale?: string;
 }
 
 const startConsent = async ({
@@ -196,6 +197,7 @@ const startConsent = async ({
   provider,
   returnTo,
   userId,
+  locale,
 }: ConsentRequest): Promise<{ url: string }> => {
   const providerUser = await ensureProviderUser(userId, provider);
   const nonce = await issueStateNonce(userId);
@@ -203,6 +205,7 @@ const startConsent = async ({
   return await provider.startConnection({
     country: institution.country,
     institutionId: institution.id,
+    locale,
     providerSessionId: connection?.sessionId,
     redirectUrl: `${env.CORS_ORIGIN}${provider.callbackPath}`,
     state: encodeBankConnectionState({
@@ -528,6 +531,7 @@ export const bankConnectionRouter = {
         institutionId: z.string(),
         returnTo: z.enum(BANK_CONNECTION_RETURN_TARGETS),
         state: z.string().optional(),
+        locale: z.string().min(2).max(5).optional(),
       })
     )
     .handler(async ({ context, input }) => {
@@ -553,6 +557,7 @@ export const bankConnectionRouter = {
         provider,
         returnTo: input.returnTo,
         userId,
+        locale: input.locale,
       });
     }),
 };
