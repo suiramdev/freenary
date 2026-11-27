@@ -43,11 +43,11 @@ const callbackWith = (
 const GENERATED_ORIGIN =
   "This is the mock banking provider. It stands in for the bank consent screen on a development stack, and every account and transaction it returns is generated.";
 const FIXTURE_ORIGIN =
-  "This is the mock banking provider. It stands in for the bank consent screen on a development stack, and it replays accounts and transactions from a fixture dataset.";
+  "This is the mock banking provider. It stands in for the bank consent screen on a development stack, and replays the accounts and transactions of a fixture file.";
 const GENERATED_ORIGIN_FR =
   "Ceci est le fournisseur bancaire fictif. Il remplace l’écran de consentement bancaire sur un environnement de développement, et chaque compte et chaque transaction qu’il renvoie sont générés.";
 const FIXTURE_ORIGIN_FR =
-  "Ceci est le fournisseur bancaire fictif. Il remplace l’écran de consentement bancaire sur un environnement de développement, et il rejoue les comptes et les transactions d’un fichier de données fictives.";
+  "Ceci est le fournisseur bancaire fictif. Il remplace l’écran de consentement bancaire sur un environnement de développement, et rejoue les comptes et les transactions d’un fichier de données fictives.";
 
 type ConsentLocale = "en" | "fr";
 
@@ -100,52 +100,63 @@ const consentPage = (
   const copy = CONSENT_COPY[locale];
   return `<!doctype html>
 <html lang="${locale}">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${copy.title}</title>
-    <style>
-      body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f3f4f6;color:#111827}
-      main{max-width:26rem;padding:2rem;border-radius:1rem;background:#fff;box-shadow:0 1px 3px #0002}
-      a{display:inline-block;margin-top:1rem;margin-right:.75rem;padding:.5rem 1rem;border-radius:.5rem;text-decoration:none}
-      .approve{background:#111827;color:#fff}
-      .decline{border:1px solid #d1d5db;color:#111827}
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>${escapeHtml(institutionName)}</h1>
-      <p>${escapeHtml(origin)}</p>
-      <a class="decline" href="${escapeHtml(declineUrl)}">${copy.decline}</a>
-      <a class="approve" href="${escapeHtml(approveUrl)}">${copy.approve}</a>
-    </main>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${copy.title}</title>
+<style>
+body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f3f4f6;color:#111827}
+main{max-width:26rem;padding:2rem;border-radius:1rem;background:#fff;box-shadow:0 1px 3px #0002}
+h1{font-size:1.25rem;margin:0 0 .5rem}
+p{color:#57534e;line-height:1.5;margin:0}
+nav{display:flex;gap:.75rem;margin-top:1.5rem}
+a{flex:1;text-align:center;padding:.5rem 1rem;border-radius:.5rem;text-decoration:none}
+.approve{background:#1c1917;color:#fff}
+.decline{border:1px solid #d6d3d1;color:#111827}
+</style>
+</head>
+<body>
+<main>
+<h1>${escapeHtml(institutionName)}</h1>
+<p>${escapeHtml(origin)}</p>
+<nav>
+<a class="decline" href="${escapeHtml(declineUrl)}">${copy.decline}</a>
+<a class="approve" href="${escapeHtml(approveUrl)}">${copy.approve}</a>
+</nav>
+</main>
+</body>
 </html>`;
 };
 
 export const handleMockConsent = (request: Request): Response => {
   if (env.NODE_ENV === "production") {
-    return plainResponse(404, "Not found");
+    return plainResponse(404, "Not Found");
   }
-  const url = new URL(request.url);
-  const search = url.searchParams;
+  const search = new URL(request.url).searchParams;
   const institutionId = search.get("institution");
   const redirectUri = search.get("redirect_uri");
   const state = search.get("state");
   const locale = resolveConsentLocale(search.get("locale"));
   const copy = CONSENT_COPY[locale];
-  const institution = MOCK_INSTITUTIONS.find(
+  if (redirectUri !== `${env.CORS_ORIGIN}${MOCK_CALLBACK_PATH}`) {
+    return plainResponse(400, "redirect_uri is not this instance's callback");
+  }
+  if (!(state && institutionId)) {
+    return plainResponse(400, "Missing state or unknown institution");
+  }
+  const fixture = fixtureInstitutions().find(
     (candidate) => candidate.id === institutionId
   );
-  if (!institution || !redirectUri || !state) {
-    return plainResponse(400, "Invalid consent request");
+  const institution =
+    fixture ??
+    MOCK_INSTITUTIONS.find((candidate) => candidate.id === institutionId);
+  if (!institution) {
+    return plainResponse(400, "Missing state or unknown institution");
   }
-  const fixture = fixtureInstitutions.some(
-    (candidate) => candidate.id === institution.id
-  );
-  const sessionCode = fixture ? fixtureSessionCode : mockSessionCode;
   const approveUrl = callbackWith(redirectUri, {
-    code: sessionCode,
+    code: fixture
+      ? fixtureSessionCode(fixture.id)
+      : mockSessionCode(new Date()),
     state,
   });
   const declineUrl = callbackWith(redirectUri, {
