@@ -26,6 +26,8 @@ const savedFilterInput = z
 export const savedFilterProcedures = {
   deleteSavedFilter: protectedProcedure
     .input(z.object({ id: z.string() }))
+    .output(z.object({ id: z.string() }))
+    .errors({ NOT_FOUND: { message: "Saved filter not found" } })
     .handler(async ({ context, input }) => {
       const { count } = await prisma.savedFilter.deleteMany({
         where: { id: input.id, userId: context.session.user.id },
@@ -37,28 +39,47 @@ export const savedFilterProcedures = {
 
       return { id: input.id };
     }),
-
-  listSavedFilters: protectedProcedure.handler(async ({ context }) => {
-    const rows = await prisma.savedFilter.findMany({
-      orderBy: { name: "asc" },
-      select: { filters: true, id: true, name: true, search: true },
-      where: { userId: context.session.user.id },
-    });
-
-    return {
-      savedFilters: rows.flatMap((row) => {
-        const filters = lenientTransactionFiltersSchema.parse(row.filters);
-        const isLeftEmpty = filters.length === 0 && row.search.trim() === "";
-
-        return isLeftEmpty
-          ? []
-          : [{ filters, id: row.id, name: row.name, search: row.search }];
+  listSavedFilters: protectedProcedure
+    .output(
+      z.object({
+        savedFilters: z.array(
+          z.object({
+            filters: lenientTransactionFiltersSchema,
+            id: z.string(),
+            name: z.string(),
+            search: z.string(),
+          }),
+        ),
       }),
-    };
-  }),
+    )
+    .handler(async ({ context }) => {
+      const rows = await prisma.savedFilter.findMany({
+        orderBy: { name: "asc" },
+        select: { filters: true, id: true, name: true, search: true },
+        where: { userId: context.session.user.id },
+      });
 
+      return {
+        savedFilters: rows.flatMap((row) => {
+          const filters = lenientTransactionFiltersSchema.parse(row.filters);
+          const isLeftEmpty = filters.length === 0 && row.search.trim() === "";
+
+          return isLeftEmpty
+            ? []
+            : [{ filters, id: row.id, name: row.name, search: row.search }];
+        }),
+      };
+    }),
   saveFilter: protectedProcedure
     .input(savedFilterInput)
+    .output(
+      z.object({ id: z.string(), name: z.string(), replaced: z.boolean() }),
+    )
+    .errors({
+      [SAVED_FILTER_LIMIT_ERROR]: {
+        message: `Keep at most ${MAX_SAVED_FILTERS} saved filters`,
+      },
+    })
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
       const { filters, name, search } = input;
