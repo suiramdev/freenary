@@ -8,11 +8,13 @@ import {
 import { useRegisterFluidHoverItem } from "@freenary/ui/hooks/use-fluid-hover";
 import { useSize } from "@freenary/ui/lib/size-context";
 import { cn } from "@freenary/ui/lib/utils";
+import { Undo2 } from "kubai-icons-react";
 import { useCallback, useRef } from "react";
 
 import {
   CATEGORY_MEDIA_BOX,
   isExcluded,
+  isRefunded,
   originalAmountOf,
   TransactionAmount,
   transactionTitle,
@@ -55,6 +57,7 @@ export const TransactionRow = ({
     : m.budget_transaction_paid({ amount, title });
 
   const excluded = isExcluded(transaction);
+  const refunded = isRefunded(transaction);
   const exclusionReason = transaction.exclusionReason ?? null;
   let label = paidOrReceived;
 
@@ -66,6 +69,10 @@ export const TransactionRow = ({
             label: paidOrReceived,
             reason: exclusionReason,
           });
+  }
+
+  if (refunded) {
+    label = m.budget_transaction_refunded_label({ label });
   }
 
   const { variant } = useSize();
@@ -109,11 +116,18 @@ export const TransactionRow = ({
         <ItemTitle className="block w-full truncate">{title}</ItemTitle>
       </ItemContent>
       <ItemContent className="items-end gap-0 font-medium">
-        <TransactionAmount
-          amount={transaction.amount}
-          className={cn(excluded && "text-muted-foreground line-through")}
-          currency={transaction.currency}
-        />
+        <span className="flex items-center gap-1">
+          {refunded ? (
+            <span title={m.budget_transaction_refunded()}>
+              <Undo2 aria-hidden="true" className="size-3.5 text-muted-foreground" />
+            </span>
+          ) : null}
+          <TransactionAmount
+            amount={transaction.amount}
+            className={cn(excluded && "text-muted-foreground line-through")}
+            currency={transaction.currency}
+          />
+        </span>
         {excluded ? (
           <span className="text-muted-foreground max-w-48 truncate text-xs font-normal">
             {exclusionReason === null
