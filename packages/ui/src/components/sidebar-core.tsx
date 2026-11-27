@@ -1234,7 +1234,7 @@ const SidebarInput = forwardRef<HTMLInputElement, SidebarInputProps>(
           "ring-1 ring-transparent transition-[background-color,box-shadow] duration-80",
           "hover:bg-muted/50 hover:ring-border",
           "focus:bg-card focus:ring-border",
-          "focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          "focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
           size.variant === "compact" ? "h-7" : "h-8",
           size.text,
           shape.input,
@@ -1543,7 +1543,7 @@ const SidebarGroupLabel = forwardRef<HTMLDivElement, SidebarGroupLabelProps>(
             "text-muted-foreground/70 flex h-8 w-full shrink-0 cursor-pointer items-center gap-2 px-2 text-left outline-none select-none",
             "hover:text-muted-foreground transition-colors duration-80",
             group.actionsCount > 0 && "pr-[var(--group-actions-pad)]",
-            "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+            "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
             shape.item,
             sizeVariant === "compact" ? "text-[11px]" : "text-[12px]",
             className
@@ -1639,7 +1639,7 @@ const SidebarGroupAction = forwardRef<
             // the rows' badges and actions already sit on.
             "text-muted-foreground absolute top-3 right-3.5 flex size-6 items-center justify-center outline-none",
         "hover:bg-hover hover:text-foreground transition-colors duration-80",
-        "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+        "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
         // Normalize bare icons to the site's 1.5 stroke (library defaults
         // vary), thickening to 2 on hover — the same treatment Button's
         // icon-only span applies.
