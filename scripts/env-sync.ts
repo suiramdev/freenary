@@ -475,7 +475,7 @@ const externalTable = (kind: Kind, header: string[]): string =>
   );
 
 const countParagraph = (): string =>
-  `The API server checks its environment once, at startup. The schema is [\`packages/env/src/schema.ts\`](${REPOSITORY_BLOB}/packages/env/src/schema.ts). It declares ${schemaEntries.length} variables with Zod, and \`packages/env/src/server.ts\` hands them to \`@t3-oss/env-core\`. The reference below, and \`${ENV_EXAMPLE_FILE}\`, are generated from that one file.`;
+  `The API server checks its environment once, at startup. The schema is [\`packages/env/src/schema.ts\`](${REPOSITORY_BLOB}/packages/env/src/schema.ts). It declares ${schemaEntries.length} variables with Zod, and \`packages/env/src/server.ts\` hands them to \`@t3-oss/env-core\`. The reference below, and \`${ENV_EXAMPLE_FILE}\`, are generated from that one file. A secret variable can also be read from a file: set \`<VAR>_FILE\` to the file path instead of the variable itself; setting both stops the server at startup.`;
 
 const EXTERNAL_BLOCKS = {
   client: () =>
@@ -571,6 +571,9 @@ const envExampleBody = (): string => {
     "#",
     "# Copy this file to `.env`. `docker-compose.yml` reads every line of it, and",
     "# the development stack reads it too, through an optional `env_file`.",
+    "#",
+    "# Secrets can also come from a file: set `<VAR>_FILE` to the file path",
+    "# instead of the variable itself. Setting both stops the server.",
     "",
     ...SECTIONS.flatMap(sectionEnvFileLines),
     "# --- Images and host ports ---",
