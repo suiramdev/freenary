@@ -537,7 +537,7 @@ function useMenuScope(
       <AnimatePresence>
         {focusRect && (
           <motion.div
-            className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[color:var(--focus-ring,#6B97FF)]`}
+            className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[color:var(--focus-ring,#4A78F0)]`}
             initial={false}
             animate={{
               left: focusRect.left - 2,
@@ -1166,7 +1166,7 @@ const SidebarMenuAction = forwardRef<HTMLButtonElement, SidebarMenuActionProps>(
               ? "top-0.5"
               : "top-1"),
           "hover:bg-hover hover:text-foreground transition-[color,background-color,opacity] duration-80",
-          "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
           // One icon size across the sidebar: row actions match the leading
           // icons and the section header's actions, all on the size ladder.
           // Normalize bare icons to the site's 1.5 stroke (library defaults
