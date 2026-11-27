@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 
 import { env } from "@freenary/env/server";
 import { Option } from "effect";
-
 import { handleMockConsent, MOCK_CALLBACK_PATH } from "./consent";
 import { openedOnOf } from "./session";
 
@@ -27,7 +26,6 @@ describe("mock consent page", () => {
       redirect_uri: "https://elsewhere.example/callback/mock",
       state: "signed-state",
     });
-
     expect(response.status).toBe(400);
   });
 
@@ -36,7 +34,6 @@ describe("mock consent page", () => {
       institution: "mock-banque-lumiere",
       redirect_uri: CALLBACK,
     });
-
     expect(response.status).toBe(400);
   });
 
@@ -46,7 +43,6 @@ describe("mock consent page", () => {
       redirect_uri: CALLBACK,
       state: "signed-state",
     });
-
     expect(response.status).toBe(400);
   });
 
@@ -56,19 +52,64 @@ describe("mock consent page", () => {
       redirect_uri: CALLBACK,
       state: '{"hmac":"<x>"}',
     });
-
     const page = await response.text();
     const approve = linkOf(page, APPROVE_LINK);
     const decline = linkOf(page, DECLINE_LINK);
-
     expect(response.status).toBe(200);
     expect(`${approve.origin}${approve.pathname}`).toBe(CALLBACK);
     expect(approve.searchParams.get("state")).toBe('{"hmac":"<x>"}');
     expect(
       Option.isSome(openedOnOf(approve.searchParams.get("code") ?? ""))
     ).toBe(true);
-
     expect(decline.searchParams.get("error")).toBe("access_denied");
     expect(page).not.toContain('"<x>"');
+  });
+
+  it("renders the consent page in English for locale en", async () => {
+    const response = consentFor({
+      institution: "mock-banque-lumiere",
+      locale: "en",
+      redirect_uri: CALLBACK,
+      state: "signed-state",
+    });
+    const page = await response.text();
+    expect(response.status).toBe(200);
+    expect(page).toContain('<html lang="en">');
+    expect(page).toContain("<title>Mock bank consent</title>");
+    expect(page).toContain("This is the mock banking provider.");
+    expect(page).toContain("Approve");
+    expect(page).toContain("Decline");
+  });
+
+  it("renders the consent page in French for locale fr", async () => {
+    const response = consentFor({
+      institution: "mock-banque-lumiere",
+      locale: "fr",
+      redirect_uri: CALLBACK,
+      state: "signed-state",
+    });
+    const page = await response.text();
+    expect(response.status).toBe(200);
+    expect(page).toContain('<html lang="fr">');
+    expect(page).toContain("<title>Consentement de la banque fictive</title>");
+    expect(page).toContain("fournisseur bancaire fictif");
+    expect(page).toContain("Approuver");
+    expect(page).toContain("Refuser");
+  });
+
+  it("renders the consent page in English for an unknown locale", async () => {
+    const response = consentFor({
+      institution: "mock-banque-lumiere",
+      locale: "xx",
+      redirect_uri: CALLBACK,
+      state: "signed-state",
+    });
+    const page = await response.text();
+    expect(response.status).toBe(200);
+    expect(page).toContain('<html lang="en">');
+    expect(page).toContain("<title>Mock bank consent</title>");
+    expect(page).toContain("This is the mock banking provider.");
+    expect(page).toContain("Approve");
+    expect(page).toContain("Decline");
   });
 });
