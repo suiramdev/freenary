@@ -4,6 +4,7 @@ import { cashFlowAccountsOf } from "./account-types";
 import {
   cashFlowPeriodsOf,
   countedTransactionsWhere,
+  outgoingByCategory,
   sankeyOf,
   statRowOf,
 } from "./budget-aggregates";
@@ -152,5 +153,98 @@ describe("sankeyOf", () => {
     expect(sankey.incomeNodes).toEqual([{ name: "Employer", value: 150_000 }]);
     expect(sankey.totalExpenses).toBe(5000);
     expect(sankey.moneyLeft).toBe(145_000);
+  });
+});
+
+describe("outgoingByCategory", () => {
+  const outgoing = (
+    amount: number,
+    category: string | null,
+    date: string,
+    resolvedCategory: string | null = category,
+  ) => ({
+    amount,
+    category,
+    date: new Date(date),
+    merchantKey: null,
+    resolvedCategory,
+  });
+
+  it("totals absolute amounts by category", () => {
+    const rows = [
+      outgoing(-10_000, "groceries", "2026-01-10T00:00:00.000Z"),
+      outgoing(-5_000, "groceries", "2026-01-20T00:00:00.000Z"),
+      outgoing(-2_000, null, "2026-02-05T00:00:00.000Z"),
+    ];
+    const result = outgoingByCategory(rows, {
+      aggregation: "total",
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      rule: { anchor: "DAY_OF_MONTH", startDay: 1 },
+      to: new Date("2026-02-28T00:00:00.000Z"),
+    });
+    expect(result.get("groceries")).toBe(15_000);
+    expect(result.get("uncategorised")).toBe(2_000);
+  });
+
+  it("averages over active months, counting a category's empty months as zero", () => {
+    const rows = [
+      outgoing(-9_000, null, "2026-01-05T00:00:00.000Z"),
+      outgoing(-12_000, "groceries", "2026-02-10T00:00:00.000Z"),
+      outgoing(-6_000, "groceries", "2026-03-15T00:00:00.000Z"),
+    ];
+    const result = outgoingByCategory(rows, {
+      aggregation: "average",
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      rule: { anchor: "DAY_OF_MONTH", startDay: 1 },
+      to: new Date("2026-03-31T00:00:00.000Z"),
+    });
+    expect(result.get("groceries")).toBe(6_000);
+    expect(result.get("uncategorised")).toBe(3_000);
+  });
+
+  it("takes the median of the zero-filled monthly series", () => {
+    const rows = [
+      outgoing(-9_000, null, "2026-01-05T00:00:00.000Z"),
+      outgoing(-12_000, "groceries", "2026-02-10T00:00:00.000Z"),
+      outgoing(-6_000, "groceries", "2026-03-15T00:00:00.000Z"),
+    ];
+    const result = outgoingByCategory(rows, {
+      aggregation: "median",
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      rule: { anchor: "DAY_OF_MONTH", startDay: 1 },
+      to: new Date("2026-03-31T00:00:00.000Z"),
+    });
+    expect(result.get("groceries")).toBe(6_000);
+    expect(result.get("uncategorised")).toBe(0);
+  });
+
+  it("rounds the median of an even-length zero-filled series", () => {
+    const rows = [
+      outgoing(-1_000, null, "2026-01-05T00:00:00.000Z"),
+      outgoing(-10_000, "groceries", "2026-02-10T00:00:00.000Z"),
+      outgoing(-20_000, "groceries", "2026-03-15T00:00:00.000Z"),
+      outgoing(-1_000, null, "2026-04-05T00:00:00.000Z"),
+    ];
+    const result = outgoingByCategory(rows, {
+      aggregation: "median",
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      rule: { anchor: "DAY_OF_MONTH", startDay: 1 },
+      to: new Date("2026-04-30T00:00:00.000Z"),
+    });
+    expect(result.get("groceries")).toBe(5_000);
+  });
+
+  it("buckets a transaction by its UTC month, not the local month", () => {
+    const rows = [
+      outgoing(-12_000, "groceries", "2026-08-31T23:30:00.000Z"),
+      outgoing(-6_000, "groceries", "2026-09-15T10:00:00.000Z"),
+    ];
+    const result = outgoingByCategory(rows, {
+      aggregation: "average",
+      from: new Date("2026-08-01T00:00:00.000Z"),
+      rule: { anchor: "DAY_OF_MONTH", startDay: 1 },
+      to: new Date("2026-09-30T00:00:00.000Z"),
+    });
+    expect(result.get("groceries")).toBe(9_000);
   });
 });
