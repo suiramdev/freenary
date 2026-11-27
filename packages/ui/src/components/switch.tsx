@@ -37,7 +37,7 @@ function Switch({ className, size, ...props }: SwitchProps) {
       className={cn(
         // Base UI renders a span, not a form control, so the disabled state is
         // `data-disabled`; a `disabled:` variant would never match.
-        "bg-input focus-visible:ring-offset-background relative inline-flex shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-150 ease-out outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6b97ff)] focus-visible:ring-offset-2 data-[checked]:bg-[var(--fluid-accent,#6b97ff)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+        "bg-input focus-visible:ring-offset-background relative inline-flex shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-150 ease-out outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4a78f0)] focus-visible:ring-offset-2 data-[checked]:bg-[var(--fluid-accent,#4a78f0)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         TRACK[variant],
         className
       )}
