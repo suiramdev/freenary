@@ -54,7 +54,8 @@ export interface StartConnectionRequest {
   institutionId: string;
   country: string;
   providerSessionId?: string;
-  redirectUrl: string;
+  redirectUrl: string; 
+  locale?: string;
   state: string;
   user: ProviderUserSession | null;
 }
