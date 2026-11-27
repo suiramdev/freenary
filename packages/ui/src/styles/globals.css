@@ -36,7 +36,7 @@
   --warning: #f59e0b;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #4a78f0;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -86,7 +86,7 @@
   --destructive-light: #fef2f2;
   --overlay: 0 0 0;
   --fluid-accent: #6b97ff;
-  --focus-ring: var(--fluid-accent);
+  --focus-ring: #4a78f0;
   --tint: rgb(0 0 0 / 0.08);
   --tint-hover: rgb(0 0 0 / 0.065);
   --z-sticky: 30;
@@ -200,7 +200,7 @@
   --warning: #fcd34d;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #4a78f0;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -503,8 +503,8 @@
     );
   }
   :focus-visible {
-    outline: 1px solid var(--focus-ring, #6b97ff);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus-ring, #4a78f0);
+  outline-offset: 2px;
     border-radius: var(--shape-input-radius, 8px);
   }
   a:focus-visible {
