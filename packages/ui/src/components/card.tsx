@@ -395,7 +395,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
             target={external ? "_blank" : undefined}
             rel={external ? "noopener noreferrer" : undefined}
             aria-label={label}
-            className="absolute inset-0 z-20 rounded-[inherit] outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+            className="absolute inset-0 z-20 rounded-[inherit] outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]"
           />
         ) : (
           <button
@@ -403,7 +403,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
             onClick={onClick}
             aria-label={label}
             aria-pressed={selected || undefined}
-            className="absolute inset-0 z-20 rounded-[inherit] outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+            className="absolute inset-0 z-20 rounded-[inherit] outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]"
           />
         )
       ) : null;
@@ -532,7 +532,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
               onClick={onDismiss}
               aria-label={labels.dismiss}
               className={cn(
-                "text-muted-foreground hover:text-foreground absolute top-2 right-2 z-30 flex h-7 w-7 cursor-pointer items-center justify-center transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+                "text-muted-foreground hover:text-foreground absolute top-2 right-2 z-30 flex h-7 w-7 cursor-pointer items-center justify-center transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focusring,#4A78F0)]",
                 // Over media the control needs its own ground, or the icon
                 // reads against whatever the image happens to be. Elsewhere
                 // the usual hover fill is enough. The chip takes the button
@@ -1026,7 +1026,7 @@ function CardButton({
     "group/action relative z-30 inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 px-2.5 outline-none",
     compact ? "text-[11px]" : "text-[12px]",
     "transition-colors duration-80",
-    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
     "disabled:pointer-events-none disabled:opacity-50",
     shape.button,
     CARD_BUTTON_VARIANTS[variant]

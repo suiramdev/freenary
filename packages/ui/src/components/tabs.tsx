@@ -274,7 +274,7 @@ const Tabs = forwardRef<HTMLDivElement, TabsProps>(
                 {focusRect && (
                   <motion.div
                     className={cn(
-                      "pointer-events-none absolute z-20 border border-[color:var(--focus-ring,#6B97FF)]",
+                      "pointer-events-none absolute z-20 border border-[color:var(--focus-ring,#4A78F0)]",
                       shape.focusRing
                     )}
                     initial={false}

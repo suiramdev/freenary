@@ -31,7 +31,7 @@ const buttonVariants = cva(
     // A loading button is disabled too, but stays at full strength:
     // data-loading marks it as working, not unavailable.
     "disabled:pointer-events-none disabled:not-data-loading:opacity-50",
-    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
   ],
   {
     variants: {

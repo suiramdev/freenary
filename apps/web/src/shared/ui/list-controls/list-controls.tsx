@@ -156,7 +156,7 @@ export const ListFilterChip = ({
     >
       <Badge
         className={cn(
-          "group-focus-visible:ring-1 group-focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+          "group-focus-visible:ring-1 group-focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
           truncate && "max-w-48"
         )}
         ref={badgeRef}

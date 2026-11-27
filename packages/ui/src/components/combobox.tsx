@@ -451,7 +451,7 @@ const fieldVariants = cva(
 // The clear and chevron buttons share one quiet style; they sit inside the
 // field's ring so they need no frame of their own.
 const fieldButtonClass =
-  "flex shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] data-[disabled]:pointer-events-none";
+  "flex shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)] data-[disabled]:pointer-events-none";
 // The clear ✕ is a real icon button: the hover fill says "press me", where
 // the chevron beside it only decorates the field it belongs to.
 const clearButtonClass = cn(
@@ -727,7 +727,7 @@ const ComboboxChips = forwardRef<HTMLInputElement, ComboboxChipsProps>(
                               shape.variant === "pill"
                                 ? "rounded-full"
                                 : "rounded-md",
-                              "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+                              "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
                               compact ? "h-5 text-[11px]" : "h-6 text-[12px]"
                             )}
                           >

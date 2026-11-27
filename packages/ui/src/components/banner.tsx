@@ -552,7 +552,7 @@ const Banner = forwardRef<HTMLDivElement, BannerProps>(
             onClick={handleDismiss}
             aria-label={dismissLabel}
             className={cn(
-              "text-muted-foreground hover:bg-hover hover:text-foreground col-start-4 row-start-1 flex size-7 cursor-pointer items-center justify-center transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+              "text-muted-foreground hover:bg-hover hover:text-foreground col-start-4 row-start-1 flex size-7 cursor-pointer items-center justify-center transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
               // Pulled into the padding so the glyph, not the 28px box, sits
               // on the title line and the inset edge.
               compact ? "-my-[5px] -mr-1.5 ml-1.5" : "-my-1 -mr-1.5 ml-2",

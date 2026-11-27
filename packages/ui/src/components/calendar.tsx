@@ -770,7 +770,7 @@ function Months({
           <motion.div
             data-slot="calendar-focus-ring"
             className={cn(
-              "pointer-events-none absolute top-0 left-0 z-[3] border border-[color:var(--focus-ring,#6B97FF)]",
+              "pointer-events-none absolute top-0 left-0 z-[3] border border-[color:var(--focus-ring,#4A78F0)]",
               cal.pill ? "rounded-full" : shape.focusRing
             )}
             initial={{

@@ -14,7 +14,7 @@ import {
 
 const NewTabLink = ({ href, label }: { href: string; label: string }) => (
   <a
-    className="focus-visible:ring-foreground inline-flex min-h-6 items-center gap-1 rounded-sm font-medium underline underline-offset-4 outline-none hover:decoration-2 focus-visible:ring-2"
+    className="inline-flex min-h-6 items-center gap-1 rounded-sm font-medium underline underline-offset-4 hover:decoration-2"
     href={href}
     rel="noopener noreferrer"
     target="_blank"
@@ -115,7 +115,7 @@ const Banner = ({ latest }: { latest: string }) => {
           </div>
           <Button
             aria-label={m.update_banner_dismiss({ version: latest })}
-            className="focus-visible:ring-foreground ms-auto focus-visible:ring-2"
+            className="ms-auto focus-visible:ring-2"
             onClick={() => {
               focusPastTheBanner(reveal.current);
               dismissUpdate(latest);
