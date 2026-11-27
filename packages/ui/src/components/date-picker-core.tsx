@@ -623,7 +623,7 @@ function TimeField({
         segmentClass,
         // Icon-to-text gap matches Button's, at both sizes.
         compact ? "gap-1" : "gap-1.5",
-        "cursor-text has-[input:focus-visible]:ring-1 has-[input:focus-visible]:ring-[color:var(--focus-ring,#6B97FF)]",
+        "cursor-text has-[input:focus-visible]:ring-1 has-[input:focus-visible]:ring-[color:var(--focus-ring,#4A78F0)]",
         fieldClass
       )}
       onClick={() => inputRef.current?.focus()}
@@ -960,7 +960,7 @@ function PresetRow({
       className={cn(
         "relative z-10 flex shrink-0 cursor-pointer items-center text-left whitespace-nowrap outline-none",
         shape.bg,
-        "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+        "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
         sizeClasses.control,
         sizeClasses.itemPx,
         sizeClasses.text,
@@ -1346,7 +1346,7 @@ function DatePickerCore(
   const segmentClass = cn(
     "relative z-[1] inline-flex h-full items-center outline-none",
     "transition-[color] duration-80",
-    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
     // Two rows take the compact inset, so the time row still fits a phone
     // inside the roomier field padding.
     compact || twoRows ? "px-1.5" : "px-2",
@@ -1715,7 +1715,7 @@ function DatePickerCore(
               "text-muted-foreground hover:text-foreground relative z-[1] ml-auto inline-flex h-full shrink-0 cursor-pointer items-center justify-center outline-none",
               // Two rows: the clear sits right after the date it clears.
               twoRows && "order-2 ml-0",
-              "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+              "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#4A78F0)]",
               compact ? "w-6" : "w-7",
               innerRadius
             )}
