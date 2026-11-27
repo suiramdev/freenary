@@ -2,6 +2,8 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 
 import { serverEnvSchema } from "./schema";
+import { resolveFileSecrets } from "./file-secrets";
+resolveFileSecrets(Object.keys(serverEnvSchema.shape));
 
 export const env = createEnv({
   emptyStringAsUndefined: true,
