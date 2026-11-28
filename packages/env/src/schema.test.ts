@@ -28,6 +28,30 @@ describe("TRANSACTION_CLASSIFIER_TIMEOUT_MS", () => {
     }
   });
 });
+const assistantTimeout = serverEnvSchema.AI_TIMEOUT_MS;
+
+describe("AI_TIMEOUT_MS", () => {
+  it("waits 10 seconds when unset", () => {
+    expect(
+      z.object({ AI_TIMEOUT_MS: assistantTimeout }).parse({})
+      ).toEqual({ AI_TIMEOUT_MS: 10_000 });
+  });
+
+  it("reads a longer limit for a slow local model", () => {
+    expect(assistantTimeout.parse("60000")).toBe(60_000);
+  });
+
+  it("accepts the bounds of its range", () => {
+    expect(assistantTimeout.parse("1000")).toBe(1000);
+    expect(assistantTimeout.parse("120000")).toBe(120_000);
+  });
+
+  it("refuses a value outside 1000 to 120000, or not a whole number", () => {
+    for (const refused of ["999", "120001", "1500.5", "ten"]) {
+      expect(assistantTimeout.safeParse(refused).success).toBe(false);
+    }
+  });
+});
 
 const DEVELOPMENT_AUTH_SECRET = "dev_secret_change_me_at_least_32chars";
 
