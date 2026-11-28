@@ -70,8 +70,8 @@ const listed = async (userId: string) => {
     await prisma.notification.deleteMany({
       where: { id: { in: settled }, userId },
     });
-
 }
+
   const connectionIds = rows.flatMap((row) =>
     row.connectionId ? [row.connectionId] : []
   );
@@ -129,10 +129,9 @@ export const notificationsRouter = {
       return { id: input.id };
     }),
   dismissAll: protectedProcedure.handler(async ({ context }) => {
-    const userId = context.session.user.id;
     const { count } = await prisma.notification.updateMany({
       data: { dismissedAt: new Date() },
-      where: { dismissedAt: null, userId },
+      where: { dismissedAt: null, userId: context.session.user.id },
     });
     return { count };
   }),
