@@ -27,7 +27,7 @@ export const connectedAccountLabel = (account: ConnectedAccount): string => {
   const name = account.name ?? ACCOUNT_TYPE_LABELS[account.type]();
   const iban = account.iban?.replaceAll(" ", "");
 
-  return iban ? `${name} ·· ${iban.slice(-IBAN_TAIL_LENGTH)}` : name;
+  return iban ? `${name} · ${iban.slice(-IBAN_TAIL_LENGTH)}` : name;
 };
 
 export const notSharedAccountsOf = (
@@ -66,6 +66,16 @@ const summaryOf = (connection: BankConnection, locale: Locale): string => {
   const accounts = accountsSummaryOf(connection, locale);
 
   if (connection.status !== "ACTIVE") {
+    if (connection.lastSyncedAt) {
+      return m.bank_row_reconnect_stale(
+        {
+          accounts,
+          date: connection.lastSyncedAt.toLocaleDateString(locale),
+          institution: connection.institutionName,
+        },
+        { locale }
+      );
+    }
     return m.bank_row_reconnect({ accounts }, { locale });
   }
 
@@ -102,14 +112,15 @@ export const buildBankRows = (
   const spansCountries = new Set(banks.map((bank) => bank.country)).size > 1;
 
   const connectedRows = connections.map((connection) => {
-    const institution = connection.institutionId
-      ? (institutionsByKey.get(
-          institutionKey({
-            country: connection.institutionCountry,
-            id: connection.institutionId,
-          })
-        ) ?? null)
-      : null;
+    const institution =
+      connection.institutionId
+        ? (institutionsByKey.get(
+            institutionKey({
+              country: connection.institutionCountry,
+              id: connection.institutionId,
+            })
+          ) ?? null)
+        : null;
 
     return {
       connection,
