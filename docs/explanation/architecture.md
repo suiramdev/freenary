@@ -59,6 +59,8 @@ The server asks GitHub for the newest Freenary release once at start and then ev
 
 The check needs a server image built from a release, which knows its version through `FREENARY_BUILD_VERSION`. Images tagged `main`, `dev` or `sha-…` show no notice. `FREENARY_UPDATE_CHECK=false` turns the check off, and the server then sends no request to GitHub.
 
+After an update, every signed-in user sees **Freenary was updated to v1.2.0** at the top of every page, with **See what's new** opening that version's release notes. The notice shows once per version: dismissing it or opening the link hides it until the next update. It never shows together with the available-update banner, and a first visit only records the running version in localStorage.
+
 ## The web app
 
 The web app (`apps/web`) is a [TanStack Start](https://tanstack.com/start) app built with Vite and served by Bun. It ships in English and French. It learns the browser-facing API address at request time from `PUBLIC_SERVER_URL`, so one image works at any address.
