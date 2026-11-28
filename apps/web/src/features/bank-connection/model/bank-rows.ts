@@ -27,7 +27,7 @@ export const connectedAccountLabel = (account: ConnectedAccount): string => {
   const name = account.name ?? ACCOUNT_TYPE_LABELS[account.type]();
   const iban = account.iban?.replaceAll(" ", "");
 
-  return iban ? `${name} · ${iban.slice(-IBAN_TAIL_LENGTH)}` : name;
+  return iban ? `${name} ·· ${iban.slice(-IBAN_TAIL_LENGTH)}` : name;
 };
 
 export const notSharedAccountsOf = (
@@ -112,8 +112,7 @@ export const buildBankRows = (
   const spansCountries = new Set(banks.map((bank) => bank.country)).size > 1;
 
   const connectedRows = connections.map((connection) => {
-    const institution =
-      connection.institutionId
+    const institution = connection.institutionId
         ? (institutionsByKey.get(
             institutionKey({
               country: connection.institutionCountry,
