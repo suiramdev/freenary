@@ -23,11 +23,9 @@ const ownedNotification = async (userId: string, id: string) => {
     select: { id: true, type: true },
     where: { id, userId },
   });
-
   if (!notification) {
     throw new ORPCError("NOT_FOUND", { message: "Notification not found" });
   }
-
   return notification;
 };
 
@@ -49,6 +47,7 @@ const listed = async (userId: string) => {
       _count: {
         select: { transactions: { where: { transaction: stillToCheck } } },
       },
+      connectionId: true,
       createdAt: true,
       id: true,
       readAt: true,
@@ -57,27 +56,39 @@ const listed = async (userId: string) => {
     take: MAX_LISTED,
     where: { dismissedAt: null, userId },
   });
-
   const settled = rows.flatMap((row) =>
     row.type === NOTIFICATION_TYPES.transactionsToCheck &&
     row._count.transactions === 0
       ? [row.id]
       : []
   );
-
   if (settled.length > 0) {
     await prisma.notification.deleteMany({
       where: { id: { in: settled }, userId },
     });
   }
-
+  const connectionIds = rows.flatMap((row) =>
+    row.connectionId ? [row.connectionId] : []
+  );
+  const connections = await prisma.bankConnection.findMany({
+    select: { id: true, institutionName: true },
+    where: { id: { in: connectionIds }, userId },
+  });
+  const institutionById = new Map(
+    connections.map((connection) => [connection.id, connection.institutionName])
+  );
   return rows.flatMap((row) => {
     if (settled.includes(row.id) || !isNotificationType(row.type)) {
       return [];
     }
-
     return [
       {
+        bankConnection: row.connectionId
+          ? {
+              id: row.connectionId,
+              institutionName: institutionById.get(row.connectionId) ?? null,
+            }
+          : null,
         count: row._count.transactions,
         createdAt: row.createdAt.toISOString(),
         id: row.id,
@@ -93,113 +104,84 @@ export const notificationsRouter = {
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-
       await ownedNotification(userId, input.id);
       await prisma.notification.deleteMany({
         where: { id: input.id, userId },
       });
-
       return { id: input.id };
     }),
-
   dismiss: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-
       await ownedNotification(userId, input.id);
       await prisma.notification.updateMany({
         data: { dismissedAt: new Date() },
         where: { id: input.id, userId },
       });
-
       return { id: input.id };
     }),
-
   dismissAll: protectedProcedure.handler(async ({ context }) => {
+    const userId = context.session.user.id;
     const { count } = await prisma.notification.updateMany({
       data: { dismissedAt: new Date() },
-      where: { dismissedAt: null, userId: context.session.user.id },
+      where: { dismissedAt: null, userId },
     });
-
     return { count };
   }),
-
   list: protectedProcedure.handler(async ({ context }) => {
     const userId = context.session.user.id;
-
     await forgetExpired(userId, new Date());
-
     const notifications = await listed(userId);
     const unreadCount = await prisma.notification.count({
       where: { dismissedAt: null, readAt: null, userId },
     });
-
     return { notifications, unreadCount };
   }),
-
   markAllRead: protectedProcedure.handler(async ({ context }) => {
-    const { count } = await prisma.notification.updateMany({
+    const userId = context.session.user.id;
+    await prisma.notification.updateMany({
       data: { readAt: new Date() },
-      where: {
-        dismissedAt: null,
-        readAt: null,
-        userId: context.session.user.id,
-      },
+      where: { dismissedAt: null, readAt: null, userId },
     });
-
-    return { count };
+    return { ok: true };
   }),
-
   markRead: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-
       await ownedNotification(userId, input.id);
-      await prisma.notification.updateMany({
+      await prisma.notification.update({
         data: { readAt: new Date() },
-        where: { id: input.id, readAt: null, userId },
+        where: { id: input.id },
       });
-
       return { id: input.id };
     }),
-
   restore: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
-
       await ownedNotification(userId, input.id);
       await prisma.notification.updateMany({
         data: { dismissedAt: null },
         where: { id: input.id, userId },
       });
-
       return { id: input.id };
     }),
-
   transactionsToCheck: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
       const notification = await ownedNotification(userId, input.id);
-
       if (notification.type !== NOTIFICATION_TYPES.transactionsToCheck) {
         throw new ORPCError("BAD_REQUEST", {
           message: "This notification is not about transactions to check",
         });
       }
-
       const transactions = await prisma.transaction.findMany({
         orderBy: [{ date: "desc" }, { id: "desc" }],
         select: {
-          account: {
-            select: {
-              connection: { select: { institutionName: true } },
-              name: true,
-            },
-          },
+          account: { select: { connection: { select: { institutionName: true } }, name: true } },
           amount: true,
           category: true,
           counterpartyName: true,
@@ -217,20 +199,22 @@ export const notificationsRouter = {
           notifications: { some: { notificationId: input.id } },
         },
       });
-
-      return {
-        transactions: transactions.map((t) => ({
-          accountName: t.account.name ?? t.account.connection.institutionName,
-          amount: t.amount,
-          category: effectiveCategory(t),
-          counterpartyName: t.counterpartyName,
-          currency: t.currency,
-          date: t.date.toISOString(),
-          derivedCategory: pipelineCategory(t),
-          description: t.description,
-          id: t.id,
-          normalisedDescriptor: t.normalisedDescriptor,
-        })),
-      };
+      return transactions.map((transaction) => {
+        const accountName =
+          transaction.account.name ?? transaction.account.connection.institutionName;
+        const category = effectiveCategory(transaction);
+        const derivedCategory = pipelineCategory(transaction);
+        return {
+          accountName,
+          amount: transaction.amount,
+          category,
+          currency: transaction.currency,
+          date: transaction.date.toISOString(),
+          derivedCategory,
+          description: transaction.description,
+          id: transaction.id,
+          normalisedDescriptor: transaction.normalisedDescriptor,
+        };
+      });
     }),
 };
