@@ -15,6 +15,7 @@ import { useMemo } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
+import { budgetMonthsDocsUrl } from "@/shared/config";
 
 import {
   BudgetMonthExample,
@@ -133,5 +134,13 @@ export const BudgetMonthField = ({
       />
     ) : null}
     <BudgetMonthExample setting={value} />
+    <a
+      className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+      href={budgetMonthsDocsUrl()}
+      rel="noopener noreferrer"
+      target="_blank"
+      >
+      {m.budget_month_learn_more()}
+    </a>
   </div>
 );
