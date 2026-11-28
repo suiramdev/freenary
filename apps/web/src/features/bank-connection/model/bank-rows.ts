@@ -113,12 +113,12 @@ export const buildBankRows = (
 
   const connectedRows = connections.map((connection) => {
     const institution = connection.institutionId
-        ? (institutionsByKey.get(
-            institutionKey({
-              country: connection.institutionCountry,
-              id: connection.institutionId,
-            })
-          ) ?? null)
+    ? (institutionsByKey.get(
+        institutionKey({
+          country: connection.institutionCountry,
+          id: connection.institutionId,
+        })
+      ) ?? null)
         : null;
 
     return {
