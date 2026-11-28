@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import type { CategoryAmount } from "./spending-breakdown";
 
@@ -66,4 +67,30 @@ export const previousPeriodLabel = (
     month: "short",
   });
   return range.format(start) + " \u2013 " + range.format(new Date(to));
+};
+
+export interface ChangeLine {
+  text: string | null;
+  tone?: string;
+}
+
+/** Text with a sign, not only colour: more spending is bad, more income is good. */
+export const changeLineOf = (
+  change: PeriodChange | undefined,
+  goodWhenUp: boolean,
+  previousLabel?: string,
+): ChangeLine => {
+  if (!change?.show || change.percent === null || !previousLabel) {
+    return { text: null };
+  }
+  return {
+    text: m.budget_change_vs_previous({
+      percent: signedPercent(change.percent),
+      previous: previousLabel,
+    }),
+    tone:
+      (change.differenceMinor > 0) === goodWhenUp
+        ? "text-success"
+        : "text-destructive",
+  };
 };
