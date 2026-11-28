@@ -1,4 +1,4 @@
-import { RiQuestionMark } from "@remixicon/react";
+import { RiBankLine, RiQuestionMark } from "@remixicon/react";
 import type { RemixiconComponentType } from "@remixicon/react";
 
 import { m } from "@/paraglide/messages.js";
@@ -16,6 +16,18 @@ interface NotificationContent {
 const AMBER_TONE = "bg-warning/20 text-amber-700 dark:text-warning";
 
 export const NOTIFICATION_CONTENT = {
+  bank_connection_needs_reconnect: {
+    body: () => m.notifications_bank_reconnect_body(),
+    bundle: (count) => m.notifications_bank_reconnect_bundle({ count }),
+    icon: RiBankLine,
+    title: ({ bankConnection }) =>
+      bankConnection?.institutionName
+        ? m.notifications_bank_reconnect_title({
+            institution: bankConnection.institutionName,
+          })
+        : m.notifications_bank_reconnect_title_fallback(),
+    toneClassName: AMBER_TONE,
+  },
   transactions_to_check: {
     body: () => m.notifications_to_check_body(),
     bundle: (count) => m.notifications_to_check_bundle({ count }),
