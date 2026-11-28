@@ -7,7 +7,7 @@ This page explains how Freenary splits time into budget months, and why a salary
 
 ## The start rule
 
-Each account holder picks how their budget month starts, on the **When does your month start?** step of onboarding and later in **Settings** › **Budget** under **Budget month**. Freenary stores the choice in three columns of the `user` table:
+Each account holder picks how their budget month starts, on the **When does your salary arrive?** step of onboarding and later in **Settings** › **Budget** under **Budget month**. Freenary stores the choice in three columns of the `user` table:
 
 | Column | Holds |
 | --- | --- |
@@ -16,6 +16,8 @@ Each account holder picks how their budget month starts, on the **When does your
 | `budgetMonthHolidayCountry` | The country whose public holidays `LAST_WORKING_DAY` skips. Empty means the first tax residency country. |
 
 The screens offer the three rules as **Day of the month**, **Last day** and **Last working day**.
+
+The start day only needs to fall on or before the earliest day your salary can arrive. A salary paid between the 1st and the 5th, for example, already counts in the right month with **Day of the month** set to 1, because the whole calendar month is one budget month. The same holds at the end of the month: **Last working day** covers the days a payday moves by.
 
 ## Day of the month
 
