@@ -151,11 +151,11 @@ export const notificationsRouter = {
     const notifications = await listed(userId);
     const unreadCount = await prisma.notification.count({
       where: { dismissedAt: null, readAt: null, userId },
-
     });
-    return { notifications, unreadCount };
 
+    return { notifications, unreadCount };
   }),
+
   markAllRead: protectedProcedure.handler(async ({ context }) => {
     const { count } = await prisma.notification.updateMany({
       data: { readAt: new Date() },
