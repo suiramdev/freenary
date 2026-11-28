@@ -3,11 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { orpc } from "@/shared/api";
 import { authClient } from "@/shared/auth";
+import { releaseNotesUrl } from "@/shared/config";
 
 const RELEASE_STALE_TIME_MS = 60 * 60 * 1000;
 const LAST_SEEN_VERSION_KEY = "freenary:last-seen-version";
-const RELEASE_NOTES_BASE_URL =
-  "https://github.com/suiramdev/freenary/releases/tag";
 
 type ParsedVersion = {
   major: number;
@@ -131,7 +130,7 @@ export const useUpdatedNotice = (): UpdatedNotice | null => {
   }
   return {
     version: current,
-    releaseNotesUrl: `${RELEASE_NOTES_BASE_URL}/v${current}`,
+    releaseNotesUrl: releaseNotesUrl(current),
     dismiss,
     openReleaseNotes: dismiss,
   };
