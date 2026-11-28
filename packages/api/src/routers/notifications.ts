@@ -74,11 +74,13 @@ const listed = async (userId: string) => {
 
   const connectionIds = rows.flatMap((row) =>
     row.connectionId ? [row.connectionId] : []
-  );
+                                    );
+
   const connections = await prisma.bankConnection.findMany({
     select: { id: true, institutionName: true },
     where: { id: { in: connectionIds }, userId },
   });
+
   const institutionById = new Map(
     connections.map((connection) => [connection.id, connection.institutionName])
   );
@@ -90,8 +92,7 @@ const listed = async (userId: string) => {
 
     return [
       {
-        bankConnection: row.connectionId
-          ? {
+        bankConnection: row.connectionId          ? {
               id: row.connectionId,
               institutionName: institutionById.get(row.connectionId) ?? null,
             }
