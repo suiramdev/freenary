@@ -5,11 +5,6 @@ import { m } from "@/paraglide/messages.js";
 import { useAvailableUpdate } from "./use-available-update";
 import { useUpdatedNotice } from "./use-updated-notice";
 
-// Banner shown once per version after the instance was updated,
-// in the same top-of-page slot as the available-update banner.
-// It never shows together with that banner: when a newer version is
-// available, the available banner wins. The shell renders this
-// component next to UpdateBanner.
 export const UpdatedNotice = () => {
   const notice = useUpdatedNotice();
   const availableUpdate = useAvailableUpdate();
