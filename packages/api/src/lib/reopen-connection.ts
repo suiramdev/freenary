@@ -1,5 +1,6 @@
 import prisma from "@freenary/db";
 
+import { NOTIFICATION_TYPES } from "../notifications/types";
 import type { CompletedConnection } from "../providers/types";
 
 type CompletedAccount = CompletedConnection["accounts"][number];
@@ -125,6 +126,12 @@ export const reopenConnection = (
         status: "ACTIVE",
       },
       where: { id: connectionId },
+    });
+    await db.notification.deleteMany({
+      where: {
+        connectionId,
+        type: NOTIFICATION_TYPES.bankConnectionNeedsReconnect,
+      },
     });
 
     return {
