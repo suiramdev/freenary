@@ -146,24 +146,31 @@ export const notificationsRouter = {
     return { notifications, unreadCount };
   }),
   markAllRead: protectedProcedure.handler(async ({ context }) => {
-    const userId = context.session.user.id;
-    await prisma.notification.updateMany({
+    const { count } = await prisma.notification.updateMany({
       data: { readAt: new Date() },
-      where: { dismissedAt: null, readAt: null, userId },
+      where: {
+        dismissedAt: null,
+        readAt: null,
+        userId: context.session.user.id,
+      },
     });
-    return { ok: true };
+
+    return { count };
   }),
   markRead: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
+
       await ownedNotification(userId, input.id);
-      await prisma.notification.update({
+      await prisma.notification.updateMany({
         data: { readAt: new Date() },
-        where: { id: input.id },
+        where: { id: input.id, readAt: null, userId },
       });
+
       return { id: input.id };
     }),
+
   restore: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
@@ -225,7 +232,7 @@ export const notificationsRouter = {
           category: effectiveCategory(t),
           counterpartyName: t.counterpartyName,
           currency: t.currency,
-          date: t.date.toIsoString(),
+          date: t.date.toISOString(),
           derivedCategory: pipelineCategory(t),
           description: t.description,
           id: t.id,
