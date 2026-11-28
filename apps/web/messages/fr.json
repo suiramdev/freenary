@@ -1703,6 +1703,7 @@
   "setup_error_invalid": "Une valeur n'a pas le bon format. Vérifiez les champs et réessayez.",
   "setup_error_missing_fields": "Renseignez {keys}.",
   "setup_error_probe_rejected": "{provider} a refusé ces identifiants. Vérifiez-les et réessayez.",
+  "setup_error_probe_timeout": "{provider} n'a pas répondu à temps : {detail}",
   "setup_error_probe_unreachable": "Impossible de joindre {provider}. Vérifiez l'adresse et votre réseau, puis réessayez.",
   "setup_fault_badge": "Problème de configuration",
   "setup_fault_title": "La configuration enregistrée n'a pas pu être chargée : {detail}",

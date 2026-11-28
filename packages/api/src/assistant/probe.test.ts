@@ -25,17 +25,44 @@ const candidate: ServerSettings = {
 
 const answering = (status: number, body: JsonBody) => {
   const requested: string[] = [];
+  const requests: RequestInit[] = [];
 
   const send: typeof fetch = Object.assign(
-    (input: Parameters<typeof fetch>[0]) => {
+    (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       requested.push(String(input));
+      requests.push(init ?? {});
 
       return Promise.resolve(Response.json(body, { status }));
     },
     { preconnect: fetch.preconnect }
   );
 
-  return { requested, send };
+  return { requested, requests, send };
+};
+
+const delayed = (status: number, body: JsonBody, delayMs: number) => {
+  const send: typeof fetch = Object.assign(
+    () => new Promise<Response>((resolve) => {
+      setTimeout(() => resolve(Response.json(body, { status })), delayMs);
+    }),
+    { preconnect: fetch.preconnect },
+    );
+
+  return { send };
+};
+
+const silent = () => {
+  const send: typeof fetch = Object.assign(
+    (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(init?.signal?.reason);
+        });
+      }),
+    { preconnect: fetch.preconnect },
+    );
+
+  return { send };
 };
 
 const probe = (send: typeof fetch, held = candidate) =>
@@ -97,4 +124,69 @@ describe("probeAssistantEndpoint", () => {
       failure: { reason: { kind: "invalid" } },
     });
   });
+
+    it("reports a timed-out probe as a timeout, not as unreachable", async () => {
+      const outcome = await probe(
+        () =>
+          Promise.reject(
+            new DOMException("The operation timed out.", "TimeoutError"),
+            ),
+        { ...candidate, AI_TIMEOUT_MS: 30_000 },
+        );
+
+          expect(outcome).toMatchObject({
+            failure: {
+              integrationId: "assistant",
+              reason: {
+                detail: "no answer within 30 s. Raise AI_TIMEOUT_MS to wait longer.",
+                kind: "timeout",
+              },
+            },
+          });
+    });
+
+    it("waits past ten seconds for a slow local model", async () => {
+      const endpoint = delayed(
+        200,
+        { choices: [{ message: { content: "OK", role: "assistant" } }] },
+        10_500,
+        );
+
+          const outcome = await probe(endpoint.send, {
+            { ...candidate, AI_TIMEOUT_MS: 60_000 },
+                                      );
+
+          expect(Result.isSuccess(outcome)).toBe(true);
+    }, 20_000);
+
+    it("reports an endpoint that never answers as a timeout", async () => {
+      const outcome = await probe(silent().send, {
+        { ...candidate, AI_TIMEOUT_MS: 50 },
+                                  });
+
+      expect(outcome).toMatchObject({
+        failure: {
+          integrationId: "assistant",
+          reason: {
+            detail:
+              "no answer within 0.05 s. Raise AI_TIMEOUT_MS to wait longer.",
+            kind: "timeout",
+          },
+        },
+      });
 });
+
+  it("asks for the shortest possible answer", async () => {
+    const endpoint = answering(200, {
+      choices: [{ message: { content: "OK", role: "assistant" } }],
+    });
+
+        const outcome = await probe(endpoint.send);
+
+        expect(Result.isSuccess(outcome)).toBe(true);
+    expect(endpoint.requests).toHaveLength(1);
+    expect(JSON.parse(String(endpoint.requests[0]?.body))).toMatchObject({
+      max_tokens: 2,
+    });
+  });
+  });

@@ -6,11 +6,17 @@ import {
 } from "@freenary/instance-config/probe";
 import { Effect, Schema } from "effect";
 
-import { endpointHeaders } from "../categorisation/classifier/endpoint";
+import {
+  endpointHeaders,
+  isTimeout,
+  timeoutDetail,
+} from "../categorisation/classifier/endpoint";
 
 const TRAILING_SLASHES = /\/+$/u;
 
 const PROBE_PROMPT = "Reply with the single word OK.";
+
+const PROBE_ANSWER_TOKEN_BUDGET = 2;
 
 const ChatCompletionSchema = Schema.Struct({
   choices: Schema.NonEmptyArray(Schema.Unknown),
@@ -31,7 +37,7 @@ export const probeAssistantEndpoint = Effect.fn("assistant.probe")(
     candidate: ServerSettings,
     send: typeof fetch = fetch
   ) {
-    const { AI_API_KEY, AI_BASE_URL, AI_MODEL } = candidate;
+    const { AI_API_KEY, AI_BASE_URL, AI_MODEL, AI_TIMEOUT_MS } = candidate;
 
     if (AI_BASE_URL === undefined) {
       return yield* failure({ detail: "AI_BASE_URL", kind: "invalid" });
@@ -42,16 +48,23 @@ export const probeAssistantEndpoint = Effect.fn("assistant.probe")(
     }
 
     const response = yield* Effect.tryPromise({
-      catch: unreachable,
+      catch: (cause) =>
+        isTimeout(cause)
+        ? failure({
+          detail: timeoutDetail(cause, AI_TIMEOUT_MS, "AI_TIMEOUT_MS"),
+          kind: "timeout",
+        })
+        : unreachable(cause),
       try: (signal) =>
         send(`${AI_BASE_URL.replace(TRAILING_SLASHES, "")}/chat/completions`, {
           body: JSON.stringify({
+            max_tokens: PROBE_ANSWER_TOKEN_BUDGET,
             messages: [{ content: PROBE_PROMPT, role: "user" }],
             model: AI_MODEL,
           }),
           headers: endpointHeaders(AI_API_KEY),
           method: "POST",
-          signal: probeDeadline(signal),
+          signal: probeDeadline(signal, AI_TIMEOUT_MS),
         }),
     });
 

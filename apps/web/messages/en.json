@@ -1694,6 +1694,7 @@
   "setup_error_invalid": "A value has the wrong format. Check the fields and try again.",
   "setup_error_missing_fields": "Fill in {keys}.",
   "setup_error_probe_rejected": "{provider} refused these credentials. Check them and try again.",
+  "setup_error_probe_timeout": "{provider} did not answer in time: {detail}",
   "setup_error_probe_unreachable": "Unable to reach {provider}. Check the address and your network, then try again.",
   "setup_fault_badge": "Configuration problem",
   "setup_fault_title": "The stored configuration did not load: {detail}",

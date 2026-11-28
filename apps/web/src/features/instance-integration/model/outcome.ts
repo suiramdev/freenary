@@ -35,6 +35,13 @@ const probeFailureMessage = (
     return m.setup_error_invalid();
   }
 
+  if (outcome.reason === "timeout") {
+    return m.setup_error_probe_timeout({
+      detail: outcome.detail ?? "",
+      provider,
+    });
+  }
+
   return m.setup_error_probe_unreachable({ provider });
 };
 
