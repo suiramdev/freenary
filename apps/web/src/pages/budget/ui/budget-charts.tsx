@@ -37,7 +37,7 @@ import { SpendingBreakdownChart } from "./spending-breakdown-chart";
 
 type BreakdownData = Pick<
   ComponentProps<typeof SpendingBreakdownChart>,
-  "categories" | "currency"
+  "categories" | "currency" | "previousLabel"
 >;
 
 type CashFlowData = Omit<ComponentProps<typeof CashFlowChart>, "onSelect">;
@@ -63,6 +63,7 @@ interface BudgetChartsProps {
   cashFlow: ChartQuery<CashFlowData>;
   companion: CompanionView;
   fixedVsVariable: ChartQuery<FixedData>;
+  largestChanges?: string | null;
   onCompanionChange: (view: CompanionView) => void;
   onSelect: (selection: CategorySelection | null) => void;
   onViewChange: (view: PrimaryView) => void;
@@ -188,6 +189,7 @@ export const BudgetCharts = ({
   cashFlow,
   companion,
   fixedVsVariable,
+  largestChanges,
   onCompanionChange,
   onSelect,
   onViewChange,
@@ -195,6 +197,10 @@ export const BudgetCharts = ({
   view,
 }: BudgetChartsProps) => (
   <div className="grid grid-cols-1 gap-4 @min-[52rem]/budget:grid-cols-[2fr_1fr]">
+    {largestChanges ? (
+    <p className="text-muted-foreground col-span-full text-xs">
+      {largestChanges}
+    </p>) : null}
     <Elevated className="min-w-0 rounded-xl" offset={1}>
       <Card>
         <CardHeader>
