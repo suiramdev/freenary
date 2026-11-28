@@ -47,6 +47,7 @@ import {
 import { monthSpan } from "../lib/budget-planned";
 import { countedWholeWhere } from "../lib/counted-transactions";
 import { MAX_EXCLUSION_REASON_LENGTH } from "../lib/exclusion-scope";
+import { previousPeriodComparisonOf, previousSpendingBreakdownOf } from "../lib/previous-period";
 import { readSyncOutcome, readSyncProgress } from "../lib/sync-progress";
 import type { BudgetPipelineReason } from "../lib/sync-progress";
 import { SPENDING_CATEGORIES } from "../lib/taxonomy";
@@ -278,6 +279,7 @@ export const budgetRouter = {
       const period = { aggregation, from, rule, to };
       const outgoing = rows.filter((row) => row.amount < 0);
       const byCategory = outgoingByCategory(outgoing, period);
+      const previous = await previousPeriodComparisonOf(userId, rows, period);
 
       return {
         budgetVsActual: {
@@ -291,8 +293,10 @@ export const budgetRouter = {
           unconvertedCount,
         },
         sankey: { ...sankeyOf(rows, period), currency, unconvertedCount },
+        changes: previous.changes,
+        previous: previous.summary,
         spendingBreakdown: {
-          ...spendingBreakdownOf(byCategory),
+          ...spendingBreakdownOf(byCategory), categories: previous.categories,
           currency,
           unconvertedCount,
         },
@@ -444,11 +448,12 @@ export const budgetRouter = {
       const userId = context.session.user.id;
       const converter = await userConverter(userId, input.from, input.to);
       const outgoing = await userOutgoingByCategory(userId, input, converter);
+      const previous = await previousSpendingBreakdownOf(userId, input, spendingBreakdownOf(outgoing.byCategory).categories);
 
       return {
-        ...spendingBreakdownOf(outgoing.byCategory),
+        ...spendingBreakdownOf(outgoing.byCategory), categories: previous.categories,
         currency: converter.currency,
-        unconvertedCount: outgoing.unconvertedCount,
+        unconvertedCount: outgoing.unconvertedCount, previous: previous.summary,
       };
     }),
 
