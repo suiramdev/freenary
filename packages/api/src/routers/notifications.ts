@@ -168,27 +168,38 @@ export const notificationsRouter = {
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
+
       await ownedNotification(userId, input.id);
       await prisma.notification.updateMany({
         data: { dismissedAt: null },
         where: { id: input.id, userId },
       });
+
       return { id: input.id };
     }),
+
   transactionsToCheck: protectedProcedure
     .input(notificationInput)
     .handler(async ({ context, input }) => {
       const userId = context.session.user.id;
+
       const notification = await ownedNotification(userId, input.id);
+
       if (notification.type !== NOTIFICATION_TYPES.transactionsToCheck) {
         throw new ORPCError("BAD_REQUEST", {
           message: "This notification is not about transactions to check",
         });
       }
+
       const transactions = await prisma.transaction.findMany({
         orderBy: [{ date: "desc" }, { id: "desc" }],
         select: {
-          account: { select: { connection: { select: { institutionName: true } }, name: true } },
+          account: {
+            select: {
+              connection: { select: { institutionName: true } },
+              name: true,
+            },
+          },
           amount: true,
           category: true,
           counterpartyName: true,
@@ -206,22 +217,20 @@ export const notificationsRouter = {
           notifications: { some: { notificationId: input.id } },
         },
       });
-      return transactions.map((transaction) => {
-        const accountName =
-          transaction.account.name ?? transaction.account.connection.institutionName;
-        const category = effectiveCategory(transaction);
-        const derivedCategory = pipelineCategory(transaction);
-        return {
-          accountName,
-          amount: transaction.amount,
-          category,
-          currency: transaction.currency,
-          date: transaction.date.toISOString(),
-          derivedCategory,
-          description: transaction.description,
-          id: transaction.id,
-          normalisedDescriptor: transaction.normalisedDescriptor,
-        };
-      });
+
+      return {
+        transactions: transactions.map((t) => ({
+          accountName: t.account.name ?? t.account.connection.institutionName,
+          amount: t.amount,
+          category: effectiveCategory(t),
+          counterpartyName: t.counterpartyName,
+          currency: t.currency,
+          date: t.date.toIsoString(),
+          derivedCategory: pipelineCategory(t),
+          description: t.description,
+          id: t.id,
+          normalisedDescriptor: t.normalisedDescriptor,
+        })),
+      };
     }),
 };
