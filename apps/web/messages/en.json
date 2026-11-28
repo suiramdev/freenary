@@ -2090,5 +2090,7 @@
   "settings_bank_account_display_title": "Display",
   "settings_bank_account_display_description": "Choose how this account shows up across the app.",
   "settings_bank_account_excluded_badge": "Excluded",
-  "settings_bank_account_row_meta": "{type} · {currency}"
+  "settings_bank_account_row_meta": "{type} · {currency}",
+  "update_banner_updated_title": "Freenary was updated to v{version}",
+  "update_banner_whats_new": "See what's new"
 }
