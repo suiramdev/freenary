@@ -4,11 +4,12 @@ import type { SpendingCategory } from "@freenary/api/lib/taxonomy";
 export interface CategoryAmount {
   amount: number;
   category: SpendingCategory;
+  previousAmount?: number;
 }
 
 export type BreakdownSlice =
-  | { amount: number; category: SpendingCategory; kind: "category" }
-  | { amount: number; categories: CategoryAmount[]; kind: "other" };
+  | { amount: number; category: SpendingCategory; kind: "category"; previousAmount?: number }
+  | { amount: number; categories: CategoryAmount[]; kind: "other"; previousAmount?: number };
 
 const MOST_SLICES_WITHOUT_OTHER = 7;
 const CATEGORIES_BESIDE_OTHER = 6;
@@ -21,11 +22,13 @@ const byAmountThenTaxonomy = (a: CategoryAmount, b: CategoryAmount): number =>
 
 const categorySlice = ({
   amount,
-  category,
+category,
+  previousAmount,
 }: CategoryAmount): BreakdownSlice => ({
   amount,
   category,
   kind: "category",
+  previousAmount,
 });
 
 export const breakdownSlices = (
@@ -46,6 +49,10 @@ export const breakdownSlices = (
       amount: grouped.reduce((sum, entry) => sum + entry.amount, 0),
       categories: grouped,
       kind: "other",
+      previousAmount: grouped.reduce(
+        (sum, entry) => sum + (entry.previousAmount ?? 0),
+        0,
+      ),
     },
   ];
 };

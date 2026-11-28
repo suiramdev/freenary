@@ -7,6 +7,8 @@ import { formatCurrency } from "@/shared/lib/format-currency";
 import { StaleRegion } from "@/shared/ui/stale-region";
 
 import type { AggregationMode } from "../model/period";
+import type { PeriodChange } from "../model/previous-period";
+import { changeLineOf } from "../model/previous-period";
 
 interface SummaryLabels {
   expenses: () => string;
@@ -16,10 +18,12 @@ interface SummaryLabels {
 
 interface BudgetKpiStripProps {
   aggregation: AggregationMode;
+  changes?: { expenses: PeriodChange; income: PeriodChange; net: PeriodChange } | null;
   currency: string;
   isError: boolean;
   isPending: boolean;
   isStale: boolean;
+  previousLabel?: string;
   totalExpenses: number;
   totalIncome: number;
 }
@@ -44,14 +48,16 @@ const SUMMARY_LABEL_GETTERS = {
 
 const STRIP_LAYOUT = "grid grid-cols-1 gap-4 @md/budget:grid-cols-3";
 
-const CELL_CONTROL_HEIGHTS = 2;
+const CELL_CONTROL_HEIGHTS = 3;
 
 const KpiCell = ({
+change,
   label,
   tone,
   value,
 }: {
   label: string;
+  change?: { text: string | null; tone?: string } | null;
   tone?: string;
   value: string | null;
 }) => {
@@ -73,16 +79,21 @@ const KpiCell = ({
         </span>
       )}
       <span className="text-muted-foreground text-sm">{label}</span>
+      {change?.text ? (
+              <span className={cn("text-xs tabular-nums", change.tone)}>{change.text}</span>
+            ) : null}
     </div>
   );
 };
 
 export const BudgetKpiStrip = ({
-  aggregation,
+aggregation,
+  changes,
   currency,
   isError,
   isPending,
-  isStale,
+isStale,
+  previousLabel,
   totalExpenses,
   totalIncome,
 }: BudgetKpiStripProps) => {
@@ -103,14 +114,18 @@ export const BudgetKpiStrip = ({
   }
 
   const net = totalIncome - totalExpenses;
+  const incomeChange = changeLineOf(changes?.income, true, previousLabel);
+  const expensesChange = changeLineOf(changes?.expenses, false, previousLabel);
+  const netChange = changeLineOf(changes?.net, true, previousLabel);
   const shown = (amount: number) =>
     isError ? null : formatCurrency(amount, currency);
 
   return (
     <StaleRegion className={STRIP_LAYOUT} isStale={isStale}>
-      <KpiCell label={labels.income()} value={shown(totalIncome)} />
-      <KpiCell label={labels.expenses()} value={shown(totalExpenses)} />
+      <KpiCell change={incomeChange} label={labels.income()} value={shown(totalIncome)} />
+      <KpiCell change={expensesChange} label={labels.expenses()} value={shown(totalExpenses)} />
       <KpiCell
+        change={netChange} 
         label={labels.net()}
         tone={net >= 0 ? "text-success" : "text-destructive"}
         value={shown(net)}

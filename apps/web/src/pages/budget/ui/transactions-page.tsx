@@ -6,6 +6,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 
 import type { CategorySelection } from "@/entities/category";
+import { categoryLabel } from "@/entities/category";
 import {
   TransactionDetailDrawer,
   TransactionsToCheckDrawer,
@@ -35,6 +36,11 @@ import {
 } from "../api/budget-queries";
 import type { PeriodInput } from "../api/budget-queries";
 import type { TimeRange } from "../model/period";
+import {
+  largestCategoryChanges,
+  previousPeriodLabel,
+  signedPercent,
+} from "../model/previous-period";
 import { useBudgetCurrency } from "../model/use-budget-currency";
 import { useBudgetMonthRule } from "../model/use-budget-month-rule";
 import { useBudgetView } from "../model/use-budget-view";
@@ -48,7 +54,9 @@ type PeriodOverview =
 
 const overviewSections = (overview: PeriodOverview | undefined) => ({
   budgetVsActual: overview?.budgetVsActual,
+  changes: overview?.changes,
   fixedVsVariable: overview?.fixedVsVariable,
+  previous: overview?.previous,
   sankey: overview?.sankey,
   spendingBreakdown: overview?.spendingBreakdown,
   totalExpenses: overview?.sankey.totalExpenses ?? 0,
@@ -191,6 +199,21 @@ export const TransactionsPage = () => {
   );
 
   const overview = overviewSections(overviewQuery.data);
+  const previousLabel =
+    overview.previous && previousPeriodLabel(
+      overview.previous.from,
+      overview.previous.to,
+      overview.previous.isBudgetMonth);
+  const largestChanges = useMemo(() => {
+    const largest = largestCategoryChanges(overview.spendingBreakdown?.categories ?? []);
+    if (!previousLabel || largest.length === 0) return null;
+    const parts = largest.map(({ category, change }) =>
+      categoryLabel(category.category) + " " + signedPercent(change.percent ?? 0) + "%");
+    return m.budget_largest_changes({
+      changes: parts.join(", "),
+      previous: previousLabel }
+                                   );
+  }, [overview.spendingBreakdown, previousLabel]);
   const overviewState = {
     isError: overviewQuery.isError,
     isPending: overviewQuery.isLoading || isAwaitingFirstData,
@@ -234,7 +257,9 @@ export const TransactionsPage = () => {
         currency={currency}
         {...overviewState}
         totalExpenses={overview.totalExpenses}
+        changes={overview.changes}
         totalIncome={overview.totalIncome}
+        previousLabel={previousLabel}
       />
 
       <BudgetCharts
@@ -242,7 +267,9 @@ export const TransactionsPage = () => {
         aggregation={aggregation}
         breakdown={{
           ...overviewState,
-          data: overview.spendingBreakdown,
+          data: overview.spendingBreakdown && {
+            ...overview.spendingBreakdown,
+            previousLabel },
         }}
         cashFlow={{ ...overviewState, data: overview.sankey }}
         companion={companion}
@@ -250,6 +277,7 @@ export const TransactionsPage = () => {
           ...overviewState,
           data: overview.fixedVsVariable,
         }}
+        largestChanges={largestChanges}
         onCompanionChange={(next) => applyPatch({ companion: next })}
         onSelect={handleSelect}
         onViewChange={(next) => applyPatch({ view: next })}

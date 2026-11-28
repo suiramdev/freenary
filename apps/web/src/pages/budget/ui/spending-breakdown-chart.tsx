@@ -13,6 +13,7 @@ import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+
 import type { CategorySelection } from "@/entities/category";
 import { categoryChartColor, categoryLabel } from "@/entities/category";
 import { m } from "@/paraglide/messages.js";
@@ -29,12 +30,17 @@ import type {
   BreakdownSlice,
   CategoryAmount,
 } from "../model/spending-breakdown";
+import { changeLineOf,
+        periodChangeOf,
+        signedPercent,
+       } from "../model/previous-period";
 
 interface SpendingBreakdownChartProps {
   activeCategories: SpendingCategory[];
   categories: CategoryAmount[];
   currency: string;
   onSelect?: (selection: CategorySelection | null) => void;
+  previousLabel?: string;
 }
 
 interface SliceStyle {
@@ -117,7 +123,8 @@ const BreakdownCenter = ({
 );
 
 const LegendChip = ({
-  amount,
+amount,
+  change,
   color,
   currency,
   index,
@@ -128,6 +135,7 @@ const LegendChip = ({
   registerItem,
 }: {
   amount: number;
+  change?: { text: string | null; tone?: string } | null;
   color: string | undefined;
   currency: string;
   index: number;
@@ -167,6 +175,7 @@ const LegendChip = ({
         <span className="text-foreground">
           {formatCurrency(amount, currency)}
         </span>
+        {change?.text && <span className={change.tone}>{change.text}</span>}
       </motion.button>
     </li>
   );
@@ -176,7 +185,8 @@ export const SpendingBreakdownChart = ({
   activeCategories,
   categories,
   currency,
-  onSelect,
+onSelect,
+  previousLabel,
 }: SpendingBreakdownChartProps) => {
   const slices = useMemo(() => breakdownSlices(categories), [categories]);
   const styles = useMemo(() => slices.map(sliceStyle), [slices]);
@@ -186,6 +196,14 @@ export const SpendingBreakdownChart = ({
   const legendHover = useFluidHover(legendRef, { axis: "xy", nearest: true });
 
   const total = categories.reduce((sum, entry) => sum + entry.amount, 0);
+  const changeTextOf = (currentMinor: number, previousMinor: number | undefined) => {
+    const change = periodChangeOf(currentMinor, previousMinor ?? 0);
+    if (!change.show || change.percent === null) return null;
+    return {
+      text: signedPercent(change.percent) + "%",
+      tone: changeLineOf(change, false, previousLabel).tone,
+    };
+  };
   const isSelected = (slice: BreakdownSlice) =>
     isSliceSelected(slice, activeCategories);
 
@@ -283,6 +301,7 @@ export const SpendingBreakdownChart = ({
           {slices.map((slice, index) => (
             <LegendChip
               amount={slice.amount}
+              change={changeTextOf(slice.amount, slice.previousAmount)}
               color={styles[index]?.color}
               currency={currency}
               index={index}
@@ -307,6 +326,7 @@ export const SpendingBreakdownChart = ({
                 {openOther.categories.map((entry, place) => (
                   <LegendChip
                     amount={entry.amount}
+                    change={changeTextOf(entry.amount, entry.previousAmount)}
                     color={categoryChartColor(entry.category)}
                     currency={currency}
                     index={slices.length + place}
