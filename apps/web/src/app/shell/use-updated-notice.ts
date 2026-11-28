@@ -1,98 +1,117 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { Option } from "effect";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { orpc } from "@/shared/api";
 import { authClient } from "@/shared/auth";
 import { releaseNotesUrl } from "@/shared/config";
 
 const RELEASE_STALE_TIME_MS = 60 * 60 * 1000;
-const LAST_SEEN_VERSION_KEY = "freenary:last-seen-version";
+const STORAGE_KEY = "freenary:last-seen-version";
 
-type ParsedVersion = {
+const listeners = new Set<() => void>();
+const memory: { lastSeen: string | null } = { lastSeen: null };
+
+const readStorage = Option.liftThrowable(() =>
+  localStorage.getItem(STORAGE_KEY),
+);
+
+const writeStorage = Option.liftThrowable((version: string) => {
+  localStorage.setItem(STORAGE_KEY, version);
+});
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+const readLastSeen = (): string | null =>
+  Option.getOrElse(readStorage(), () => null) ?? memory.lastSeen;
+
+const UNKNOWN_UNTIL_HYDRATED = undefined;
+
+export const useLastSeenVersion = (): string | null | undefined =>
+  useSyncExternalStore(subscribe, readLastSeen, () => UNKNOWN_UNTIL_HYDRATED);
+
+const recordVersion = (version: string) => {
+  memory.lastSeen = version;
+  writeStorage(version);
+
+  for (const listener of listeners) {
+    listener();
+  }
+};
+
+interface ParsedVersion {
   major: number;
   minor: number;
   patch: number;
   prerelease?: string;
-};
+}
 
-// Version comparison mirrors parseVersion/isNewer in
-// packages/api/src/instance/release.ts, which lives on the server and
-// cannot be imported here.
 const parseVersion = (value: string): ParsedVersion | null => {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([\w.-]+))?$/.exec(value);
-  if (match === null) {
+  const match =
+    /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<prerelease>[\w.-]+))?$/u.exec(
+      value,
+    );
+
+  if (match?.groups === undefined) {
     return null;
   }
+
   return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-    prerelease: match[4],
+    major: Number(match.groups.major),
+    minor: Number(match.groups.minor),
+    patch: Number(match.groups.patch),
+    prerelease: match.groups.prerelease,
   };
 };
 
 const isNewerVersion = (candidate: string, running: string): boolean => {
   const next = parseVersion(candidate);
   const current = parseVersion(running);
+
   if (next === null || current === null) {
     return false;
   }
+
   if (next.major !== current.major) {
     return next.major > current.major;
   }
+
   if (next.minor !== current.minor) {
     return next.minor > current.minor;
   }
+
   if (next.patch !== current.patch) {
     return next.patch > current.patch;
   }
+
   if (next.prerelease === current.prerelease) {
     return false;
   }
+
   if (next.prerelease === undefined) {
     return true;
   }
+
   if (current.prerelease === undefined) {
     return false;
   }
+
   return next.prerelease > current.prerelease;
 };
 
-const readStoredVersion = (): string | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    return window.localStorage.getItem(LAST_SEEN_VERSION_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const writeStoredVersion = (version: string): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(LAST_SEEN_VERSION_KEY, version);
-  } catch {
-    // Blocked storage: no notice and no error, per issue #347.
-  }
-};
-
-export type UpdatedNotice = {
-  version: string;
-  releaseNotesUrl: string;
+interface UpdatedNotice {
   dismiss: () => void;
   openReleaseNotes: () => void;
-};
+  releaseNotesUrl: string;
+  version: string;
+}
 
-// Notice shown once per version after the instance moves to a newer
-// stable version. Returns null on first visit (the running version
-// is recorded instead), when `current` is null (images tagged
-// main/dev/sha-...), for the same or an older version, and after
-// dismissal for that version. The shell renders it only when no
-// "available update" banner is shown.
 export const useUpdatedNotice = (): UpdatedNotice | null => {
   const { data: session } = authClient.useSession();
   const release = useQuery(
@@ -102,36 +121,36 @@ export const useUpdatedNotice = (): UpdatedNotice | null => {
     }),
   );
   const current = release.data?.current ?? null;
-  const [lastSeen, setLastSeen] = useState<string | null>(() =>
-    readStoredVersion(),
-  );
+  const lastSeen = useLastSeenVersion();
 
   useEffect(() => {
     if (current === null || lastSeen !== null) {
       return;
     }
-    writeStoredVersion(current);
-    setLastSeen(current);
+
+    recordVersion(current);
   }, [current, lastSeen]);
 
   const dismiss = useCallback(() => {
     if (current === null) {
       return;
     }
-    writeStoredVersion(current);
-    setLastSeen(current);
+
+    recordVersion(current);
   }, [current]);
 
-  if (current === null || lastSeen === null) {
+  if (current === null || lastSeen === null || lastSeen === undefined) {
     return null;
   }
+
   if (!isNewerVersion(current, lastSeen)) {
     return null;
   }
+
   return {
-    version: current,
-    releaseNotesUrl: releaseNotesUrl(current),
     dismiss,
     openReleaseNotes: dismiss,
+    releaseNotesUrl: releaseNotesUrl(current),
+    version: current,
   };
 };
