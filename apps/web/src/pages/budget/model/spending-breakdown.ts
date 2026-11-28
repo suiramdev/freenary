@@ -9,7 +9,7 @@ export interface CategoryAmount {
 
 export type BreakdownSlice =
   | { amount: number; category: SpendingCategory; kind: "category"; previousAmount?: number }
-  | { amount: number; categories: CategoryAmount[]; kind: "other" };
+  | { amount: number; categories: CategoryAmount[]; kind: "other"; previousAmount?: number };
 
 const MOST_SLICES_WITHOUT_OTHER = 7;
 const CATEGORIES_BESIDE_OTHER = 6;
@@ -49,6 +49,10 @@ export const breakdownSlices = (
       amount: grouped.reduce((sum, entry) => sum + entry.amount, 0),
       categories: grouped,
       kind: "other",
+      previousAmount: grouped.reduce(
+        (sum, entry) => sum + (entry.previousAmount ?? 0),
+        0,
+      ),
     },
   ];
 };
