@@ -26,8 +26,8 @@ const ownedNotification = async (userId: string, id: string) => {
 
   if (!notification) {
     throw new ORPCError("NOT_FOUND", { message: "Notification not found" });
-
   }
+
   return notification;
 };
 
@@ -71,7 +71,7 @@ const listed = async (userId: string) => {
       where: { id: { in: settled }, userId },
     });
 
-  }
+}
   const connectionIds = rows.flatMap((row) =>
     row.connectionId ? [row.connectionId] : []
   );
