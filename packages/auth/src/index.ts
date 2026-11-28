@@ -31,6 +31,7 @@ import {
   apiKeyFromHeaders,
   carriesApiKey,
 } from "./api-key";
+import { deleteUserConfig } from "./delete-user";
 import { sendOtpEmail } from "./emails";
 import {
   DISABLED_OTP_TYPES,
@@ -260,6 +261,7 @@ export const createAuth = () =>
     user: {
       additionalFields: USER_ADDITIONAL_FIELDS,
       fields: USER_NAME_FIELDS,
+    deleteUser: deleteUserConfig,
     },
   });
 
