@@ -108,7 +108,7 @@ Each of those packages stays under its own license. The AGPL covers Freenary's o
 | Python-2.0 | 1 | `argparse`, through `js-yaml`, through the `shadcn` CLI |
 | EPL-2.0 | 1 | `elkjs`, a graph-layout library inside `@prisma/studio-core`, reached from the `prisma` CLI |
 | Remix Icon License 1.0 (Apache-2.0) | 1 | `@remixicon/react` |
-| OFL-1.1 | 1 | Allo by Josh Puckett, vendored in `packages/ui/src/styles/fonts` with roundness fixed at 100 |
+| OFL-1.1 | 1 | Allo by Josh Puckett, installed from npm as `allo-font`; `packages/ui/src/styles/globals.css` pins its roundness to 100 with `"ROND" 100` |
 
 No package in the tree is under the GPL, the AGPL or the SSPL.
 
