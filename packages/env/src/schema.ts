@@ -49,6 +49,21 @@ export const serverEnvSchema = {
         "It needs `AI_BASE_URL` too. With either one unset, the assistant route answers `503 unconfigured`.",
       section: "assistant",
     }),
+  AI_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(120_000)
+    .default(10_000)
+    .describe(
+      "How long, in milliseconds, Freenary waits for the assistant endpoint to answer a test connection before it reports a timeout."
+      )
+    .meta({
+      example: "60000",
+      onError:
+        "A value that is not a whole number from 1000 to 120000 stops the start. Raise it for a local model on a slow machine.",
+      section: "assistant",
+    }),
   APPLE_APP_BUNDLE_IDENTIFIER: z
     .string()
     .optional()
