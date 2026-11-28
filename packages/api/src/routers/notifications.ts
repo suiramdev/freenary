@@ -23,8 +23,10 @@ const ownedNotification = async (userId: string, id: string) => {
     select: { id: true, type: true },
     where: { id, userId },
   });
+
   if (!notification) {
     throw new ORPCError("NOT_FOUND", { message: "Notification not found" });
+
   }
   return notification;
 };
@@ -56,16 +58,19 @@ const listed = async (userId: string) => {
     take: MAX_LISTED,
     where: { dismissedAt: null, userId },
   });
+
   const settled = rows.flatMap((row) =>
     row.type === NOTIFICATION_TYPES.transactionsToCheck &&
     row._count.transactions === 0
       ? [row.id]
       : []
   );
+
   if (settled.length > 0) {
     await prisma.notification.deleteMany({
       where: { id: { in: settled }, userId },
     });
+
   }
   const connectionIds = rows.flatMap((row) =>
     row.connectionId ? [row.connectionId] : []
@@ -77,10 +82,12 @@ const listed = async (userId: string) => {
   const institutionById = new Map(
     connections.map((connection) => [connection.id, connection.institutionName])
   );
+
   return rows.flatMap((row) => {
     if (settled.includes(row.id) || !isNotificationType(row.type)) {
       return [];
     }
+
     return [
       {
         bankConnection: row.connectionId
