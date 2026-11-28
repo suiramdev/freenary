@@ -2099,5 +2099,7 @@
   "settings_bank_account_display_title": "Affichage",
   "settings_bank_account_display_description": "Choisissez comment ce compte apparaît dans l’app.",
   "settings_bank_account_excluded_badge": "Exclu",
-  "settings_bank_account_row_meta": "{type} · {currency}"
+  "settings_bank_account_row_meta": "{type} · {currency}",
+  "budget_change_vs_previous": "{percent} % vs {previous}",
+  "budget_largest_changes": "Principales variations vs {previous}: {changes}",
 }
