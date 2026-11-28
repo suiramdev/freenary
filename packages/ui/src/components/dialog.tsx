@@ -295,7 +295,7 @@ const DialogTitle = forwardRef<
         "text-foreground leading-tight",
         className
       )}
-      style={{ fontVariationSettings: "'wght' 700" }}
+      style={{ fontVariationSettings: "'ROND' 100, 'wght' 700" }}
       {...props}
     />
   );
