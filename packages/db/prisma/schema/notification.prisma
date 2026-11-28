@@ -6,6 +6,8 @@ model Notification {
   user         User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// The kind of notification, such as "transactions_to_check".
   type         String
+  /// The bank connection this notification is about, if any.
+  connectionId String?
   /// When the user opened it or marked it read; null while unread.
   readAt       DateTime?
   /// When the user dismissed it; kept for a short while so Undo can restore it.
@@ -13,6 +15,7 @@ model Notification {
   createdAt    DateTime                  @default(now())
   transactions NotificationTransaction[]
 
+  @@index([connectionId])
   @@index([userId, createdAt])
   @@map("notification")
 }

@@ -66,6 +66,16 @@ const summaryOf = (connection: BankConnection, locale: Locale): string => {
   const accounts = accountsSummaryOf(connection, locale);
 
   if (connection.status !== "ACTIVE") {
+    if (connection.lastSyncedAt) {
+      return m.bank_row_reconnect_stale(
+        {
+          accounts,
+          date: connection.lastSyncedAt.toLocaleDateString(locale),
+          institution: connection.institutionName,
+        },
+        { locale }
+      );
+    }
     return m.bank_row_reconnect({ accounts }, { locale });
   }
 
@@ -103,13 +113,13 @@ export const buildBankRows = (
 
   const connectedRows = connections.map((connection) => {
     const institution = connection.institutionId
-      ? (institutionsByKey.get(
-          institutionKey({
-            country: connection.institutionCountry,
-            id: connection.institutionId,
-          })
-        ) ?? null)
-      : null;
+    ? (institutionsByKey.get(
+        institutionKey({
+          country: connection.institutionCountry,
+          id: connection.institutionId,
+        })
+      ) ?? null)
+        : null;
 
     return {
       connection,

@@ -538,6 +538,7 @@
     }
   ],
   "bank_row_reconnect": "{accounts} · Reconnect to resume importing",
+  "bank_row_reconnect_stale": "{accounts} · Reconnect to resume importing — data from {institution} last updated {date}",
   "bank_row_sync": "Re-sync {institution}",
   "bank_row_synced": "{accounts} · Synced {date}",
   "bank_search_placeholder": "Search banks…",
@@ -1146,6 +1147,19 @@
   ],
   "nav_settings": "Settings",
   "nav_tab_bar_label": "Main",
+  "notifications_bank_reconnect_body": "Reconnect to resume importing transactions.",
+  "notifications_bank_reconnect_bundle": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} more bank connection needs reconnecting",
+        "countPlural=other": "{count} more bank connections need reconnecting"
+      }
+    }
+  ],
+  "notifications_bank_reconnect_title": "{institution} needs reconnecting",
+  "notifications_bank_reconnect_title_fallback": "A bank connection needs reconnecting",
   "notifications_dismiss": "Dismiss “{title}”",
   "notifications_dismiss_all": "Dismiss all",
   "notifications_dismiss_tooltip": "Dismiss",

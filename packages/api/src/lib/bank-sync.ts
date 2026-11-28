@@ -13,6 +13,7 @@ import {
   startPendingCategorisation,
 } from "../categorisation/run";
 import { refreshExchangeRatesNow } from "../fx/rates";
+import { notifyBankConnectionNeedsReconnect } from "../notifications/bank-connection-needs-reconnect";
 import { getProvider } from "../providers/registry";
 import type {
   BankingProvider,
@@ -745,6 +746,10 @@ const syncConnection = (
           await prisma.bankConnection.update({
             data: { status: "EXPIRED" },
             where: { id: connection.id },
+          });
+            await notifyBankConnectionNeedsReconnect({
+              connectionId: connection.id,
+              userId: connection.userId,
           });
         })
       )

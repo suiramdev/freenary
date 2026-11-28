@@ -547,6 +547,7 @@
     }
   ],
   "bank_row_reconnect": "{accounts} · Reconnectez pour reprendre l’import",
+  "bank_row_reconnect_stale": "{accounts} · Reconnectez pour reprendre l’import — données de {institution} mises à jour le {date}",
   "bank_row_sync": "Resynchroniser {institution}",
   "bank_row_synced": "{accounts} · Synchronisé le {date}",
   "bank_search_placeholder": "Rechercher une banque…",
@@ -1155,6 +1156,19 @@
   ],
   "nav_settings": "Paramètres",
   "nav_tab_bar_label": "Principale",
+  "notifications_bank_reconnect_body": "Reconnectez-vous pour reprendre l’import des transactions.",
+  "notifications_bank_reconnect_bundle": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} autre connexion bancaire à reconnecter",
+        "countPlural=other": "{count} autres connexions bancaires à reconnecter"
+      }
+    }
+  ],
+  "notifications_bank_reconnect_title": "{institution} doit être reconnectée",
+  "notifications_bank_reconnect_title_fallback": "Une connexion bancaire doit être reconnectée",
   "notifications_dismiss": "Effacer « {title} »",
   "notifications_dismiss_all": "Tout effacer",
   "notifications_dismiss_tooltip": "Effacer",

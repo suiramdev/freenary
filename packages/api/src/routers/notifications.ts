@@ -49,6 +49,7 @@ const listed = async (userId: string) => {
       _count: {
         select: { transactions: { where: { transaction: stillToCheck } } },
       },
+      connectionId: true,
       createdAt: true,
       id: true,
       readAt: true,
@@ -69,7 +70,20 @@ const listed = async (userId: string) => {
     await prisma.notification.deleteMany({
       where: { id: { in: settled }, userId },
     });
-  }
+}
+
+  const connectionIds = rows.flatMap((row) =>
+    row.connectionId ? [row.connectionId] : []
+                                    );
+
+  const connections = await prisma.bankConnection.findMany({
+    select: { id: true, institutionName: true },
+    where: { id: { in: connectionIds }, userId },
+  });
+
+  const institutionById = new Map(
+    connections.map((connection) => [connection.id, connection.institutionName])
+  );
 
   return rows.flatMap((row) => {
     if (settled.includes(row.id) || !isNotificationType(row.type)) {
@@ -78,6 +92,11 @@ const listed = async (userId: string) => {
 
     return [
       {
+        bankConnection: row.connectionId          ? {
+              id: row.connectionId,
+              institutionName: institutionById.get(row.connectionId) ?? null,
+            }
+          : null,
         count: row._count.transactions,
         createdAt: row.createdAt.toISOString(),
         id: row.id,

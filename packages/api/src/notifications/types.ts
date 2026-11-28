@@ -1,4 +1,5 @@
 export const NOTIFICATION_TYPES = {
+  bankConnectionNeedsReconnect: "bank_connection_needs_reconnect",
   transactionsToCheck: "transactions_to_check",
 } as const;
 
