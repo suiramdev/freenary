@@ -28,6 +28,7 @@ describe("TRANSACTION_CLASSIFIER_TIMEOUT_MS", () => {
     }
   });
 });
+
 const assistantTimeout = serverEnvSchema.AI_TIMEOUT_MS;
 
 describe("AI_TIMEOUT_MS", () => {
